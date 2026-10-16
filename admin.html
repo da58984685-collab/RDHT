@@ -125,6 +125,15 @@ td input[type=checkbox]{width:auto}
     </section>
     <section class="card" id="detail"><div class="empty">왼쪽 목록에서 헌터를 선택하세요.</div></section>
   </div>
+  <section class="card" id="recbox">
+    <h3 style="margin-bottom:8px">오늘의 추천 <span class="muted" style="font-weight:400;font-size:.85rem">(게임 캐릭터 창에 표시 · 관리자만 수정 가능)</span></h3>
+    <div class="row">
+      <select id="rregion" aria-label="추천 지역"><option value="">추천 지역 없음</option></select>
+      <input id="rtime" maxlength="20" placeholder="추천 시간대 (예: 21시 무렵)">
+      <input id="rtip" maxlength="100" placeholder="한 줄 조언 (최대 100자)" style="flex:2;min-width:200px">
+    </div>
+    <div class="row"><button class="btn" id="rsave" type="button">저장</button><button class="btn" id="rclear" type="button">삭제</button><span id="rmsg" class="muted"></span></div>
+  </section>
   <section class="card" id="shop">
     <h3 style="margin-bottom:8px">상점 관리 <span class="muted" style="font-weight:400;font-size:.85rem">(게임 내 기기 → 상점에 표시)</span></h3>
     <div class="row"><input id="sname" maxlength="30" placeholder="아이템 이름 (최대 30자)"><input id="sdesc" maxlength="100" placeholder="설명 (선택, 최대 100자)"><input id="sprice" type="number" min="0" max="9999999" step="1" placeholder="가격 (G)" style="max-width:110px"><button class="btn" id="sadd" type="button">추가</button><span id="smsg" class="muted"></span></div>
@@ -318,6 +327,27 @@ function delPlayer(){
   });
 }
 
+var REGS=[["city","도심"],["mine","폐광"],["river","한강변"],["temple","산사"],["port","폐항"],["gate","적월 게이트"]];
+$("rregion").innerHTML='<option value="">추천 지역 없음</option>'+REGS.map(function(r){return'<option value="'+r[0]+'">'+r[1]+'</option>'}).join("");
+var recDirty=false;
+["rregion","rtime","rtip"].forEach(function(i){$(i).addEventListener("input",function(){recDirty=true})});
+function loadRec(){
+  if(recDirty)return;
+  api("GET","/api/admin/rec").then(function(r){
+    var c=r.rec||{};$("rregion").value=c.region||"";$("rtime").value=c.time||"";$("rtip").value=c.tip||"";
+    $("rmsg").textContent=c.at?"마지막 저장 "+dt(c.at):"등록된 추천이 없습니다 (게임에는 '추천이 없습니다'로 표시).";
+  });
+}
+$("rsave").addEventListener("click",function(){
+  api("POST","/api/admin/rec/save",{region:$("rregion").value,time:$("rtime").value,tip:$("rtip").value}).then(function(r){
+    if(r.ok){recDirty=false;$("rmsg").textContent="저장했습니다. 게임에는 5초 이내에 반영됩니다.";loadRec()}
+    else $("rmsg").textContent=r.error==="empty"?"한 가지 이상 입력하세요.":r.error==="bad_tip"?"조언은 100자 이하여야 합니다.":r.error==="bad_time"?"시간대는 20자 이하여야 합니다.":"저장하지 못했습니다.";
+  });
+});
+$("rclear").addEventListener("click",function(){
+  if(!confirm("오늘의 추천을 삭제할까요?"))return;
+  api("POST","/api/admin/rec/clear",{}).then(function(){recDirty=false;loadRec()});
+});
 function loadShop(){
   api("GET","/api/admin/shop").then(function(r){
     var it=r.items||[];
@@ -347,7 +377,7 @@ $("nsend").addEventListener("click",function(){
     else $("nmsg").textContent="발송하지 못했습니다.";
   });
 });
-function loadAll(){loadOverview();if(!document.activeElement||!/^(sn|sd|sp|sname|sdesc|sprice)$/.test(document.activeElement.className||document.activeElement.id))loadShop();loadList();if(selCode&&!dirty)loadDetail();var d=new Date(),p=function(n){return String(n).padStart(2,"0")};$("last").textContent="갱신 "+p(d.getHours())+":"+p(d.getMinutes())+":"+p(d.getSeconds())}
+function loadAll(){loadOverview();loadRec();if(!document.activeElement||!/^(sn|sd|sp|sname|sdesc|sprice)$/.test(document.activeElement.className||document.activeElement.id))loadShop();loadList();if(selCode&&!dirty)loadDetail();var d=new Date(),p=function(n){return String(n).padStart(2,"0")};$("last").textContent="갱신 "+p(d.getHours())+":"+p(d.getMinutes())+":"+p(d.getSeconds())}
 // 1분마다 데이터만 다시 불러옵니다. 선택한 헌터·탭·검색어·작성 중인 알림은 그대로 유지됩니다.
 setInterval(function(){if($("auto").checked&&!document.hidden&&!$("app").classList.contains("hide"))loadAll()},60000);
 document.addEventListener("visibilitychange",function(){if(!document.hidden&&$("auto").checked&&!$("app").classList.contains("hide"))loadAll()});
