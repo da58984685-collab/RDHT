@@ -1,0 +1,9 @@
+{
+  "name": "red-moon-hunter-vercel",
+  "version": "2.0.0",
+  "private": true,
+  "description": "적월 헌터 — Vercel 배포용 (서버리스 함수 + Turso 데이터베이스)",
+  "engines": { "node": "22.x" },
+  "scripts": { "dev": "node dev.js", "test": "node test/smoke.js" },
+  "dependencies": { "@libsql/client": "^0.14.0" }
+}
