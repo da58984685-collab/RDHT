@@ -75,6 +75,16 @@ tbody tr:hover,tbody tr.sel{background:#22101400;background:#2a1216}
 .fc h4{margin:0 0 6px;font-size:1rem}
 .fc dl{display:grid;grid-template-columns:78px 1fr;gap:2px 8px;margin:0;font-size:.88rem}
 .fc dt{color:var(--sub)}.fc dd{margin:0}
+.edit-bar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:6px}
+.dirty{color:var(--warn);font-size:.85rem}
+.btn[disabled]{opacity:.4;cursor:default}
+.egrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin-bottom:10px}
+.fld{display:grid;gap:3px;font-size:.82rem;color:var(--sub)}
+.fld input{font-size:.95rem}
+.danger{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-top:18px;padding:10px 12px;border:1px solid #6b1820;border-radius:6px;background:#1a0b0e;flex-wrap:wrap}
+.btn.dbtn{background:transparent;border:1px solid var(--red);color:var(--red2)}
+.btn.dbtn:hover{background:var(--red);color:#fff}
+.dirty{color:var(--warn)}
 </style>
 </head>
 <body>
@@ -124,7 +134,9 @@ function api(m,u,b){
 }
 function dt(t){if(!t)return"-";var d=new Date(t),p=function(n){return String(n).padStart(2,"0")};return d.getFullYear()+"-"+p(d.getMonth()+1)+"-"+p(d.getDate())+" "+p(d.getHours())+":"+p(d.getMinutes())}
 var RES={success:["토벌 성공","ok"],fail:["토벌 실패","bad"],pending:["S급 결과 대기","wait"]};
-var selCode=null,tab="info",cache=null;
+var selCode=null,tab="info",cache=null,dirty=false;
+function powNeedOf(lv){return Math.round(30*Math.pow(lv,1.6))}
+function okLeave(){return !dirty||confirm("저장하지 않은 변경 내용이 사라집니다. 계속할까요?")}
 
 function showApp(on){$("login").classList.toggle("hide",on);$("app").classList.toggle("hide",!on)}
 
@@ -164,7 +176,10 @@ function loadList(){
   });
 }
 function pick(el){
-  selCode=el.getAttribute("data-c");tab="info";
+  var c=el.getAttribute("data-c");
+  if(c!==selCode&&!okLeave())return;
+  if(c!==selCode)dirty=false;
+  selCode=c;tab="info";
   Array.prototype.forEach.call($("plist").children,function(x){x.classList.toggle("sel",x.getAttribute("data-c")===selCode)});
   loadDetail();
 }
@@ -193,15 +208,12 @@ function renderDetail(){
   if(tab==="info"){
     h+='<dl class="kv"><dt>이름</dt><dd>'+esc(p.name)+"</dd><dt>성별 · 나이</dt><dd>"+esc(p.gender)+" · "+esc(p.age)+"세</dd><dt>현재 지역</dt><dd>"+esc(p.region)+"</dd><dt>친구 수</dt><dd>"+p.friends+"명</dd><dt>가입일</dt><dd>"+dt(p.created)+"</dd><dt>성격</dt><dd>"+esc(p.personality)+"</dd></dl>";
     h+=(p.traits&&p.traits.length?'<div class="chips">'+p.traits.map(function(t){return'<span class="chip">'+esc(t)+"</span>"}).join("")+"</div>":"");
-    var labels=[["power","전투력"],["hp","체력"],["str","근력"],["agi","민첩"],["luck","행운"]];
-    var shown=false,bars="";
-    Object.keys(st).forEach(function(k){
-      if(k==="taint")return;
-      var lab=({hp:"체력",str:"근력",agi:"민첩",dex:"민첩",luck:"행운",lck:"행운",taint:"이능",power:"전투력"})[k]||k;
-      var v=Number(st[k])||0;shown=true;
-      bars+='<div class="bar"><span>'+esc(lab)+'</span><i><b style="width:'+Math.max(2,Math.min(100,v*2.5))+'%"></b></i><span>'+esc(st[k])+"</span></div>";
-    });
-    h+='<h3 style="font-size:.95rem;margin:8px 0 6px">스탯</h3><div class="bars"><div class="bar pw"><span>전투력</span><i><b style="width:'+Math.min(100,p.lv*5)+'%"></b></i><span>Lv.'+p.lv+"</span></div>"+bars+"</div>";
+    var f=function(id,label,val,min,max,type){return'<label class="fld"><span>'+label+'</span><input id="'+id+'" type="'+(type||"number")+'" value="'+esc(val)+'"'+(type==="text"?' maxlength="12"':' min="'+min+'" max="'+max+'" step="1"')+' autocomplete="off"></label>'};
+    h+='<h3 style="font-size:.95rem;margin:12px 0 8px">정보 · 스탯 수정 <span class="muted" style="font-weight:400;font-size:.8rem">(저장 버튼을 눌러야 서버에 반영됩니다)</span></h3>'+
+      '<form id="editf" class="egrid">'+f("e_hn","헌터 네임",p.hunterName,0,0,"text")+f("e_lv","전투력(레벨)",p.lv,1,999)+f("e_exp","EXP (0~"+(powNeedOf(p.lv)-1)+")",p.exp,0,powNeedOf(p.lv)-1)+
+      f("e_hp","체력",st.hp,0,9999)+f("e_str","근력",st.str,0,9999)+f("e_agi","민첩",st.agi,0,9999)+f("e_luck","행운",st.luck,0,9999)+"</form>"+
+      '<div class="row"><button class="btn" id="e_save" type="button">저장</button><button class="btn ghost" id="e_reset" type="button">되돌리기</button><span id="e_msg" class="muted"></span></div>'+
+      '<div class="danger"><div><b>강제 탈퇴</b><div class="muted" style="font-size:.82rem">캐릭터와 토벌·습득·친구·메시지 기록이 서버에서 영구 삭제됩니다.</div></div><button class="btn dbtn" id="e_del" type="button">강제 탈퇴</button></div>';
     if(r.pendingS&&r.pendingS.length)h+='<h3 style="font-size:.95rem;margin:10px 0 4px">S급 결과 대기</h3>'+r.pendingS.map(function(x){return'<div class="muted">'+esc(x.mon)+" — "+dt(x.at)+" 공개</div>"}).join("");
   }else if(tab==="items"){
     h+=table(["아이템","수량"],(r.items||[]).map(function(i){return"<tr><td>"+esc(i.item)+"</td><td>"+i.qty+"</td></tr>"}),"보유한 아이템이 없습니다. (상점·아이템 시스템 연결 후 표시됩니다)");
@@ -214,7 +226,39 @@ function renderDetail(){
   }
   $("detail").innerHTML=h;
 }
-$("detail").addEventListener("click",function(e){var b=e.target.closest(".tab");if(!b||!cache)return;tab=b.getAttribute("data-t");renderDetail()});
+window.addEventListener("beforeunload",function(e){if(dirty){e.preventDefault();e.returnValue=""}});
+$("detail").addEventListener("click",function(e){
+  var b=e.target.closest(".tab");
+  if(b&&cache){if(!okLeave())return;dirty=false;tab=b.getAttribute("data-t");renderDetail();return}
+  if(e.target.id==="e_save")return saveEdit();
+  if(e.target.id==="e_reset"){if(okLeave()){dirty=false;renderDetail()}return}
+  if(e.target.id==="e_del")return delPlayer();
+});
+$("detail").addEventListener("input",function(e){
+  if(!e.target.closest("#editf"))return;
+  dirty=true;var m=$("e_msg");if(m){m.className="dirty";m.textContent="저장하지 않은 변경 사항이 있습니다."}
+});
+var EMSG={bad_hunter_name:"헌터 네임은 2~12자여야 합니다.",bad_lv:"레벨은 1~999 사이 정수여야 합니다.",bad_exp:"EXP 범위를 벗어났습니다.",bad_stat:"스탯은 0~9999 사이 정수여야 합니다.",not_found:"헌터를 찾을 수 없습니다.",unauthorized:"로그인이 만료되었습니다.",rate_limited:"요청이 많습니다."};
+function saveEdit(){
+  var m=$("e_msg"),v=function(i){return $(i).value};
+  m.className="muted";m.textContent="저장 중...";
+  api("POST","/api/admin/player/update",{code:selCode,hunterName:v("e_hn"),lv:Number(v("e_lv")),exp:Number(v("e_exp")),
+    stats:{hp:Number(v("e_hp")),str:Number(v("e_str")),agi:Number(v("e_agi")),luck:Number(v("e_luck"))}}).then(function(r){
+    if(r._status===401){showApp(false);return}
+    if(r.ok){dirty=false;loadAll();setTimeout(function(){var mm=$("e_msg");if(mm){mm.className="ok";mm.textContent="저장했습니다. 게임에는 다음 갱신(5초 이내)부터 반영됩니다."}},400)}
+    else{m.className="bad";m.textContent=(EMSG[r.error]||"저장하지 못했습니다.")+(r.error==="bad_exp"&&r.max!=null?" (최대 "+r.max+")":"")}
+  });
+}
+function delPlayer(){
+  var p=cache&&cache.player;if(!p)return;
+  var t=prompt("["+p.hunterName+"] 캐릭터를 서버에서 영구 삭제합니다. 되돌릴 수 없습니다.\n계속하려면 헌터 네임을 정확히 입력하세요.");
+  if(t===null)return;
+  if(t!==p.hunterName){alert("헌터 네임이 일치하지 않아 취소했습니다.");return}
+  api("POST","/api/admin/player/delete",{code:selCode,confirm:t}).then(function(r){
+    if(r.ok){dirty=false;selCode=null;cache=null;$("detail").innerHTML='<div class="empty">삭제했습니다. 목록에서 다른 헌터를 선택하세요.</div>';loadAll()}
+    else alert("삭제하지 못했습니다.")
+  });
+}
 
 $("nsend").addEventListener("click",function(){
   var t=$("ntext").value.trim();if(!t){$("nmsg").textContent="내용을 입력하세요.";return}
@@ -224,7 +268,7 @@ $("nsend").addEventListener("click",function(){
     else $("nmsg").textContent="발송하지 못했습니다.";
   });
 });
-function loadAll(){loadOverview();loadList();if(selCode)loadDetail();var d=new Date(),p=function(n){return String(n).padStart(2,"0")};$("last").textContent="갱신 "+p(d.getHours())+":"+p(d.getMinutes())+":"+p(d.getSeconds())}
+function loadAll(){loadOverview();loadList();if(selCode&&!dirty)loadDetail();var d=new Date(),p=function(n){return String(n).padStart(2,"0")};$("last").textContent="갱신 "+p(d.getHours())+":"+p(d.getMinutes())+":"+p(d.getSeconds())}
 // 1분마다 데이터만 다시 불러옵니다. 선택한 헌터·탭·검색어·작성 중인 알림은 그대로 유지됩니다.
 setInterval(function(){if($("auto").checked&&!document.hidden&&!$("app").classList.contains("hide"))loadAll()},60000);
 document.addEventListener("visibilitychange",function(){if(!document.hidden&&$("auto").checked&&!$("app").classList.contains("hide"))loadAll()});
