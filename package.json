@@ -1,0 +1,12 @@
+{
+  "name": "red-moon-hunter-server",
+  "version": "1.0.0",
+  "private": true,
+  "description": "적월 헌터 — 게임 서버 (외부 패키지 없이 Node.js 내장 기능만 사용)",
+  "main": "server.js",
+  "engines": { "node": ">=22.13" },
+  "scripts": {
+    "start": "node server.js",
+    "test": "node test/smoke.js"
+  }
+}
