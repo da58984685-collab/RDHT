@@ -36,6 +36,9 @@ const TIERS = [
 ];
 const ACTIVE_MS = 30 * MIN;                       // 출몰 후 토벌 가능한 시간
 
+// 등급별 처치 골드(G) 범위 [최소, 최대]
+const KILL_GOLD = { F: [1, 5], E: [6, 15], D: [16, 35], C: [36, 70], B: [71, 120], A: [121, 180], S: [190, 200] };
+const rollGold = rank => { const r = KILL_GOLD[rank] || [0, 0]; return r[0] + Math.floor(Math.random() * (r[1] - r[0] + 1)); };
 const KILL_EXP = { F: 8, E: 12, D: 20, C: 35, B: 60, A: 120, S: 300 };
 const HUNT_DIFF = { F: '쉬움', E: '쉬움', D: '쉬움', C: '보통', B: '보통', A: '어려움', S: '매우 어려움' };
 const HUNT_BASE = { '쉬움': 0.85, '보통': 0.65, '어려움': 0.4 };
@@ -93,7 +96,7 @@ function addExp(lv, exp, gain) {
 }
 
 module.exports = {
-  rnd, chance01, REGIONS, REGION_BY_ID, MON, TIERS, ACTIVE_MS, KILL_EXP, HUNT_DIFF,
+  rnd, chance01, REGIONS, REGION_BY_ID, MON, TIERS, ACTIVE_MS, KILL_EXP, KILL_GOLD, rollGold, HUNT_DIFF,
   RAID_NEED, S_MAX, S_WINDOW_MS, S_WAIT_MS, powNeed, cdOf, huntChance,
   rollRank, rollStats, makeCode, addExp, MIN, HOUR,
 };
