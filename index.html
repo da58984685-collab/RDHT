@@ -167,6 +167,23 @@ main.landing{display:flex;align-items:center;justify-content:center;max-width:no
 .cnm{margin:2px 0 10px;font-size:.88rem;color:var(--sub)}
 .crank{display:flex;align-items:center;gap:10px;color:var(--sub);font-size:.85rem}
 #gchar .lbl{margin:16px 0 4px}
+.bgm{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.bgm-note{flex:1 1 100%;margin:0;font-size:.78rem;color:var(--sub)}
+#bgmbox{position:absolute;width:200px;height:200px;left:-9999px;top:0;overflow:hidden}
+.bgm input[type=url],.todo-add input{flex:1;min-width:0;padding:7px 8px;background:var(--field);color:var(--text);border:1px solid var(--line);font:inherit;font-size:.85rem;border-radius:0}
+.bgm button,.todo-add button{padding:7px 12px;background:var(--field);color:var(--text);border:1px solid var(--line);font:inherit;font-size:.82rem;cursor:pointer;border-radius:0;min-height:36px}
+.bgm button:hover,.todo-add button:hover{border-color:var(--red2)}
+.bgm input[type=range]{flex:1 1 100%;accent-color:var(--red2)}
+.todo-add{display:flex;gap:6px}
+.todo{list-style:none;margin:8px 0 0;padding:0;display:grid;gap:5px}
+.todo li{display:flex;align-items:center;gap:8px;padding:5px 8px;font-size:.88rem;background:var(--field);border:1px solid var(--line)}
+.todo li span{flex:1;overflow-wrap:anywhere}
+.todo li.done span{text-decoration:line-through;color:var(--sub)}
+.todo li button{background:none;border:0;color:var(--sub);cursor:pointer;font-size:1rem;min-width:32px;min-height:32px}
+.todo li button:hover{color:var(--err)}
+.todo .empty{color:var(--sub);justify-content:center;font-size:.82rem}
+.rec{padding:9px 11px;font-size:.88rem;background:var(--field);border:1px solid var(--line)}
+.rec b{color:var(--deep)}.rec p{margin:0 0 3px}.rec p:last-child{margin:0;color:var(--sub);font-size:.82rem}
 .cper{margin:0;font-size:.92rem;white-space:pre-wrap;word-break:break-word}
 .ctr{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:6px}
 .ctr li{padding:3px 9px;font-size:.8rem;color:var(--text);background:var(--field);border:1px solid var(--line);overflow-wrap:anywhere}
@@ -391,10 +408,20 @@ label[for="name"]::after,label[for="age"]::after,label[for="hname"]::after,#gl::
               <div class="crank"><span>헌터 등급</span><b class="rk" id="grank"></b></div>
             </div>
           </div>
-          <p class="lbl">성격</p>
-          <p class="cper" id="gper"></p>
-          <p class="lbl" id="gtrl">특징</p>
-          <ul class="ctr" id="gtr"></ul>
+          <p class="lbl">BGM</p>
+          <form class="bgm" id="bgmf">
+            <input id="bgmurl" type="url" inputmode="url" autocomplete="off" placeholder="유튜브 링크를 붙여넣으세요" aria-label="유튜브 링크">
+            <button type="submit">적용</button>
+            <button type="button" id="bgmbtn" aria-pressed="false" disabled>▶ 재생</button>
+            <input type="range" id="bgmvol" min="0" max="100" value="40" aria-label="BGM 볼륨">
+            <p class="bgm-note" id="bgmnote" role="status"></p>
+          </form>
+          <div id="bgmbox" aria-hidden="true"></div>
+          <p class="lbl">할 일</p>
+          <form class="todo-add" id="todof"><input id="todoin" maxlength="60" autocomplete="off" placeholder="할 일을 입력하세요" aria-label="할 일 입력"><button type="submit">추가</button></form>
+          <ul class="todo" id="todol"></ul>
+          <p class="lbl">오늘의 추천</p>
+          <div class="rec" id="grec"></div>
         </div>
       </section>
       <section id="gstat">
@@ -887,6 +914,88 @@ function svgUse(id){
 function isActive(a){return !a.done&&nowS()-a.ts<1800000}
 function regionById(id){return REGIONS.filter(function(r){return r.id===id})[0]}
 
+// ── 캐릭터 창: BGM · 할 일 · 오늘의 추천 ──
+var myCode="me";
+function hashStr(t){var h=2166136261;for(var i=0;i<t.length;i++){h^=t.charCodeAt(i);h=Math.imul(h,16777619)}return h>>>0}
+var TODO_MAX=20;
+function todoKey(){return "hx_todo_"+myCode}
+function loadTodo(){try{var a=JSON.parse(localStorage.getItem(todoKey())||"[]");return Array.isArray(a)?a.filter(function(x){return x&&typeof x.t==="string"}).slice(0,TODO_MAX):[]}catch(e){return[]}}
+function saveTodo(a){try{localStorage.setItem(todoKey(),JSON.stringify(a))}catch(e){}}
+function renderTodo(){
+  var ul=$("todol");if(!ul)return;ul.innerHTML="";var a=loadTodo();
+  if(!a.length){var e=document.createElement("li");e.className="empty";e.textContent="등록된 할 일이 없습니다.";ul.appendChild(e);return}
+  a.forEach(function(x,i){
+    var li=document.createElement("li");if(x.d)li.className="done";
+    var cb=document.createElement("input");cb.type="checkbox";cb.checked=!!x.d;cb.setAttribute("aria-label","완료");
+    cb.addEventListener("change",function(){var l=loadTodo();if(l[i]){l[i].d=cb.checked;saveTodo(l);renderTodo()}});
+    var sp=document.createElement("span");sp.textContent=x.t;
+    var del=document.createElement("button");del.type="button";del.textContent="✕";del.setAttribute("aria-label","삭제");
+    del.addEventListener("click",function(){var l=loadTodo();l.splice(i,1);saveTodo(l);renderTodo()});
+    li.appendChild(cb);li.appendChild(sp);li.appendChild(del);ul.appendChild(li);
+  });
+}
+$("todof").addEventListener("submit",function(e){
+  e.preventDefault();var inp=$("todoin"),t=inp.value.trim();if(!t)return;
+  var a=loadTodo();if(a.length>=TODO_MAX){inp.value="";inp.placeholder="최대 "+TODO_MAX+"개까지 등록할 수 있습니다.";return}
+  a.push({t:t.slice(0,60),d:false});saveTodo(a);inp.value="";renderTodo();
+});
+var curRec=null,recSig="";
+function renderRec(){
+  var box=$("grec");if(!box)return;box.innerHTML="";
+  var c=curRec;
+  if(!c||(!c.region&&!c.time&&!c.tip)){var p=document.createElement("p");p.style.color="var(--sub)";p.textContent="오늘의 추천이 아직 없습니다.";box.appendChild(p);return}
+  function line(label,val,strong){var p=document.createElement("p");p.appendChild(document.createTextNode(label+" "));var b=document.createElement("b");b.textContent=val;p.appendChild(b);box.appendChild(p)}
+  var rg=c.region&&regionById(c.region);
+  if(rg)line("추천 지역",rg.name+" (위험도 "+rg.danger+")");
+  if(c.time)line("추천 시간대",c.time);
+  if(c.tip){var t=document.createElement("p");t.textContent=c.tip;box.appendChild(t)}
+}
+// BGM: 유튜브 링크의 영상 음원을 재생합니다 (영상 화면은 숨김, 소리만 재생)
+var bgm={id:"",on:false};
+function ytId(u){
+  u=String(u||"").trim();if(!u)return"";
+  if(/^[\w-]{11}$/.test(u))return u;
+  var m;try{m=new URL(/^https?:\/\//i.test(u)?u:"https://"+u)}catch(e){return""}
+  var h=m.hostname.replace(/^(www\.|m\.|music\.)/,"");
+  if(h==="youtu.be"){var i=m.pathname.slice(1).split("/")[0];return /^[\w-]{11}$/.test(i)?i:""}
+  if(h==="youtube.com"||h==="youtube-nocookie.com"){
+    var v=m.searchParams.get("v");if(v&&/^[\w-]{11}$/.test(v))return v;
+    var p=m.pathname.match(/^\/(?:embed|shorts|live|v)\/([\w-]{11})/);if(p)return p[1];
+  }
+  return"";
+}
+function bgmCmd(fn,args){
+  var f=document.querySelector("#bgmbox iframe");if(!f||!f.contentWindow)return;
+  f.contentWindow.postMessage(JSON.stringify({event:"command",func:fn,args:args||[]}),"*");
+}
+function bgmVolSend(){bgmCmd("setVolume",[Number($("bgmvol").value)])}
+function bgmUi(on){bgm.on=on;var b=$("bgmbtn");b.disabled=!bgm.id;b.textContent=on?"❚❚ 정지":"▶ 재생";b.setAttribute("aria-pressed",on?"true":"false")}
+function bgmLoad(id,auto){
+  bgm.id=id;var box=$("bgmbox");box.innerHTML="";
+  if(!id){bgmUi(false);return}
+  var f=document.createElement("iframe");
+  f.src="https://www.youtube.com/embed/"+id+"?enablejsapi=1&autoplay="+(auto?1:0)+"&loop=1&playlist="+id+"&controls=0&playsinline=1&origin="+encodeURIComponent(location.origin);
+  f.allow="autoplay; encrypted-media";f.title="BGM";f.referrerPolicy="strict-origin-when-cross-origin";
+  f.addEventListener("load",function(){setTimeout(function(){bgmVolSend();if(auto)bgmCmd("playVideo")},800)});
+  box.appendChild(f);bgmUi(!!auto);
+}
+function bgmStop(){bgmLoad("",false);$("bgmnote").textContent=""}
+$("bgmf").addEventListener("submit",function(e){
+  e.preventDefault();var v=$("bgmurl").value.trim(),n=$("bgmnote");
+  if(!v){try{localStorage.removeItem("hx_bgmurl")}catch(x){}bgmLoad("",false);n.textContent="BGM을 껐습니다.";return}
+  var id=ytId(v);
+  if(!id){n.textContent="올바른 유튜브 링크가 아닙니다.";return}
+  try{localStorage.setItem("hx_bgmurl",v)}catch(x){}
+  bgmLoad(id,true);n.textContent="재생합니다. 소리가 안 나면 ▶ 재생을 눌러주세요. (퍼가기가 막힌 영상은 재생되지 않습니다.)";
+});
+$("bgmbtn").addEventListener("click",function(){if(!bgm.id)return;if(bgm.on){bgmCmd("pauseVideo");bgmUi(false)}else{bgmCmd("playVideo");bgmUi(true)}});
+$("bgmvol").addEventListener("input",function(){try{localStorage.setItem("hx_bgmvol",this.value)}catch(e){}bgmVolSend()});
+function bgmRestore(){
+  try{
+    var vv=localStorage.getItem("hx_bgmvol");if(vv!==null)$("bgmvol").value=vv;
+    var u=localStorage.getItem("hx_bgmurl");if(u){$("bgmurl").value=u;var id=ytId(u);if(id){bgmLoad(id,true);$("bgmnote").textContent="브라우저가 자동 재생을 막았다면 ▶ 재생을 눌러주세요."}}
+  }catch(e){}
+}
 function renderChar(d){
   var im=$("gimg"),no=$("gnoimg");
   if(d.image){im.src=d.image;im.hidden=false;no.hidden=true}
@@ -894,10 +1003,7 @@ function renderChar(d){
   $("ghn").textContent=d.hunterName||d.name||"";
   $("gnm").textContent=[d.name,d.age?d.age+"세":"",d.gender].filter(Boolean).join(" · ");
   var rk=$("grank");rk.textContent=d.rank||"-";rk.dataset.r=d.rank||"";
-  $("gper").textContent=d.personality||"";
-  var ul=$("gtr");ul.innerHTML="";
-  (d.traits||[]).forEach(function(t){var li=document.createElement("li");li.textContent=t;ul.appendChild(li)});
-  ul.hidden=$("gtrl").hidden=!(d.traits&&d.traits.length);
+  myCode=d.code||d.hunterName||"me";renderTodo();renderRec();
 }
 function powNeed(lv){return Math.round(30*Math.pow(lv,1.6))}
 function renderPower(up){
@@ -1195,6 +1301,7 @@ function applyState(st,first){
     var up=st.user.lv>power.lv;power={lv:st.user.lv,exp:st.user.exp};renderPower(up);
   }
   if(st.user&&st.user.gold!==undefined&&st.user.gold!==gold){gold=st.user.gold;if(devApp==='shop'||devApp==='inv')setGoldTag()}
+  var rsg=JSON.stringify(st.rec||null);if(rsg!==recSig){recSig=rsg;curRec=st.rec||null;renderRec()}
   var isg=JSON.stringify(st.inventory||[]);
   if(isg!==invSig){invSig=isg;inventory=st.inventory||[];if(devApp==="inv")renderDevice()}
   SI=st.s;pendingList=st.pending||[];unreadNotices=st.unreadNotices||0;unreadMsgs=st.unreadMsgs||0;
@@ -1387,7 +1494,7 @@ $("genter").addEventListener("click",function(){
 });
 $("gother").addEventListener("click",function(){forceFront=true;showFront()});
 function enterGame(me){
-  var d=me.user;
+  var d=me.user;if(!bgm.id)bgmRestore();
   power={lv:d.lv||1,exp:d.exp||0};curRegion=d.region||"city";
   alerts=[];seenIds={};alertSig="";paused=false;
   var pb=$("pausebtn");pb.textContent="알림 멈춤";pb.setAttribute("aria-pressed","false");
@@ -1399,6 +1506,7 @@ function enterGame(me){
   var h=$("hudloc");h.tabIndex=-1;h.focus();
 }
 function leaveGame(note){
+  bgmStop();
   clearInterval(pollTimer);clearInterval(mTimer);
   [rmodal,hmodal,mmodal].forEach(function(m){m.hidden=true});document.body.style.overflow="";
   $("game").hidden=true;forceFront=false;showFront();
