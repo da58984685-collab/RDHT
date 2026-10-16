@@ -39,6 +39,24 @@ const ACTIVE_MS = 30 * MIN;                       // 출몰 후 토벌 가능한
 // 등급별 처치 골드(G) 범위 [최소, 최대]
 const KILL_GOLD = { F: [1, 5], E: [6, 15], D: [16, 35], C: [36, 70], B: [71, 120], A: [121, 180], S: [190, 200] };
 const rollGold = rank => { const r = KILL_GOLD[rank] || [0, 0]; return r[0] + Math.floor(Math.random() * (r[1] - r[0] + 1)); };
+// 업적: stats = { kills, maxRank(0=F..6=S), sTry, sWin, lv }
+const RANK_IDX = { F: 0, E: 1, D: 2, C: 3, B: 4, A: 5, S: 6 };
+const ACH = [
+  { id: 'reg',    name: '헌터 등록',   desc: '게이트 앞에서 헌터로 등록했다.',       ok: () => true },
+  { id: 'k1',     name: '첫 사냥',     desc: '몬스터를 처음으로 처치했다.',           ok: s => s.kills >= 1 },
+  { id: 'k10',    name: '초보 사냥꾼', desc: '몬스터를 10마리 처치했다.',             ok: s => s.kills >= 10 },
+  { id: 'k50',    name: '숙련 사냥꾼', desc: '몬스터를 50마리 처치했다.',             ok: s => s.kills >= 50 },
+  { id: 'k200',   name: '붉은 달의 학살자', desc: '몬스터를 200마리 처치했다.',        ok: s => s.kills >= 200 },
+  { id: 'rC',     name: 'C급 토벌',    desc: 'C급 이상 몬스터를 처치했다.',           ok: s => s.maxRank >= 3 },
+  { id: 'rA',     name: 'A급 토벌',    desc: 'A급 이상 몬스터를 처치했다.',           ok: s => s.maxRank >= 5 },
+  { id: 'sTry',   name: 'S급 도전',    desc: 'S급 몬스터 토벌에 도전했다.',           ok: s => s.sTry >= 1 },
+  { id: 'sWin',   name: 'S급 토벌자',  desc: 'S급 몬스터를 처치했다.',                ok: s => s.sWin >= 1 },
+  { id: 'lv5',    name: '전투력 Lv.5',  desc: '전투력 5레벨을 달성했다.',             ok: s => s.lv >= 5 },
+  { id: 'lv10',   name: '전투력 Lv.10', desc: '전투력 10레벨을 달성했다.',            ok: s => s.lv >= 10 },
+  { id: 'lv20',   name: '전투력 Lv.20', desc: '전투력 20레벨을 달성했다.',            ok: s => s.lv >= 20 },
+];
+const ACH_BY_ID = Object.fromEntries(ACH.map(a => [a.id, a]));
+const ACH_PIN_MAX = 3;
 const KILL_EXP = { F: 8, E: 12, D: 20, C: 35, B: 60, A: 120, S: 300 };
 const HUNT_DIFF = { F: '쉬움', E: '쉬움', D: '쉬움', C: '보통', B: '보통', A: '어려움', S: '매우 어려움' };
 const HUNT_BASE = { '쉬움': 0.85, '보통': 0.65, '어려움': 0.4 };
@@ -96,7 +114,7 @@ function addExp(lv, exp, gain) {
 }
 
 module.exports = {
-  rnd, chance01, REGIONS, REGION_BY_ID, MON, TIERS, ACTIVE_MS, KILL_EXP, KILL_GOLD, rollGold, HUNT_DIFF,
+  rnd, chance01, REGIONS, REGION_BY_ID, MON, TIERS, ACTIVE_MS, KILL_EXP, KILL_GOLD, RANK_IDX, ACH, ACH_BY_ID, ACH_PIN_MAX, rollGold, HUNT_DIFF,
   RAID_NEED, S_MAX, S_WINDOW_MS, S_WAIT_MS, powNeed, cdOf, huntChance,
   rollRank, rollStats, makeCode, addExp, MIN, HOUR,
 };
