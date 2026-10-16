@@ -86,6 +86,12 @@ CREATE TABLE IF NOT EXISTS friends (
   last_read INTEGER NOT NULL DEFAULT 0,
   PRIMARY KEY (user_id, friend_id)
 );
+CREATE TABLE IF NOT EXISTS friend_requests (
+  from_id INTEGER NOT NULL,
+  to_id   INTEGER NOT NULL,
+  at      INTEGER NOT NULL,
+  PRIMARY KEY (from_id, to_id)
+);
 CREATE TABLE IF NOT EXISTS messages (
   id      INTEGER PRIMARY KEY AUTOINCREMENT,
   from_id INTEGER NOT NULL,
@@ -141,6 +147,12 @@ CREATE TABLE IF NOT EXISTS achievements (
   at    INTEGER NOT NULL
 );
 CREATE TABLE IF NOT EXISTS ach_grants (
+  user_id INTEGER NOT NULL,
+  ach_id  TEXT NOT NULL,
+  at      INTEGER NOT NULL,
+  PRIMARY KEY (user_id, ach_id)
+);
+CREATE TABLE IF NOT EXISTS ach_earned (
   user_id INTEGER NOT NULL,
   ach_id  TEXT NOT NULL,
   at      INTEGER NOT NULL,
