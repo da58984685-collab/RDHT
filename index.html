@@ -1032,7 +1032,7 @@ function drawRadar(){
   });
   var cap=$("rdcap");if(cap)cap.textContent="탐지 "+hotN+"건 · 현재 위치 "+regionById(curRegion).name;
 }
-var devApp=null;
+var devApp=null,inventory=[],invSig="";
 var APPS=[["msg","메신저","i-chat"],["com","헌터 커뮤니티","i-board"],["ach","업적","i-medal"],["sys","시스템 알림","i-bell"],["shop","상점","i-shop"],["inv","인벤토리","i-bag"]];
 function devClock(){var d=new Date(),c=$("phclk");if(c)c.textContent=pad(d.getHours())+":"+pad(d.getMinutes())}
 function badgeOf(id){return id==="sys"?unreadNotices:id==="msg"?unreadMsgs:0}
@@ -1073,7 +1073,17 @@ function renderDevice(){
   function empty(txt){var p=document.createElement("p");p.className="app-empty";p.textContent=txt;scr.appendChild(p)}
   if(devApp==="com")empty("아직 올라온 게시글이 없습니다.");
   else if(devApp==="shop")empty("판매 중인 물품이 없습니다.");
-  else if(devApp==="inv")empty("보유한 아이템이 없습니다.");
+  else if(devApp==="inv"){
+    if(!inventory.length)empty("보유한 아이템이 없습니다.");
+    else{
+      var iu=document.createElement("ul");iu.className="app-list";
+      inventory.forEach(function(it){
+        var li=document.createElement("li");li.textContent=it.item;
+        var sm=document.createElement("small");sm.textContent="x"+it.qty;li.appendChild(sm);iu.appendChild(li);
+      });
+      scr.appendChild(iu);
+    }
+  }
   else if(devApp==="sys"){empty("불러오는 중…");loadNotices()}
   else{
     var ul=document.createElement("ul");ul.className="app-list";
@@ -1124,6 +1134,8 @@ function applyState(st,first){
   if(st.user&&(st.user.lv!==power.lv||st.user.exp!==power.exp)){
     var up=st.user.lv>power.lv;power={lv:st.user.lv,exp:st.user.exp};renderPower(up);
   }
+  var isg=JSON.stringify(st.inventory||[]);
+  if(isg!==invSig){invSig=isg;inventory=st.inventory||[];if(devApp==="inv")renderDevice()}
   SI=st.s;pendingList=st.pending||[];unreadNotices=st.unreadNotices||0;unreadMsgs=st.unreadMsgs||0;
   if(!paused||first){
     var prev=seenIds;seenIds={};
