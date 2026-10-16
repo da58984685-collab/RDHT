@@ -147,6 +147,10 @@ async function grantExp(userId, gain) {
   throw new Error('exp_conflict');
 }
 
+async function grantGold(userId, n) {
+  if (n > 0) await db.run('UPDATE users SET gold = gold + ? WHERE id = ?', [n, userId]);
+}
+
 async function resolveDue() {
   const now = Date.now();
   const due = await db.all('SELECT * FROM s_attempts WHERE resolved = 0 AND resolve_at <= ? ORDER BY resolve_at LIMIT 100', [now]);
@@ -158,17 +162,19 @@ async function resolveDue() {
     if (!m || !u) { await db.run('UPDATE s_attempts SET resolved = 1 WHERE id = ?', [a.id]); continue; }
     const p = await db.get('SELECT COUNT(DISTINCT user_id) AS c FROM s_attempts WHERE monster_id = ?', [a.monster_id]);
     const win = G.chance01() < G.huntChance('S', u.lv, p.c);
-    let gain = 0, up = 0;
+    let gain = 0, up = 0, gold = 0;
     if (win) {
       const k = await db.run('INSERT OR IGNORE INTO kills (user_id, monster_id, at) VALUES (?, ?, ?)', [u.id, m.id, now]);
       if (k.changes === 1) {
         const r = await grantExp(u.id, G.KILL_EXP.S);
         gain = G.KILL_EXP.S; up = r && r.up ? 1 : 0;
+        gold = G.rollGold('S'); await grantGold(u.id, gold);
       }
     }
-    await db.run('UPDATE s_attempts SET resolved = 1, success = ?, exp_gain = ?, level_up = ? WHERE id = ?', [win ? 1 : 0, gain, up, a.id]);
+    await db.run('UPDATE s_attempts SET resolved = 1, success = ?, exp_gain = ?, level_up = ?, gold_gain = ? WHERE id = ?', [win ? 1 : 0, gain, up, gold, a.id]);
     await logHunt(u.id, m, win ? 'success' : 'fail', gain, now);
     if (gain) await logAcquire(u.id, 'exp', '경험치', gain, m.name + ' 토벌', now);
+    if (gold) await logAcquire(u.id, 'gold', '골드', gold, m.name + ' 토벌', now);
   }
 }
 
@@ -179,7 +185,7 @@ function publicUser(u) {
   return {
     code: u.code, name: u.name, gender: u.gender, age: u.age, personality: u.personality,
     traits: JSON.parse(u.traits), image: u.image, hunterName: u.hunter_name, rank: u.rank,
-    stats: JSON.parse(u.stats), lv: u.lv, exp: u.exp, region: u.region,
+    stats: JSON.parse(u.stats), lv: u.lv, exp: u.exp, gold: u.gold, region: u.region,
   };
 }
 
@@ -205,7 +211,7 @@ async function buildState(u, now) {
     sInfo(u.id, now),
     db.all(`SELECT a.id, a.resolve_at, m.name FROM s_attempts a JOIN monsters m ON m.id = a.monster_id
             WHERE a.user_id = ? AND a.resolved = 0 ORDER BY a.resolve_at`, [u.id]),
-    db.all(`SELECT a.id, a.success, a.exp_gain, a.level_up, m.name FROM s_attempts a JOIN monsters m ON m.id = a.monster_id
+    db.all(`SELECT a.id, a.success, a.exp_gain, a.gold_gain, a.level_up, m.name FROM s_attempts a JOIN monsters m ON m.id = a.monster_id
             WHERE a.user_id = ? AND a.resolved = 1 AND a.notified = 0 ORDER BY a.id`, [u.id]),
     db.get('SELECT COUNT(*) AS c FROM notices WHERE id > ?', [u.notice_seen]),
     db.get(`SELECT COUNT(*) AS c FROM messages m JOIN friends f ON f.user_id = m.to_id AND f.friend_id = m.from_id
@@ -217,7 +223,7 @@ async function buildState(u, now) {
   const pm = new Map(parts.map(r => [r.monster_id, r.c]));
   return {
     now,
-    user: { lv: u.lv, exp: u.exp, region: u.region, hunterName: u.hunter_name, stats: JSON.parse(u.stats) },
+    user: { lv: u.lv, exp: u.exp, gold: u.gold, region: u.region, hunterName: u.hunter_name, stats: JSON.parse(u.stats) },
     monsters: mons.map(m => ({
       id: m.id, region: m.region, rname: G.REGION_BY_ID[m.region].name, mon: m.name, r: m.rank, ts: m.spawned_at,
       done: killed.has(m.id), cd: cdm.get(m.id) || 0,
@@ -225,7 +231,7 @@ async function buildState(u, now) {
     })),
     s: Object.assign(si, { need: G.RAID_NEED, max: G.S_MAX }),
     pending: pending.map(p => ({ id: p.id, mon: p.name, at: p.resolve_at })),
-    results: results.map(r => ({ id: r.id, mon: r.name, success: !!r.success, exp: r.exp_gain, levelUp: !!r.level_up })),
+    results: results.map(r => ({ id: r.id, mon: r.name, success: !!r.success, exp: r.exp_gain, gold: r.gold_gain, levelUp: !!r.level_up })),
     unreadNotices: un.c,
     unreadMsgs: um.c,
     inventory: inv.map(r => ({ item: r.item, qty: r.qty })),
@@ -384,9 +390,11 @@ route('POST', '/api/hunt', async (req, res, ctx) => {
     if (k.changes !== 1) return fail(res, 409, 'already_done');
     const gain = G.KILL_EXP[m.rank];
     const r = await grantExp(cur.id, gain);
+    const gold = G.rollGold(m.rank); await grantGold(cur.id, gold);
     await logHunt(cur.id, m, 'success', gain, now);
     await logAcquire(cur.id, 'exp', '경험치', gain, m.name + ' 토벌', now);
-    return send(res, 200, { result: 'success', gain, levelUp: r.up, lv: r.lv, exp: r.exp });
+    await logAcquire(cur.id, 'gold', '골드', gold, m.name + ' 토벌', now);
+    return send(res, 200, { result: 'success', gain, gold, levelUp: r.up, lv: r.lv, exp: r.exp });
   }
   const until = now + G.cdOf(m.rank);
   await logHunt(cur.id, m, 'fail', 0, now);
@@ -567,9 +575,11 @@ route('POST', '/api/admin/player/update', async (req, res, ctx) => {
     traits = Array.isArray(b.traits) ? b.traits.map(str).filter(Boolean) : null;
     if (!traits || traits.length > 5 || traits.some(t => cp(t) > 50)) return fail(res, 400, 'bad_traits');
   }
+  let gold = u.gold;
+  if (b.gold !== undefined) { gold = Number(b.gold); if (!Number.isInteger(gold) || gold < 0 || gold > 99999999) return fail(res, 400, 'bad_gold'); }
   if (b.rank !== undefined) { rank = b.rank; if (!RANKS.includes(rank)) return fail(res, 400, 'bad_rank'); }
-  await db.run(`UPDATE users SET hunter_name = ?, stats = ?, lv = ?, exp = ?, name = ?, gender = ?, age = ?, personality = ?, traits = ?, rank = ? WHERE id = ?`,
-    [hn, JSON.stringify(stats), lv, exp, name, gender, age, pers, JSON.stringify(traits), rank, u.id]);
+  await db.run(`UPDATE users SET hunter_name = ?, stats = ?, lv = ?, exp = ?, name = ?, gender = ?, age = ?, personality = ?, traits = ?, rank = ?, gold = ? WHERE id = ?`,
+    [hn, JSON.stringify(stats), lv, exp, name, gender, age, pers, JSON.stringify(traits), rank, gold, u.id]);
   send(res, 200, { ok: true });
 }, { auth: false, admin: true });
 
@@ -598,6 +608,63 @@ route('POST', '/api/admin/player/item/delete', async (req, res, ctx) => {
   const u = await adminTarget(ctx, res); if (!u) return;
   if (ctx.body.all === true) await db.run('DELETE FROM inventory WHERE user_id = ?', [u.id]);
   else await db.run('DELETE FROM inventory WHERE user_id = ? AND item = ?', [u.id, String(ctx.body.item || '')]);
+  send(res, 200, { ok: true });
+}, { auth: false, admin: true });
+
+// ───────────── 상점 ─────────────
+route('GET', '/api/shop', async (req, res, ctx) => {
+  const items = await db.all('SELECT id, name, descr, price FROM shop_items ORDER BY id');
+  send(res, 200, { gold: ctx.user.gold, items: items.map(i => ({ id: i.id, name: i.name, desc: i.descr, price: i.price })) });
+});
+
+route('POST', '/api/shop/buy', async (req, res, ctx) => {
+  if (await limited('buy:' + ctx.user.id, 60, G.HOUR)) return fail(res, 429, 'rate_limited');
+  const it = await db.get('SELECT id, name, price FROM shop_items WHERE id = ?', [Number(ctx.body.id) || 0]);
+  if (!it) return fail(res, 404, 'no_item');
+  const cur = await db.get('SELECT qty FROM inventory WHERE user_id = ? AND item = ?', [ctx.user.id, it.name]);
+  if (cur && cur.qty >= 9999) return fail(res, 400, 'max_qty');
+  if (it.price > 0) {      // 잔액이 충분할 때만 원자적으로 차감
+    const pay = await db.run('UPDATE users SET gold = gold - ? WHERE id = ? AND gold >= ?', [it.price, ctx.user.id, it.price]);
+    if (pay.changes !== 1) return fail(res, 402, 'no_gold');
+  }
+  try {
+    await db.run('INSERT INTO inventory (user_id, item, qty) VALUES (?, ?, 1) ON CONFLICT(user_id, item) DO UPDATE SET qty = qty + 1', [ctx.user.id, it.name]);
+  } catch (e) {
+    if (it.price > 0) await grantGold(ctx.user.id, it.price);
+    throw e;
+  }
+  await logAcquire(ctx.user.id, 'item', it.name, 1, it.price > 0 ? '상점 (-' + it.price + ' G)' : '상점', Date.now());
+  const me = await db.get('SELECT gold FROM users WHERE id = ?', [ctx.user.id]);
+  send(res, 200, { ok: true, item: it.name, gold: me.gold });
+});
+
+route('GET', '/api/admin/shop', async (req, res) => {
+  const items = await db.all('SELECT id, name, descr, price FROM shop_items ORDER BY id');
+  send(res, 200, { items: items.map(i => ({ id: i.id, name: i.name, desc: i.descr, price: i.price })) });
+}, { auth: false, admin: true });
+
+route('POST', '/api/admin/shop/save', async (req, res, ctx) => {
+  const name = String(ctx.body.name == null ? '' : ctx.body.name).trim();
+  const desc = String(ctx.body.desc == null ? '' : ctx.body.desc).trim();
+  if (!name || cp(name) > 30) return fail(res, 400, 'bad_item');
+  if (cp(desc) > 100) return fail(res, 400, 'bad_desc');
+  const price = ctx.body.price == null || ctx.body.price === '' ? 0 : Number(ctx.body.price);
+  if (!Number.isInteger(price) || price < 0 || price > 9999999) return fail(res, 400, 'bad_price');
+  const id = Number(ctx.body.id) || 0;
+  const dup = await db.get('SELECT id FROM shop_items WHERE name = ? AND id != ?', [name, id]);
+  if (dup) return fail(res, 409, 'duplicate');
+  if (id) {
+    const r = await db.get('SELECT id FROM shop_items WHERE id = ?', [id]);
+    if (!r) return fail(res, 404, 'no_item');
+    await db.run('UPDATE shop_items SET name = ?, descr = ?, price = ? WHERE id = ?', [name, desc, price, id]);
+  } else {
+    await db.run('INSERT INTO shop_items (name, descr, price, at) VALUES (?, ?, ?, ?)', [name, desc, price, Date.now()]);
+  }
+  send(res, 200, { ok: true });
+}, { auth: false, admin: true });
+
+route('POST', '/api/admin/shop/delete', async (req, res, ctx) => {
+  await db.run('DELETE FROM shop_items WHERE id = ?', [Number(ctx.body.id) || 0]);
   send(res, 200, { ok: true });
 }, { auth: false, admin: true });
 
