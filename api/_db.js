@@ -92,6 +92,33 @@ CREATE TABLE IF NOT EXISTS notices (
   text       TEXT NOT NULL,
   created_at INTEGER NOT NULL
 );
+CREATE TABLE IF NOT EXISTS hunt_log (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id    INTEGER NOT NULL,
+  monster_id INTEGER NOT NULL,
+  mon        TEXT NOT NULL,
+  rank       TEXT NOT NULL,
+  result     TEXT NOT NULL,
+  exp_gain   INTEGER NOT NULL DEFAULT 0,
+  at         INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS hunt_log_user ON hunt_log(user_id, id);
+CREATE TABLE IF NOT EXISTS acquire_log (
+  id      INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  kind    TEXT NOT NULL,
+  name    TEXT NOT NULL,
+  qty     INTEGER NOT NULL DEFAULT 1,
+  source  TEXT NOT NULL DEFAULT '',
+  at      INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS acquire_user ON acquire_log(user_id, id);
+CREATE TABLE IF NOT EXISTS inventory (
+  user_id INTEGER NOT NULL,
+  item    TEXT NOT NULL,
+  qty     INTEGER NOT NULL DEFAULT 1,
+  PRIMARY KEY (user_id, item)
+);
 CREATE TABLE IF NOT EXISTS rate_limits (
   key   TEXT PRIMARY KEY,
   start INTEGER NOT NULL,
