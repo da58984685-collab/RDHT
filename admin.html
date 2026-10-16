@@ -69,6 +69,12 @@ tbody tr:hover,tbody tr.sel{background:#22101400;background:#2a1216}
 .send textarea{min-height:70px;resize:vertical}
 .row{display:flex;gap:8px;align-items:center;margin-top:8px}
 .note{font-size:.82rem;color:var(--sub);margin-top:8px}
+.found{display:grid;gap:8px;margin-bottom:12px}
+.fc{border:1px solid var(--red);border-radius:6px;padding:10px 12px;cursor:pointer;background:#1b0d10}
+.fc:hover{background:#26111500;background:#2a1216}
+.fc h4{margin:0 0 6px;font-size:1rem}
+.fc dl{display:grid;grid-template-columns:78px 1fr;gap:2px 8px;margin:0;font-size:.88rem}
+.fc dt{color:var(--sub)}.fc dd{margin:0}
 </style>
 </head>
 <body>
@@ -92,7 +98,8 @@ tbody tr:hover,tbody tr.sel{background:#22101400;background:#2a1216}
   <div class="cols">
     <section class="card">
       <h2 style="margin-bottom:10px">헌터 목록</h2>
-      <form class="search" id="sf"><input id="q" placeholder="헌터 네임 · 이름 · 코드 검색"><button class="btn" type="submit">검색</button></form>
+      <form class="search" id="sf"><input id="q" autocomplete="off" name="hunter-search" placeholder="헌터 이름을 입력하세요"><button class="btn" type="submit">검색</button></form>
+      <div id="found"></div>
       <div class="tw"><table><thead><tr><th>헌터</th><th>등급</th><th>Lv</th><th>토벌</th><th>지역</th></tr></thead><tbody id="plist"></tbody></table></div>
       <div class="note">행을 누르면 상세 정보가 열립니다.</div>
     </section>
@@ -125,6 +132,7 @@ $("lf").addEventListener("submit",function(e){
   e.preventDefault();$("lerr").textContent="";
   api("POST","/api/admin/login",{id:$("aid").value,password:$("apw").value}).then(function(r){
     if(r.ok){$("apw").value="";boot()}
+    else if(r._status===404)$("lerr").textContent="서버에 관리자 기능이 없습니다(404). api 폴더의 파일을 최신으로 교체해 주세요.";
     else $("lerr").textContent=r.error==="rate_limited"?"시도 횟수가 많습니다. 잠시 후 다시 시도하세요.":r.error==="admin_disabled"?"관리자 계정이 설정되지 않았습니다.":r.error==="network"?"네트워크 오류입니다.":"아이디 또는 비밀번호가 올바르지 않습니다.";
   });
 });
@@ -146,17 +154,24 @@ function loadList(){
   api("GET","/api/admin/players?q="+encodeURIComponent($("q").value)).then(function(r){
     if(r._status===401){showApp(false);return}
     var ps=r.players||[];
+    var qv=$("q").value.trim();
+    $("found").innerHTML=qv?(ps.length?'<div class="found">'+ps.slice(0,5).map(function(p){
+      return'<div class="fc" data-c="'+esc(p.code)+'"><h4>'+esc(p.hunterName)+'</h4><dl><dt>고유 코드</dt><dd>'+esc(p.code)+'</dd><dt>등급</dt><dd><span class="rk '+esc(p.rank)+'">'+esc(p.rank)+'</span></dd><dt>레벨</dt><dd>Lv.'+p.lv+'</dd><dt>토벌 지역</dt><dd>'+esc(p.region)+(p.lastRegion?' <span class="muted">(최근 토벌: '+esc(p.lastRegion)+')</span>':'')+'</dd></dl></div>';
+    }).join("")+(ps.length>5?'<div class="muted" style="font-size:.82rem">외 '+(ps.length-5)+'명 — 아래 목록에서 확인하세요.</div>':"")+"</div>":'<div class="empty">"'+esc(qv)+'" 헌터를 찾지 못했습니다.</div>'):"";
     $("plist").innerHTML=ps.length?ps.map(function(p){
       return'<tr data-c="'+esc(p.code)+'"'+(p.code===selCode?' class="sel"':"")+"><td>"+esc(p.hunterName)+'<div class="muted" style="font-size:.78rem">'+esc(p.code)+'</div></td><td><span class="rk '+esc(p.rank)+'">'+esc(p.rank)+"</span></td><td>"+p.lv+"</td><td>"+p.kills+"</td><td>"+esc(p.region)+"</td></tr>";
     }).join(""):'<tr><td colspan="5" class="empty">헌터가 없습니다.</td></tr>';
   });
 }
-$("plist").addEventListener("click",function(e){
-  var tr=e.target.closest("tr[data-c]");if(!tr)return;
-  selCode=tr.getAttribute("data-c");tab="info";
-  Array.prototype.forEach.call($("plist").children,function(x){x.classList.toggle("sel",x===tr)});
+function pick(el){
+  selCode=el.getAttribute("data-c");tab="info";
+  Array.prototype.forEach.call($("plist").children,function(x){x.classList.toggle("sel",x.getAttribute("data-c")===selCode)});
   loadDetail();
-});
+}
+$("plist").addEventListener("click",function(e){var tr=e.target.closest("tr[data-c]");if(tr)pick(tr)});
+$("found").addEventListener("click",function(e){var c=e.target.closest(".fc");if(c)pick(c)});
+var qt=null;
+$("q").addEventListener("input",function(){clearTimeout(qt);qt=setTimeout(loadList,300)});   // 입력하면 바로 검색
 function loadDetail(){
   if(!selCode)return;
   api("GET","/api/admin/player?code="+encodeURIComponent(selCode)).then(function(r){
@@ -215,7 +230,11 @@ setInterval(function(){if($("auto").checked&&!document.hidden&&!$("app").classLi
 document.addEventListener("visibilitychange",function(){if(!document.hidden&&$("auto").checked&&!$("app").classList.contains("hide"))loadAll()});
 function boot(){
   api("GET","/api/admin/overview").then(function(r){
-    if(r._status===401||r.error){showApp(false);return}
+    if(typeof r.users!=="number"){          // 정상적인 관리자 응답이 아니면 로그인 화면을 유지합니다
+      showApp(false);
+      if(r._status&&r._status!==401)$("lerr").textContent="서버 응답 오류("+r._status+"): 관리자 기능이 배포되지 않았을 수 있습니다.";
+      return;
+    }
     showApp(true);loadAll();
   });
 }
