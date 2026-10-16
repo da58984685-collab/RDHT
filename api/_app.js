@@ -83,6 +83,7 @@ async function tickSpawns() {
   const rows = await db.all('SELECT tier, next_at FROM spawn_state');
   const have = new Map(rows.map(r => [r.tier, r.next_at]));
   for (const t of G.TIERS) {
+    if (t.k !== 'top') continue;                      // 서버 전체 공통 몬스터는 S급(top)뿐
     let next = have.has(t.k) ? have.get(t.k) : null;
     if (next === null) {
       await db.run('INSERT OR IGNORE INTO spawn_state (tier, next_at) VALUES (?, ?)', [t.k, now]);
@@ -102,6 +103,35 @@ async function tickSpawns() {
     }
     // 동시에 다른 요청이 같은 시간대를 처리하지 않도록, 다음 시각을 먼저 '차지'한 쪽만 몬스터를 만듭니다.
     const claim = await db.run('UPDATE spawn_state SET next_at = ? WHERE tier = ? AND next_at = ?', [next, t.k, from]);
+    if (claim.changes === 1 && list.length) await db.batch(list);
+  }
+}
+
+// F~A급 몬스터는 헌터마다 따로 출몰합니다. 그 헌터가 접속해 요청할 때 밀린 만큼 따라잡아 만듭니다.
+async function tickPersonal(uid, now) {
+  const rows = await db.all('SELECT tier, next_at FROM user_spawn WHERE user_id = ?', [uid]);
+  const have = new Map(rows.map(r => [r.tier, r.next_at]));
+  for (const t of G.TIERS) {
+    if (t.k === 'top') continue;
+    let next = have.has(t.k) ? have.get(t.k) : null;
+    if (next === null) {
+      // 처음 접속한 헌터: F·E·D급은 바로, C급 이상은 한 번의 간격이 지난 뒤부터 출몰
+      next = (t.k === 'f' || t.k === 'low') ? now : now + t.gap();
+      await db.run('INSERT OR IGNORE INTO user_spawn (user_id, tier, next_at) VALUES (?, ?, ?)', [uid, t.k, next]);
+    }
+    if (next > now) continue;
+    const from = next;
+    if (next < now - G.ACTIVE_MS) next = now - G.ACTIVE_MS;      // 자리를 비운 동안 지나간 몬스터는 만들지 않음
+    const list = [];
+    let guard = 0;
+    while (next <= now && guard++ < 60) {
+      const rank = t.ranks[G.rnd(0, t.ranks.length - 1)];
+      const names = G.MON[rank];
+      list.push(['INSERT INTO monsters (region, name, rank, spawned_at, owner_id) VALUES (?, ?, ?, ?, ?)',
+        [G.REGIONS[G.rnd(0, G.REGIONS.length - 1)].id, names[G.rnd(0, names.length - 1)], rank, next, uid]]);
+      next += t.gap();
+    }
+    const claim = await db.run('UPDATE user_spawn SET next_at = ? WHERE user_id = ? AND tier = ? AND next_at = ?', [next, uid, t.k, from]);
     if (claim.changes === 1 && list.length) await db.batch(list);
   }
 }
@@ -137,6 +167,8 @@ async function resolveDue() {
       }
     }
     await db.run('UPDATE s_attempts SET resolved = 1, success = ?, exp_gain = ?, level_up = ? WHERE id = ?', [win ? 1 : 0, gain, up, a.id]);
+    await logHunt(u.id, m, win ? 'success' : 'fail', gain, now);
+    if (gain) await logAcquire(u.id, 'exp', '경험치', gain, m.name + ' 토벌', now);
   }
 }
 
@@ -158,10 +190,13 @@ async function sInfo(userId, now) {
 }
 
 async function buildState(u, now) {
+  await tickPersonal(u.id, now);
+  // 보이는 몬스터: 서버 공통 S급 + 내 몬스터(F~A). 예전 공통 F~A 몬스터는 보이지 않습니다.
+  const vis = "((owner_id IS NULL AND rank = 'S') OR owner_id = ?)";
   const mons = await db.all(`SELECT * FROM monsters
-    WHERE spawned_at > ? OR id IN (SELECT id FROM monsters ORDER BY id DESC LIMIT 6)
-    ORDER BY spawned_at DESC, id DESC`, [now - G.ACTIVE_MS]);
-  const minId = mons.length ? mons[mons.length - 1].id : 0;
+    WHERE ${vis} AND (spawned_at > ? OR id IN (SELECT id FROM monsters WHERE ${vis} ORDER BY id DESC LIMIT 6))
+    ORDER BY spawned_at DESC, id DESC LIMIT 40`, [u.id, now - G.ACTIVE_MS, u.id]);
+  const minId = mons.length ? Math.min.apply(null, mons.map(m => m.id)) : 0;
   const [kills, cds, parts, si, pending, results, un, um] = await Promise.all([
     db.all('SELECT monster_id FROM kills WHERE user_id = ? AND monster_id >= ?', [u.id, minId]),
     db.all('SELECT monster_id, until FROM fail_cd WHERE user_id = ? AND until > ?', [u.id, now]),
@@ -213,6 +248,21 @@ function normCode(v) {
   const s = String(v || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
   return s.length === 8 ? s.slice(0, 4) + '-' + s.slice(4) : '';
 }
+const ADMIN_ID = process.env.ADMIN_ID || '';
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '';
+const ADMIN_MS = 8 * G.HOUR;
+async function authAdmin(req) {
+  const t = cookies(req).asid;
+  if (!t) return false;
+  const row = await db.get('SELECT 1 AS x FROM sessions WHERE token_hash = ? AND user_id = -1 AND expires_at > ?', [sha256(t), Date.now()]);
+  return !!row;
+}
+const adminCookie = (v, sec) => `asid=${v}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${sec}` + (COOKIE_SECURE ? '; Secure' : '');
+// 토벌·습득 기록 (관리자 창에서 조회)
+const logHunt = (uid, m, result, gain, at) => db.run(
+  'INSERT INTO hunt_log (user_id, monster_id, mon, rank, result, exp_gain, at) VALUES (?, ?, ?, ?, ?, ?, ?)', [uid, m.id, m.name, m.rank, result, gain, at]);
+const logAcquire = (uid, kind, name, qty, source, at) => db.run(
+  'INSERT INTO acquire_log (user_id, kind, name, qty, source, at) VALUES (?, ?, ?, ?, ?, ?)', [uid, kind, name, qty, source, at]);
 const userByCode = code => db.get('SELECT * FROM users WHERE code = ?', [code]);
 const isFriend = async (a, b) => !!(await db.get('SELECT 1 AS x FROM friends WHERE user_id = ? AND friend_id = ?', [a, b]));
 
@@ -303,7 +353,7 @@ route('POST', '/api/hunt', async (req, res, ctx) => {
   await catchUp();
   const cur = await db.get('SELECT * FROM users WHERE id = ?', [u.id]);
   const m = await db.get('SELECT * FROM monsters WHERE id = ?', [Number(ctx.body.id)]);
-  if (!m) return fail(res, 404, 'no_monster');
+  if (!m || (m.owner_id != null && m.owner_id !== cur.id) || (m.owner_id == null && m.rank !== 'S')) return fail(res, 404, 'no_monster');
   if (await db.get('SELECT 1 AS x FROM kills WHERE user_id = ? AND monster_id = ?', [cur.id, m.id])) return fail(res, 409, 'already_done');
   if (now - m.spawned_at >= G.ACTIVE_MS) return fail(res, 410, 'expired');
   if (cur.region !== m.region) return fail(res, 409, 'wrong_region', { region: m.region, rname: G.REGION_BY_ID[m.region].name });
@@ -321,6 +371,7 @@ route('POST', '/api/hunt', async (req, res, ctx) => {
     if (use.changes !== 1) return fail(res, 429, 's_limit', { resetAt: (await sInfo(cur.id, now)).resetAt });
     const at = now + G.S_WAIT_MS;
     await db.run('INSERT INTO s_attempts (user_id, monster_id, created_at, resolve_at) VALUES (?, ?, ?, ?)', [cur.id, m.id, now, at]);
+    await logHunt(cur.id, m, 'pending', 0, now);
     return send(res, 200, { result: 'pending', resolveAt: at, s: await sInfo(cur.id, now) });
   }
 
@@ -331,9 +382,12 @@ route('POST', '/api/hunt', async (req, res, ctx) => {
     if (k.changes !== 1) return fail(res, 409, 'already_done');
     const gain = G.KILL_EXP[m.rank];
     const r = await grantExp(cur.id, gain);
+    await logHunt(cur.id, m, 'success', gain, now);
+    await logAcquire(cur.id, 'exp', '경험치', gain, m.name + ' 토벌', now);
     return send(res, 200, { result: 'success', gain, levelUp: r.up, lv: r.lv, exp: r.exp });
   }
   const until = now + G.cdOf(m.rank);
+  await logHunt(cur.id, m, 'fail', 0, now);
   await db.run(`INSERT INTO fail_cd (user_id, monster_id, until) VALUES (?, ?, ?)
                 ON CONFLICT(user_id, monster_id) DO UPDATE SET until = excluded.until`, [cur.id, m.id, until]);
   send(res, 200, { result: 'fail', until });
@@ -404,18 +458,83 @@ route('POST', '/api/notices/seen', async (req, res, ctx) => {
   send(res, 200, { ok: true });
 });
 
-// 관리자: 모든 헌터에게 시스템 알림 (ADMIN_TOKEN 환경변수를 설정해야 사용 가능)
+// 관리자 알림 발송: 관리자 창(로그인 쿠키) 또는 ADMIN_TOKEN(Bearer) 중 하나로 인증
 route('POST', '/api/admin/notice', async (req, res, ctx) => {
-  if (!ADMIN_TOKEN) return fail(res, 503, 'admin_disabled');
-  const h = String(req.headers.authorization || '');
-  const tok = h.startsWith('Bearer ') ? h.slice(7) : '';
-  if (await limited('admin:' + ctx.ip, 20, 10 * 60000)) return fail(res, 429, 'rate_limited');
-  if (!tok || !safeEq(sha256(tok), sha256(ADMIN_TOKEN))) return fail(res, 401, 'unauthorized');
+  if (await limited('admin:' + ctx.ip, 60, 10 * 60000)) return fail(res, 429, 'rate_limited');
+  let okAuth = await authAdmin(req);
+  if (!okAuth) {
+    if (!ADMIN_TOKEN) return fail(res, 401, 'unauthorized');
+    const h = String(req.headers.authorization || '');
+    const tok = h.startsWith('Bearer ') ? h.slice(7) : '';
+    okAuth = !!tok && safeEq(sha256(tok), sha256(ADMIN_TOKEN));
+  }
+  if (!okAuth) return fail(res, 401, 'unauthorized');
   const text = String(ctx.body.text || '').trim();
   if (!text || cp(text) > 1000) return fail(res, 400, 'bad_text');
   const r = await db.run('INSERT INTO notices (text, created_at) VALUES (?, ?)', [text, Date.now()]);
   send(res, 201, { id: r.lastId });
 }, { auth: false });
+
+// ───────────── 관리자 창 ─────────────
+route('POST', '/api/admin/login', async (req, res, ctx) => {
+  if (!ADMIN_ID || !ADMIN_PASSWORD) return fail(res, 503, 'admin_disabled');
+  if (await limited('alogin:' + ctx.ip, 6, 10 * 60000)) return fail(res, 429, 'rate_limited');
+  const id = String(ctx.body.id || ''), pw = String(ctx.body.password || '');
+  const ok = safeEq(sha256(id), sha256(ADMIN_ID)) & safeEq(sha256(pw), sha256(ADMIN_PASSWORD));   // 둘 다 항상 비교
+  if (!ok) { await new Promise(r => setTimeout(r, 600)); return fail(res, 401, 'bad_credentials'); }
+  const token = crypto.randomBytes(32).toString('base64url');
+  await db.run('INSERT INTO sessions (token_hash, user_id, expires_at) VALUES (?, -1, ?)', [sha256(token), Date.now() + ADMIN_MS]);
+  send(res, 200, { ok: true }, { 'Set-Cookie': adminCookie(token, ADMIN_MS / 1000) });
+}, { auth: false });
+
+route('POST', '/api/admin/logout', async (req, res) => {
+  const t = cookies(req).asid;
+  if (t) await db.run('DELETE FROM sessions WHERE token_hash = ? AND user_id = -1', [sha256(t)]);
+  send(res, 200, { ok: true }, { 'Set-Cookie': adminCookie('', 0) });
+}, { auth: false });
+
+route('GET', '/api/admin/overview', async (req, res) => {
+  const [users, ranks, kills, hunts, pend, notices] = await Promise.all([
+    db.get('SELECT COUNT(*) AS c FROM users'),
+    db.all('SELECT rank, COUNT(*) AS c FROM users GROUP BY rank'),
+    db.get('SELECT COUNT(*) AS c FROM kills'),
+    db.all('SELECT result, COUNT(*) AS c FROM hunt_log GROUP BY result'),
+    db.get('SELECT COUNT(*) AS c FROM s_attempts WHERE resolved = 0'),
+    db.get('SELECT COUNT(*) AS c FROM notices'),
+  ]);
+  send(res, 200, { users: users.c, ranks, kills: kills.c, hunts, pendingS: pend.c, notices: notices.c, now: Date.now() });
+}, { auth: false, admin: true });
+
+route('GET', '/api/admin/players', async (req, res) => {
+  const url = new URL(req.url, 'http://x');
+  const q = String(url.searchParams.get('q') || '').trim().slice(0, 40);
+  const like = '%' + q.replace(/[%_]/g, '') + '%';
+  const rows = await db.all(`SELECT u.code, u.hunter_name AS hn, u.name, u.rank, u.lv, u.exp, u.region, u.created_at,
+      (SELECT COUNT(*) FROM kills k WHERE k.user_id = u.id) AS kills,
+      (SELECT MAX(at) FROM hunt_log h WHERE h.user_id = u.id) AS last_hunt
+    FROM users u WHERE (? = '' OR u.hunter_name LIKE ? OR u.name LIKE ? OR u.code LIKE ?)
+    ORDER BY u.created_at DESC LIMIT 300`, [q, like, like, like.toUpperCase()]);
+  send(res, 200, { players: rows.map(r => ({ code: r.code, hunterName: r.hn, name: r.name, rank: r.rank, lv: r.lv, exp: r.exp,
+    region: (G.REGION_BY_ID[r.region] || { name: r.region }).name, created: r.created_at, kills: r.kills, lastHunt: r.last_hunt || 0 })) });
+}, { auth: false, admin: true });
+
+route('GET', '/api/admin/player', async (req, res) => {
+  const code = normCode(new URL(req.url, 'http://x').searchParams.get('code'));
+  const u = code && await userByCode(code);
+  if (!u) return fail(res, 404, 'not_found');
+  const [inv, acq, hunts, cnt, fr, pend] = await Promise.all([
+    db.all('SELECT item, qty FROM inventory WHERE user_id = ? ORDER BY item', [u.id]),
+    db.all('SELECT kind, name, qty, source, at FROM acquire_log WHERE user_id = ? ORDER BY id DESC LIMIT 200', [u.id]),
+    db.all('SELECT mon, rank, result, exp_gain, at FROM hunt_log WHERE user_id = ? ORDER BY id DESC LIMIT 200', [u.id]),
+    db.all('SELECT result, COUNT(*) AS c FROM hunt_log WHERE user_id = ? GROUP BY result', [u.id]),
+    db.get('SELECT COUNT(*) AS c FROM friends WHERE user_id = ?', [u.id]),
+    db.all(`SELECT m.name, a.resolve_at FROM s_attempts a JOIN monsters m ON m.id = a.monster_id WHERE a.user_id = ? AND a.resolved = 0`, [u.id]),
+  ]);
+  send(res, 200, {
+    player: Object.assign(publicUser(u), { created: u.created_at, region: (G.REGION_BY_ID[u.region] || { name: u.region }).name, friends: fr.c }),
+    items: inv, acquired: acq, hunts, counts: cnt, pendingS: pend.map(p => ({ mon: p.name, at: p.resolve_at })),
+  });
+}, { auth: false, admin: true });
 
 // Cron 이 호출: 출몰·S급 결과 따라잡기 + 오래된 데이터 정리. Vercel 은 CRON_SECRET 을 Bearer 로 보냅니다.
 route('GET', '/api/cron', async (req, res) => {
@@ -464,6 +583,7 @@ async function handle(req, res) {
       ctx.user = await authUser(req);
       if (!ctx.user) return fail(res, 401, 'unauthorized');
     }
+    if (r.admin && !(await authAdmin(req))) return fail(res, 401, 'unauthorized');
     if (req.method === 'POST') ctx.body = await readJson(req, r.limit || 20000);
     await r.fn(req, res, ctx);
   } catch (e) {
