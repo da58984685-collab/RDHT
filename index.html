@@ -287,6 +287,8 @@ label[for="name"]::after,label[for="age"]::after,label[for="hname"]::after,#gl::
 .app-h button{min-height:36px;padding:0 10px;color:var(--text);background:var(--field);border:1px solid var(--line);border-radius:6px;font:inherit;font-size:.8rem;cursor:pointer}
 .app-list{list-style:none;margin:0;padding:0;display:grid;gap:6px;font-size:.84rem}
 .app-list li{padding:7px 9px;background:#161012;border:1px solid var(--line);border-radius:6px}
+.gold-tag{margin:0 0 8px;color:#e0b25a;font-size:.84rem;font-weight:700}
+.shop-buy{margin-top:6px;padding:4px 10px;background:#2a0e12;color:#e8d8d0;border:1px solid var(--line);border-radius:4px;cursor:pointer;font:inherit;font-size:.78rem}
 .app-list small{display:block;color:var(--sub);font-size:.74rem}
 .app-list .lock{opacity:.5}
 .chat{display:grid;gap:10px}
@@ -942,10 +944,10 @@ function updatePendNote(){
 }
 function showResults(list){
   if(!list.length||hBusy||!hmodal.hidden)return;
-  var ok=list.filter(function(r){return r.success}).length,gain=list.reduce(function(s,r){return s+r.exp},0);
+  var ok=list.filter(function(r){return r.success}).length,gain=list.reduce(function(s,r){return s+r.exp},0),gg=list.reduce(function(s,r){return s+(r.gold||0)},0);
   var up=list.some(function(r){return r.levelUp});
   var names=list.map(function(r){return r.mon}).filter(function(v,i,x){return x.indexOf(v)===i}).join(", ");
-  showHunt(ok?"ok":"fail","S급 토벌 결과",names+" · "+list.length+"건 중 "+ok+"건 성공",gain?"전투력 경험치 +"+gain+(up?" · 전투력 Lv."+power.lv+" 달성!":""):(ok?"이미 처치한 몬스터라 추가 경험치는 없습니다.":"몬스터를 처치하지 못했습니다."));
+  showHunt(ok?"ok":"fail","S급 토벌 결과",names+" · "+list.length+"건 중 "+ok+"건 성공",gain?"전투력 경험치 +"+gain+(gg?" · 골드 +"+gg+" G":"")+(up?" · 전투력 Lv."+power.lv+" 달성!":""):(ok?"이미 처치한 몬스터라 추가 경험치는 없습니다.":"몬스터를 처치하지 못했습니다."));
   $("mapmsg").textContent="S급 토벌 결과가 공개되었습니다.";
   $("hok").focus();
   api("POST","/api/results/ack",{ids:list.map(function(r){return r.id})});
@@ -1001,8 +1003,9 @@ function huntAlert(a){
       }else if(r.result==="success"){
         a.done=true;power={lv:r.lv,exp:r.exp};renderPower(r.levelUp);
         var up=r.levelUp?" · 전투력 Lv."+power.lv+" 달성!":"";
-        mm.textContent=a.mon+" 토벌 완료! 전투력 경험치 +"+r.gain+up;
-        showHunt("ok","토벌 성공",a.mon+"을(를) 처치했습니다.","전투력 경험치 +"+r.gain+up);
+        if(r.gold!==undefined)gold+=r.gold;
+        mm.textContent=a.mon+" 토벌 완료! 전투력 경험치 +"+r.gain+(r.gold?" · +"+r.gold+" G":"")+up;
+        showHunt("ok","토벌 성공",a.mon+"을(를) 처치했습니다.","전투력 경험치 +"+r.gain+(r.gold?" · 골드 +"+r.gold+" G":"")+up);
         alertSig="";renderAlerts();
       }else{
         a.cd=r.until;
@@ -1032,7 +1035,7 @@ function drawRadar(){
   });
   var cap=$("rdcap");if(cap)cap.textContent="탐지 "+hotN+"건 · 현재 위치 "+regionById(curRegion).name;
 }
-var devApp=null,inventory=[],invSig="";
+var gold=0,devApp=null,inventory=[],invSig="";
 var APPS=[["msg","메신저","i-chat"],["com","헌터 커뮤니티","i-board"],["ach","업적","i-medal"],["sys","시스템 알림","i-bell"],["shop","상점","i-shop"],["inv","인벤토리","i-bag"]];
 function devClock(){var d=new Date(),c=$("phclk");if(c)c.textContent=pad(d.getHours())+":"+pad(d.getMinutes())}
 function badgeOf(id){return id==="sys"?unreadNotices:id==="msg"?unreadMsgs:0}
@@ -1050,6 +1053,35 @@ function loadNotices(){
     });
     scr.appendChild(ul);
     if(unreadNotices){unreadNotices=0;api("POST","/api/notices/seen",{})}
+  });
+}
+function goldTag(){return gold.toLocaleString("ko-KR")+" G"}
+function setGoldTag(){var e=document.getElementById("goldtag");if(e)e.textContent="보유 "+goldTag()}
+function addGoldTag(scr){var p=document.createElement("p");p.id="goldtag";p.className="gold-tag";p.textContent="보유 "+goldTag();scr.appendChild(p)}
+function loadShop(){
+  var scr=$("phscr");
+  api("GET","/api/shop").then(function(r){
+    if(devApp!=="shop")return;
+    var box=scr.querySelector(".app-empty,.app-list");if(box)box.remove();
+    var list=r.items||[];if(r.gold!==undefined){gold=r.gold;setGoldTag()}
+    if(!list.length){var p=document.createElement("p");p.className="app-empty";p.textContent="판매 중인 물품이 없습니다.";scr.appendChild(p);return}
+    var ul=document.createElement("ul");ul.className="app-list";
+    list.forEach(function(it){
+      var li=document.createElement("li");li.textContent=it.name;
+      if(it.desc){var sm=document.createElement("small");sm.textContent=it.desc;li.appendChild(sm)}
+      var b=document.createElement("button");b.type="button";b.className="shop-buy";b.textContent=it.price>0?"구매 · "+it.price.toLocaleString("ko-KR")+" G":"구매 · 무료";
+      var lbl=b.textContent;
+      b.addEventListener("click",function(){
+        b.disabled=true;
+        api("POST","/api/shop/buy",{id:it.id}).then(function(x){
+          b.disabled=false;b.textContent=x.ok?"구매 완료 ✓":x.error==="no_gold"?"골드가 부족합니다":x.error==="max_qty"?"더 가질 수 없습니다":"구매 실패";
+          setTimeout(function(){b.textContent=lbl},1400);
+          if(x.ok){gold=x.gold;setGoldTag();pollState(false)}
+        });
+      });
+      li.appendChild(b);ul.appendChild(li);
+    });
+    scr.appendChild(ul);
   });
 }
 function renderDevice(){
@@ -1072,8 +1104,9 @@ function renderDevice(){
   h.appendChild(back);var tt=document.createElement("span");tt.textContent=app[1];h.appendChild(tt);scr.appendChild(h);
   function empty(txt){var p=document.createElement("p");p.className="app-empty";p.textContent=txt;scr.appendChild(p)}
   if(devApp==="com")empty("아직 올라온 게시글이 없습니다.");
-  else if(devApp==="shop")empty("판매 중인 물품이 없습니다.");
+  else if(devApp==="shop"){addGoldTag(scr);empty("불러오는 중…");loadShop()}
   else if(devApp==="inv"){
+    addGoldTag(scr);
     if(!inventory.length)empty("보유한 아이템이 없습니다.");
     else{
       var iu=document.createElement("ul");iu.className="app-list";
@@ -1134,6 +1167,7 @@ function applyState(st,first){
   if(st.user&&(st.user.lv!==power.lv||st.user.exp!==power.exp)){
     var up=st.user.lv>power.lv;power={lv:st.user.lv,exp:st.user.exp};renderPower(up);
   }
+  if(st.user&&st.user.gold!==undefined&&st.user.gold!==gold){gold=st.user.gold;if(devApp==='shop'||devApp==='inv')setGoldTag()}
   var isg=JSON.stringify(st.inventory||[]);
   if(isg!==invSig){invSig=isg;inventory=st.inventory||[];if(devApp==="inv")renderDevice()}
   SI=st.s;pendingList=st.pending||[];unreadNotices=st.unreadNotices||0;unreadMsgs=st.unreadMsgs||0;
