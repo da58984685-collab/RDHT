@@ -1320,7 +1320,7 @@ function renderDevice(){
 }
 function markRegions(){
   drawRadar();
-  if(devApp!=="sys")renderDevice();
+  if(!devApp)renderDevice();else devClock();      // 앱 화면은 자동 갱신으로 다시 그리지 않음 (불러오는 중… 깜빡임 방지)
   document.querySelectorAll("#regions .rg").forEach(function(b){
     var has=alerts.some(function(a){return a.region===b.dataset.id&&isActive(a)});
     b.querySelector(".rg-a").hidden=!has;
