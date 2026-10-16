@@ -28,7 +28,8 @@ const MON = {
 const MIN = 60000, HOUR = 3600000;
 // 등급 묶음별 출몰 주기
 const TIERS = [
-  { k: 'low',  ranks: ['F', 'E', 'D'], gap: () => 5 * MIN },
+  { k: 'f',    ranks: ['F'],           gap: () => 1 * MIN },
+  { k: 'low',  ranks: ['E', 'D'],      gap: () => 5 * MIN },
   { k: 'mid',  ranks: ['C', 'B'],      gap: () => 30 * MIN },
   { k: 'high', ranks: ['A'],           gap: () => rnd(60, 120) * MIN },
   { k: 'top',  ranks: ['S'],           gap: () => 8 * HOUR },
