@@ -331,7 +331,7 @@ label[for="name"]::after,label[for="age"]::after,label[for="hname"]::after,#gl::
     <p class="eyebrow">RED MOON GATE</p>
     <h1 aria-label="적월 헌터">赤月<br>獵人</h1>
     
-    <p class="desc">게이트가 열렸습니다.</p>
+    <p class="desc">게이트가 열렸습니다. 헌터를 등록하고 그들의 사냥을 지켜보세요.</p>
     <div class="actions menu">
       <button type="button" id="login">로그인</button>
       <button type="button" class="primary" id="signup"><svg class="ic"><use href="#i-heart"/></svg>회원가입</button>
@@ -1114,8 +1114,13 @@ function renderAlerts(){
   }
   markRegions();
 }
+var statSig="";
 function applyState(st,first){
   skew=st.now-Date.now();
+  if(st.user&&st.user.stats){            // 운영자가 헌터명·스탯을 바꾸면 바로 반영
+    var sg=st.user.hunterName+"|"+JSON.stringify(st.user.stats);
+    if(sg!==statSig){if(statSig){$("ghn").textContent=st.user.hunterName||"";renderStats(st.user.stats)}statSig=sg}
+  }
   if(st.user&&(st.user.lv!==power.lv||st.user.exp!==power.exp)){
     var up=st.user.lv>power.lv;power={lv:st.user.lv,exp:st.user.exp};renderPower(up);
   }
@@ -1290,7 +1295,7 @@ function enterGame(me){
   document.querySelector("main.landing").hidden=true;
   $("game").hidden=false;window.scrollTo(0,0);
   renderChar(d);renderStats(d.stats);buildRegions();devApp=null;renderPower(false);
-  applyState(me.state,true);
+  statSig="";applyState(me.state,true);
   moveTo(curRegion,true);$("mapmsg").textContent="";
   clearInterval(pollTimer);pollTimer=setInterval(pollState,5000);
   var h=$("hudloc");h.tabIndex=-1;h.focus();
