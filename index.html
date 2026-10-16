@@ -7,7 +7,7 @@
 <title>적월 헌터</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@400;700;800&family=Noto+Sans+KR:wght@400;500;700&family=Share+Tech+Mono&family=Noto+Serif+TC:wght@900&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@400;700;800&family=Noto+Sans+KR:wght@400;500;700&family=Share+Tech+Mono&family=Noto+Serif+TC:wght@900&family=Noto+Serif+KR:wght@600;800&display=swap">
 <style>
 :root{--bg1:#0a0607;--bg2:#1a0709;--card:#140d0f;--field:#0b0708;--text:#f3e9e7;--sub:#ab9d9b;--line:#5c1b22;--red:#d4202e;--red2:#ff3b4a;--deep:#ff6672;--glow:rgba(212,32,46,.35);--bar1:#3a0a11;--bar2:#150a0c;--ok:#8fe3b0;--err:#ff8a94;color-scheme:dark;
 box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
@@ -184,6 +184,33 @@ main.landing{display:flex;align-items:center;justify-content:center;max-width:no
 .todo .empty{color:var(--sub);justify-content:center;font-size:.82rem}
 .rec{padding:9px 11px;font-size:.88rem;background:var(--field);border:1px solid var(--line)}
 .rec b{color:var(--deep)}.rec p{margin:0 0 3px}.rec p:last-child{margin:0;color:var(--sub);font-size:.82rem}
+/* 업적: 검붉은 바탕 위에 금빛 테두리·글자가 흐르는 칭호 명패 */
+.achbar{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 16px}
+.ach-pin{--g1:#fff3c4;--g2:#f0b93a;--g3:#b9791a;position:relative;overflow:hidden;isolation:isolate;display:inline-flex;align-items:center;gap:9px;padding:8px 16px 8px 12px;border:1.5px solid transparent;border-radius:999px;
+  font:800 .86rem/1.1 "Noto Serif KR","Nanum Myeongjo",serif;letter-spacing:.08em;
+  background:linear-gradient(135deg,#2c0c12,#12070a 60%,#240a10) padding-box,linear-gradient(100deg,var(--g3),var(--g1),var(--g2),#ff5560,var(--g1),var(--g3)) border-box;background-size:100% 100%,300% 100%;
+  animation:achborder 6s linear infinite,achglow 3s ease-in-out infinite alternate;box-shadow:0 0 14px rgba(240,185,58,.28),0 0 26px rgba(212,32,46,.22)}
+.ach-pin .tx{background:linear-gradient(100deg,var(--g2),var(--g1) 30%,#ffd98a 50%,var(--g1) 70%,var(--g2));background-size:250% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;animation:achtext 4.2s linear infinite;text-shadow:none}
+.ach-pin .st{position:relative;width:13px;height:13px;flex:none;transform:rotate(45deg);background:linear-gradient(135deg,var(--g1),var(--g2) 55%,var(--g3));box-shadow:0 0 8px rgba(255,214,120,.9);animation:achgem 2.6s ease-in-out infinite}
+.ach-pin .st::after{content:"";position:absolute;inset:3px;background:#12070a;opacity:.55}
+.ach-pin::after{content:"";position:absolute;z-index:-1;top:-30%;bottom:-30%;width:28%;left:-40%;background:linear-gradient(100deg,transparent,rgba(255,226,150,.28),transparent);transform:skewX(-20deg);animation:achshine 3.8s ease-in-out infinite}
+.ach-pin:nth-child(2){animation-delay:-2s,-1s}.ach-pin:nth-child(2)::after{animation-delay:1.2s}.ach-pin:nth-child(2) .st{animation-delay:-.9s}
+.ach-pin:nth-child(3){animation-delay:-4s,-2s}.ach-pin:nth-child(3)::after{animation-delay:2.4s}.ach-pin:nth-child(3) .st{animation-delay:-1.8s}
+.ach-none{width:100%;padding:9px 14px;font:600 .8rem/1.3 "Noto Serif KR","Nanum Myeongjo",serif;letter-spacing:.04em;color:#c9a65a;border:1px dashed rgba(240,185,58,.45);border-radius:999px;background:linear-gradient(90deg,rgba(240,185,58,.07),rgba(212,32,46,.07));animation:achpulse 2.8s ease-in-out infinite}
+@keyframes achborder{to{background-position:0 0,-300% 0}}
+@keyframes achtext{to{background-position:-250% 0}}
+@keyframes achglow{from{box-shadow:0 0 8px rgba(240,185,58,.2),0 0 18px rgba(212,32,46,.15)}to{box-shadow:0 0 18px rgba(240,185,58,.5),0 0 32px rgba(212,32,46,.35)}}
+@keyframes achshine{0%,50%{left:-40%}100%{left:130%}}
+@keyframes achgem{0%,100%{transform:rotate(45deg) scale(1);filter:brightness(1)}50%{transform:rotate(225deg) scale(1.18);filter:brightness(1.35)}}
+@keyframes achpulse{0%,100%{border-color:rgba(240,185,58,.25)}50%{border-color:rgba(240,185,58,.75)}}
+.ach-li{display:flex;align-items:center;gap:8px}
+.ach-li>div{flex:1;min-width:0}
+.ach-li.got{border-color:rgba(240,185,58,.5);background:linear-gradient(100deg,rgba(240,185,58,.12),rgba(212,32,46,.08))}
+.ach-li.got b{font-family:"Noto Serif KR","Nanum Myeongjo",serif;background:linear-gradient(90deg,#f0b93a,#fff3c4,#f0b93a);background-size:200% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;animation:achtext 5s linear infinite}
+.ach-btn{padding:6px 12px;font:700 .74rem/1 "Noto Sans KR",sans-serif;color:#1a0a0c;background:linear-gradient(135deg,#fff3c4,#f0b93a 60%,#b9791a);border:0;border-radius:999px;cursor:pointer;white-space:nowrap}
+.ach-btn.off{color:#e0b25a;background:none;border:1px solid rgba(240,185,58,.45)}
+.ach-btn:disabled{opacity:.5;cursor:default}
+.fx-off .ach-pin,.fx-off .ach-pin::after,.fx-off .ach-pin .st,.fx-off .ach-pin .tx,.fx-off .ach-none,.fx-off .ach-li.got b{animation:none}
 .cper{margin:0;font-size:.92rem;white-space:pre-wrap;word-break:break-word}
 .ctr{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:6px}
 .ctr li{padding:3px 9px;font-size:.8rem;color:var(--text);background:var(--field);border:1px solid var(--line);overflow-wrap:anywhere}
@@ -400,6 +427,7 @@ label[for="name"]::after,label[for="age"]::after,label[for="hname"]::after,#gl::
       <section id="gchar">
         <h2><svg class="ic"><use href="#i-person"/></svg>캐릭터</h2>
         <div class="body">
+          <div class="achbar" id="achbar" aria-label="달아둔 업적"></div>
           <div class="cwin">
             <div class="cport"><img id="gimg" alt="캐릭터 이미지" hidden><span id="gnoimg"><svg class="ic"><use href="#i-person"/></svg></span></div>
             <div class="cinfo">
@@ -1003,7 +1031,7 @@ function renderChar(d){
   $("ghn").textContent=d.hunterName||d.name||"";
   $("gnm").textContent=[d.name,d.age?d.age+"세":"",d.gender].filter(Boolean).join(" · ");
   var rk=$("grank");rk.textContent=d.rank||"-";rk.dataset.r=d.rank||"";
-  myCode=d.code||d.hunterName||"me";renderTodo();renderRec();
+  myCode=d.code||d.hunterName||"me";renderTodo();renderRec();pinned=[];renderPins();
 }
 function powNeed(lv){return Math.round(30*Math.pow(lv,1.6))}
 function renderPower(up){
@@ -1188,6 +1216,43 @@ function loadNotices(){
     if(unreadNotices){unreadNotices=0;api("POST","/api/notices/seen",{})}
   });
 }
+// ── 업적: 캐릭터 창 맨 위에 달아두기 ──
+var pinned=[];
+function renderPins(){
+  var box=$("achbar");if(!box)return;box.innerHTML="";
+  if(!pinned.length){var n=document.createElement("div");n.className="ach-none";n.textContent="◇ 기기 → 업적에서 달성한 업적을 달아보세요.";box.appendChild(n);return}
+  pinned.forEach(function(a){
+    var e=document.createElement("span");e.className="ach-pin";
+    var st=document.createElement("span");st.className="st";st.setAttribute("aria-hidden","true");st.textContent="★";
+    var tx=document.createElement("span");tx.className="tx";tx.textContent=a.name;e.appendChild(st);e.appendChild(tx);box.appendChild(e);
+  });
+}
+function loadAch(){
+  var scr=$("phscr");
+  api("GET","/api/achievements").then(function(r){
+    if(devApp!=="ach")return;
+    var old=scr.querySelector(".app-empty,.app-list");if(old)old.remove();
+    var ul=document.createElement("ul");ul.className="app-list";
+    (r.list||[]).forEach(function(a){
+      var li=document.createElement("li");li.className="ach-li"+(a.done?" got":" lock");
+      var d=document.createElement("div"),b=document.createElement("b");b.textContent=(a.done?"★ ":"☆ ")+a.name;
+      var sm=document.createElement("small");sm.textContent=a.desc;d.appendChild(b);d.appendChild(sm);li.appendChild(d);
+      if(a.done){
+        var bt=document.createElement("button");bt.type="button";bt.className="ach-btn"+(a.pinned?" off":"");bt.textContent=a.pinned?"내리기":"달기";
+        bt.addEventListener("click",function(){
+          bt.disabled=true;
+          api("POST","/api/achievements/pin",{id:a.id,on:!a.pinned}).then(function(x){
+            if(x.ok){pinned=x.pinned;renderPins();loadAch()}
+            else{bt.disabled=false;bt.textContent=x.error==="full"?"최대 "+(x.max||r.max)+"개":"실패";setTimeout(function(){bt.textContent=a.pinned?"내리기":"달기"},1400)}
+          });
+        });
+        li.appendChild(bt);
+      }
+      ul.appendChild(li);
+    });
+    scr.appendChild(ul);
+  });
+}
 function goldTag(){return gold.toLocaleString("ko-KR")+" G"}
 function setGoldTag(){var e=document.getElementById("goldtag");if(e)e.textContent="보유 "+goldTag()}
 function addGoldTag(scr){var p=document.createElement("p");p.id="goldtag";p.className="gold-tag";p.textContent="보유 "+goldTag();scr.appendChild(p)}
@@ -1251,14 +1316,7 @@ function renderDevice(){
     }
   }
   else if(devApp==="sys"){empty("불러오는 중…");loadNotices()}
-  else{
-    var ul=document.createElement("ul");ul.className="app-list";
-    [["헌터 등록",true,"게이트 앞에서 헌터로 등록했다."],["첫 출격",false,"처음으로 지역을 이동한다."],["S급 조우",false,"S급 몬스터의 출몰을 목격한다."]].forEach(function(a){
-      var li=document.createElement("li");if(!a[1])li.className="lock";
-      li.textContent=(a[1]?"★ ":"☆ ")+a[0];var sm=document.createElement("small");sm.textContent=a[2];li.appendChild(sm);ul.appendChild(li);
-    });
-    scr.appendChild(ul);
-  }
+  else if(devApp==="ach"){empty("불러오는 중…");loadAch()}
 }
 function markRegions(){
   drawRadar();
@@ -1301,6 +1359,7 @@ function applyState(st,first){
     var up=st.user.lv>power.lv;power={lv:st.user.lv,exp:st.user.exp};renderPower(up);
   }
   if(st.user&&st.user.gold!==undefined&&st.user.gold!==gold){gold=st.user.gold;if(devApp==='shop'||devApp==='inv')setGoldTag()}
+  if(st.user&&st.user.pinned){var psg=JSON.stringify(st.user.pinned);if(psg!==JSON.stringify(pinned)){pinned=st.user.pinned;renderPins()}}
   var rsg=JSON.stringify(st.rec||null);if(rsg!==recSig){recSig=rsg;curRec=st.rec||null;renderRec()}
   var isg=JSON.stringify(st.inventory||[]);
   if(isg!==invSig){invSig=isg;inventory=st.inventory||[];if(devApp==="inv")renderDevice()}
