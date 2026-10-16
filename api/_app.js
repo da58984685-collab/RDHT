@@ -526,8 +526,8 @@ route('GET', '/api/admin/player', async (req, res) => {
   if (!u) return fail(res, 404, 'not_found');
   const [inv, acq, hunts, cnt, fr, pend] = await Promise.all([
     db.all('SELECT item, qty FROM inventory WHERE user_id = ? ORDER BY item', [u.id]),
-    db.all('SELECT kind, name, qty, source, at FROM acquire_log WHERE user_id = ? ORDER BY id DESC LIMIT 200', [u.id]),
-    db.all('SELECT mon, rank, result, exp_gain, at FROM hunt_log WHERE user_id = ? ORDER BY id DESC LIMIT 200', [u.id]),
+    db.all('SELECT id, kind, name, qty, source, at FROM acquire_log WHERE user_id = ? ORDER BY id DESC LIMIT 200', [u.id]),
+    db.all('SELECT id, mon, rank, result, exp_gain, at FROM hunt_log WHERE user_id = ? ORDER BY id DESC LIMIT 200', [u.id]),
     db.all('SELECT result, COUNT(*) AS c FROM hunt_log WHERE user_id = ? GROUP BY result', [u.id]),
     db.get('SELECT COUNT(*) AS c FROM friends WHERE user_id = ?', [u.id]),
     db.all(`SELECT m.name, a.resolve_at FROM s_attempts a JOIN monsters m ON m.id = a.monster_id WHERE a.user_id = ? AND a.resolved = 0`, [u.id]),
@@ -538,11 +538,13 @@ route('GET', '/api/admin/player', async (req, res) => {
   });
 }, { auth: false, admin: true });
 
+const RANKS = ['F', 'E', 'D', 'C', 'B', 'A', 'S'];
 route('POST', '/api/admin/player/update', async (req, res, ctx) => {
   const b = ctx.body;
   const u = await userByCode(normCode(b.code));
   if (!u) return fail(res, 404, 'not_found');
-  const hn = String(b.hunterName == null ? '' : b.hunterName).trim();
+  const str = v => String(v == null ? '' : v).trim();
+  const hn = str(b.hunterName);
   if (cp(hn) < 2 || cp(hn) > 12) return fail(res, 400, 'bad_hunter_name');
   const lv = Number(b.lv), exp = Number(b.exp);
   if (!Number.isInteger(lv) || lv < 1 || lv > 999) return fail(res, 400, 'bad_lv');
@@ -553,7 +555,82 @@ route('POST', '/api/admin/player/update', async (req, res, ctx) => {
     if (!Number.isInteger(v) || v < 0 || v > 9999) return fail(res, 400, 'bad_stat', { field: k });
     stats[k] = v;
   }
-  await db.run('UPDATE users SET hunter_name = ?, stats = ?, lv = ?, exp = ? WHERE id = ?', [hn, JSON.stringify(stats), lv, exp, u.id]);
+  // 프로필 항목 (보낸 경우에만 변경)
+  let name = u.name, gender = u.gender, age = u.age, pers = u.personality, traits = JSON.parse(u.traits), rank = u.rank;
+  if (b.name !== undefined) { name = str(b.name); if (!name || cp(name) > 30) return fail(res, 400, 'bad_name'); }
+  if (b.gender !== undefined) { gender = b.gender; if (!['여성', '남성', '기타'].includes(gender)) return fail(res, 400, 'bad_gender'); }
+  if (b.age !== undefined) { age = Number(b.age); if (!Number.isInteger(age) || age < 1 || age > 999) return fail(res, 400, 'bad_age'); }
+  if (b.personality !== undefined) { pers = str(b.personality); if (!pers || cp(pers) > 1000) return fail(res, 400, 'bad_personality'); }
+  if (b.traits !== undefined) {
+    traits = Array.isArray(b.traits) ? b.traits.map(str).filter(Boolean) : null;
+    if (!traits || traits.length > 5 || traits.some(t => cp(t) > 50)) return fail(res, 400, 'bad_traits');
+  }
+  if (b.rank !== undefined) { rank = b.rank; if (!RANKS.includes(rank)) return fail(res, 400, 'bad_rank'); }
+  await db.run(`UPDATE users SET hunter_name = ?, stats = ?, lv = ?, exp = ?, name = ?, gender = ?, age = ?, personality = ?, traits = ?, rank = ? WHERE id = ?`,
+    [hn, JSON.stringify(stats), lv, exp, name, gender, age, pers, JSON.stringify(traits), rank, u.id]);
+  send(res, 200, { ok: true });
+}, { auth: false, admin: true });
+
+// ── 아이템 / 습득 정보 / 토벌 기록 관리 ──
+const adminTarget = async (ctx, res) => {
+  const u = await userByCode(normCode(ctx.body.code));
+  if (!u) { fail(res, 404, 'not_found'); return null; }
+  return u;
+};
+const intIds = v => (Array.isArray(v) ? v : []).slice(0, 500).map(Number).filter(Number.isInteger);
+
+// 아이템 추가·수량 변경 (같은 이름이면 수량을 덮어씁니다)
+route('POST', '/api/admin/player/item', async (req, res, ctx) => {
+  const u = await adminTarget(ctx, res); if (!u) return;
+  const item = String(ctx.body.item == null ? '' : ctx.body.item).trim(), qty = Number(ctx.body.qty);
+  if (!item || cp(item) > 30) return fail(res, 400, 'bad_item');
+  if (!Number.isInteger(qty) || qty < 1 || qty > 9999) return fail(res, 400, 'bad_qty');
+  await db.run('INSERT INTO inventory (user_id, item, qty) VALUES (?, ?, ?) ON CONFLICT(user_id, item) DO UPDATE SET qty = excluded.qty', [u.id, item, qty]);
+  send(res, 200, { ok: true });
+}, { auth: false, admin: true });
+
+route('POST', '/api/admin/player/item/delete', async (req, res, ctx) => {
+  const u = await adminTarget(ctx, res); if (!u) return;
+  if (ctx.body.all === true) await db.run('DELETE FROM inventory WHERE user_id = ?', [u.id]);
+  else await db.run('DELETE FROM inventory WHERE user_id = ? AND item = ?', [u.id, String(ctx.body.item || '')]);
+  send(res, 200, { ok: true });
+}, { auth: false, admin: true });
+
+// 습득 정보 삭제 (선택 또는 전체)
+route('POST', '/api/admin/player/acquired/delete', async (req, res, ctx) => {
+  const u = await adminTarget(ctx, res); if (!u) return;
+  if (ctx.body.all === true) await db.run('DELETE FROM acquire_log WHERE user_id = ?', [u.id]);
+  else {
+    const ids = intIds(ctx.body.ids);
+    if (!ids.length) return fail(res, 400, 'no_ids');
+    await db.batch(ids.map(id => ['DELETE FROM acquire_log WHERE id = ? AND user_id = ?', [id, u.id]]));
+  }
+  send(res, 200, { ok: true });
+}, { auth: false, admin: true });
+
+// 토벌 기록 변경 / 삭제. (기록만 바뀌며, 헌터의 레벨·경험치·토벌 완료 상태는 바뀌지 않습니다)
+route('POST', '/api/admin/player/hunt/update', async (req, res, ctx) => {
+  const u = await adminTarget(ctx, res); if (!u) return;
+  const id = Number(ctx.body.id), mon = String(ctx.body.mon == null ? '' : ctx.body.mon).trim();
+  const rank = ctx.body.rank, result = ctx.body.result, exp = Number(ctx.body.exp);
+  if (!Number.isInteger(id)) return fail(res, 400, 'bad_id');
+  if (!mon || cp(mon) > 30) return fail(res, 400, 'bad_mon');
+  if (!RANKS.includes(rank)) return fail(res, 400, 'bad_rank');
+  if (!['success', 'fail', 'pending'].includes(result)) return fail(res, 400, 'bad_result');
+  if (!Number.isInteger(exp) || exp < 0 || exp > 99999) return fail(res, 400, 'bad_exp');
+  const r = await db.run('UPDATE hunt_log SET mon = ?, rank = ?, result = ?, exp_gain = ? WHERE id = ? AND user_id = ?', [mon, rank, result, exp, id, u.id]);
+  if (!r.changes) return fail(res, 404, 'not_found');
+  send(res, 200, { ok: true });
+}, { auth: false, admin: true });
+
+route('POST', '/api/admin/player/hunt/delete', async (req, res, ctx) => {
+  const u = await adminTarget(ctx, res); if (!u) return;
+  if (ctx.body.all === true) await db.run('DELETE FROM hunt_log WHERE user_id = ?', [u.id]);
+  else {
+    const ids = intIds(ctx.body.ids);
+    if (!ids.length) return fail(res, 400, 'no_ids');
+    await db.batch(ids.map(id => ['DELETE FROM hunt_log WHERE id = ? AND user_id = ?', [id, u.id]]));
+  }
   send(res, 200, { ok: true });
 }, { auth: false, admin: true });
 
