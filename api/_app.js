@@ -211,6 +211,7 @@ async function buildState(u, now) {
     db.get(`SELECT COUNT(*) AS c FROM messages m JOIN friends f ON f.user_id = m.to_id AND f.friend_id = m.from_id
             WHERE m.to_id = ? AND m.id > f.last_read`, [u.id]),
   ]);
+  const inv = await db.all('SELECT item, qty FROM inventory WHERE user_id = ? AND qty > 0 ORDER BY item', [u.id]);
   const killed = new Set(kills.map(r => r.monster_id));
   const cdm = new Map(cds.map(r => [r.monster_id, r.until]));
   const pm = new Map(parts.map(r => [r.monster_id, r.c]));
@@ -227,6 +228,7 @@ async function buildState(u, now) {
     results: results.map(r => ({ id: r.id, mon: r.name, success: !!r.success, exp: r.exp_gain, levelUp: !!r.level_up })),
     unreadNotices: un.c,
     unreadMsgs: um.c,
+    inventory: inv.map(r => ({ item: r.item, qty: r.qty })),
   };
 }
 
@@ -585,7 +587,10 @@ route('POST', '/api/admin/player/item', async (req, res, ctx) => {
   const item = String(ctx.body.item == null ? '' : ctx.body.item).trim(), qty = Number(ctx.body.qty);
   if (!item || cp(item) > 30) return fail(res, 400, 'bad_item');
   if (!Number.isInteger(qty) || qty < 1 || qty > 9999) return fail(res, 400, 'bad_qty');
+  const prev = await db.get('SELECT qty FROM inventory WHERE user_id = ? AND item = ?', [u.id, item]);
   await db.run('INSERT INTO inventory (user_id, item, qty) VALUES (?, ?, ?) ON CONFLICT(user_id, item) DO UPDATE SET qty = excluded.qty', [u.id, item, qty]);
+  const delta = qty - (prev ? prev.qty : 0);
+  if (delta > 0) await logAcquire(u.id, 'item', item, delta, '운영자 지급', Date.now());
   send(res, 200, { ok: true });
 }, { auth: false, admin: true });
 
