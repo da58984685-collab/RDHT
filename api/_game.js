@@ -57,6 +57,12 @@ const ACH = [
 ];
 const ACH_BY_ID = Object.fromEntries(ACH.map(a => [a.id, a]));
 const ACH_PIN_MAX = 3;
+// 등급별 오염도(%) 상승 범위 [최소, 최대] (0.1% 단위)
+const KILL_TAINT = { F: [0.5, 1], E: [1, 2], D: [2, 3.5], C: [3.5, 5.5], B: [5.5, 7.5], A: [7.5, 9], S: [9, 10] };
+const rollTaint = rank => {
+  const r = KILL_TAINT[rank] || [0, 0], lo = Math.round(r[0] * 10), hi = Math.round(r[1] * 10);
+  return (lo + Math.floor(Math.random() * (hi - lo + 1))) / 10;
+};
 const KILL_EXP = { F: 8, E: 12, D: 20, C: 35, B: 60, A: 120, S: 300 };
 const HUNT_DIFF = { F: '쉬움', E: '쉬움', D: '쉬움', C: '보통', B: '보통', A: '어려움', S: '매우 어려움' };
 const HUNT_BASE = { '쉬움': 0.85, '보통': 0.65, '어려움': 0.4 };
@@ -114,7 +120,7 @@ function addExp(lv, exp, gain) {
 }
 
 module.exports = {
-  rnd, chance01, REGIONS, REGION_BY_ID, MON, TIERS, ACTIVE_MS, KILL_EXP, KILL_GOLD, RANK_IDX, ACH, ACH_BY_ID, ACH_PIN_MAX, rollGold, HUNT_DIFF,
+  rnd, chance01, REGIONS, REGION_BY_ID, MON, TIERS, ACTIVE_MS, KILL_EXP, KILL_GOLD, KILL_TAINT, rollTaint, RANK_IDX, ACH, ACH_BY_ID, ACH_PIN_MAX, rollGold, HUNT_DIFF,
   RAID_NEED, S_MAX, S_WINDOW_MS, S_WAIT_MS, powNeed, cdOf, huntChance,
   rollRank, rollStats, makeCode, addExp, MIN, HOUR,
 };
