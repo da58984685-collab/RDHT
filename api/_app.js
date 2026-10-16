@@ -209,7 +209,14 @@ async function purgeMonsters(force) {
 
 async function catchUp() { await tickSpawns(); await resolveDue(); await purgeMonsters(); }
 
-// ── 업적 ──
+// ── 업적 (정의는 DB에 저장되어 모든 헌터에게 똑같이 적용됩니다) ──
+async function loadAch() {
+  if (!(await db.get("SELECT 1 AS x FROM settings WHERE key = 'ach_seeded'"))) {
+    await db.batch(G.ACH_SEED.map((a, i) => ['INSERT OR IGNORE INTO achievements (id, name, descr, kind, val, at) VALUES (?, ?, ?, ?, ?, ?)', [a.id, a.name, a.desc, a.kind, a.val, i + 1]]));
+    await db.run("INSERT OR IGNORE INTO settings (key, value) VALUES ('ach_seeded', '1')");
+  }
+  return db.all('SELECT id, name, descr, kind, val FROM achievements ORDER BY at, id');
+}
 async function achStats(u) {
   const k = await db.get("SELECT COUNT(*) AS c FROM hunt_log WHERE user_id = ? AND result = 'success'", [u.id]);
   const rs = await db.all("SELECT DISTINCT rank FROM hunt_log WHERE user_id = ? AND result = 'success'", [u.id]);
@@ -217,13 +224,39 @@ async function achStats(u) {
   const sw = await db.get("SELECT COUNT(*) AS c FROM hunt_log WHERE user_id = ? AND result = 'success' AND rank = 'S'", [u.id]);
   return { kills: k.c, maxRank: rs.reduce((m, r) => Math.max(m, G.RANK_IDX[r.rank] == null ? -1 : G.RANK_IDX[r.rank]), -1), sTry: st.c, sWin: sw.c, lv: u.lv };
 }
-const pinnedOf = u => { try { const a = JSON.parse(u.pinned_ach || '[]'); return Array.isArray(a) ? a.filter(id => G.ACH_BY_ID[id]).slice(0, G.ACH_PIN_MAX) : []; } catch (_) { return []; } };
+const achMet = (a, s) => {
+  const n = Number(a.val);
+  switch (a.kind) {
+    case 'always': return true;
+    case 'kills': return s.kills >= n;
+    case 'rank': return s.maxRank >= (G.RANK_IDX[a.val] == null ? 99 : G.RANK_IDX[a.val]);
+    case 'sTry': return s.sTry >= n;
+    case 'sWin': return s.sWin >= n;
+    case 'lv': return s.lv >= n;
+    default: return false;            // manual: 관리자 부여만
+  }
+};
+// 유저의 업적 상태: [{...정의, met(조건 달성), granted(관리자 부여), done}]
+async function achOf(u) {
+  const [defs, s, gr] = await Promise.all([loadAch(), achStats(u), db.all('SELECT ach_id FROM ach_grants WHERE user_id = ?', [u.id])]);
+  const gs = new Set(gr.map(g => g.ach_id));
+  return defs.map(a => { const met = achMet(a, s), granted = gs.has(a.id); return Object.assign({}, a, { met, granted, done: met || granted }); });
+}
+const pinIds = u => { try { const a = JSON.parse(u.pinned_ach || '[]'); return Array.isArray(a) ? a.map(String) : []; } catch (_) { return []; } };
+const pinnedList = (u, defs) => { const m = new Map(defs.map(a => [a.id, a])); return pinIds(u).filter(id => m.has(id)).slice(0, G.ACH_PIN_MAX).map(id => ({ id, name: m.get(id).name })); };
 
 // 오늘의 추천 (관리자가 입력한 값만 보여줍니다)
 async function getRec() {
   const r = await db.get("SELECT value FROM settings WHERE key = 'daily_rec'");
   if (!r) return null;
-  try { return JSON.parse(r.value); } catch (_) { return null; }
+  try {
+    const v = JSON.parse(r.value);
+    if (!v.text) {      // 예전 형식(지역·시간대·조언)은 한 문장으로 합쳐서 보여줍니다
+      const rg = v.region && G.REGION_BY_ID[v.region];
+      v.text = [rg ? rg.name + ' 추천' : '', v.time || '', v.tip || ''].filter(Boolean).join(' · ');
+    }
+    return v.text ? { text: v.text, at: v.at } : null;
+  } catch (_) { return null; }
 }
 
 // ───────────── 응답 구성 ─────────────
@@ -269,7 +302,7 @@ async function buildState(u, now) {
   const pm = new Map(parts.map(r => [r.monster_id, r.c]));
   return {
     now,
-    user: { pinned: pinnedOf(u).map(id => ({ id, name: G.ACH_BY_ID[id].name })), lv: u.lv, exp: u.exp, gold: u.gold, region: u.region, hunterName: u.hunter_name, stats: JSON.parse(u.stats) },
+    user: { pinned: pinnedList(u, await loadAch()), lv: u.lv, exp: u.exp, gold: u.gold, region: u.region, hunterName: u.hunter_name, stats: JSON.parse(u.stats) },
     monsters: mons.map(m => ({
       id: m.id, region: m.region, rname: G.REGION_BY_ID[m.region].name, mon: m.name, r: m.rank, ts: m.spawned_at,
       done: killed.has(m.id), cd: cdm.get(m.id) || 0,
@@ -591,7 +624,9 @@ route('GET', '/api/admin/player', async (req, res) => {
     db.get('SELECT COUNT(*) AS c FROM friends WHERE user_id = ?', [u.id]),
     db.all(`SELECT m.name, a.resolve_at FROM s_attempts a JOIN monsters m ON m.id = a.monster_id WHERE a.user_id = ? AND a.resolved = 0`, [u.id]),
   ]);
+  const ach = await achOf(u);
   send(res, 200, {
+    achievements: ach.map(a => ({ id: a.id, name: a.name, desc: a.descr, kind: a.kind, met: a.met, granted: a.granted, done: a.done })),
     player: Object.assign(publicUser(u), { created: u.created_at, region: (G.REGION_BY_ID[u.region] || { name: u.region }).name, friends: fr.c }),
     items: inv, acquired: acq, hunts, counts: cnt, pendingS: pend.map(p => ({ mon: p.name, at: p.resolve_at })),
   });
@@ -725,26 +760,77 @@ route('POST', '/api/admin/shop/delete', async (req, res, ctx) => {
 // ── 업적 API ──
 route('GET', '/api/achievements', async (req, res, ctx) => {
   const u = await db.get('SELECT * FROM users WHERE id = ?', [ctx.user.id]);
-  const s = await achStats(u), pins = pinnedOf(u);
-  send(res, 200, { max: G.ACH_PIN_MAX, list: G.ACH.map(a => ({ id: a.id, name: a.name, desc: a.desc, done: !!a.ok(s), pinned: pins.includes(a.id) })) });
+  const list = await achOf(u), pins = pinnedList(u, list).map(p => p.id);
+  send(res, 200, { max: G.ACH_PIN_MAX, list: list.map(a => ({ id: a.id, name: a.name, desc: a.descr, done: a.done, pinned: pins.includes(a.id) })) });
 });
 
 route('POST', '/api/achievements/pin', async (req, res, ctx) => {
   const u = await db.get('SELECT * FROM users WHERE id = ?', [ctx.user.id]);
-  const a = G.ACH_BY_ID[String(ctx.body.id)];
+  const list = await achOf(u), a = list.find(x => x.id === String(ctx.body.id));
   if (!a) return fail(res, 404, 'no_ach');
-  let pins = pinnedOf(u);
+  let pins = pinnedList(u, list).map(p => p.id);
   if (ctx.body.on === false) pins = pins.filter(x => x !== a.id);
   else {
-    if (!a.ok(await achStats(u))) return fail(res, 403, 'locked');
+    if (!a.done) return fail(res, 403, 'locked');
     if (!pins.includes(a.id)) {
       if (pins.length >= G.ACH_PIN_MAX) return fail(res, 409, 'full', { max: G.ACH_PIN_MAX });
       pins.push(a.id);
     }
   }
   await db.run('UPDATE users SET pinned_ach = ? WHERE id = ?', [JSON.stringify(pins), u.id]);
-  send(res, 200, { ok: true, pinned: pins.map(id => ({ id, name: G.ACH_BY_ID[id].name })) });
+  send(res, 200, { ok: true, pinned: pins.map(id => ({ id, name: list.find(x => x.id === id).name })) });
 });
+
+// 관리자: 업적 정의 추가·수정·삭제 (모든 헌터에게 즉시 적용)
+route('GET', '/api/admin/achievements', async (req, res) => {
+  const list = await loadAch();
+  send(res, 200, { kinds: G.ACH_KINDS, list: list.map(a => ({ id: a.id, name: a.name, desc: a.descr, kind: a.kind, val: a.val })) });
+}, { auth: false, admin: true });
+
+route('POST', '/api/admin/achievements/save', async (req, res, ctx) => {
+  const str = v => String(v == null ? '' : v).trim();
+  const name = str(ctx.body.name), desc = str(ctx.body.desc), kind = str(ctx.body.kind);
+  let val = str(ctx.body.val);
+  if (!name || cp(name) > 20) return fail(res, 400, 'bad_name');
+  if (cp(desc) > 60) return fail(res, 400, 'bad_desc');
+  if (!G.ACH_KINDS.includes(kind)) return fail(res, 400, 'bad_kind');
+  if (['kills', 'sTry', 'sWin', 'lv'].includes(kind)) {
+    const n = Number(val);
+    if (!Number.isInteger(n) || n < 1 || n > 99999) return fail(res, 400, 'bad_val');
+    val = String(n);
+  } else if (kind === 'rank') { if (G.RANK_IDX[val] == null) return fail(res, 400, 'bad_val'); }
+  else val = '';
+  const id = str(ctx.body.id);
+  if (id) {
+    const r = await db.get('SELECT id FROM achievements WHERE id = ?', [id]);
+    if (!r) return fail(res, 404, 'no_ach');
+    await db.run('UPDATE achievements SET name = ?, descr = ?, kind = ?, val = ? WHERE id = ?', [name, desc, kind, val, id]);
+  } else {
+    await loadAch();
+    const c = await db.get('SELECT COUNT(*) AS c FROM achievements');
+    if (c.c >= 100) return fail(res, 400, 'too_many');
+    const nid = 'c' + Date.now().toString(36) + crypto.randomBytes(2).toString('hex');
+    await db.run('INSERT INTO achievements (id, name, descr, kind, val, at) VALUES (?, ?, ?, ?, ?, ?)', [nid, name, desc, kind, val, Date.now()]);
+  }
+  send(res, 200, { ok: true });
+}, { auth: false, admin: true });
+
+route('POST', '/api/admin/achievements/delete', async (req, res, ctx) => {
+  const id = String(ctx.body.id || '');
+  await db.batch([['DELETE FROM achievements WHERE id = ?', [id]], ['DELETE FROM ach_grants WHERE ach_id = ?', [id]]]);
+  send(res, 200, { ok: true });
+}, { auth: false, admin: true });
+
+// 관리자: 특정 헌터에게 업적 부여/회수
+route('POST', '/api/admin/player/ach', async (req, res, ctx) => {
+  const u = await userByCode(normCode(ctx.body.code));
+  if (!u) return fail(res, 404, 'not_found');
+  const id = String(ctx.body.id || '');
+  if (!(await db.get('SELECT 1 AS x FROM achievements WHERE id = ?', [id]))) return fail(res, 404, 'no_ach');
+  if (ctx.body.on === false) await db.run('DELETE FROM ach_grants WHERE user_id = ? AND ach_id = ?', [u.id, id]);
+  else await db.run('INSERT OR IGNORE INTO ach_grants (user_id, ach_id, at) VALUES (?, ?, ?)', [u.id, id, Date.now()]);
+  send(res, 200, { ok: true });
+}, { auth: false, admin: true });
 
 // ── 오늘의 추천 ──
 route('GET', '/api/admin/rec', async (req, res) => {
@@ -752,13 +838,10 @@ route('GET', '/api/admin/rec', async (req, res) => {
 }, { auth: false, admin: true });
 
 route('POST', '/api/admin/rec/save', async (req, res, ctx) => {
-  const str = v => String(v == null ? '' : v).trim();
-  const region = str(ctx.body.region), time = str(ctx.body.time), tip = str(ctx.body.tip);
-  if (region && !G.REGION_BY_ID[region]) return fail(res, 400, 'bad_region');
-  if (cp(time) > 20) return fail(res, 400, 'bad_time');
-  if (cp(tip) > 100) return fail(res, 400, 'bad_tip');
-  if (!region && !time && !tip) return fail(res, 400, 'empty');
-  const rec = { region, time, tip, at: Date.now() };
+  const text = String(ctx.body.text == null ? '' : ctx.body.text).replace(/\s+/g, ' ').trim();
+  if (!text) return fail(res, 400, 'empty');
+  if (cp(text) > 100) return fail(res, 400, 'bad_text');
+  const rec = { text, at: Date.now() };
   await db.run("INSERT INTO settings (key, value) VALUES ('daily_rec', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value", [JSON.stringify(rec)]);
   send(res, 200, { ok: true, rec });
 }, { auth: false, admin: true });
@@ -823,6 +906,7 @@ route('POST', '/api/admin/player/delete', async (req, res, ctx) => {
     ['DELETE FROM hunt_log WHERE user_id = ?', [id]],
     ['DELETE FROM acquire_log WHERE user_id = ?', [id]],
     ['DELETE FROM inventory WHERE user_id = ?', [id]],
+    ['DELETE FROM ach_grants WHERE user_id = ?', [id]],
     ['DELETE FROM user_spawn WHERE user_id = ?', [id]],
     ['DELETE FROM monsters WHERE owner_id = ?', [id]],
     ['DELETE FROM users WHERE id = ?', [id]],
