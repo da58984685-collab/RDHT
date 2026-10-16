@@ -132,6 +132,20 @@ CREATE TABLE IF NOT EXISTS shop_items (
   descr TEXT NOT NULL DEFAULT '',
   at    INTEGER NOT NULL
 );
+CREATE TABLE IF NOT EXISTS achievements (
+  id    TEXT PRIMARY KEY,
+  name  TEXT NOT NULL,
+  descr TEXT NOT NULL DEFAULT '',
+  kind  TEXT NOT NULL,
+  val   TEXT NOT NULL DEFAULT '',
+  at    INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS ach_grants (
+  user_id INTEGER NOT NULL,
+  ach_id  TEXT NOT NULL,
+  at      INTEGER NOT NULL,
+  PRIMARY KEY (user_id, ach_id)
+);
 CREATE TABLE IF NOT EXISTS settings (
   key   TEXT PRIMARY KEY,
   value TEXT NOT NULL
