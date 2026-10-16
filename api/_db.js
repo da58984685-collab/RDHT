@@ -126,12 +126,26 @@ CREATE TABLE IF NOT EXISTS inventory (
   qty     INTEGER NOT NULL DEFAULT 1,
   PRIMARY KEY (user_id, item)
 );
+CREATE TABLE IF NOT EXISTS shop_items (
+  id    INTEGER PRIMARY KEY AUTOINCREMENT,
+  name  TEXT NOT NULL UNIQUE,
+  descr TEXT NOT NULL DEFAULT '',
+  at    INTEGER NOT NULL
+);
 CREATE TABLE IF NOT EXISTS rate_limits (
   key   TEXT PRIMARY KEY,
   start INTEGER NOT NULL,
   n     INTEGER NOT NULL
 );
 `;
+
+
+// 예전에 만들어진 표에 새 칸을 추가합니다 (이미 있으면 무시).
+const MIGRATIONS = [
+  'ALTER TABLE users ADD COLUMN gold INTEGER NOT NULL DEFAULT 0',
+  'ALTER TABLE shop_items ADD COLUMN price INTEGER NOT NULL DEFAULT 0',
+  'ALTER TABLE s_attempts ADD COLUMN gold_gain INTEGER NOT NULL DEFAULT 0',
+];
 
 function remote() {
   const { createClient } = require('@libsql/client');
@@ -150,6 +164,7 @@ function remote() {
       await client.batch(SCHEMA.split(';').map(x => x.trim()).filter(Boolean).map(sql => ({ sql, args: [] })), 'write');
       // 예전에 만들어진 monsters 표에는 owner_id(개인 몬스터 주인) 칸을 추가합니다.
       try { await client.execute('ALTER TABLE monsters ADD COLUMN owner_id INTEGER'); } catch (_) {}
+      for (const q of MIGRATIONS) { try { await client.execute(q); } catch (_) {} }
       await client.execute('CREATE INDEX IF NOT EXISTS monsters_owner ON monsters(owner_id, spawned_at)');
     },
     async get(sql, args = []) { return toRows(await client.execute({ sql, args }))[0]; },
@@ -178,6 +193,7 @@ function local() {
     init: async () => {
       d.exec(SCHEMA);
       try { d.exec('ALTER TABLE monsters ADD COLUMN owner_id INTEGER'); } catch (_) {}
+      for (const q of MIGRATIONS) { try { d.exec(q); } catch (_) {} }
       d.exec('CREATE INDEX IF NOT EXISTS monsters_owner ON monsters(owner_id, spawned_at)');
     },
     async get(sql, args = []) { return norm(d.prepare(sql).get(...args)); },
