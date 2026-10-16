@@ -7,7 +7,7 @@
 <title>적월 헌터</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@400;700;800&family=Noto+Sans+KR:wght@400;500;700&family=Share+Tech+Mono&family=Noto+Serif+TC:wght@900&family=Noto+Serif+KR:wght@600;800&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@400;700;800&family=Noto+Sans+KR:wght@400;500;700&family=Share+Tech+Mono&family=Noto+Serif+TC:wght@900&family=Noto+Serif+KR:wght@600;800&family=Song+Myung&family=Gugi&family=Diphylleia&family=Black+Han+Sans&family=Do+Hyeon&family=Gowun+Dodum&family=Orbitron:wght@500;800&family=Cinzel:wght@600;800&display=swap">
 <style>
 :root{--bg1:#0a0607;--bg2:#1a0709;--card:#140d0f;--field:#0b0708;--text:#f3e9e7;--sub:#ab9d9b;--line:#5c1b22;--red:#d4202e;--red2:#ff3b4a;--deep:#ff6672;--glow:rgba(212,32,46,.35);--bar1:#3a0a11;--bar2:#150a0c;--ok:#8fe3b0;--err:#ff8a94;color-scheme:dark;
 box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
@@ -368,6 +368,30 @@ label[for="name"]::after,label[for="age"]::after,label[for="hname"]::after,#gl::
 #gstat .stats{flex:1;display:flex;flex-direction:column;justify-content:space-between;gap:13px}
 .al[data-r="S"]{border-color:var(--red2);box-shadow:0 0 18px rgba(255,59,74,.55)}
 .al[data-r="S"] .al-r{background:linear-gradient(135deg,#ff5a66,#a30f1d);box-shadow:0 0 12px var(--red2);animation:blink 1.2s steps(2) infinite}
+
+/* ── 게임 화면 구획별 전용 글꼴 ──
+   산돌 가웨인 등 유료 글꼴이 기기에 설치돼 있으면 그 글꼴이 가장 먼저 쓰이고,
+   없으면 아래의 무료 글꼴(구글 폰트)이 쓰입니다. */
+#gchar{--fx:"Sandoll Gawain","산돌 가웨인","Cinzel","Song Myung","Nanum Myeongjo",serif}
+#gstat{--fx:"Orbitron","Gugi","Noto Sans KR",sans-serif}
+#gradar{--fx:"Orbitron","Do Hyeon","Noto Sans KR",sans-serif}
+#gmap{--fx:"Cinzel","Diphylleia","Nanum Myeongjo",serif}
+#galert{--fx:"Black Han Sans","Noto Sans KR",sans-serif}
+#gdev{--fx:"Orbitron","Gowun Dodum","Noto Sans KR",sans-serif}
+:is(#gchar,#gstat,#gradar,#gmap,#galert,#gdev){font-family:var(--fx)}
+:is(#gchar,#gstat,#gradar,#gmap,#galert,#gdev) :is(h2,button,input,textarea,select,.chn,.cnm,.lbl,.rk,.pow-h,.pow-n,.pow-x,.rd-cap,.ph-top,.al-r,.al-t,.al-s,.al-gain,.al-pin,.al-go,.reg,.rec,.todo li,.bgm-note,.pwnote,.hud-btn){font-family:var(--fx)}
+#gchar h2,#gmap h2{letter-spacing:.14em}
+#gchar .chn{font-size:1.65rem;letter-spacing:.06em;text-shadow:0 0 14px var(--glow)}
+#gchar .lbl{letter-spacing:.18em}
+#gstat h2,#gradar h2,#gdev h2{letter-spacing:.2em;font-weight:700}
+#gstat .pow-n{font-size:1.8rem;letter-spacing:.04em}
+#gstat .stats{letter-spacing:.04em}
+#gradar .rd-cap{letter-spacing:.12em}
+#gmap .regions{letter-spacing:.06em}
+#galert h2{letter-spacing:.06em;font-weight:400}
+#galert .al-t{letter-spacing:.02em}
+#galert .al-r{font-weight:400}
+#gdev .ph-top{letter-spacing:.2em}
 </style>
 </head>
 <body>
