@@ -1057,7 +1057,7 @@ function renderStats(st){
     bar.className="bar";bar.setAttribute("role","progressbar");bar.setAttribute("aria-label",d[1]);
     bar.setAttribute("aria-valuemin","0");bar.setAttribute("aria-valuemax",String(max));bar.setAttribute("aria-valuenow",String(v));
     bar.appendChild(f);li.appendChild(bar);
-    var n=document.createElement("span");n.className="st-v";n.textContent=d[0]==="taint"?v+"%":String(v);li.appendChild(n);
+    var n=document.createElement("span");n.className="st-v";n.textContent=d[0]==="taint"?(Math.round(v*10)/10)+"%":String(v);li.appendChild(n);
     ul.appendChild(li);
     setTimeout(function(){f.style.transform="scaleX("+Math.min(1,v/max)+")"},60);
   });
@@ -1105,10 +1105,10 @@ function updatePendNote(){
 }
 function showResults(list){
   if(!list.length||hBusy||!hmodal.hidden)return;
-  var ok=list.filter(function(r){return r.success}).length,gain=list.reduce(function(s,r){return s+r.exp},0),gg=list.reduce(function(s,r){return s+(r.gold||0)},0);
+  var ok=list.filter(function(r){return r.success}).length,gain=list.reduce(function(s,r){return s+r.exp},0),tt=Math.round(list.reduce(function(s,r){return s+(r.taint||0)},0)*10)/10,gg=list.reduce(function(s,r){return s+(r.gold||0)},0);
   var up=list.some(function(r){return r.levelUp});
   var names=list.map(function(r){return r.mon}).filter(function(v,i,x){return x.indexOf(v)===i}).join(", ");
-  showHunt(ok?"ok":"fail","S급 토벌 결과",names+" · "+list.length+"건 중 "+ok+"건 성공",gain?"전투력 경험치 +"+gain+(gg?" · 골드 +"+gg+" G":"")+(up?" · 전투력 Lv."+power.lv+" 달성!":""):(ok?"이미 처치한 몬스터라 추가 경험치는 없습니다.":"몬스터를 처치하지 못했습니다."));
+  showHunt(ok?"ok":"fail","S급 토벌 결과",names+" · "+list.length+"건 중 "+ok+"건 성공",gain?"전투력 경험치 +"+gain+(gg?" · 골드 +"+gg+" G":"")+(tt?" · 오염도 +"+tt+"%":"")+(up?" · 전투력 Lv."+power.lv+" 달성!":""):(ok?"이미 처치한 몬스터라 추가 경험치는 없습니다.":"몬스터를 처치하지 못했습니다."));
   $("mapmsg").textContent="S급 토벌 결과가 공개되었습니다.";
   $("hok").focus();
   api("POST","/api/results/ack",{ids:list.map(function(r){return r.id})});
@@ -1165,8 +1165,8 @@ function huntAlert(a){
         a.done=true;power={lv:r.lv,exp:r.exp};renderPower(r.levelUp);
         var up=r.levelUp?" · 전투력 Lv."+power.lv+" 달성!":"";
         if(r.gold!==undefined)gold+=r.gold;
-        mm.textContent=a.mon+" 토벌 완료! 전투력 경험치 +"+r.gain+(r.gold?" · +"+r.gold+" G":"")+up;
-        showHunt("ok","토벌 성공",a.mon+"을(를) 처치했습니다.","전투력 경험치 +"+r.gain+(r.gold?" · 골드 +"+r.gold+" G":"")+up);
+        mm.textContent=a.mon+" 토벌 완료! 전투력 경험치 +"+r.gain+(r.gold?" · +"+r.gold+" G":"")+(r.taint?" · 오염도 +"+r.taint+"%":"")+up;
+        showHunt("ok","토벌 성공",a.mon+"을(를) 처치했습니다.","전투력 경험치 +"+r.gain+(r.gold?" · 골드 +"+r.gold+" G":"")+(r.taint?" · 오염도 +"+r.taint+"%":"")+up);
         alertSig="";renderAlerts();
       }else{
         a.cd=r.until;
