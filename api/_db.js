@@ -146,6 +146,35 @@ CREATE TABLE IF NOT EXISTS ach_grants (
   at      INTEGER NOT NULL,
   PRIMARY KEY (user_id, ach_id)
 );
+CREATE TABLE IF NOT EXISTS s_close (
+  monster_id INTEGER PRIMARY KEY,
+  ok         INTEGER NOT NULL,
+  how        TEXT NOT NULL,
+  at         INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS s_rewards (
+  user_id    INTEGER NOT NULL,
+  monster_id INTEGER NOT NULL,
+  exp        INTEGER NOT NULL,
+  gold       INTEGER NOT NULL,
+  taint      REAL NOT NULL,
+  claimed    INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (user_id, monster_id)
+);
+CREATE TABLE IF NOT EXISTS s_ack (
+  user_id    INTEGER NOT NULL,
+  monster_id INTEGER NOT NULL,
+  at         INTEGER NOT NULL,
+  PRIMARY KEY (user_id, monster_id)
+);
+CREATE TABLE IF NOT EXISTS s_log (
+  monster_id INTEGER PRIMARY KEY,
+  name       TEXT NOT NULL,
+  region     TEXT NOT NULL,
+  spawned_at INTEGER NOT NULL,
+  status     TEXT NOT NULL,
+  ended_at   INTEGER NOT NULL
+);
 CREATE TABLE IF NOT EXISTS settings (
   key   TEXT PRIMARY KEY,
   value TEXT NOT NULL
@@ -155,11 +184,19 @@ CREATE TABLE IF NOT EXISTS rate_limits (
   start INTEGER NOT NULL,
   n     INTEGER NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS invites (
+  code       TEXT PRIMARY KEY,
+  active     INTEGER NOT NULL DEFAULT 1,
+  max_uses   INTEGER NOT NULL DEFAULT 10,
+  created_at INTEGER NOT NULL
+);
 `;
 
 
 // 예전에 만들어진 표에 새 칸을 추가합니다 (이미 있으면 무시).
 const MIGRATIONS = [
+  "ALTER TABLE users ADD COLUMN invite_code TEXT NOT NULL DEFAULT ''",
   'ALTER TABLE users ADD COLUMN gold INTEGER NOT NULL DEFAULT 0',
   "ALTER TABLE users ADD COLUMN pinned_ach TEXT NOT NULL DEFAULT '[]'",
   'ALTER TABLE s_attempts ADD COLUMN taint_gain REAL NOT NULL DEFAULT 0',
