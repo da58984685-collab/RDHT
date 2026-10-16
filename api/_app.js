@@ -151,6 +151,20 @@ async function grantGold(userId, n) {
   if (n > 0) await db.run('UPDATE users SET gold = gold + ? WHERE id = ?', [n, userId]);
 }
 
+// 토벌에 성공할 때마다 오염도가 쌓입니다 (최대 100%, 동시 요청에도 안전하게 비교 후 갱신)
+async function grantTaint(userId, n) {
+  if (!(n > 0)) return null;
+  for (let i = 0; i < 6; i++) {
+    const u = await db.get('SELECT stats FROM users WHERE id = ?', [userId]);
+    if (!u) return null;
+    const st = JSON.parse(u.stats);
+    st.taint = Math.min(100, Math.round(((Number(st.taint) || 0) + n) * 10) / 10);
+    const w = await db.run('UPDATE users SET stats = ? WHERE id = ? AND stats = ?', [JSON.stringify(st), userId, u.stats]);
+    if (w.changes === 1) return st.taint;
+  }
+  throw new Error('taint_conflict');
+}
+
 async function resolveDue() {
   const now = Date.now();
   const due = await db.all('SELECT * FROM s_attempts WHERE resolved = 0 AND resolve_at <= ? ORDER BY resolve_at LIMIT 100', [now]);
@@ -162,16 +176,17 @@ async function resolveDue() {
     if (!m || !u) { await db.run('UPDATE s_attempts SET resolved = 1 WHERE id = ?', [a.id]); continue; }
     const p = await db.get('SELECT COUNT(DISTINCT user_id) AS c FROM s_attempts WHERE monster_id = ?', [a.monster_id]);
     const win = G.chance01() < G.huntChance('S', u.lv, p.c);
-    let gain = 0, up = 0, gold = 0;
+    let gain = 0, up = 0, gold = 0, taint = 0;
     if (win) {
       const k = await db.run('INSERT OR IGNORE INTO kills (user_id, monster_id, at) VALUES (?, ?, ?)', [u.id, m.id, now]);
       if (k.changes === 1) {
         const r = await grantExp(u.id, G.KILL_EXP.S);
         gain = G.KILL_EXP.S; up = r && r.up ? 1 : 0;
         gold = G.rollGold('S'); await grantGold(u.id, gold);
+        taint = G.rollTaint('S'); await grantTaint(u.id, taint);
       }
     }
-    await db.run('UPDATE s_attempts SET resolved = 1, success = ?, exp_gain = ?, level_up = ?, gold_gain = ? WHERE id = ?', [win ? 1 : 0, gain, up, gold, a.id]);
+    await db.run('UPDATE s_attempts SET resolved = 1, success = ?, exp_gain = ?, level_up = ?, gold_gain = ?, taint_gain = ? WHERE id = ?', [win ? 1 : 0, gain, up, gold, taint, a.id]);
     await logHunt(u.id, m, win ? 'success' : 'fail', gain, now);
     if (gain) await logAcquire(u.id, 'exp', '경험치', gain, m.name + ' 토벌', now);
     if (gold) await logAcquire(u.id, 'gold', '골드', gold, m.name + ' 토벌', now);
@@ -242,7 +257,7 @@ async function buildState(u, now) {
     sInfo(u.id, now),
     db.all(`SELECT a.id, a.resolve_at, m.name FROM s_attempts a JOIN monsters m ON m.id = a.monster_id
             WHERE a.user_id = ? AND a.resolved = 0 ORDER BY a.resolve_at`, [u.id]),
-    db.all(`SELECT a.id, a.success, a.exp_gain, a.gold_gain, a.level_up, m.name FROM s_attempts a JOIN monsters m ON m.id = a.monster_id
+    db.all(`SELECT a.id, a.success, a.exp_gain, a.gold_gain, a.taint_gain, a.level_up, m.name FROM s_attempts a JOIN monsters m ON m.id = a.monster_id
             WHERE a.user_id = ? AND a.resolved = 1 AND a.notified = 0 ORDER BY a.id`, [u.id]),
     db.get('SELECT COUNT(*) AS c FROM notices WHERE id > ?', [u.notice_seen]),
     db.get(`SELECT COUNT(*) AS c FROM messages m JOIN friends f ON f.user_id = m.to_id AND f.friend_id = m.from_id
@@ -262,7 +277,7 @@ async function buildState(u, now) {
     })),
     s: Object.assign(si, { need: G.RAID_NEED, max: G.S_MAX }),
     pending: pending.map(p => ({ id: p.id, mon: p.name, at: p.resolve_at })),
-    results: results.map(r => ({ id: r.id, mon: r.name, success: !!r.success, exp: r.exp_gain, gold: r.gold_gain, levelUp: !!r.level_up })),
+    results: results.map(r => ({ id: r.id, mon: r.name, success: !!r.success, exp: r.exp_gain, gold: r.gold_gain, taint: r.taint_gain, levelUp: !!r.level_up })),
     unreadNotices: un.c,
     unreadMsgs: um.c,
     rec: await getRec(),
@@ -424,10 +439,11 @@ route('POST', '/api/hunt', async (req, res, ctx) => {
     const gain = G.KILL_EXP[m.rank];
     const r = await grantExp(cur.id, gain);
     const gold = G.rollGold(m.rank); await grantGold(cur.id, gold);
+    const taint = G.rollTaint(m.rank), taintNow = await grantTaint(cur.id, taint);
     await logHunt(cur.id, m, 'success', gain, now);
     await logAcquire(cur.id, 'exp', '경험치', gain, m.name + ' 토벌', now);
     await logAcquire(cur.id, 'gold', '골드', gold, m.name + ' 토벌', now);
-    return send(res, 200, { result: 'success', gain, gold, levelUp: r.up, lv: r.lv, exp: r.exp });
+    return send(res, 200, { result: 'success', gain, gold, taint, taintNow, levelUp: r.up, lv: r.lv, exp: r.exp });
   }
   const until = now + G.cdOf(m.rank);
   await logHunt(cur.id, m, 'fail', 0, now);
@@ -597,6 +613,11 @@ route('POST', '/api/admin/player/update', async (req, res, ctx) => {
     const v = Number(b.stats && b.stats[k]);
     if (!Number.isInteger(v) || v < 0 || v > 9999) return fail(res, 400, 'bad_stat', { field: k });
     stats[k] = v;
+  }
+  if (b.stats && b.stats.taint !== undefined) {
+    const t = Number(b.stats.taint);
+    if (!Number.isFinite(t) || t < 0 || t > 100 || Math.round(t * 10) / 10 !== t) return fail(res, 400, 'bad_stat', { field: 'taint' });
+    stats.taint = t;
   }
   // 프로필 항목 (보낸 경우에만 변경)
   let name = u.name, gender = u.gender, age = u.age, pers = u.personality, traits = JSON.parse(u.traits), rank = u.rank;
