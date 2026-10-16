@@ -1,0 +1,171 @@
+'use strict';
+// 데이터베이스 연결.
+//  - TURSO_DATABASE_URL 이 있으면 Turso(libSQL) 원격 데이터베이스를 사용합니다. (Vercel 배포용)
+//  - 없으면 내 컴퓨터의 파일(data/hunter.db)을 사용합니다. (개발·테스트용, Node 22.13 이상)
+// 두 방식 모두 같은 SQL(SQLite)을 쓰고, 아래 get / all / run / batch 로만 접근합니다.
+
+const SCHEMA = `
+CREATE TABLE IF NOT EXISTS users (
+  id          INTEGER PRIMARY KEY AUTOINCREMENT,
+  code        TEXT NOT NULL UNIQUE,
+  name        TEXT NOT NULL,
+  gender      TEXT NOT NULL,
+  age         INTEGER NOT NULL,
+  personality TEXT NOT NULL,
+  traits      TEXT NOT NULL DEFAULT '[]',
+  image       TEXT NOT NULL DEFAULT '',
+  hunter_name TEXT NOT NULL,
+  rank        TEXT NOT NULL,
+  stats       TEXT NOT NULL,
+  pw_salt     TEXT NOT NULL,
+  pw_hash     TEXT NOT NULL,
+  lv          INTEGER NOT NULL DEFAULT 1,
+  exp         INTEGER NOT NULL DEFAULT 0,
+  region      TEXT NOT NULL DEFAULT 'city',
+  notice_seen INTEGER NOT NULL DEFAULT 0,
+  created_at  INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS sessions (
+  token_hash TEXT PRIMARY KEY,
+  user_id    INTEGER NOT NULL,
+  expires_at INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS spawn_state (
+  tier    TEXT PRIMARY KEY,
+  next_at INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS monsters (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  region     TEXT NOT NULL,
+  name       TEXT NOT NULL,
+  rank       TEXT NOT NULL,
+  spawned_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS monsters_spawned ON monsters(spawned_at);
+CREATE TABLE IF NOT EXISTS kills (
+  user_id    INTEGER NOT NULL,
+  monster_id INTEGER NOT NULL,
+  at         INTEGER NOT NULL,
+  PRIMARY KEY (user_id, monster_id)
+);
+CREATE TABLE IF NOT EXISTS fail_cd (
+  user_id    INTEGER NOT NULL,
+  monster_id INTEGER NOT NULL,
+  until      INTEGER NOT NULL,
+  PRIMARY KEY (user_id, monster_id)
+);
+CREATE TABLE IF NOT EXISTS s_window (
+  user_id INTEGER PRIMARY KEY,
+  start   INTEGER NOT NULL,
+  n       INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS s_attempts (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id    INTEGER NOT NULL,
+  monster_id INTEGER NOT NULL,
+  created_at INTEGER NOT NULL,
+  resolve_at INTEGER NOT NULL,
+  resolved   INTEGER NOT NULL DEFAULT 0,
+  success    INTEGER NOT NULL DEFAULT 0,
+  exp_gain   INTEGER NOT NULL DEFAULT 0,
+  level_up   INTEGER NOT NULL DEFAULT 0,
+  notified   INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS s_attempts_due ON s_attempts(resolved, resolve_at);
+CREATE INDEX IF NOT EXISTS s_attempts_user ON s_attempts(user_id, resolved);
+CREATE TABLE IF NOT EXISTS friends (
+  user_id   INTEGER NOT NULL,
+  friend_id INTEGER NOT NULL,
+  last_read INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (user_id, friend_id)
+);
+CREATE TABLE IF NOT EXISTS messages (
+  id      INTEGER PRIMARY KEY AUTOINCREMENT,
+  from_id INTEGER NOT NULL,
+  to_id   INTEGER NOT NULL,
+  text    TEXT NOT NULL,
+  ts      INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS messages_pair ON messages(from_id, to_id, id);
+CREATE TABLE IF NOT EXISTS notices (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  text       TEXT NOT NULL,
+  created_at INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS rate_limits (
+  key   TEXT PRIMARY KEY,
+  start INTEGER NOT NULL,
+  n     INTEGER NOT NULL
+);
+`;
+
+function remote() {
+  const { createClient } = require('@libsql/client');
+  // 서버리스에서는 웹소켓(libsql://) 대신 HTTPS 로 접속하는 편이 안정적입니다. 환경변수 값의 앞뒤 공백도 제거합니다.
+  const url = String(process.env.TURSO_DATABASE_URL || '').trim().replace(/^libsql:\/\//, 'https://');
+  const authToken = String(process.env.TURSO_AUTH_TOKEN || '').trim().replace(/^Bearer\s+/i, '');
+  const client = createClient({ url, authToken });
+  const toRows = r => r.rows.map(row => {
+    const o = {};
+    r.columns.forEach((c, i) => { o[c] = row[i]; });
+    return o;
+  });
+  return {
+    kind: 'turso',
+    init: () => client.batch(SCHEMA.split(';').map(x => x.trim()).filter(Boolean).map(sql => ({ sql, args: [] })), 'write'),
+    async get(sql, args = []) { return toRows(await client.execute({ sql, args }))[0]; },
+    async all(sql, args = []) { return toRows(await client.execute({ sql, args })); },
+    async run(sql, args = []) {
+      const r = await client.execute({ sql, args });
+      return { changes: Number(r.rowsAffected || 0), lastId: r.lastInsertRowid == null ? 0 : Number(r.lastInsertRowid) };
+    },
+    // 여러 문장을 한꺼번에(전부 성공하거나 전부 취소) 실행합니다.
+    async batch(list) { await client.batch(list.map(([sql, args]) => ({ sql, args: args || [] })), 'write'); },
+  };
+}
+
+function local() {
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const { DatabaseSync } = require('node:sqlite');
+  const dir = process.env.DATA_DIR || path.join('/tmp', 'hunter-data');
+  fs.mkdirSync(dir, { recursive: true });
+  const file = process.env.DB_FILE || path.join(dir, 'hunter.db');
+  const d = new DatabaseSync(file);
+  d.exec('PRAGMA journal_mode = WAL; PRAGMA busy_timeout = 5000;');
+  const norm = r => (r ? Object.assign({}, r) : r);
+  return {
+    kind: 'file:' + file,
+    init: async () => { d.exec(SCHEMA); },
+    async get(sql, args = []) { return norm(d.prepare(sql).get(...args)); },
+    async all(sql, args = []) { return d.prepare(sql).all(...args).map(norm); },
+    async run(sql, args = []) {
+      const r = d.prepare(sql).run(...args);
+      return { changes: Number(r.changes), lastId: Number(r.lastInsertRowid) };
+    },
+    async batch(list) {
+      d.exec('BEGIN IMMEDIATE');
+      try { for (const [sql, args] of list) d.prepare(sql).run(...(args || [])); d.exec('COMMIT'); }
+      catch (e) { try { d.exec('ROLLBACK'); } catch (_) {} throw e; }
+    },
+  };
+}
+
+let impl = null;
+function get() {
+  if (impl) return impl;
+  if (process.env.TURSO_DATABASE_URL) impl = remote();
+  else if (process.env.VERCEL) throw Object.assign(new Error('환경변수 TURSO_DATABASE_URL 이 설정되지 않았습니다. Vercel > Settings > Environment Variables 를 확인한 뒤 재배포하세요.'), { config: true });
+  else impl = local();
+  return impl;
+}
+let ready = null;
+const ensure = () => ready || (ready = Promise.resolve().then(() => get().init()).then(() => get(), e => { ready = null; throw e; }));
+
+module.exports = {
+  get kind() { try { return get().kind; } catch (_) { return 'none'; } },
+  async get(sql, args) { return (await ensure()).get(sql, args); },
+  async all(sql, args) { return (await ensure()).all(sql, args); },
+  async run(sql, args) { return (await ensure()).run(sql, args); },
+  async batch(list) { return (await ensure()).batch(list); },
+};
