@@ -89,6 +89,21 @@ input:focus,textarea:focus,button:focus-visible{outline:2px solid var(--red2);ou
 .pf{position:absolute;left:50%;top:45%;width:14px;height:14px;pointer-events:none;animation:burst 1.1s ease-out forwards}
 .pf svg{width:100%;height:100%;fill:currentColor;shape-rendering:crispEdges}
 @keyframes burst{from{transform:translate(0,0) scale(.4);opacity:1}to{transform:translate(var(--dx),var(--dy)) scale(1.2);opacity:0}}
+/* 대문: 오늘 로그인한 기기에서 로그인·가입 창 대신 보이는 첫 화면 */
+.gate-wrap{display:flex;align-items:center;justify-content:center;min-height:100vh;min-height:100dvh;padding:32px 16px;position:relative;z-index:1}
+.gate-wrap[hidden]{display:none}
+.gate{width:100%;max-width:440px;text-align:center}
+.gate-arch{position:relative;margin:0 auto 22px;width:min(78vw,300px);padding:22px 0 0}
+.gate-arch::before{content:"";position:absolute;top:0;left:-8%;right:-8%;height:14px;background:linear-gradient(180deg,#e5303e,#7d0d18);border-radius:2px 2px 0 0;box-shadow:0 0 22px var(--glow)}
+.gate-arch::after{content:"";position:absolute;top:26px;left:2%;right:2%;height:6px;background:#8f0f1b}
+.gate-in{position:relative;margin:0 auto;width:82%;padding:34px 0 30px;border-left:10px solid #b0121f;border-right:10px solid #b0121f;background:radial-gradient(circle at 50% 30%,rgba(255,59,74,.28),transparent 62%),rgba(10,6,7,.72)}
+.gate-in .gmoon{position:absolute;top:10px;left:50%;width:74px;height:74px;margin-left:-37px;border-radius:50%;background:radial-gradient(circle at 40% 38%,#ff4a55,#b0121f 58%,#3d060d);opacity:.55;filter:blur(.5px);animation:moon 9s ease-in-out infinite alternate}
+.gate h1{position:relative;font-family:"Noto Serif TC","Nanum Myeongjo",serif;font-weight:900;font-size:clamp(2.1rem,11.5vw,3rem);line-height:1.15;letter-spacing:.12em;text-indent:.12em;margin:34px 0 0;text-shadow:0 0 22px var(--glow)}
+.gate .gsub{margin:6px 0 0;font:400 .72rem/1.4 "Share Tech Mono",monospace;letter-spacing:.32em;color:var(--deep)}
+.gate .gwel{margin:0 0 4px;color:var(--sub);font-size:.95rem}
+.gate .gwel b{color:var(--text)}
+.gate .actions{margin-top:18px;flex-direction:column}
+.gate .actions button{width:100%;padding:15px 18px;font-size:1.1rem}
 main.landing{display:flex;align-items:center;justify-content:center;max-width:none;min-height:100vh;min-height:100dvh;padding:32px 16px}
 .hero{width:100%;max-width:440px;margin:0;text-align:center}
 .hero h2{font:400 .72rem/1.6 "Share Tech Mono",monospace;letter-spacing:.3em}
@@ -342,6 +357,18 @@ label[for="name"]::after,label[for="age"]::after,label[for="hname"]::after,#gl::
     <button type="button" class="fxlink" data-fx aria-pressed="false">배경 효과 끄기</button>
   </div>
 </section>
+</main>
+<main class="gate-wrap" id="gate" hidden>
+  <section class="gate" aria-labelledby="gtitle">
+    <div class="gate-arch" aria-hidden="true"><div class="gate-in"><span class="gmoon"></span></div></div>
+    <h1 id="gtitle" aria-label="적월 헌터" style="margin-top:0">赤月獵人</h1>
+    <p class="gsub">RED MOON GATE</p>
+    <p class="gwel" id="gwel" style="margin-top:18px">게이트가 다시 열렸습니다.</p>
+    <div class="actions"><button type="button" class="primary" id="genter"><svg class="ic"><use href="#i-gate"/></svg>입장</button></div>
+    <div class="hmsg" id="gmsg" role="status"></div>
+    <button type="button" class="fxlink" id="gother">다른 헌터로 로그인 · 회원가입</button>
+    <button type="button" class="fxlink" data-fx aria-pressed="false" style="margin-top:0">배경 효과 끄기</button>
+  </section>
 </main>
 <div id="game" hidden>
 <div class="g-wrap">
@@ -1333,13 +1360,38 @@ function buildRegions(){
     box.appendChild(b);
   });
 }
+// ── 대문: 오늘 이 기기에서 로그인한 적이 있으면 로그인·가입 화면 대신 보여줍니다 ──
+var forceFront=false;
+function todayKey(){var d=new Date(),p=function(n){return String(n).padStart(2,"0")};return d.getFullYear()+"-"+p(d.getMonth()+1)+"-"+p(d.getDate())}
+function loggedToday(){try{return localStorage.getItem("hx_day")===todayKey()}catch(e){return false}}
+function markLogin(name){try{localStorage.setItem("hx_day",todayKey());localStorage.setItem("hx_hn",name||"")}catch(e){}}
+function showFront(){
+  var inGame=!$("game").hidden;
+  var g=$("gate"),l=document.querySelector("main.landing");
+  if(inGame){g.hidden=true;l.hidden=true;return}
+  var useGate=loggedToday()&&!forceFront;
+  g.hidden=!useGate;l.hidden=useGate;
+  if(useGate){
+    var hn="";try{hn=localStorage.getItem("hx_hn")||""}catch(e){}
+    var w=$("gwel");w.textContent="";
+    if(hn){w.appendChild(document.createTextNode("어서 오세요, "));var b=document.createElement("b");b.textContent=hn;w.appendChild(b);w.appendChild(document.createTextNode(" 헌터."))}
+    else w.textContent="게이트가 다시 열렸습니다.";
+  }
+}
+$("genter").addEventListener("click",function(){
+  var m=$("gmsg");m.textContent="입장 중이에요…";m.className="hmsg ok";
+  startSession().then(function(r){
+    if(r&&r._status===200&&r.user)return;
+    m.textContent="";lopener=$("genter");openL();      // 세션이 끝났으면 로그인 창을 엽니다
+  });
+});
+$("gother").addEventListener("click",function(){forceFront=true;showFront()});
 function enterGame(me){
   var d=me.user;
   power={lv:d.lv||1,exp:d.exp||0};curRegion=d.region||"city";
   alerts=[];seenIds={};alertSig="";paused=false;
   var pb=$("pausebtn");pb.textContent="알림 멈춤";pb.setAttribute("aria-pressed","false");
-  document.querySelector("main.landing").hidden=true;
-  $("game").hidden=false;window.scrollTo(0,0);
+  $("game").hidden=false;markLogin(d.hunterName);showFront();window.scrollTo(0,0);
   renderChar(d);renderStats(d.stats);buildRegions();devApp=null;renderPower(false);
   statSig="";applyState(me.state,true);
   moveTo(curRegion,true);$("mapmsg").textContent="";
@@ -1349,7 +1401,7 @@ function enterGame(me){
 function leaveGame(note){
   clearInterval(pollTimer);clearInterval(mTimer);
   [rmodal,hmodal,mmodal].forEach(function(m){m.hidden=true});document.body.style.overflow="";
-  $("game").hidden=true;document.querySelector("main.landing").hidden=false;
+  $("game").hidden=true;forceFront=false;showFront();
   if(note){var hm=$("hmsg");if(hm){hm.textContent=note;hm.className="hmsg"}}
 }
 $("logout").addEventListener("click",function(){api("POST","/api/logout",{}).then(function(){leaveGame()})});
@@ -1369,6 +1421,7 @@ document.querySelectorAll("svg.ic").forEach(function(sv){sv.setAttribute("aria-h
 
 makeBg();
 alignPhoto();
+showFront();
 startSession();
 })();
 </script>
