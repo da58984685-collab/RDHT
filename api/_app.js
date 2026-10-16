@@ -142,9 +142,26 @@ async function grantExp(userId, gain) {
     if (!u) return null;
     const r = G.addExp(u.lv, u.exp, gain);
     const w = await db.run('UPDATE users SET lv = ?, exp = ? WHERE id = ? AND lv = ? AND exp = ?', [r.lv, r.exp, userId, u.lv, u.exp]);
-    if (w.changes === 1) return r;
+    if (w.changes === 1) {
+      if (r.lv > u.lv) await grantFame(userId, (r.lv - u.lv) * G.FAME_PER_LV);
+      return r;
+    }
   }
   throw new Error('exp_conflict');
+}
+
+// 명성은 레벨·등급이 오를 때만 늘어납니다 (stats JSON 의 fame, 동시 요청에도 안전하게 비교 후 갱신)
+async function grantFame(userId, n) {
+  if (!(n > 0)) return null;
+  for (let i = 0; i < 6; i++) {
+    const u = await db.get('SELECT stats FROM users WHERE id = ?', [userId]);
+    if (!u) return null;
+    const st = JSON.parse(u.stats);
+    st.fame = Math.min(999999, (Number(st.fame) || 0) + n);
+    const w = await db.run('UPDATE users SET stats = ? WHERE id = ? AND stats = ?', [JSON.stringify(st), userId, u.stats]);
+    if (w.changes === 1) return st.fame;
+  }
+  throw new Error('fame_conflict');
 }
 
 async function grantGold(userId, n) {
@@ -165,31 +182,47 @@ async function grantTaint(userId, n) {
   throw new Error('taint_conflict');
 }
 
+// S급 토벌 성공: 관리자가 결정하거나, 참여 100명 / 도전 300회(중복 포함)에 이르면 자동으로 성공합니다.
+// 보상은 '도전에 참여한 헌터'에게만 정해지며, 그 헌터가 성공 팝업에서 확인을 누를 때 지급됩니다.
+async function declareSuccess(m, how) {
+  const now = Date.now();
+  const w = await db.run('INSERT OR IGNORE INTO s_close (monster_id, ok, how, at) VALUES (?, 1, ?, ?)', [m.id, how, now]);
+  if (w.changes !== 1) return false;
+  const users = await db.all('SELECT DISTINCT user_id FROM s_attempts WHERE monster_id = ? AND resolved IN (0, 2)', [m.id]);
+  const list = [];
+  for (const x of users) {
+    const exp = G.KILL_EXP.S;
+    list.push(['INSERT OR IGNORE INTO s_rewards (user_id, monster_id, exp, gold, taint) VALUES (?, ?, ?, ?, ?)', [x.user_id, m.id, exp, G.rollGold('S'), G.rollTaint('S')]]);
+    list.push(['INSERT OR IGNORE INTO kills (user_id, monster_id, at) VALUES (?, ?, ?)', [x.user_id, m.id, now]]);
+    list.push(["UPDATE hunt_log SET result = 'success', exp_gain = ? WHERE user_id = ? AND monster_id = ? AND result = 'pending'", [exp, x.user_id, m.id]]);
+  }
+  list.push(['UPDATE s_attempts SET resolved = 1, success = 1, notified = 1 WHERE monster_id = ? AND resolved IN (0, 2)', [m.id]]);
+  await db.batch(list);
+  return true;
+}
+
+// 관리자가 실패(도주)로 결정: 대기 중인 도전은 실패로 공개되고, 몬스터는 서버 화면에서 사라집니다.
+async function declareFail(m, how) {
+  const w = await db.run('INSERT OR IGNORE INTO s_close (monster_id, ok, how, at) VALUES (?, 0, ?, ?)', [m.id, how, Date.now()]);
+  if (w.changes !== 1) return false;
+  await db.batch([
+    ["UPDATE hunt_log SET result = 'fail' WHERE monster_id = ? AND result = 'pending'", [m.id]],
+    ['UPDATE s_attempts SET resolved = 1, success = 0 WHERE monster_id = ? AND resolved = 0', [m.id]],
+  ]);
+  return true;
+}
+
+// 결정되지 않은 도전은 공개 시각(기본 24시간)이 되면 실패(도주)로 공개됩니다.
 async function resolveDue() {
   const now = Date.now();
   const due = await db.all('SELECT * FROM s_attempts WHERE resolved = 0 AND resolve_at <= ? ORDER BY resolve_at LIMIT 100', [now]);
   for (const a of due) {
     const claim = await db.run('UPDATE s_attempts SET resolved = 2 WHERE id = ? AND resolved = 0', [a.id]);   // 2 = 처리 중
     if (claim.changes !== 1) continue;
-    const m = await db.get('SELECT * FROM monsters WHERE id = ?', [a.monster_id]);
-    const u = await db.get('SELECT id, lv FROM users WHERE id = ?', [a.user_id]);
-    if (!m || !u) { await db.run('UPDATE s_attempts SET resolved = 1 WHERE id = ?', [a.id]); continue; }
-    const p = await db.get('SELECT COUNT(DISTINCT user_id) AS c FROM s_attempts WHERE monster_id = ?', [a.monster_id]);
-    const win = G.chance01() < G.huntChance('S', u.lv, p.c);
-    let gain = 0, up = 0, gold = 0, taint = 0;
-    if (win) {
-      const k = await db.run('INSERT OR IGNORE INTO kills (user_id, monster_id, at) VALUES (?, ?, ?)', [u.id, m.id, now]);
-      if (k.changes === 1) {
-        const r = await grantExp(u.id, G.KILL_EXP.S);
-        gain = G.KILL_EXP.S; up = r && r.up ? 1 : 0;
-        gold = G.rollGold('S'); await grantGold(u.id, gold);
-        taint = G.rollTaint('S'); await grantTaint(u.id, taint);
-      }
-    }
-    await db.run('UPDATE s_attempts SET resolved = 1, success = ?, exp_gain = ?, level_up = ?, gold_gain = ?, taint_gain = ? WHERE id = ?', [win ? 1 : 0, gain, up, gold, taint, a.id]);
-    await logHunt(u.id, m, win ? 'success' : 'fail', gain, now);
-    if (gain) await logAcquire(u.id, 'exp', '경험치', gain, m.name + ' 토벌', now);
-    if (gold) await logAcquire(u.id, 'gold', '골드', gold, m.name + ' 토벌', now);
+    const cl = await db.get('SELECT ok FROM s_close WHERE monster_id = ?', [a.monster_id]);
+    if (cl && cl.ok === 1) { await db.run('UPDATE s_attempts SET resolved = 1, success = 1, notified = 1 WHERE id = ?', [a.id]); continue; }
+    await db.run('UPDATE s_attempts SET resolved = 1, success = 0 WHERE id = ?', [a.id]);
+    await db.run("UPDATE hunt_log SET result = 'fail' WHERE user_id = ? AND monster_id = ? AND result = 'pending'", [a.user_id, a.monster_id]);
   }
 }
 
@@ -200,10 +233,18 @@ async function purgeMonsters(force) {
   const now = Date.now();
   if (!force && now - lastPurge < 30000) return;
   lastPurge = now;
-  await db.run(`DELETE FROM monsters WHERE spawned_at < ?
+  // 사라지는 S급(도주)은 관리자 통계를 위해 기록을 남깁니다
+  await db.run(`INSERT OR IGNORE INTO s_log (monster_id, name, region, spawned_at, status, ended_at)
+    SELECT id, name, region, spawned_at, 'fled', ? FROM monsters WHERE rank = 'S' AND spawned_at < ?
     AND NOT EXISTS (SELECT 1 FROM kills k WHERE k.monster_id = monsters.id)
+    AND NOT EXISTS (SELECT 1 FROM s_close c WHERE c.monster_id = monsters.id AND c.ok = 1)
     AND NOT EXISTS (SELECT 1 FROM s_attempts a WHERE a.monster_id = monsters.id AND (a.resolved != 1 OR a.notified = 0))`,
-    [now - G.ACTIVE_MS]);
+    [now, now - G.ACTIVE_MS]);
+  await db.run(`DELETE FROM monsters WHERE (spawned_at < ? OR (rank = 'F' AND spawned_at < ?))
+    AND NOT EXISTS (SELECT 1 FROM kills k WHERE k.monster_id = monsters.id)
+    AND NOT EXISTS (SELECT 1 FROM s_close c WHERE c.monster_id = monsters.id AND c.ok = 1)
+    AND NOT EXISTS (SELECT 1 FROM s_attempts a WHERE a.monster_id = monsters.id AND (a.resolved != 1 OR a.notified = 0))`,
+    [now - G.ACTIVE_MS, now - G.ACTIVE_MS_F]);
   await db.run('DELETE FROM fail_cd WHERE monster_id NOT IN (SELECT id FROM monsters)');
 }
 
@@ -280,7 +321,9 @@ async function buildState(u, now) {
   const vis = "((owner_id IS NULL AND rank = 'S') OR owner_id = ?)";
   const mons = await db.all(`SELECT * FROM monsters
     WHERE ${vis} AND (spawned_at > ? OR id IN (SELECT id FROM monsters WHERE ${vis} ORDER BY id DESC LIMIT 6))
-    ORDER BY spawned_at DESC, id DESC LIMIT 40`, [u.id, now - G.ACTIVE_MS, u.id]);
+      AND id NOT IN (SELECT monster_id FROM s_close WHERE ok = 0)
+      AND NOT (rank = 'F' AND spawned_at < ${now - G.ACTIVE_MS_F} AND id NOT IN (SELECT monster_id FROM kills WHERE user_id = ?))
+    ORDER BY spawned_at DESC, id DESC LIMIT 40`, [u.id, now - G.ACTIVE_MS, u.id, u.id]);
   const minId = mons.length ? Math.min.apply(null, mons.map(m => m.id)) : 0;
   const [kills, cds, parts, si, pending, results, un, um] = await Promise.all([
     db.all('SELECT monster_id FROM kills WHERE user_id = ? AND monster_id >= ?', [u.id, minId]),
@@ -297,7 +340,14 @@ async function buildState(u, now) {
             WHERE m.to_id = ? AND m.id > f.last_read`, [u.id]),
   ]);
   const inv = await db.all('SELECT item, qty FROM inventory WHERE user_id = ? AND qty > 0 ORDER BY item', [u.id]);
-  const killed = new Set(kills.map(r => r.monster_id));
+  const closedOk = new Set((await db.all('SELECT monster_id FROM s_close WHERE ok = 1 AND monster_id >= ?', [minId])).map(r => r.monster_id));
+  // S급 토벌 성공 안내(모든 헌터에게): 확인을 누르면 참여자에게만 보상이 지급됩니다
+  const swin = await db.all(`SELECT c.monster_id AS id, m.name, r.exp, r.gold, r.taint, CASE WHEN r.user_id IS NULL THEN 0 ELSE 1 END AS part
+      FROM s_close c JOIN monsters m ON m.id = c.monster_id
+      LEFT JOIN s_rewards r ON r.monster_id = c.monster_id AND r.user_id = ?
+      WHERE c.ok = 1 AND c.at >= ? AND NOT EXISTS (SELECT 1 FROM s_ack k WHERE k.user_id = ? AND k.monster_id = c.monster_id)
+      ORDER BY c.at LIMIT 5`, [u.id, u.created_at, u.id]);
+  const killed = new Set([...kills.map(r => r.monster_id), ...closedOk]);
   const cdm = new Map(cds.map(r => [r.monster_id, r.until]));
   const pm = new Map(parts.map(r => [r.monster_id, r.c]));
   return {
@@ -308,11 +358,12 @@ async function buildState(u, now) {
       done: killed.has(m.id), cd: cdm.get(m.id) || 0,
       parts: m.rank === 'S' ? (pm.get(m.id) || 0) : undefined,
     })),
-    s: Object.assign(si, { need: G.RAID_NEED, max: G.S_MAX }),
+    s: Object.assign(si, { need: G.RAID_NEED, needTries: G.RAID_ATTEMPTS, max: G.S_MAX }),
     pending: pending.map(p => ({ id: p.id, mon: p.name, at: p.resolve_at })),
     results: results.map(r => ({ id: r.id, mon: r.name, success: !!r.success, exp: r.exp_gain, gold: r.gold_gain, taint: r.taint_gain, levelUp: !!r.level_up })),
     unreadNotices: un.c,
     unreadMsgs: um.c,
+    sWin: swin.map(x => ({ id: x.id, mon: x.name, part: !!x.part, exp: x.exp || 0, gold: x.gold || 0, taint: x.taint || 0 })),
     rec: await getRec(),
     inventory: inv.map(r => ({ item: r.item, qty: r.qty })),
   };
@@ -375,6 +426,13 @@ route('POST', '/api/signup', async (req, res, ctx) => {
   if (!pers || cp(pers) > 1000) return fail(res, 400, 'bad_personality');
   if (traits.length > 5 || traits.some(t => cp(t) > 50)) return fail(res, 400, 'bad_traits');
   if (!PW_OK(b.password)) return fail(res, 400, 'bad_password');
+  const inv = normInvite(b.invite);
+  if (!inv) return fail(res, 400, 'invite_required');
+  const iv = await db.get('SELECT code, active, max_uses FROM invites WHERE code = ?', [inv]);
+  if (!iv) return fail(res, 400, 'invite_invalid');
+  if (!iv.active) return fail(res, 400, 'invite_inactive');
+  const used0 = await db.get('SELECT COUNT(*) AS c FROM users WHERE invite_code = ?', [inv]);
+  if (used0.c >= iv.max_uses) return fail(res, 400, 'invite_full');
   if (image && !(image.length <= 800000 && /^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(image))) return fail(res, 400, 'bad_image');
 
   const salt = crypto.randomBytes(16).toString('hex');
@@ -386,16 +444,59 @@ route('POST', '/api/signup', async (req, res, ctx) => {
     code = G.makeCode();
     try {
       await db.run(`INSERT INTO users
-        (code, name, gender, age, personality, traits, image, hunter_name, rank, stats, pw_salt, pw_hash, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [code, name, gender, age, pers, JSON.stringify(traits), image, hn, rank, JSON.stringify(stats), salt, hash, Date.now()]);
+        (code, name, gender, age, personality, traits, image, hunter_name, rank, stats, pw_salt, pw_hash, created_at, invite_code)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [code, name, gender, age, pers, JSON.stringify(traits), image, hn, rank, JSON.stringify(stats), salt, hash, Date.now(), inv]);
       break;
     } catch (e) {
       if (!/UNIQUE/i.test(String(e.message)) || ++tries > 10) throw e;
     }
   }
+  // 동시 가입으로 정원을 넘겼다면 방금 만든 계정을 되돌립니다.
+  const iv2 = await db.get('SELECT active, max_uses FROM invites WHERE code = ?', [inv]);
+  const used1 = await db.get('SELECT COUNT(*) AS c FROM users WHERE invite_code = ?', [inv]);
+  if (!iv2 || !iv2.active || used1.c > iv2.max_uses) {
+    await db.run('DELETE FROM users WHERE code = ?', [code]);
+    return fail(res, 400, !iv2 ? 'invite_invalid' : !iv2.active ? 'invite_inactive' : 'invite_full');
+  }
   send(res, 201, { code, rank, hunterName: hn });
 }, { auth: false, limit: 1200000 });
+
+// ───────────── 초대 코드 (관리자) ─────────────
+const MAX_INVITE_USES = 10;
+const normInvite = v => String(v == null ? '' : v).trim().toUpperCase();
+const INVITE_RE = /^[A-Z0-9-]{4,20}$/;
+route('GET', '/api/admin/invites', async (req, res) => {
+  const rows = await db.all(`SELECT i.code, i.active, i.max_uses, i.created_at,
+      (SELECT COUNT(*) FROM users u WHERE u.invite_code = i.code) AS used FROM invites i ORDER BY i.created_at DESC`);
+  const users = await db.all("SELECT hunter_name, code, invite_code FROM users WHERE invite_code <> '' ORDER BY id");
+  const by = {};
+  users.forEach(u => { (by[u.invite_code] = by[u.invite_code] || []).push({ hunterName: u.hunter_name, code: u.code }); });
+  send(res, 200, { max: MAX_INVITE_USES, invites: rows.map(r => ({ code: r.code, active: !!r.active, max: r.max_uses, used: r.used, created: r.created_at, users: by[r.code] || [] })) });
+}, { auth: false, admin: true });
+
+route('POST', '/api/admin/invites/create', async (req, res, ctx) => {
+  let code = normInvite(ctx.body.code);
+  if (!code) code = crypto.randomBytes(5).toString('hex').toUpperCase();
+  if (!INVITE_RE.test(code)) return fail(res, 400, 'bad_invite');
+  const max = ctx.body.max == null || ctx.body.max === '' ? MAX_INVITE_USES : Number(ctx.body.max);
+  if (!Number.isInteger(max) || max < 1 || max > MAX_INVITE_USES) return fail(res, 400, 'bad_max');
+  if (await db.get('SELECT 1 AS x FROM invites WHERE code = ?', [code])) return fail(res, 409, 'invite_exists');
+  await db.run('INSERT INTO invites (code, active, max_uses, created_at) VALUES (?, 1, ?, ?)', [code, max, Date.now()]);
+  send(res, 200, { ok: true, code });
+}, { auth: false, admin: true });
+
+route('POST', '/api/admin/invites/toggle', async (req, res, ctx) => {
+  const code = normInvite(ctx.body.code);
+  const r = await db.run('UPDATE invites SET active = ? WHERE code = ?', [ctx.body.active ? 1 : 0, code]);
+  if (!(r && (r.changes == null || r.changes > 0))) return fail(res, 404, 'not_found');
+  send(res, 200, { ok: true });
+}, { auth: false, admin: true });
+
+route('POST', '/api/admin/invites/delete', async (req, res, ctx) => {
+  await db.run('DELETE FROM invites WHERE code = ?', [normInvite(ctx.body.code)]);
+  send(res, 200, { ok: true });
+}, { auth: false, admin: true });
 
 route('POST', '/api/login', async (req, res, ctx) => {
   const code = normCode(ctx.body.code), pw = String(ctx.body.password || '');
@@ -444,10 +545,11 @@ route('POST', '/api/hunt', async (req, res, ctx) => {
   if (!m) return fail(res, 410, 'expired');
   if ((m.owner_id != null && m.owner_id !== cur.id) || (m.owner_id == null && m.rank !== 'S')) return fail(res, 404, 'no_monster');
   if (await db.get('SELECT 1 AS x FROM kills WHERE user_id = ? AND monster_id = ?', [cur.id, m.id])) return fail(res, 409, 'already_done');
-  if (now - m.spawned_at >= G.ACTIVE_MS) return fail(res, 410, 'expired');
+  if (now - m.spawned_at >= G.activeMsOf(m.rank)) return fail(res, 410, 'expired');
   if (cur.region !== m.region) return fail(res, 409, 'wrong_region', { region: m.region, rname: G.REGION_BY_ID[m.region].name });
 
   if (m.rank === 'S') {
+    if (await db.get('SELECT 1 AS x FROM s_close WHERE monster_id = ?', [m.id])) return fail(res, 409, 'already_done');
     // 도전권 1장 사용: 1시간 창이 끝났으면 새로 시작, 아니면 3회까지만 (한 문장으로 처리해 동시 요청에도 안전)
     const W = G.S_WINDOW_MS;
     const use = await db.run(
@@ -461,6 +563,8 @@ route('POST', '/api/hunt', async (req, res, ctx) => {
     const at = now + G.S_WAIT_MS;
     await db.run('INSERT INTO s_attempts (user_id, monster_id, created_at, resolve_at) VALUES (?, ?, ?, ?)', [cur.id, m.id, now, at]);
     await logHunt(cur.id, m, 'pending', 0, now);
+    const tot = await db.get('SELECT COUNT(*) AS n, COUNT(DISTINCT user_id) AS p FROM s_attempts WHERE monster_id = ?', [m.id]);
+    if (tot.p >= G.RAID_NEED || tot.n >= G.RAID_ATTEMPTS) await declareSuccess(m, 'auto');
     return send(res, 200, { result: 'pending', resolveAt: at, s: await sInfo(cur.id, now) });
   }
 
@@ -601,7 +705,7 @@ route('GET', '/api/admin/players', async (req, res) => {
   const url = new URL(req.url, 'http://x');
   const q = String(url.searchParams.get('q') || '').trim().slice(0, 40);
   const like = '%' + q.replace(/[%_]/g, '') + '%';
-  const rows = await db.all(`SELECT u.code, u.hunter_name AS hn, u.name, u.rank, u.lv, u.exp, u.region, u.created_at,
+  const rows = await db.all(`SELECT u.code, u.invite_code AS inv, u.hunter_name AS hn, u.name, u.rank, u.lv, u.exp, u.region, u.created_at,
       (SELECT COUNT(*) FROM kills k WHERE k.user_id = u.id) AS kills,
       (SELECT MAX(at) FROM hunt_log h WHERE h.user_id = u.id) AS last_hunt,
       (SELECT m.region FROM hunt_log h JOIN monsters m ON m.id = h.monster_id WHERE h.user_id = u.id ORDER BY h.id DESC LIMIT 1) AS last_region
@@ -609,7 +713,7 @@ route('GET', '/api/admin/players', async (req, res) => {
     ORDER BY (u.hunter_name = ?) DESC, u.created_at DESC LIMIT 300`, [q, like, like, like.toUpperCase(), q]);
   const rn = id => id ? (G.REGION_BY_ID[id] || { name: id }).name : '';
   send(res, 200, { players: rows.map(r => ({ code: r.code, hunterName: r.hn, name: r.name, rank: r.rank, lv: r.lv, exp: r.exp,
-    region: rn(r.region), lastRegion: rn(r.last_region), created: r.created_at, kills: r.kills, lastHunt: r.last_hunt || 0 })) });
+    region: rn(r.region), lastRegion: rn(r.last_region), created: r.created_at, invite: r.inv || '', kills: r.kills, lastHunt: r.last_hunt || 0 })) });
 }, { auth: false, admin: true });
 
 route('GET', '/api/admin/player', async (req, res) => {
@@ -627,7 +731,7 @@ route('GET', '/api/admin/player', async (req, res) => {
   const ach = await achOf(u);
   send(res, 200, {
     achievements: ach.map(a => ({ id: a.id, name: a.name, desc: a.descr, kind: a.kind, met: a.met, granted: a.granted, done: a.done })),
-    player: Object.assign(publicUser(u), { created: u.created_at, region: (G.REGION_BY_ID[u.region] || { name: u.region }).name, friends: fr.c }),
+    player: Object.assign(publicUser(u), { invite: u.invite_code || '', created: u.created_at, region: (G.REGION_BY_ID[u.region] || { name: u.region }).name, friends: fr.c }),
     items: inv, acquired: acq, hunts, counts: cnt, pendingS: pend.map(p => ({ mon: p.name, at: p.resolve_at })),
   });
 }, { auth: false, admin: true });
@@ -664,9 +768,22 @@ route('POST', '/api/admin/player/update', async (req, res, ctx) => {
     traits = Array.isArray(b.traits) ? b.traits.map(str).filter(Boolean) : null;
     if (!traits || traits.length > 5 || traits.some(t => cp(t) > 50)) return fail(res, 400, 'bad_traits');
   }
+  // 명성: 레벨·등급이 올라가면 함께 오르고, 관리자가 명성 칸을 직접 바꿨다면 그 값을 따릅니다
+  const oldStats = JSON.parse(u.stats);
+  let fame = Number(oldStats.fame) || 0;
+  const fameEdited = b.stats && b.stats.fame !== undefined && Number(b.stats.fame) !== fame;
+  if (fameEdited) {
+    fame = Number(b.stats.fame);
+    if (!Number.isInteger(fame) || fame < 0 || fame > 999999) return fail(res, 400, 'bad_stat', { field: 'fame' });
+  }
   let gold = u.gold;
   if (b.gold !== undefined) { gold = Number(b.gold); if (!Number.isInteger(gold) || gold < 0 || gold > 99999999) return fail(res, 400, 'bad_gold'); }
   if (b.rank !== undefined) { rank = b.rank; if (!RANKS.includes(rank)) return fail(res, 400, 'bad_rank'); }
+  if (!fameEdited) {
+    if (lv > u.lv) fame += (lv - u.lv) * G.FAME_PER_LV;
+    if (G.RANK_IDX[rank] > G.RANK_IDX[u.rank]) fame += (G.RANK_IDX[rank] - G.RANK_IDX[u.rank]) * G.FAME_PER_RANK;
+  }
+  stats.fame = Math.min(999999, fame);
   await db.run(`UPDATE users SET hunter_name = ?, stats = ?, lv = ?, exp = ?, name = ?, gender = ?, age = ?, personality = ?, traits = ?, rank = ?, gold = ? WHERE id = ?`,
     [hn, JSON.stringify(stats), lv, exp, name, gender, age, pers, JSON.stringify(traits), rank, gold, u.id]);
   send(res, 200, { ok: true });
@@ -755,6 +872,130 @@ route('POST', '/api/admin/shop/save', async (req, res, ctx) => {
 route('POST', '/api/admin/shop/delete', async (req, res, ctx) => {
   await db.run('DELETE FROM shop_items WHERE id = ?', [Number(ctx.body.id) || 0]);
   send(res, 200, { ok: true });
+}, { auth: false, admin: true });
+
+// ── S급 토벌 현황 / 출현·회수 (서버 전체 공통) ──
+const inList = ids => ids.map(() => '?').join(',');
+route('GET', '/api/admin/s', async (req, res) => {
+  await purgeMonsters(true);
+  const now = Date.now();
+  const live = await db.all("SELECT id, name, region, spawned_at FROM monsters WHERE rank = 'S' AND owner_id IS NULL ORDER BY spawned_at DESC");
+  const logs = await db.all('SELECT monster_id AS id, name, region, spawned_at, status FROM s_log ORDER BY spawned_at DESC');
+  const ids = live.map(m => m.id);
+  const kc = new Map(), pc = new Map(), part = new Map(), cl = new Map(), pp = new Map();
+  if (ids.length) {
+    (await db.all(`SELECT monster_id, ok FROM s_close WHERE monster_id IN (${inList(ids)})`, ids)).forEach(r => cl.set(r.monster_id, r.ok));
+    (await db.all(`SELECT monster_id, COUNT(*) AS n, COUNT(DISTINCT user_id) AS p FROM s_attempts WHERE monster_id IN (${inList(ids)}) GROUP BY monster_id`, ids)).forEach(r => pp.set(r.monster_id, r));
+    (await db.all(`SELECT monster_id, COUNT(*) AS c FROM kills WHERE monster_id IN (${inList(ids)}) GROUP BY monster_id`, ids)).forEach(r => kc.set(r.monster_id, r.c));
+    (await db.all(`SELECT monster_id, COUNT(*) AS c FROM s_attempts WHERE resolved != 1 AND monster_id IN (${inList(ids)}) GROUP BY monster_id`, ids)).forEach(r => pc.set(r.monster_id, r.c));
+  }
+  const recent = [...live.map(m => {
+    const alive = now - m.spawned_at < G.ACTIVE_MS, k = kc.get(m.id) || 0, p = pc.get(m.id) || 0;
+    const c = cl.get(m.id);
+    const st = c === 1 ? 'killed' : c === 0 ? 'fled' : k ? 'killed' : p ? 'waiting' : alive ? 'active' : 'fled';
+    return { id: m.id, name: m.name, region: m.region, at: m.spawned_at, status: st, alive, live: true };
+  }), ...logs.map(l => ({ id: l.id, name: l.name, region: l.region, at: l.spawned_at, status: l.status, alive: false, live: false }))]
+    .sort((a, b) => b.at - a.at);
+  const top = recent.slice(0, 40), tids = top.map(r => r.id);
+  if (tids.length) {
+    (await db.all(`SELECT a.monster_id, u.hunter_name AS hn, a.resolved, a.success FROM s_attempts a JOIN users u ON u.id = a.user_id WHERE a.monster_id IN (${inList(tids)}) ORDER BY a.id`, tids))
+      .forEach(r => { if (!part.has(r.monster_id)) part.set(r.monster_id, []); part.get(r.monster_id).push({ hn: r.hn, st: r.resolved === 1 ? (r.success ? 'win' : 'lose') : 'wait' }); });
+  }
+  const catalog = G.MON.S.map(name => {
+    const rows = recent.filter(r => r.name === name);
+    return {
+      name,
+      present: rows.filter(r => r.live && r.alive).map(r => ({ id: r.id, region: r.region, rname: (G.REGION_BY_ID[r.region] || { name: r.region }).name, left: r.at + G.ACTIVE_MS - now, status: r.status })),
+      appear: rows.length,
+      killed: rows.filter(r => r.status === 'killed').length,
+      fled: rows.filter(r => r.status === 'fled').length,
+      recalled: rows.filter(r => r.status === 'recalled').length,
+    };
+  });
+  const players = await db.all(`SELECT u.code, u.hunter_name AS hn, u.rank, u.lv, COUNT(*) AS attempts,
+      SUM(CASE WHEN a.resolved = 1 AND a.success = 1 THEN 1 ELSE 0 END) AS wins,
+      SUM(CASE WHEN a.resolved = 1 AND a.success = 0 THEN 1 ELSE 0 END) AS fails,
+      SUM(CASE WHEN a.resolved != 1 THEN 1 ELSE 0 END) AS pending
+    FROM s_attempts a JOIN users u ON u.id = a.user_id GROUP BY u.id ORDER BY attempts DESC, u.hunter_name LIMIT 300`);
+  send(res, 200, {
+    open: live.filter(m => !cl.has(m.id) && ((now - m.spawned_at < G.ACTIVE_MS) || (pc.get(m.id) || 0) > 0)).map(m => {
+      const t = pp.get(m.id) || { n: 0, p: 0 };
+      return { id: m.id, name: m.name, rname: (G.REGION_BY_ID[m.region] || { name: m.region }).name, at: m.spawned_at, alive: now - m.spawned_at < G.ACTIVE_MS, left: m.spawned_at + G.ACTIVE_MS - now, people: t.p, tries: t.n, need: G.RAID_NEED, needTries: G.RAID_ATTEMPTS };
+    }),
+    catalog, players,
+    totals: { appear: recent.length, killed: recent.filter(r => r.status === 'killed').length, fled: recent.filter(r => r.status === 'fled').length, recalled: recent.filter(r => r.status === 'recalled').length, players: players.length },
+    recent: top.map(r => ({ id: r.id, name: r.name, rname: (G.REGION_BY_ID[r.region] || { name: r.region }).name, at: r.at, status: r.status, parts: part.get(r.id) || [] })),
+  });
+}, { auth: false, admin: true });
+
+route('POST', '/api/admin/s/spawn', async (req, res, ctx) => {
+  const name = String(ctx.body.name || '');
+  if (!G.MON.S.includes(name)) return fail(res, 400, 'bad_name');
+  let region = String(ctx.body.region || '');
+  if (region && !G.REGION_BY_ID[region]) return fail(res, 400, 'bad_region');
+  if (!region) region = G.REGIONS[G.rnd(0, G.REGIONS.length - 1)].id;
+  const now = Date.now();
+  const live = await db.get("SELECT COUNT(*) AS c FROM monsters WHERE rank = 'S' AND owner_id IS NULL AND spawned_at > ?", [now - G.ACTIVE_MS]);
+  if (live.c >= 20) return fail(res, 400, 'too_many');
+  const r = await db.run("INSERT INTO monsters (region, name, rank, spawned_at) VALUES (?, ?, 'S', ?)", [region, name, now]);
+  send(res, 200, { ok: true, id: r.lastId, region });
+}, { auth: false, admin: true });
+
+// 성공 팝업의 '확인' → 참여한 헌터에게만 보상 지급
+route('POST', '/api/swin/claim', async (req, res, ctx) => {
+  const u = ctx.user, id = Number(ctx.body.id) || 0, now = Date.now();
+  const c = await db.get('SELECT m.name FROM s_close s JOIN monsters m ON m.id = s.monster_id WHERE s.monster_id = ? AND s.ok = 1', [id]);
+  if (!c) return fail(res, 404, 'no_win');
+  if (await db.get('SELECT 1 AS x FROM s_ack WHERE user_id = ? AND monster_id = ?', [u.id, id])) return send(res, 200, { ok: true, already: true });
+  let reward = null, up = false;
+  const r = await db.get('SELECT exp, gold, taint FROM s_rewards WHERE user_id = ? AND monster_id = ?', [u.id, id]);
+  if (r) {
+    const cl = await db.run('UPDATE s_rewards SET claimed = 1 WHERE user_id = ? AND monster_id = ? AND claimed = 0', [u.id, id]);
+    if (cl.changes === 1) {
+      const g = await grantExp(u.id, r.exp); up = !!(g && g.up);
+      await grantGold(u.id, r.gold); await grantTaint(u.id, r.taint);
+      await logAcquire(u.id, 'exp', '경험치', r.exp, c.name + ' 토벌', now);
+      await logAcquire(u.id, 'gold', '골드', r.gold, c.name + ' 토벌', now);
+      reward = { exp: r.exp, gold: r.gold, taint: r.taint, levelUp: up };
+    }
+  }
+  await db.run('INSERT OR IGNORE INTO s_ack (user_id, monster_id, at) VALUES (?, ?, ?)', [u.id, id, now]);
+  send(res, 200, { ok: true, reward });
+});
+
+route('POST', '/api/admin/s/decide', async (req, res, ctx) => {
+  const m = await db.get("SELECT * FROM monsters WHERE id = ? AND rank = 'S' AND owner_id IS NULL", [Number(ctx.body.id) || 0]);
+  if (!m) return fail(res, 404, 'no_monster');
+  if (await db.get('SELECT 1 AS x FROM s_close WHERE monster_id = ?', [m.id])) return fail(res, 409, 'already_decided');
+  const ok = ctx.body.success === true ? await declareSuccess(m, 'admin') : await declareFail(m, 'admin');
+  send(res, 200, { ok, success: ctx.body.success === true });
+}, { auth: false, admin: true });
+
+// 회수: 아직 아무도 처치하지 못한 S급을 서버 전체에서 거둬들입니다. 대기 중이던 도전은 취소하고 도전권을 돌려줍니다.
+route('POST', '/api/admin/s/recall', async (req, res, ctx) => {
+  const now = Date.now();
+  let rows;
+  if (ctx.body.all === true) rows = await db.all("SELECT * FROM monsters WHERE rank = 'S' AND owner_id IS NULL AND spawned_at > ?", [now - G.ACTIVE_MS]);
+  else if (ctx.body.id) rows = await db.all("SELECT * FROM monsters WHERE id = ? AND rank = 'S' AND owner_id IS NULL", [Number(ctx.body.id) || 0]);
+  else if (ctx.body.name) rows = await db.all("SELECT * FROM monsters WHERE name = ? AND rank = 'S' AND owner_id IS NULL AND spawned_at > ?", [String(ctx.body.name), now - G.ACTIVE_MS]);
+  else return fail(res, 400, 'bad_target');
+  let recalled = 0, skipped = 0, cancelled = 0;
+  for (const m of rows) {
+    if (await db.get('SELECT 1 AS x FROM kills WHERE monster_id = ?', [m.id]) || await db.get('SELECT 1 AS x FROM s_close WHERE monster_id = ?', [m.id])) { skipped++; continue; }   // 이미 처치된 건 되돌리지 않음
+    const att = await db.all('SELECT id, user_id FROM s_attempts WHERE monster_id = ? AND resolved = 0', [m.id]);
+    const list = [];
+    for (const a of att) {
+      list.push(['UPDATE s_window SET n = MAX(0, n - 1) WHERE user_id = ?', [a.user_id]]);
+      list.push(["DELETE FROM hunt_log WHERE user_id = ? AND monster_id = ? AND result = 'pending'", [a.user_id, m.id]]);
+    }
+    list.push(['DELETE FROM s_attempts WHERE monster_id = ? AND resolved = 0', [m.id]]);
+    list.push(["INSERT OR REPLACE INTO s_log (monster_id, name, region, spawned_at, status, ended_at) VALUES (?, ?, ?, ?, 'recalled', ?)", [m.id, m.name, m.region, m.spawned_at, now]]);
+    list.push(['DELETE FROM fail_cd WHERE monster_id = ?', [m.id]]);
+    list.push(['DELETE FROM monsters WHERE id = ?', [m.id]]);
+    await db.batch(list);
+    recalled++; cancelled += att.length;
+  }
+  send(res, 200, { ok: true, recalled, skipped, cancelled });
 }, { auth: false, admin: true });
 
 // ── 업적 API ──
