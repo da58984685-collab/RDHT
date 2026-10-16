@@ -39,9 +39,16 @@ CREATE TABLE IF NOT EXISTS monsters (
   region     TEXT NOT NULL,
   name       TEXT NOT NULL,
   rank       TEXT NOT NULL,
-  spawned_at INTEGER NOT NULL
+  spawned_at INTEGER NOT NULL,
+  owner_id   INTEGER
 );
 CREATE INDEX IF NOT EXISTS monsters_spawned ON monsters(spawned_at);
+CREATE TABLE IF NOT EXISTS user_spawn (
+  user_id INTEGER NOT NULL,
+  tier    TEXT NOT NULL,
+  next_at INTEGER NOT NULL,
+  PRIMARY KEY (user_id, tier)
+);
 CREATE TABLE IF NOT EXISTS kills (
   user_id    INTEGER NOT NULL,
   monster_id INTEGER NOT NULL,
@@ -139,7 +146,12 @@ function remote() {
   });
   return {
     kind: 'turso',
-    init: () => client.batch(SCHEMA.split(';').map(x => x.trim()).filter(Boolean).map(sql => ({ sql, args: [] })), 'write'),
+    init: async () => {
+      await client.batch(SCHEMA.split(';').map(x => x.trim()).filter(Boolean).map(sql => ({ sql, args: [] })), 'write');
+      // 예전에 만들어진 monsters 표에는 owner_id(개인 몬스터 주인) 칸을 추가합니다.
+      try { await client.execute('ALTER TABLE monsters ADD COLUMN owner_id INTEGER'); } catch (_) {}
+      await client.execute('CREATE INDEX IF NOT EXISTS monsters_owner ON monsters(owner_id, spawned_at)');
+    },
     async get(sql, args = []) { return toRows(await client.execute({ sql, args }))[0]; },
     async all(sql, args = []) { return toRows(await client.execute({ sql, args })); },
     async run(sql, args = []) {
@@ -163,7 +175,11 @@ function local() {
   const norm = r => (r ? Object.assign({}, r) : r);
   return {
     kind: 'file:' + file,
-    init: async () => { d.exec(SCHEMA); },
+    init: async () => {
+      d.exec(SCHEMA);
+      try { d.exec('ALTER TABLE monsters ADD COLUMN owner_id INTEGER'); } catch (_) {}
+      d.exec('CREATE INDEX IF NOT EXISTS monsters_owner ON monsters(owner_id, spawned_at)');
+    },
     async get(sql, args = []) { return norm(d.prepare(sql).get(...args)); },
     async all(sql, args = []) { return d.prepare(sql).all(...args).map(norm); },
     async run(sql, args = []) {
