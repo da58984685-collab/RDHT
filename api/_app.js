@@ -438,7 +438,14 @@ route('GET', '/api/healthz', async (req, res) => {
   } catch (e) {
     console.error('[healthz]', e);
     // 설정 점검용: 비밀 값은 포함하지 않고 원인 종류만 알려 줍니다.
-    send(res, 500, { ok: false, hint: e.config ? e.message : String(e.code || e.name || 'error') + ': ' + String(e.message || '').replace(/(authToken|token)[^ ]*/gi, '***').slice(0, 200) });
+    const url = String(process.env.TURSO_DATABASE_URL || ''), tok = String(process.env.TURSO_AUTH_TOKEN || '');
+    const diag = {
+      version: 3,
+      urlSet: !!url, urlStart: url.slice(0, 8), urlHost: url.replace(/^[a-z]+:\/\//i, '').split('/')[0].slice(0, 80), urlHasSpace: /\s/.test(url),
+      tokenSet: !!tok, tokenLen: tok.length, tokenLooksJwt: /^eyJ[\w-]+\.[\w-]+\.[\w-]+$/.test(tok.trim()), tokenHasSpace: /\s/.test(tok.trim()),
+      cause: String((e.cause && e.cause.message) || '').slice(0, 160),
+    };
+    send(res, 500, { ok: false, diag, hint: e.config ? e.message : String(e.code || e.name || 'error') + ': ' + String(e.message || '').replace(/(authToken|token)[^ ]*/gi, '***').slice(0, 200) });
   }
 }, { auth: false });
 
