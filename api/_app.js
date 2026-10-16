@@ -511,11 +511,13 @@ route('GET', '/api/admin/players', async (req, res) => {
   const like = '%' + q.replace(/[%_]/g, '') + '%';
   const rows = await db.all(`SELECT u.code, u.hunter_name AS hn, u.name, u.rank, u.lv, u.exp, u.region, u.created_at,
       (SELECT COUNT(*) FROM kills k WHERE k.user_id = u.id) AS kills,
-      (SELECT MAX(at) FROM hunt_log h WHERE h.user_id = u.id) AS last_hunt
+      (SELECT MAX(at) FROM hunt_log h WHERE h.user_id = u.id) AS last_hunt,
+      (SELECT m.region FROM hunt_log h JOIN monsters m ON m.id = h.monster_id WHERE h.user_id = u.id ORDER BY h.id DESC LIMIT 1) AS last_region
     FROM users u WHERE (? = '' OR u.hunter_name LIKE ? OR u.name LIKE ? OR u.code LIKE ?)
-    ORDER BY u.created_at DESC LIMIT 300`, [q, like, like, like.toUpperCase()]);
+    ORDER BY (u.hunter_name = ?) DESC, u.created_at DESC LIMIT 300`, [q, like, like, like.toUpperCase(), q]);
+  const rn = id => id ? (G.REGION_BY_ID[id] || { name: id }).name : '';
   send(res, 200, { players: rows.map(r => ({ code: r.code, hunterName: r.hn, name: r.name, rank: r.rank, lv: r.lv, exp: r.exp,
-    region: (G.REGION_BY_ID[r.region] || { name: r.region }).name, created: r.created_at, kills: r.kills, lastHunt: r.last_hunt || 0 })) });
+    region: rn(r.region), lastRegion: rn(r.last_region), created: r.created_at, kills: r.kills, lastHunt: r.last_hunt || 0 })) });
 }, { auth: false, admin: true });
 
 route('GET', '/api/admin/player', async (req, res) => {
