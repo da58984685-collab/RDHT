@@ -4,7 +4,7 @@
 <link rel="icon" href="data:,">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>적월협인</title>
+<title>적월 헌터</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@400;700;800&family=Noto+Sans+KR:wght@400;500;700&family=Share+Tech+Mono&family=Noto+Serif+TC:wght@900&family=Noto+Serif+KR:wght@600;800&display=swap">
@@ -221,6 +221,8 @@ main.landing{display:flex;align-items:center;justify-content:center;max-width:no
 .bar{height:10px;background:var(--field);border:1px solid var(--line);overflow:hidden}
 .bar i{display:block;height:100%;width:100%;transform:scaleX(0);transform-origin:left;background:linear-gradient(90deg,#9a9a9a,#fff);box-shadow:none;transition:transform 1s cubic-bezier(.2,.8,.2,1)}
 .st[data-k="taint"] .ic{color:var(--sub)}
+.st[data-k="fame"] .ic{color:#f0b93a}
+.st[data-k="fame"] .bar i{background:linear-gradient(90deg,#8a5a10,#f0b93a 60%,#fff3c4);box-shadow:0 0 8px rgba(240,185,58,.4)}
 .st[data-k="taint"] .bar i{background:linear-gradient(90deg,#1c0508,#5e0a14 60%,#a01020);box-shadow:none}
 .st-v{text-align:right;font:400 .95rem/1 "Share Tech Mono",monospace}
 .pow{margin:0 0 16px;padding:0 0 16px;border-bottom:1px solid var(--line)}
@@ -289,6 +291,10 @@ main.landing{display:flex;align-items:center;justify-content:center;max-width:no
 .al-go:hover{box-shadow:0 0 12px var(--glow)}
 .al-gain{flex:none;font:400 .78rem/1 "Share Tech Mono",monospace;color:var(--sub)}
 .al.done{opacity:.55}
+.al.pins{border-left-color:#f0b93a;background:linear-gradient(100deg,rgba(212,32,46,.22),rgba(240,185,58,.08) 70%,var(--field));box-shadow:0 0 14px rgba(212,32,46,.3)}
+.al.pins .al-r{background:linear-gradient(135deg,#ff3b4a,#8f0f1b);border-color:#f0b93a;box-shadow:0 0 10px rgba(240,185,58,.5)}
+.al-pin{display:inline-block;margin-left:8px;padding:1px 7px;font:700 .68rem/1.4 "Noto Sans KR",sans-serif;letter-spacing:.08em;color:#2a1500;background:linear-gradient(135deg,#fff3c4,#f0b93a);border-radius:999px;vertical-align:middle}
+.fx-off .al.pins{box-shadow:none}
 .al-s{margin:0;font-size:.78rem;color:var(--sub)}
 #galert h2 .ic{animation:blink 1s steps(2) infinite}
 #gmap{display:flex;flex-direction:column}
@@ -512,6 +518,7 @@ label[for="name"]::after,label[for="age"]::after,label[for="hname"]::after,#gl::
         <button type="button" class="link" id="imgrm" hidden>이미지 삭제</button>
       </div>
       <div class="side">
+        <div class="field"><label for="invite">초대자 코드</label><input type="text" id="invite" maxlength="20" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="관리자에게 받은 초대 코드"></div>
         <div class="field"><label for="name">이름</label><input type="text" id="name" autocomplete="off"></div>
         <div class="field"><label for="age">나이</label><input type="number" id="age" min="1" step="1" inputmode="numeric"></div>
         <div class="field"><span class="lbl" id="gl">성별</span>
@@ -796,6 +803,7 @@ $("pwtog").addEventListener("click",function(){
 });
 
 function fill(d){
+  $("invite").value="";
   $("name").value=d.name||"";
   setImage(d.image||"");
   setGender(d.gender||"");
@@ -808,12 +816,14 @@ function fill(d){
 function bad(el,t){el.focus();return show(t,"err")}
 ["input","change"].forEach(function(ev){$("f").addEventListener(ev,function(){dirty=true})});
 var created=false,busy=false;
-var ERR={bad_password:"비밀번호는 영문, 숫자, 특수문자를 모두 포함해 8자 이상이어야 해요.",bad_name:"이름을 확인해주세요.",bad_age:"나이를 확인해주세요.",bad_gender:"성별을 선택해주세요.",bad_hunter_name:"헌터 네임은 2자 이상 12자 이하로 입력해주세요.",bad_personality:"성격을 확인해주세요.",bad_traits:"특징은 최대 5개, 한 칸당 50자까지 입력할 수 있어요.",bad_image:"이미지를 처리하지 못했어요. 다른 이미지로 시도해주세요.",rate_limited:"요청이 너무 많아요. 잠시 후 다시 시도해주세요.",network:"서버에 연결할 수 없어요. 잠시 후 다시 시도해주세요.",too_large:"이미지가 너무 커요. 다른 이미지로 시도해주세요."};
+var ERR={invite_required:"초대자 코드를 입력해주세요.",invite_invalid:"초대자 코드가 일치하지 않아요.",invite_inactive:"비활성화된 초대자 코드예요.",invite_full:"이 초대자 코드는 사용 가능 인원이 모두 찼어요.",bad_password:"비밀번호는 영문, 숫자, 특수문자를 모두 포함해 8자 이상이어야 해요.",bad_name:"이름을 확인해주세요.",bad_age:"나이를 확인해주세요.",bad_gender:"성별을 선택해주세요.",bad_hunter_name:"헌터 네임은 2자 이상 12자 이하로 입력해주세요.",bad_personality:"성격을 확인해주세요.",bad_traits:"특징은 최대 5개, 한 칸당 50자까지 입력할 수 있어요.",bad_image:"이미지를 처리하지 못했어요. 다른 이미지로 시도해주세요.",rate_limited:"요청이 너무 많아요. 잠시 후 다시 시도해주세요.",network:"서버에 연결할 수 없어요. 잠시 후 다시 시도해주세요.",too_large:"이미지가 너무 커요. 다른 이미지로 시도해주세요."};
 $("f").addEventListener("submit",function(e){
   e.preventDefault();
   if(created)return show("이미 가입했어요. 위의 고유 코드와 비밀번호로 로그인해주세요.","err");
   if(busy)return;
   var name=$("name").value.trim(),age=parseInt($("age").value,10),pers=$("personality").value.trim();
+  var inv=$("invite").value.trim();
+  if(!inv)return bad($("invite"),"초대자 코드를 입력해주세요.");
   if(!name)return bad($("name"),"이름을 입력해주세요.");
   if(!(age>=1))return bad($("age"),"나이를 1 이상의 숫자로 입력해주세요.");
   if(!gender)return bad(gBtns[0],"성별을 선택해주세요.");
@@ -825,7 +835,7 @@ $("f").addEventListener("submit",function(e){
   var pv=pw.value;
   if(!pv||!pwOk(pv)){pw.focus();return show("비밀번호는 영문, 숫자, 특수문자를 모두 포함해 8자 이상이어야 해요.","err")}
   busy=true;show("가입 중이에요…","ok");
-  api("POST","/api/signup",{name:name,gender:gender,age:age,hunterName:hn,personality:pers,traits:traits,image:image,password:pv}).then(function(r){
+  api("POST","/api/signup",{invite:inv,name:name,gender:gender,age:age,hunterName:hn,personality:pers,traits:traits,image:image,password:pv}).then(function(r){
     busy=false;
     if(r._status===201){
       rank=r.rank;hname=r.hunterName;pw.value="";updPw();dirty=false;created=true;
@@ -845,10 +855,11 @@ $("reset").addEventListener("click",function(){
 function alignPhoto(){
   var row=document.querySelector(".top"),box=document.querySelector(".photo"),g=document.querySelector(".genders");
   if(!row.clientWidth)return;
-  var tr=$("name").getBoundingClientRect(),gr=g.getBoundingClientRect();
+  var tr=document.querySelector(".side").getBoundingClientRect(),gr=g.getBoundingClientRect();
   var h=gr.bottom-tr.top,off=tr.top-row.getBoundingClientRect().top;
-  box.style.marginTop=off+"px";
-  box.style.width=Math.min(h,Math.floor(row.clientWidth*0.45))+"px";
+  var w=Math.min(h,Math.floor(row.clientWidth*0.45));
+  box.style.width=w+"px";
+  box.style.marginTop=(off+Math.max(0,(h-w)/2))+"px";
 }
 window.addEventListener("resize",alignPhoto);
 if(window.ResizeObserver)new ResizeObserver(alignPhoto).observe(document.querySelector(".top"));
@@ -923,7 +934,7 @@ var REGIONS=[
   {id:"port",name:"폐항",sub:"오염된 항만",icon:"i-port",danger:"C"},
   {id:"gate",name:"적월 게이트",sub:"붉은 달 아래 균열",icon:"i-gate",danger:"A"}
 ];
-var STAT_DEF=[["hp","체력","i-hp"],["str","근력","i-str"],["agi","민첩","i-agi"],["luck","행운","i-luck"],["taint","오염","i-taint"]];
+var STAT_DEF=[["hp","체력","i-hp"],["str","근력","i-str"],["agi","민첩","i-agi"],["luck","행운","i-luck"],["taint","오염","i-taint"],["fame","명성","i-star"]];
 var HUNT_DIFF={F:"쉬움",E:"쉬움",D:"쉬움",C:"보통",B:"보통",A:"어려움",S:"매우 어려움"};
 var curRegion="city",alerts=[],pollTimer=null,skew=0,polling=false,paused=false;
 var SI={remaining:3,resetAt:0,need:10,max:3},pendingList=[],unreadNotices=0,unreadMsgs=0,seenIds={},alertSig="";
@@ -939,7 +950,8 @@ function svgUse(id){
   var ns="http://www.w3.org/2000/svg",s=document.createElementNS(ns,"svg"),u=document.createElementNS(ns,"use");
   s.setAttribute("class","ic");s.setAttribute("aria-hidden","true");u.setAttribute("href","#"+id);s.appendChild(u);return s;
 }
-function isActive(a){return !a.done&&nowS()-a.ts<1800000}
+function activeMs(r){return r==="F"?600000:1800000}
+function isActive(a){return !a.done&&nowS()-a.ts<activeMs(a.r)}
 function regionById(id){return REGIONS.filter(function(r){return r.id===id})[0]}
 
 // ── 캐릭터 창: BGM · 할 일 · 오늘의 추천 ──
@@ -1046,7 +1058,7 @@ function renderPower(up){
 function renderStats(st){
   var ul=$("gstats");ul.innerHTML="";
   STAT_DEF.forEach(function(d){
-    var v=st[d[0]]||0,max=d[0]==="taint"?100:60;
+    var v=st[d[0]]||0,max=d[0]==="taint"?100:d[0]==="fame"?Math.max(100,Math.ceil((v+1)/100)*100):60;
     var li=document.createElement("li");li.className="st";li.dataset.k=d[0];
     li.appendChild(svgUse(d[2]));
     var l=document.createElement("span");l.textContent=d[1];li.appendChild(l);
@@ -1054,7 +1066,7 @@ function renderStats(st){
     bar.className="bar";bar.setAttribute("role","progressbar");bar.setAttribute("aria-label",d[1]);
     bar.setAttribute("aria-valuemin","0");bar.setAttribute("aria-valuemax",String(max));bar.setAttribute("aria-valuenow",String(v));
     bar.appendChild(f);li.appendChild(bar);
-    var n=document.createElement("span");n.className="st-v";n.textContent=d[0]==="taint"?(Math.round(v*10)/10)+"%":String(v);li.appendChild(n);
+    var n=document.createElement("span");n.className="st-v";n.textContent=d[0]==="taint"?(Math.round(v*10)/10)+"%":String(Math.round(v));li.appendChild(n);
     ul.appendChild(li);
     setTimeout(function(){f.style.transform="scaleX("+Math.min(1,v/max)+")"},60);
   });
@@ -1080,8 +1092,29 @@ function closeHunt(){
   document.body.style.overflow=(!rmodal.hidden||!mmodal.hidden)?"hidden":"";
   if(!rmodal.hidden)$("rclose").focus();
 }
-$("hok").addEventListener("click",closeHunt);
-document.addEventListener("keydown",function(e){if(e.key==="Escape"&&!hmodal.hidden){e.stopImmediatePropagation();closeHunt()}});
+$("hok").addEventListener("click",function(){
+  var id=hmodal.dataset.sw;
+  if(!id){closeHunt();return}
+  var bt=this;bt.disabled=true;       // S급 토벌 성공 팝업: 확인 → 서버가 참여자에게만 보상 지급
+  api("POST","/api/swin/claim",{id:Number(id)}).then(function(r){
+    bt.disabled=false;
+    if(!r.ok){$("hextra").textContent="처리하지 못했습니다. 잠시 후 다시 시도해주세요.";return}
+    delete hmodal.dataset.sw;bt.textContent="확인";
+    if(r.reward){
+      var m=r.reward;
+      $("mapmsg").textContent="S급 토벌 보상을 받았습니다 · 경험치 +"+m.exp+" · 골드 +"+m.gold+" G · 오염도 +"+m.taint+"%"+(m.levelUp?" · 전투력 상승!":"");
+    }
+    closeHunt();pollState();
+  });
+});
+function showSWin(list){
+  if(!list||!list.length||hBusy||!hmodal.hidden)return;
+  var w=list[0];
+  hmodal.dataset.sw=String(w.id);$("hok").textContent=w.part?"확인 (보상 받기)":"확인";
+  showHunt("ok","S급 토벌 성공",w.mon+" 토벌에 성공했습니다!",w.part?"보상 · 경험치 +"+w.exp+" · 골드 +"+w.gold+" G · 오염도 +"+w.taint+"% (확인을 누르면 지급됩니다)":"이번 토벌에 참여하지 않아 보상은 없습니다.");
+  $("hok").focus();
+}
+document.addEventListener("keydown",function(e){if(e.key==="Escape"&&!hmodal.hidden){if(hmodal.dataset.sw)return;e.stopImmediatePropagation();closeHunt()}});
 
 function refreshBtn(bt){
   var a=bt._a,now=nowS();
@@ -1156,7 +1189,7 @@ function huntAlert(a){
         var t=huntErr(a,r);showHunt("fail","토벌 실패",t,"");mm.textContent=t;
       }else if(r.result==="pending"){
         SI=Object.assign({},SI,r.s);pendingList.push({mon:a.mon,at:r.resolveAt});updatePendNote();
-        showHunt("wait","토벌 결과 대기","S급 토벌에 도전했습니다. 결과는 24시간 뒤에 공개됩니다.","공개 예정 "+fmtTime(r.resolveAt)+" · 남은 도전 횟수 "+SI.remaining+"/"+SI.max);
+        showHunt("wait","토벌 결과 대기","S급 토벌에 도전했습니다. 참여 "+SI.need+"명 또는 "+(SI.needTries||300)+"회에 이르거나 운영자가 성공을 결정하면 토벌 성공 알림이 옵니다.","결정되지 않으면 "+fmtTime(r.resolveAt)+"에 실패로 공개 · 남은 도전 횟수 "+SI.remaining+"/"+SI.max);
         mm.textContent=a.mon+" 토벌 결과는 24시간 뒤에 공개됩니다.";
       }else if(r.result==="success"){
         a.done=true;power={lv:r.lv,exp:r.exp};renderPower(r.levelUp);
@@ -1326,18 +1359,22 @@ function markRegions(){
 
 /* ───── 몬스터 출몰 알림 (서버가 정한 목록을 그대로 보여줍니다) ───── */
 function alItem(a,withBtn){
-  var li=document.createElement("li");li.className="al"+(a.isNew?" new":"");li.dataset.r=a.r;
+  var li=document.createElement("li");li.className="al"+(a.isNew?" new":"")+(isPinS(a)?" pins":"");li.dataset.r=a.r;
   var r=document.createElement("span");r.className="al-r";r.textContent=a.r;
   var box=document.createElement("div"),t=document.createElement("p"),b=document.createElement("b"),s=document.createElement("p");
   t.className="al-t";b.textContent=a.mon;t.appendChild(b);t.appendChild(document.createTextNode(" 출몰 · "+a.r+"급"));
+  if(isPinS(a)){var pb=document.createElement("span");pb.className="al-pin";pb.textContent="고정";t.appendChild(pb)}
   s.className="al-s";s.textContent=a.rname+" · "+a.time+" · 난이도 "+(HUNT_DIFF[a.r]||"");
   box.appendChild(t);box.appendChild(s);li.appendChild(r);li.appendChild(box);
   if(a.done){li.classList.add("done");var dn=document.createElement("span");dn.className="al-gain";dn.textContent="토벌 완료";li.appendChild(dn)}
   else if(withBtn&&isActive(a)){var bt=document.createElement("button");bt.type="button";bt.className="al-go";bt._a=a;bt.setAttribute("aria-label",a.mon+" 토벌");bt.addEventListener("click",function(){huntAlert(a)});refreshBtn(bt);li.appendChild(bt)}
   return li;
 }
+function isPinS(a){return a.r==="S"&&isActive(a)}
 function renderAlerts(){
-  var top=alerts.slice(0,6),sig=top.map(function(a){return a.id+":"+(a.done?1:0)}).join(",");
+  // 토벌 가능한 S급 출몰 정보는 항상 맨 위에 고정 (그 안에서는 최신순)
+  alerts.sort(function(x,y){var px=isPinS(x)?1:0,py=isPinS(y)?1:0;return px!==py?py-px:(y.ts-x.ts)||(y.id-x.id)});
+  var top=alerts.slice(0,6),sig=top.map(function(a){return a.id+":"+(a.done?1:0)+(isPinS(a)?"p":"")}).join(",");
   if(sig!==alertSig){
     alertSig=sig;
     var ul=$("alerts");ul.innerHTML="";
@@ -1370,6 +1407,7 @@ function applyState(st,first){
     renderAlerts();
   }
   updatePendNote();
+  showSWin(st.sWin||[]);
   showResults(st.results||[]);
 }
 function pollState(first){
