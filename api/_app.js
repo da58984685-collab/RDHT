@@ -283,6 +283,25 @@ async function achOf(u) {
   const gs = new Set(gr.map(g => g.ach_id));
   return defs.map(a => { const met = achMet(a, s), granted = gs.has(a.id); return Object.assign({}, a, { met, granted, done: met || granted }); });
 }
+// 업적을 처음 확인한 시각을 기록합니다 (친구 프로필의 '가장 최근 업적'에 쓰입니다).
+// 관리자가 부여한 업적은 부여 시각, 조건으로 달성한 업적은 서버가 처음 확인한 시각이 됩니다.
+const achSyncAt = new Map();
+async function syncAchEarned(u, now, force) {
+  if (!force && (achSyncAt.get(u.id) || 0) > now - 30000) return;
+  achSyncAt.set(u.id, now);
+  if (achSyncAt.size > 5000) achSyncAt.clear();
+  try {
+    const [list, have, gr] = await Promise.all([achOf(u),
+      db.all('SELECT ach_id FROM ach_earned WHERE user_id = ?', [u.id]),
+      db.all('SELECT ach_id, at FROM ach_grants WHERE user_id = ?', [u.id])]);
+    const done = new Set(list.filter(a => a.done).map(a => a.id));
+    const hv = new Set(have.map(h => h.ach_id)), gat = new Map(gr.map(g => [g.ach_id, g.at]));
+    const ops = [];
+    done.forEach(id => { if (!hv.has(id)) ops.push(['INSERT OR IGNORE INTO ach_earned (user_id, ach_id, at) VALUES (?, ?, ?)', [u.id, id, gat.get(id) || now]]); });
+    hv.forEach(id => { if (!done.has(id)) ops.push(['DELETE FROM ach_earned WHERE user_id = ? AND ach_id = ?', [u.id, id]]); });
+    if (ops.length) await db.batch(ops);
+  } catch (_) { achSyncAt.delete(u.id); }
+}
 const pinIds = u => { try { const a = JSON.parse(u.pinned_ach || '[]'); return Array.isArray(a) ? a.map(String) : []; } catch (_) { return []; } };
 const pinnedList = (u, defs) => { const m = new Map(defs.map(a => [a.id, a])); return pinIds(u).filter(id => m.has(id)).slice(0, G.ACH_PIN_MAX).map(id => ({ id, name: m.get(id).name })); };
 
@@ -317,6 +336,7 @@ async function sInfo(userId, now) {
 
 async function buildState(u, now) {
   await tickPersonal(u.id, now);
+  await syncAchEarned(u, now);
   // 보이는 몬스터: 서버 공통 S급 + 내 몬스터(F~A). 예전 공통 F~A 몬스터는 보이지 않습니다.
   const vis = "((owner_id IS NULL AND rank = 'S') OR owner_id = ?)";
   const mons = await db.all(`SELECT * FROM monsters
@@ -339,6 +359,7 @@ async function buildState(u, now) {
     db.get(`SELECT COUNT(*) AS c FROM messages m JOIN friends f ON f.user_id = m.to_id AND f.friend_id = m.from_id
             WHERE m.to_id = ? AND m.id > f.last_read`, [u.id]),
   ]);
+  const frq = await db.get('SELECT COUNT(*) AS c FROM friend_requests WHERE to_id = ?', [u.id]);
   const inv = await db.all('SELECT item, qty FROM inventory WHERE user_id = ? AND qty > 0 ORDER BY item', [u.id]);
   const closedOk = new Set((await db.all('SELECT monster_id FROM s_close WHERE ok = 1 AND monster_id >= ?', [minId])).map(r => r.monster_id));
   // S급 토벌 성공 안내(모든 헌터에게): 확인을 누르면 참여자에게만 보상이 지급됩니다
@@ -363,6 +384,7 @@ async function buildState(u, now) {
     results: results.map(r => ({ id: r.id, mon: r.name, success: !!r.success, exp: r.exp_gain, gold: r.gold_gain, taint: r.taint_gain, levelUp: !!r.level_up })),
     unreadNotices: un.c,
     unreadMsgs: um.c,
+    friendReqs: frq.c,
     sWin: swin.map(x => ({ id: x.id, mon: x.name, part: !!x.part, exp: x.exp || 0, gold: x.gold || 0, taint: x.taint || 0 })),
     rec: await getRec(),
     inventory: inv.map(r => ({ item: r.item, qty: r.qty })),
@@ -599,9 +621,21 @@ route('GET', '/api/friends', async (req, res, ctx) => {
   const rows = await db.all(`SELECT u.code, u.hunter_name AS hn, u.rank,
       (SELECT COUNT(*) FROM messages m WHERE m.from_id = f.friend_id AND m.to_id = f.user_id AND m.id > f.last_read) AS unread
     FROM friends f JOIN users u ON u.id = f.friend_id WHERE f.user_id = ? ORDER BY u.hunter_name`, [ctx.user.id]);
-  send(res, 200, { friends: rows.map(f => ({ code: f.code, hn: f.hn, rank: f.rank, unread: f.unread })) });
+  const inc = await db.all(`SELECT u.code, u.hunter_name AS hn, u.rank, r.at FROM friend_requests r JOIN users u ON u.id = r.from_id
+    WHERE r.to_id = ? ORDER BY r.at DESC LIMIT 100`, [ctx.user.id]);
+  const out = await db.all(`SELECT u.code, u.hunter_name AS hn, u.rank, r.at FROM friend_requests r JOIN users u ON u.id = r.to_id
+    WHERE r.from_id = ? ORDER BY r.at DESC LIMIT 100`, [ctx.user.id]);
+  const mp = x => ({ code: x.code, hn: x.hn, rank: x.rank, at: x.at });
+  send(res, 200, { friends: rows.map(f => ({ code: f.code, hn: f.hn, rank: f.rank, unread: f.unread })), incoming: inc.map(mp), outgoing: out.map(mp) });
 });
 
+const makeFriends = (a, b) => db.batch([
+  ['INSERT OR IGNORE INTO friends (user_id, friend_id) VALUES (?, ?)', [a, b]],
+  ['INSERT OR IGNORE INTO friends (user_id, friend_id) VALUES (?, ?)', [b, a]],
+  ['DELETE FROM friend_requests WHERE (from_id = ? AND to_id = ?) OR (from_id = ? AND to_id = ?)', [a, b, b, a]],
+]);
+
+// 고유 코드로 친구 요청을 보냅니다. 상대가 수락해야 친구가 되고 메신저를 쓸 수 있습니다.
 route('POST', '/api/friends', async (req, res, ctx) => {
   const u = ctx.user;
   if (await limited('addf:' + u.id, 15, 60000)) return fail(res, 429, 'rate_limited');
@@ -611,12 +645,49 @@ route('POST', '/api/friends', async (req, res, ctx) => {
   const f = await userByCode(code);
   if (!f) return fail(res, 404, 'not_found');
   if (await isFriend(u.id, f.id)) return fail(res, 409, 'already');
-  await db.batch([
-    ['INSERT OR IGNORE INTO friends (user_id, friend_id) VALUES (?, ?)', [u.id, f.id]],
-    ['INSERT OR IGNORE INTO friends (user_id, friend_id) VALUES (?, ?)', [f.id, u.id]],
-  ]);
-  send(res, 201, { friend: { code: f.code, hn: f.hunter_name, rank: f.rank, unread: 0 } });
+  // 상대가 이미 나에게 요청을 보낸 상태라면 바로 친구가 됩니다.
+  if (await db.get('SELECT 1 AS x FROM friend_requests WHERE from_id = ? AND to_id = ?', [f.id, u.id])) {
+    await makeFriends(u.id, f.id);
+    return send(res, 201, { accepted: true, friend: { code: f.code, hn: f.hunter_name, rank: f.rank, unread: 0 } });
+  }
+  if (await db.get('SELECT 1 AS x FROM friend_requests WHERE from_id = ? AND to_id = ?', [u.id, f.id])) return fail(res, 409, 'pending');
+  const cnt = await db.get('SELECT COUNT(*) AS c FROM friend_requests WHERE from_id = ?', [u.id]);
+  if (cnt.c >= 30) return fail(res, 429, 'too_many_pending');
+  await db.run('INSERT OR IGNORE INTO friend_requests (from_id, to_id, at) VALUES (?, ?, ?)', [u.id, f.id, Date.now()]);
+  send(res, 201, { requested: true, to: { code: f.code, hn: f.hunter_name } });
 });
+
+route('POST', '/api/friends/respond', async (req, res, ctx) => {
+  const u = ctx.user;
+  const f = await userByCode(normCode(ctx.body.code));
+  if (!f) return fail(res, 404, 'not_found');
+  const rq = await db.get('SELECT 1 AS x FROM friend_requests WHERE from_id = ? AND to_id = ?', [f.id, u.id]);
+  if (!rq) return fail(res, 404, 'no_request');
+  if (ctx.body.accept) await makeFriends(u.id, f.id);
+  else await db.run('DELETE FROM friend_requests WHERE from_id = ? AND to_id = ?', [f.id, u.id]);
+  send(res, 200, { ok: true, accepted: !!ctx.body.accept });
+});
+
+route('POST', '/api/friends/cancel', async (req, res, ctx) => {
+  const f = await userByCode(normCode(ctx.body.code));
+  if (!f) return fail(res, 404, 'not_found');
+  await db.run('DELETE FROM friend_requests WHERE from_id = ? AND to_id = ?', [ctx.user.id, f.id]);
+  send(res, 200, { ok: true });
+});
+
+// 친구 프로필: 이미지, 헌터 네임, 등급, 현재 위치, 가장 최근에 획득한 업적 1개
+route('GET', '/api/friend/profile', async (req, res, ctx) => {
+  const u = ctx.user;
+  const f = await userByCode(normCode(new URL(req.url, 'http://x').searchParams.get('code')));
+  if (!f || !(await isFriend(u.id, f.id))) return fail(res, 404, 'not_found');
+  await syncAchEarned(f, Date.now(), true);
+  const a = await db.get(`SELECT a.name, a.descr, e.at FROM ach_earned e JOIN achievements a ON a.id = e.ach_id
+    WHERE e.user_id = ? ORDER BY e.at DESC, e.rowid DESC LIMIT 1`, [f.id]);
+  const rg = G.REGION_BY_ID[f.region];
+  send(res, 200, { profile: { code: f.code, hn: f.hunter_name, rank: f.rank, image: f.image || '',
+    region: rg ? rg.name : '', ach: a ? { name: a.name, desc: a.descr, at: a.at } : null } });
+});
+
 
 route('GET', '/api/messages', async (req, res, ctx) => {
   const u = ctx.user, url = new URL(req.url, 'http://x');
@@ -1143,6 +1214,7 @@ route('POST', '/api/admin/player/delete', async (req, res, ctx) => {
     ['DELETE FROM s_window WHERE user_id = ?', [id]],
     ['DELETE FROM s_attempts WHERE user_id = ?', [id]],
     ['DELETE FROM friends WHERE user_id = ? OR friend_id = ?', [id, id]],
+    ['DELETE FROM friend_requests WHERE from_id = ? OR to_id = ?', [id, id]],
     ['DELETE FROM messages WHERE from_id = ? OR to_id = ?', [id, id]],
     ['DELETE FROM hunt_log WHERE user_id = ?', [id]],
     ['DELETE FROM acquire_log WHERE user_id = ?', [id]],
