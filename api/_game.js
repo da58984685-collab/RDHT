@@ -34,7 +34,11 @@ const TIERS = [
   { k: 'high', ranks: ['A'],           gap: () => rnd(60, 120) * MIN },
   { k: 'top',  ranks: ['S'],           gap: () => 8 * HOUR },
 ];
-const ACTIVE_MS = 30 * MIN;                       // 출몰 후 토벌 가능한 시간
+const ACTIVE_MS = 30 * MIN;
+const ACTIVE_MS_F = 10 * MIN;                     // F급만 예외: 10분 안에 토벌하지 않으면 사라짐
+const activeMsOf = rank => (rank === 'F' ? ACTIVE_MS_F : ACTIVE_MS);
+// 명성: 전투력(레벨)이 오를 때, 헌터 등급이 오를 때만 함께 오릅니다 (시작은 항상 0)
+const FAME_PER_LV = 5, FAME_PER_RANK = 20;                       // 출몰 후 토벌 가능한 시간
 
 // 등급별 처치 골드(G) 범위 [최소, 최대]
 const KILL_GOLD = { F: [1, 5], E: [6, 15], D: [16, 35], C: [36, 70], B: [71, 120], A: [121, 180], S: [190, 200] };
@@ -68,7 +72,8 @@ const KILL_EXP = { F: 8, E: 12, D: 20, C: 35, B: 60, A: 120, S: 300 };
 const HUNT_DIFF = { F: '쉬움', E: '쉬움', D: '쉬움', C: '보통', B: '보통', A: '어려움', S: '매우 어려움' };
 const HUNT_BASE = { '쉬움': 0.85, '보통': 0.65, '어려움': 0.4 };
 
-const RAID_NEED = 10;                              // S급 100% 참여 기준 인원
+const RAID_NEED = 100;                             // S급 자동 토벌 성공: 서로 다른 참여 헌터 수
+const RAID_ATTEMPTS = 300;                         // S급 자동 토벌 성공: 도전(토벌) 횟수 합계 (중복 포함)
 const S_MAX = 3;                                   // S급 1시간당 도전 횟수
 const S_WINDOW_MS = HOUR;
 const S_WAIT_MS = Number(process.env.S_RESULT_DELAY_MS) || 24 * HOUR;   // S급 결과 공개까지
@@ -100,7 +105,7 @@ const RANK_BASE = { F: 8, E: 11, D: 15, C: 20, B: 27, A: 36 };
 function rollStats(rank) {
   const b = RANK_BASE[rank] || 8;
   const v = () => Math.max(1, b + rnd(-2, 3));
-  return { hp: v(), str: v(), agi: v(), luck: v(), taint: 0 };
+  return { hp: v(), str: v(), agi: v(), luck: v(), taint: 0, fame: 0 };
 }
 
 const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -121,7 +126,7 @@ function addExp(lv, exp, gain) {
 }
 
 module.exports = {
-  rnd, chance01, REGIONS, REGION_BY_ID, MON, TIERS, ACTIVE_MS, KILL_EXP, KILL_GOLD, KILL_TAINT, rollTaint, RANK_IDX, ACH_KINDS, ACH_SEED, ACH_PIN_MAX, rollGold, HUNT_DIFF,
-  RAID_NEED, S_MAX, S_WINDOW_MS, S_WAIT_MS, powNeed, cdOf, huntChance,
+  rnd, chance01, REGIONS, REGION_BY_ID, MON, TIERS, ACTIVE_MS, ACTIVE_MS_F, activeMsOf, FAME_PER_LV, FAME_PER_RANK, KILL_EXP, KILL_GOLD, KILL_TAINT, rollTaint, RANK_IDX, ACH_KINDS, ACH_SEED, ACH_PIN_MAX, rollGold, HUNT_DIFF,
+  RAID_NEED, RAID_ATTEMPTS, S_MAX, S_WINDOW_MS, S_WAIT_MS, powNeed, cdOf, huntChance,
   rollRank, rollStats, makeCode, addExp, MIN, HOUR,
 };
