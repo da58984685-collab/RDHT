@@ -178,7 +178,31 @@ async function resolveDue() {
   }
 }
 
-async function catchUp() { await tickSpawns(); await resolveDue(); }
+// 30분이 지나도록 아무도 토벌하지 못한 몬스터는 서버에서 삭제합니다.
+// (S급 도전 결과가 아직 처리·확인되지 않은 몬스터는 결과 공개 전까지 보존)
+let lastPurge = 0;
+async function purgeMonsters(force) {
+  const now = Date.now();
+  if (!force && now - lastPurge < 30000) return;
+  lastPurge = now;
+  await db.run(`DELETE FROM monsters WHERE spawned_at < ?
+    AND NOT EXISTS (SELECT 1 FROM kills k WHERE k.monster_id = monsters.id)
+    AND NOT EXISTS (SELECT 1 FROM s_attempts a WHERE a.monster_id = monsters.id AND (a.resolved != 1 OR a.notified = 0))`,
+    [now - G.ACTIVE_MS]);
+  await db.run('DELETE FROM fail_cd WHERE monster_id NOT IN (SELECT id FROM monsters)');
+}
+
+async function catchUp() { await tickSpawns(); await resolveDue(); await purgeMonsters(); }
+
+// ── 업적 ──
+async function achStats(u) {
+  const k = await db.get("SELECT COUNT(*) AS c FROM hunt_log WHERE user_id = ? AND result = 'success'", [u.id]);
+  const rs = await db.all("SELECT DISTINCT rank FROM hunt_log WHERE user_id = ? AND result = 'success'", [u.id]);
+  const st = await db.get('SELECT COUNT(*) AS c FROM s_attempts WHERE user_id = ?', [u.id]);
+  const sw = await db.get("SELECT COUNT(*) AS c FROM hunt_log WHERE user_id = ? AND result = 'success' AND rank = 'S'", [u.id]);
+  return { kills: k.c, maxRank: rs.reduce((m, r) => Math.max(m, G.RANK_IDX[r.rank] == null ? -1 : G.RANK_IDX[r.rank]), -1), sTry: st.c, sWin: sw.c, lv: u.lv };
+}
+const pinnedOf = u => { try { const a = JSON.parse(u.pinned_ach || '[]'); return Array.isArray(a) ? a.filter(id => G.ACH_BY_ID[id]).slice(0, G.ACH_PIN_MAX) : []; } catch (_) { return []; } };
 
 // 오늘의 추천 (관리자가 입력한 값만 보여줍니다)
 async function getRec() {
@@ -230,7 +254,7 @@ async function buildState(u, now) {
   const pm = new Map(parts.map(r => [r.monster_id, r.c]));
   return {
     now,
-    user: { lv: u.lv, exp: u.exp, gold: u.gold, region: u.region, hunterName: u.hunter_name, stats: JSON.parse(u.stats) },
+    user: { pinned: pinnedOf(u).map(id => ({ id, name: G.ACH_BY_ID[id].name })), lv: u.lv, exp: u.exp, gold: u.gold, region: u.region, hunterName: u.hunter_name, stats: JSON.parse(u.stats) },
     monsters: mons.map(m => ({
       id: m.id, region: m.region, rname: G.REGION_BY_ID[m.region].name, mon: m.name, r: m.rank, ts: m.spawned_at,
       done: killed.has(m.id), cd: cdm.get(m.id) || 0,
@@ -369,7 +393,8 @@ route('POST', '/api/hunt', async (req, res, ctx) => {
   await catchUp();
   const cur = await db.get('SELECT * FROM users WHERE id = ?', [u.id]);
   const m = await db.get('SELECT * FROM monsters WHERE id = ?', [Number(ctx.body.id)]);
-  if (!m || (m.owner_id != null && m.owner_id !== cur.id) || (m.owner_id == null && m.rank !== 'S')) return fail(res, 404, 'no_monster');
+  if (!m) return fail(res, 410, 'expired');
+  if ((m.owner_id != null && m.owner_id !== cur.id) || (m.owner_id == null && m.rank !== 'S')) return fail(res, 404, 'no_monster');
   if (await db.get('SELECT 1 AS x FROM kills WHERE user_id = ? AND monster_id = ?', [cur.id, m.id])) return fail(res, 409, 'already_done');
   if (now - m.spawned_at >= G.ACTIVE_MS) return fail(res, 410, 'expired');
   if (cur.region !== m.region) return fail(res, 409, 'wrong_region', { region: m.region, rname: G.REGION_BY_ID[m.region].name });
@@ -676,6 +701,30 @@ route('POST', '/api/admin/shop/delete', async (req, res, ctx) => {
   send(res, 200, { ok: true });
 }, { auth: false, admin: true });
 
+// ── 업적 API ──
+route('GET', '/api/achievements', async (req, res, ctx) => {
+  const u = await db.get('SELECT * FROM users WHERE id = ?', [ctx.user.id]);
+  const s = await achStats(u), pins = pinnedOf(u);
+  send(res, 200, { max: G.ACH_PIN_MAX, list: G.ACH.map(a => ({ id: a.id, name: a.name, desc: a.desc, done: !!a.ok(s), pinned: pins.includes(a.id) })) });
+});
+
+route('POST', '/api/achievements/pin', async (req, res, ctx) => {
+  const u = await db.get('SELECT * FROM users WHERE id = ?', [ctx.user.id]);
+  const a = G.ACH_BY_ID[String(ctx.body.id)];
+  if (!a) return fail(res, 404, 'no_ach');
+  let pins = pinnedOf(u);
+  if (ctx.body.on === false) pins = pins.filter(x => x !== a.id);
+  else {
+    if (!a.ok(await achStats(u))) return fail(res, 403, 'locked');
+    if (!pins.includes(a.id)) {
+      if (pins.length >= G.ACH_PIN_MAX) return fail(res, 409, 'full', { max: G.ACH_PIN_MAX });
+      pins.push(a.id);
+    }
+  }
+  await db.run('UPDATE users SET pinned_ach = ? WHERE id = ?', [JSON.stringify(pins), u.id]);
+  send(res, 200, { ok: true, pinned: pins.map(id => ({ id, name: G.ACH_BY_ID[id].name })) });
+});
+
 // ── 오늘의 추천 ──
 route('GET', '/api/admin/rec', async (req, res) => {
   send(res, 200, { rec: await getRec() });
@@ -767,6 +816,7 @@ route('GET', '/api/cron', async (req, res) => {
   if (!secret || !safeEq(sha256(h), sha256('Bearer ' + secret))) return fail(res, 401, 'unauthorized');
   const now = Date.now();
   await catchUp();
+  await purgeMonsters(true);
   await db.run('UPDATE s_attempts SET resolved = 0 WHERE resolved = 2 AND resolve_at < ?', [now - 5 * 60000]);
   await db.run('DELETE FROM sessions WHERE expires_at < ?', [now]);
   await db.run('DELETE FROM rate_limits WHERE start < ?', [now - G.HOUR]);
