@@ -31,7 +31,9 @@ input:focus,textarea:focus{border-color:var(--red)}
 .top{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap}
 .top h1{font-family:"Noto Serif TC","Nanum Myeongjo",serif;letter-spacing:.14em;font-size:1.3rem}
 .top h1 span{color:var(--red2)}
-.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:14px}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:32px}
+#app>section.card,#app>.cols{margin-bottom:32px}
+#app>section.card:last-child{margin-bottom:8px}
 .stat{background:var(--card);border:1px solid var(--line);border-radius:6px;padding:10px 12px}
 .stat b{display:block;font-size:1.4rem}
 .stat span{color:var(--sub);font-size:.8rem}
@@ -126,13 +128,15 @@ td input[type=checkbox]{width:auto}
     <section class="card" id="detail"><div class="empty">왼쪽 목록에서 헌터를 선택하세요.</div></section>
   </div>
   <section class="card" id="recbox">
-    <h3 style="margin-bottom:8px">오늘의 추천 <span class="muted" style="font-weight:400;font-size:.85rem">(게임 캐릭터 창에 표시 · 관리자만 수정 가능)</span></h3>
-    <div class="row">
-      <select id="rregion" aria-label="추천 지역"><option value="">추천 지역 없음</option></select>
-      <input id="rtime" maxlength="20" placeholder="추천 시간대 (예: 21시 무렵)">
-      <input id="rtip" maxlength="100" placeholder="한 줄 조언 (최대 100자)" style="flex:2;min-width:200px">
-    </div>
+    <h3 style="margin-bottom:8px">오늘의 추천 <span class="muted" style="font-weight:400;font-size:.85rem">(게임 캐릭터 창에 한 줄 문장으로 표시 · 관리자만 수정 가능)</span></h3>
+    <div class="row"><input id="rtext" maxlength="100" placeholder="예) 오늘은 폐광에서 21시 무렵 사냥하면 좋아요. (최대 100자)"></div>
     <div class="row"><button class="btn" id="rsave" type="button">저장</button><button class="btn" id="rclear" type="button">삭제</button><span id="rmsg" class="muted"></span></div>
+  </section>
+  <section class="card" id="achbox">
+    <h3 style="margin-bottom:4px">업적 관리 <span class="muted" style="font-weight:400;font-size:.85rem">(추가·수정·삭제가 서버의 모든 헌터에게 바로 적용됩니다)</span></h3>
+    <div class="addrow"><input id="an" maxlength="20" placeholder="업적 이름 (최대 20자)"><input id="ad" maxlength="60" placeholder="설명 (최대 60자)"><select id="ak"></select><span id="avw"></span><button class="btn" id="aadd" type="button">추가</button></div>
+    <div id="amsg" class="muted" style="min-height:1.3em;font-size:.85rem"></div>
+    <div class="tw"><table><thead><tr><th>이름</th><th>설명</th><th>조건</th><th>값</th><th></th></tr></thead><tbody id="alist"></tbody></table></div>
   </section>
   <section class="card" id="shop">
     <h3 style="margin-bottom:8px">상점 관리 <span class="muted" style="font-weight:400;font-size:.85rem">(게임 내 기기 → 상점에 표시)</span></h3>
@@ -228,7 +232,7 @@ function renderDetail(){
   var counts={};(r.counts||[]).forEach(function(x){counts[x.result]=x.c});
   var h='<div class="head">'+(p.image?'<img alt="" src="'+esc(p.image)+'">':'<div class="ph"></div>')+
     '<div><h2>'+esc(p.hunterName)+' <span class="rk '+esc(p.rank)+'">'+esc(p.rank)+'</span></h2><div class="muted">'+esc(p.code)+" · Lv."+p.lv+" · EXP "+p.exp+"</div></div></div>";
-  h+='<div class="tabs">'+[["info","정보 · 스탯"],["items","아이템"],["acq","습득 정보"],["hunt","토벌 기록"]].map(function(t){return'<button class="tab'+(tab===t[0]?" on":"")+'" data-t="'+t[0]+'" type="button">'+t[1]+"</button>"}).join("")+"</div>";
+  h+='<div class="tabs">'+[["info","정보 · 스탯"],["items","아이템"],["acq","습득 정보"],["ach","업적"],["hunt","토벌 기록"]].map(function(t){return'<button class="tab'+(tab===t[0]?" on":"")+'" data-t="'+t[0]+'" type="button">'+t[1]+"</button>"}).join("")+"</div>";
   var opt=function(list,cur){return list.map(function(x){return'<option value="'+esc(x[0])+'"'+(x[0]===cur?" selected":"")+">"+esc(x[1])+"</option>"}).join("")};
   var RANKS=["F","E","D","C","B","A","S"].map(function(x){return[x,x]});
   if(tab==="info"){
@@ -253,6 +257,14 @@ function renderDetail(){
     h+='<div class="addrow"><input id="i_name" placeholder="아이템 이름" maxlength="30"><input id="i_qty" type="number" min="1" max="9999" value="1" style="max-width:90px"><button class="btn" data-act="item-add" type="button">추가 / 수량 변경</button></div>';
     h+=table(["아이템","수량",""],(r.items||[]).map(function(i){return'<tr data-item="'+esc(i.item)+'"><td>'+esc(i.item)+'</td><td><input class="mini" type="number" min="1" max="9999" value="'+i.qty+'" data-k="qty"></td><td><button class="btn ghost sm" data-act="item-save" type="button">저장</button> <button class="btn dbtn sm" data-act="item-del" type="button">삭제</button></td></tr>'}),"보유한 아이템이 없습니다. 위에서 추가할 수 있습니다.");
     if((r.items||[]).length)h+='<div class="row"><button class="btn dbtn sm" data-act="item-clear" type="button">아이템 전체 삭제</button></div>';
+  }else if(tab==="ach"){
+    var al=r.achievements||[],got=al.filter(function(x){return x.done}).length;
+    h+='<div class="chips"><span class="chip ok">획득 '+got+' / '+al.length+'</span></div>';
+    h+=table(["업적","설명","상태",""],al.map(function(x){
+      var stt=x.met&&x.granted?"조건 달성 · 부여":x.met?"조건 달성":x.granted?"관리자 부여":"미획득";
+      var btn=x.granted?'<button class="btn ghost sm" data-act="ach-off" type="button">부여 회수</button>':(x.met?'':'<button class="btn ghost sm" data-act="ach-on" type="button">부여</button>');
+      return'<tr data-aid="'+esc(x.id)+'" style="cursor:default"><td>'+(x.done?"★ ":"☆ ")+esc(x.name)+'</td><td class="muted">'+esc(x.desc)+'</td><td>'+(x.done?'<span style="color:var(--warn)">'+stt+'</span>':'<span class="muted">'+stt+'</span>')+'</td><td>'+btn+'</td></tr>'}),"등록된 업적이 없습니다.");
+    h+='<div class="note">조건을 달성한 업적은 자동으로 획득됩니다. 조건과 관계없이 주고 싶다면 "부여"를 누르세요. 업적 정의 자체는 아래 "업적 관리"에서 바꿉니다.</div>';
   }else if(tab==="acq"){
     h+=table(["","시각","종류","내용","수량","출처"],(r.acquired||[]).map(function(a){return'<tr data-id="'+a.id+'"><td><input type="checkbox" data-k="sel"></td><td>'+dt(a.at)+"</td><td>"+(a.kind==="exp"?"경험치":a.kind==="gold"?"골드":esc(a.kind))+"</td><td>"+esc(a.name)+"</td><td>"+a.qty+"</td><td>"+esc(a.source)+"</td></tr>"}),"습득 기록이 없습니다.");
     if((r.acquired||[]).length)h+='<div class="row"><button class="btn dbtn sm" data-act="acq-del" type="button">선택 삭제</button><button class="btn dbtn sm" data-act="acq-clear" type="button">전체 삭제</button></div>';
@@ -280,7 +292,7 @@ function onEdit(e){
 }
 $("detail").addEventListener("input",onEdit);
 $("detail").addEventListener("change",onEdit);
-var EMSG={bad_gold:"골드는 0~99,999,999 사이 정수여야 합니다.",bad_price:"가격은 0~9,999,999 사이 정수여야 합니다.",bad_hunter_name:"헌터 네임은 2~12자여야 합니다.",bad_name:"이름은 1~30자여야 합니다.",bad_gender:"성별 값이 올바르지 않습니다.",bad_age:"나이는 1~999 사이 정수여야 합니다.",bad_personality:"성격은 1~1000자여야 합니다.",bad_traits:"특징은 최대 5개, 각 50자 이하여야 합니다.",bad_rank:"등급 값이 올바르지 않습니다.",bad_lv:"레벨은 1~999 사이 정수여야 합니다.",bad_exp:"EXP 범위를 벗어났습니다.",bad_stat:"스탯은 0~9999 사이 정수여야 합니다.",bad_item:"아이템 이름은 1~30자여야 합니다.",bad_qty:"수량은 1~9999 사이 정수여야 합니다.",bad_mon:"몬스터 이름은 1~30자여야 합니다.",bad_result:"결과 값이 올바르지 않습니다.",no_ids:"삭제할 항목을 선택하세요.",not_found:"대상을 찾을 수 없습니다.",unauthorized:"로그인이 만료되었습니다.",rate_limited:"요청이 많습니다."};
+var EMSG={no_ach:"존재하지 않는 업적입니다.",bad_gold:"골드는 0~99,999,999 사이 정수여야 합니다.",bad_price:"가격은 0~9,999,999 사이 정수여야 합니다.",bad_hunter_name:"헌터 네임은 2~12자여야 합니다.",bad_name:"이름은 1~30자여야 합니다.",bad_gender:"성별 값이 올바르지 않습니다.",bad_age:"나이는 1~999 사이 정수여야 합니다.",bad_personality:"성격은 1~1000자여야 합니다.",bad_traits:"특징은 최대 5개, 각 50자 이하여야 합니다.",bad_rank:"등급 값이 올바르지 않습니다.",bad_lv:"레벨은 1~999 사이 정수여야 합니다.",bad_exp:"EXP 범위를 벗어났습니다.",bad_stat:"스탯은 0~9999 사이 정수여야 합니다.",bad_item:"아이템 이름은 1~30자여야 합니다.",bad_qty:"수량은 1~9999 사이 정수여야 합니다.",bad_mon:"몬스터 이름은 1~30자여야 합니다.",bad_result:"결과 값이 올바르지 않습니다.",no_ids:"삭제할 항목을 선택하세요.",not_found:"대상을 찾을 수 없습니다.",unauthorized:"로그인이 만료되었습니다.",rate_limited:"요청이 많습니다."};
 function saveEdit(){
   var m=$("e_msg"),v=function(i){return $(i).value};
   m.className="muted";m.textContent="저장 중...";
@@ -303,6 +315,7 @@ function post(url,body,okf){
 }
 function rowAct(act,btn){
   var tr=btn.closest("tr"),val=function(k){var el=tr&&tr.querySelector('[data-k="'+k+'"]');return el?el.value:""};
+  if(act==="ach-on"||act==="ach-off"){post("/api/admin/player/ach",{id:tr.getAttribute("data-aid"),on:act==="ach-on"});return}
   if(act==="item-add"){post("/api/admin/player/item",{item:$("i_name").value.trim(),qty:Number($("i_qty").value)});return}
   if(act==="item-save"){post("/api/admin/player/item",{item:tr.getAttribute("data-item"),qty:Number(val("qty"))});return}
   if(act==="item-del"){if(confirm("'"+tr.getAttribute("data-item")+"' 아이템을 삭제할까요?"))post("/api/admin/player/item/delete",{item:tr.getAttribute("data-item")});return}
@@ -327,26 +340,66 @@ function delPlayer(){
   });
 }
 
-var REGS=[["city","도심"],["mine","폐광"],["river","한강변"],["temple","산사"],["port","폐항"],["gate","적월 게이트"]];
-$("rregion").innerHTML='<option value="">추천 지역 없음</option>'+REGS.map(function(r){return'<option value="'+r[0]+'">'+r[1]+'</option>'}).join("");
 var recDirty=false;
-["rregion","rtime","rtip"].forEach(function(i){$(i).addEventListener("input",function(){recDirty=true})});
+$("rtext").addEventListener("input",function(){recDirty=true});
 function loadRec(){
   if(recDirty)return;
   api("GET","/api/admin/rec").then(function(r){
-    var c=r.rec||{};$("rregion").value=c.region||"";$("rtime").value=c.time||"";$("rtip").value=c.tip||"";
+    var c=r.rec||{};$("rtext").value=c.text||"";
     $("rmsg").textContent=c.at?"마지막 저장 "+dt(c.at):"등록된 추천이 없습니다 (게임에는 '추천이 없습니다'로 표시).";
   });
 }
 $("rsave").addEventListener("click",function(){
-  api("POST","/api/admin/rec/save",{region:$("rregion").value,time:$("rtime").value,tip:$("rtip").value}).then(function(r){
+  api("POST","/api/admin/rec/save",{text:$("rtext").value}).then(function(r){
     if(r.ok){recDirty=false;$("rmsg").textContent="저장했습니다. 게임에는 5초 이내에 반영됩니다.";loadRec()}
-    else $("rmsg").textContent=r.error==="empty"?"한 가지 이상 입력하세요.":r.error==="bad_tip"?"조언은 100자 이하여야 합니다.":r.error==="bad_time"?"시간대는 20자 이하여야 합니다.":"저장하지 못했습니다.";
+    else $("rmsg").textContent=r.error==="empty"?"문장을 입력하세요.":r.error==="bad_text"?"100자 이하로 입력하세요.":"저장하지 못했습니다.";
   });
 });
 $("rclear").addEventListener("click",function(){
   if(!confirm("오늘의 추천을 삭제할까요?"))return;
   api("POST","/api/admin/rec/clear",{}).then(function(){recDirty=false;loadRec()});
+});
+// ── 업적 관리 ──
+var AK=[["always","항상 달성"],["kills","처치 수 (마리 이상)"],["rank","등급 이상 처치"],["sTry","S급 도전 (회 이상)"],["sWin","S급 처치 (마리 이상)"],["lv","전투력 레벨 (이상)"],["manual","관리자 부여 전용"]];
+var AKL={};AK.forEach(function(k){AKL[k[0]]=k[1]});
+function akOpts(sel){return AK.map(function(k){return'<option value="'+k[0]+'"'+(k[0]===sel?" selected":"")+'>'+k[1]+'</option>'}).join("")}
+function valInput(kind,val,cls){
+  if(kind==="rank")return'<select class="'+cls+'">'+["F","E","D","C","B","A","S"].map(function(x){return'<option'+(x===val?" selected":"")+'>'+x+'</option>'}).join("")+'</select>';
+  if(kind==="always"||kind==="manual")return'<span class="muted '+cls+'" data-none="1">-</span>';
+  return'<input class="'+cls+'" type="number" min="1" max="99999" step="1" value="'+esc(val||1)+'" style="max-width:100px">';
+}
+function valOf(root,cls){var e=root.querySelector("."+cls);return !e||e.getAttribute("data-none")?"":e.value}
+$("ak").innerHTML=akOpts("kills");
+function drawNewVal(){$("avw").innerHTML=valInput($("ak").value,"","av")}
+$("ak").addEventListener("change",drawNewVal);drawNewVal();
+var AERR={bad_name:"이름은 1~20자여야 합니다.",bad_desc:"설명은 60자 이하여야 합니다.",bad_kind:"조건 종류가 올바르지 않습니다.",bad_val:"조건 값이 올바르지 않습니다.",too_many:"업적은 최대 100개까지 만들 수 있습니다."};
+function loadAchDefs(){
+  api("GET","/api/admin/achievements").then(function(r){
+    var l=r.list||[];
+    $("alist").innerHTML=l.length?l.map(function(a){return'<tr data-id="'+esc(a.id)+'" style="cursor:default"><td><input class="an" maxlength="20" value="'+esc(a.name)+'"></td><td><input class="ad" maxlength="60" value="'+esc(a.desc)+'"></td><td><select class="ak">'+akOpts(a.kind)+'</select></td><td class="avc">'+valInput(a.kind,a.val,"av")+'</td><td><button class="btn ghost sm" data-aa="save" type="button">저장</button> <button class="btn dbtn sm" data-aa="del" type="button">삭제</button></td></tr>'}).join(""):'<tr><td colspan="5" class="muted" style="cursor:default">등록된 업적이 없습니다.</td></tr>';
+  });
+}
+$("aadd").addEventListener("click",function(){
+  api("POST","/api/admin/achievements/save",{name:$("an").value,desc:$("ad").value,kind:$("ak").value,val:valOf($("avw"),"av")}).then(function(r){
+    if(r.ok){$("an").value="";$("ad").value="";$("amsg").textContent="추가했습니다. 모든 헌터에게 적용됩니다.";loadAchDefs()}
+    else $("amsg").textContent=AERR[r.error]||"추가하지 못했습니다.";
+  });
+});
+$("alist").addEventListener("change",function(e){
+  if(!e.target.classList.contains("ak"))return;
+  var tr=e.target.closest("tr");tr.querySelector(".avc").innerHTML=valInput(e.target.value,"","av");
+});
+$("alist").addEventListener("click",function(e){
+  var a=e.target.getAttribute&&e.target.getAttribute("data-aa");if(!a)return;
+  var tr=e.target.closest("tr"),id=tr.getAttribute("data-id");
+  if(a==="del"){
+    if(!confirm("'"+tr.querySelector(".an").value+"' 업적을 삭제할까요?\n모든 헌터에게서 사라지고, 달아둔 것도 해제됩니다."))return;
+    api("POST","/api/admin/achievements/delete",{id:id}).then(function(){$("amsg").textContent="삭제했습니다.";loadAchDefs();if(selCode)loadDetail()});return;
+  }
+  api("POST","/api/admin/achievements/save",{id:id,name:tr.querySelector(".an").value,desc:tr.querySelector(".ad").value,kind:tr.querySelector(".ak").value,val:valOf(tr,"av")}).then(function(r){
+    $("amsg").textContent=r.ok?"저장했습니다. 모든 헌터에게 적용됩니다.":(AERR[r.error]||"저장하지 못했습니다.");
+    if(r.ok){loadAchDefs();if(selCode&&!dirty)loadDetail()}
+  });
 });
 function loadShop(){
   api("GET","/api/admin/shop").then(function(r){
@@ -377,7 +430,7 @@ $("nsend").addEventListener("click",function(){
     else $("nmsg").textContent="발송하지 못했습니다.";
   });
 });
-function loadAll(){loadOverview();loadRec();if(!document.activeElement||!/^(sn|sd|sp|sname|sdesc|sprice)$/.test(document.activeElement.className||document.activeElement.id))loadShop();loadList();if(selCode&&!dirty)loadDetail();var d=new Date(),p=function(n){return String(n).padStart(2,"0")};$("last").textContent="갱신 "+p(d.getHours())+":"+p(d.getMinutes())+":"+p(d.getSeconds())}
+function loadAll(){loadOverview();loadRec();loadAchDefs();if(!document.activeElement||!/^(sn|sd|sp|sname|sdesc|sprice)$/.test(document.activeElement.className||document.activeElement.id))loadShop();loadList();if(selCode&&!dirty)loadDetail();var d=new Date(),p=function(n){return String(n).padStart(2,"0")};$("last").textContent="갱신 "+p(d.getHours())+":"+p(d.getMinutes())+":"+p(d.getSeconds())}
 // 1분마다 데이터만 다시 불러옵니다. 선택한 헌터·탭·검색어·작성 중인 알림은 그대로 유지됩니다.
 setInterval(function(){if($("auto").checked&&!document.hidden&&!$("app").classList.contains("hide"))loadAll()},60000);
 document.addEventListener("visibilitychange",function(){if(!document.hidden&&$("auto").checked&&!$("app").classList.contains("hide"))loadAll()});
