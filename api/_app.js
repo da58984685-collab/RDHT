@@ -571,6 +571,14 @@ route('GET', '/api/healthz', async (req, res) => {
 // ───────────── 진입점 ─────────────
 async function handle(req, res) {
   try {
+    // vercel.json 의 rewrite 가 원래 주소를 __p 로 넘겨 줍니다. (예: /api/admin/overview → /api/index?__p=admin/overview)
+    const u0 = new URL(req.url, 'http://x');
+    if (u0.searchParams.has('__p')) {
+      const orig = u0.searchParams.get('__p');
+      u0.searchParams.delete('__p');
+      const qs = u0.searchParams.toString();
+      req.url = '/api/' + orig + (qs ? '?' + qs : '');
+    }
     const pathname = new URL(req.url, 'http://x').pathname.replace(/\/+$/, '') || '/';
     const r = routes[req.method + ' ' + pathname];
     if (!r) return fail(res, 404, 'not_found');
