@@ -216,7 +216,7 @@ async function buildState(u, now) {
   const pm = new Map(parts.map(r => [r.monster_id, r.c]));
   return {
     now,
-    user: { lv: u.lv, exp: u.exp, region: u.region },
+    user: { lv: u.lv, exp: u.exp, region: u.region, hunterName: u.hunter_name, stats: JSON.parse(u.stats) },
     monsters: mons.map(m => ({
       id: m.id, region: m.region, rname: G.REGION_BY_ID[m.region].name, mon: m.name, r: m.rank, ts: m.spawned_at,
       done: killed.has(m.id), cd: cdm.get(m.id) || 0,
@@ -536,6 +536,49 @@ route('GET', '/api/admin/player', async (req, res) => {
     player: Object.assign(publicUser(u), { created: u.created_at, region: (G.REGION_BY_ID[u.region] || { name: u.region }).name, friends: fr.c }),
     items: inv, acquired: acq, hunts, counts: cnt, pendingS: pend.map(p => ({ mon: p.name, at: p.resolve_at })),
   });
+}, { auth: false, admin: true });
+
+route('POST', '/api/admin/player/update', async (req, res, ctx) => {
+  const b = ctx.body;
+  const u = await userByCode(normCode(b.code));
+  if (!u) return fail(res, 404, 'not_found');
+  const hn = String(b.hunterName == null ? '' : b.hunterName).trim();
+  if (cp(hn) < 2 || cp(hn) > 12) return fail(res, 400, 'bad_hunter_name');
+  const lv = Number(b.lv), exp = Number(b.exp);
+  if (!Number.isInteger(lv) || lv < 1 || lv > 999) return fail(res, 400, 'bad_lv');
+  if (!Number.isInteger(exp) || exp < 0 || exp >= G.powNeed(lv)) return fail(res, 400, 'bad_exp', { max: G.powNeed(lv) - 1 });
+  const stats = Object.assign({}, JSON.parse(u.stats));
+  for (const k of ['hp', 'str', 'agi', 'luck']) {
+    const v = Number(b.stats && b.stats[k]);
+    if (!Number.isInteger(v) || v < 0 || v > 9999) return fail(res, 400, 'bad_stat', { field: k });
+    stats[k] = v;
+  }
+  await db.run('UPDATE users SET hunter_name = ?, stats = ?, lv = ?, exp = ? WHERE id = ?', [hn, JSON.stringify(stats), lv, exp, u.id]);
+  send(res, 200, { ok: true });
+}, { auth: false, admin: true });
+
+// 강제 탈퇴: 캐릭터와 관련 데이터를 모두 삭제합니다. (확인용으로 헌터 네임을 정확히 보내야 합니다)
+route('POST', '/api/admin/player/delete', async (req, res, ctx) => {
+  const u = await userByCode(normCode(ctx.body.code));
+  if (!u) return fail(res, 404, 'not_found');
+  if (String(ctx.body.confirm || '') !== u.hunter_name) return fail(res, 400, 'confirm_mismatch');
+  const id = u.id;
+  await db.batch([
+    ['DELETE FROM sessions WHERE user_id = ?', [id]],
+    ['DELETE FROM kills WHERE user_id = ?', [id]],
+    ['DELETE FROM fail_cd WHERE user_id = ?', [id]],
+    ['DELETE FROM s_window WHERE user_id = ?', [id]],
+    ['DELETE FROM s_attempts WHERE user_id = ?', [id]],
+    ['DELETE FROM friends WHERE user_id = ? OR friend_id = ?', [id, id]],
+    ['DELETE FROM messages WHERE from_id = ? OR to_id = ?', [id, id]],
+    ['DELETE FROM hunt_log WHERE user_id = ?', [id]],
+    ['DELETE FROM acquire_log WHERE user_id = ?', [id]],
+    ['DELETE FROM inventory WHERE user_id = ?', [id]],
+    ['DELETE FROM user_spawn WHERE user_id = ?', [id]],
+    ['DELETE FROM monsters WHERE owner_id = ?', [id]],
+    ['DELETE FROM users WHERE id = ?', [id]],
+  ]);
+  send(res, 200, { ok: true });
 }, { auth: false, admin: true });
 
 // Cron 이 호출: 출몰·S급 결과 따라잡기 + 오래된 데이터 정리. Vercel 은 CRON_SECRET 을 Bearer 로 보냅니다.
