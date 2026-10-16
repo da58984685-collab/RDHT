@@ -85,6 +85,16 @@ tbody tr:hover,tbody tr.sel{background:#22101400;background:#2a1216}
 .btn.dbtn{background:transparent;border:1px solid var(--red);color:var(--red2)}
 .btn.dbtn:hover{background:var(--red);color:#fff}
 .dirty{color:var(--warn)}
+.fld.wide{grid-column:1/-1}
+.fld select,.fld textarea{background:var(--field);border:1px solid var(--line);border-radius:4px;padding:9px 10px;color:var(--text);font:inherit;width:100%}
+.fld textarea{resize:vertical}
+.mini{background:var(--field);border:1px solid var(--line);border-radius:4px;padding:5px 7px;width:80px;color:var(--text)}
+.mini.w{width:130px}
+select.mini{width:auto}
+.btn.sm{padding:5px 10px;font-size:.82rem}
+.addrow{display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap}
+.addrow input{flex:1;min-width:120px}
+td input[type=checkbox]{width:auto}
 </style>
 </head>
 <body>
@@ -205,49 +215,92 @@ function renderDetail(){
   var h='<div class="head">'+(p.image?'<img alt="" src="'+esc(p.image)+'">':'<div class="ph"></div>')+
     '<div><h2>'+esc(p.hunterName)+' <span class="rk '+esc(p.rank)+'">'+esc(p.rank)+'</span></h2><div class="muted">'+esc(p.code)+" · Lv."+p.lv+" · EXP "+p.exp+"</div></div></div>";
   h+='<div class="tabs">'+[["info","정보 · 스탯"],["items","아이템"],["acq","습득 정보"],["hunt","토벌 기록"]].map(function(t){return'<button class="tab'+(tab===t[0]?" on":"")+'" data-t="'+t[0]+'" type="button">'+t[1]+"</button>"}).join("")+"</div>";
+  var opt=function(list,cur){return list.map(function(x){return'<option value="'+esc(x[0])+'"'+(x[0]===cur?" selected":"")+">"+esc(x[1])+"</option>"}).join("")};
+  var RANKS=["F","E","D","C","B","A","S"].map(function(x){return[x,x]});
   if(tab==="info"){
-    h+='<dl class="kv"><dt>이름</dt><dd>'+esc(p.name)+"</dd><dt>성별 · 나이</dt><dd>"+esc(p.gender)+" · "+esc(p.age)+"세</dd><dt>현재 지역</dt><dd>"+esc(p.region)+"</dd><dt>친구 수</dt><dd>"+p.friends+"명</dd><dt>가입일</dt><dd>"+dt(p.created)+"</dd><dt>성격</dt><dd>"+esc(p.personality)+"</dd></dl>";
-    h+=(p.traits&&p.traits.length?'<div class="chips">'+p.traits.map(function(t){return'<span class="chip">'+esc(t)+"</span>"}).join("")+"</div>":"");
-    var f=function(id,label,val,min,max,type){return'<label class="fld"><span>'+label+'</span><input id="'+id+'" type="'+(type||"number")+'" value="'+esc(val)+'"'+(type==="text"?' maxlength="12"':' min="'+min+'" max="'+max+'" step="1"')+' autocomplete="off"></label>'};
-    h+='<h3 style="font-size:.95rem;margin:12px 0 8px">정보 · 스탯 수정 <span class="muted" style="font-weight:400;font-size:.8rem">(저장 버튼을 눌러야 서버에 반영됩니다)</span></h3>'+
-      '<form id="editf" class="egrid">'+f("e_hn","헌터 네임",p.hunterName,0,0,"text")+f("e_lv","전투력(레벨)",p.lv,1,999)+f("e_exp","EXP (0~"+(powNeedOf(p.lv)-1)+")",p.exp,0,powNeedOf(p.lv)-1)+
-      f("e_hp","체력",st.hp,0,9999)+f("e_str","근력",st.str,0,9999)+f("e_agi","민첩",st.agi,0,9999)+f("e_luck","행운",st.luck,0,9999)+"</form>"+
+    h+='<dl class="kv"><dt>현재 지역</dt><dd>'+esc(p.region)+"</dd><dt>친구 수</dt><dd>"+p.friends+"명</dd><dt>가입일</dt><dd>"+dt(p.created)+"</dd></dl>";
+    var f=function(id,label,val,min,max,type){return'<label class="fld"><span>'+label+'</span><input id="'+id+'" type="'+(type||"number")+'" value="'+esc(val)+'"'+(type==="text"?' maxlength="30"':' min="'+min+'" max="'+max+'" step="1"')+' autocomplete="off"></label>'};
+    h+='<h3 style="font-size:.95rem;margin:12px 0 8px">헌터 정보 수정 <span class="muted" style="font-weight:400;font-size:.8rem">(저장 버튼을 눌러야 서버에 반영됩니다)</span></h3>'+
+      '<form id="editf" class="egrid">'+
+      f("e_name","이름",p.name,0,0,"text")+
+      '<label class="fld"><span>성별</span><select id="e_gender">'+opt([["여성","여성"],["남성","남성"],["기타","기타"]],p.gender)+"</select></label>"+
+      f("e_age","나이",p.age,1,999)+
+      f("e_hn","헌터 네임",p.hunterName,0,0,"text")+
+      '<label class="fld"><span>헌터 등급</span><select id="e_rank">'+opt(RANKS,p.rank)+"</select></label>"+
+      f("e_lv","전투력(레벨)",p.lv,1,999)+f("e_exp","EXP (0~"+(powNeedOf(p.lv)-1)+")",p.exp,0,powNeedOf(p.lv)-1)+
+      f("e_hp","체력",st.hp,0,9999)+f("e_str","근력",st.str,0,9999)+f("e_agi","민첩",st.agi,0,9999)+f("e_luck","행운",st.luck,0,9999)+
+      '<label class="fld wide"><span>성격 (최대 1000자)</span><textarea id="e_pers" rows="3" maxlength="1000">'+esc(p.personality)+"</textarea></label>"+
+      '<label class="fld wide"><span>특징 (한 줄에 하나, 최대 5개 · 각 50자)</span><textarea id="e_traits" rows="3">'+esc((p.traits||[]).join("\n"))+"</textarea></label>"+
+      "</form>"+
       '<div class="row"><button class="btn" id="e_save" type="button">저장</button><button class="btn ghost" id="e_reset" type="button">되돌리기</button><span id="e_msg" class="muted"></span></div>'+
       '<div class="danger"><div><b>강제 탈퇴</b><div class="muted" style="font-size:.82rem">캐릭터와 토벌·습득·친구·메시지 기록이 서버에서 영구 삭제됩니다.</div></div><button class="btn dbtn" id="e_del" type="button">강제 탈퇴</button></div>';
     if(r.pendingS&&r.pendingS.length)h+='<h3 style="font-size:.95rem;margin:10px 0 4px">S급 결과 대기</h3>'+r.pendingS.map(function(x){return'<div class="muted">'+esc(x.mon)+" — "+dt(x.at)+" 공개</div>"}).join("");
   }else if(tab==="items"){
-    h+=table(["아이템","수량"],(r.items||[]).map(function(i){return"<tr><td>"+esc(i.item)+"</td><td>"+i.qty+"</td></tr>"}),"보유한 아이템이 없습니다. (상점·아이템 시스템 연결 후 표시됩니다)");
+    h+='<div class="addrow"><input id="i_name" placeholder="아이템 이름" maxlength="30"><input id="i_qty" type="number" min="1" max="9999" value="1" style="max-width:90px"><button class="btn" data-act="item-add" type="button">추가 / 수량 변경</button></div>';
+    h+=table(["아이템","수량",""],(r.items||[]).map(function(i){return'<tr data-item="'+esc(i.item)+'"><td>'+esc(i.item)+'</td><td><input class="mini" type="number" min="1" max="9999" value="'+i.qty+'" data-k="qty"></td><td><button class="btn ghost sm" data-act="item-save" type="button">저장</button> <button class="btn dbtn sm" data-act="item-del" type="button">삭제</button></td></tr>'}),"보유한 아이템이 없습니다. 위에서 추가할 수 있습니다.");
+    if((r.items||[]).length)h+='<div class="row"><button class="btn dbtn sm" data-act="item-clear" type="button">아이템 전체 삭제</button></div>';
   }else if(tab==="acq"){
-    h+=table(["시각","종류","내용","수량","출처"],(r.acquired||[]).map(function(a){return"<tr><td>"+dt(a.at)+"</td><td>"+(a.kind==="exp"?"경험치":esc(a.kind))+"</td><td>"+esc(a.name)+"</td><td>"+a.qty+"</td><td>"+esc(a.source)+"</td></tr>"}),"습득 기록이 없습니다.");
+    h+=table(["","시각","종류","내용","수량","출처"],(r.acquired||[]).map(function(a){return'<tr data-id="'+a.id+'"><td><input type="checkbox" data-k="sel"></td><td>'+dt(a.at)+"</td><td>"+(a.kind==="exp"?"경험치":esc(a.kind))+"</td><td>"+esc(a.name)+"</td><td>"+a.qty+"</td><td>"+esc(a.source)+"</td></tr>"}),"습득 기록이 없습니다.");
+    if((r.acquired||[]).length)h+='<div class="row"><button class="btn dbtn sm" data-act="acq-del" type="button">선택 삭제</button><button class="btn dbtn sm" data-act="acq-clear" type="button">전체 삭제</button></div>';
   }else{
     h+='<div class="chips"><span class="chip ok">성공 '+(counts.success||0)+'</span><span class="chip bad">실패 '+(counts.fail||0)+'</span><span class="chip wait">S급 대기 '+(counts.pending||0)+"</span></div>";
-    h+=table(["시각","몬스터","등급","결과","EXP"],(r.hunts||[]).map(function(x){var s=RES[x.result]||[x.result,""];return"<tr><td>"+dt(x.at)+"</td><td>"+esc(x.mon)+'</td><td><span class="rk '+esc(x.rank)+'">'+esc(x.rank)+'</span></td><td class="'+s[1]+'">'+esc(s[0])+"</td><td>"+(x.exp_gain?"+"+x.exp_gain:"-")+"</td></tr>"}),"토벌 기록이 없습니다.");
-    h+='<div class="note">최근 200건까지 표시합니다. 이 기록은 관리자 창 추가 이후의 토벌부터 쌓입니다.</div>';
+    var RS=[["success","성공"],["fail","실패"],["pending","S급 대기"]];
+    h+=table(["시각","몬스터","등급","결과","EXP",""],(r.hunts||[]).map(function(x){return'<tr data-id="'+x.id+'"><td>'+dt(x.at)+'</td><td><input class="mini w" data-k="mon" maxlength="30" value="'+esc(x.mon)+'"></td><td><select class="mini" data-k="rank">'+opt(RANKS,x.rank)+'</select></td><td><select class="mini" data-k="result">'+opt(RS,x.result)+'</select></td><td><input class="mini" type="number" min="0" max="99999" data-k="exp" value="'+x.exp_gain+'"></td><td><button class="btn ghost sm" data-act="hunt-save" type="button">저장</button> <button class="btn dbtn sm" data-act="hunt-del" type="button">삭제</button></td></tr>'}),"토벌 기록이 없습니다.");
+    if((r.hunts||[]).length)h+='<div class="row"><button class="btn dbtn sm" data-act="hunt-clear" type="button">토벌 기록 전체 삭제</button></div>';
+    h+='<div class="note">최근 200건까지 표시합니다. 기록을 바꾸거나 지워도 헌터의 레벨·경험치·토벌 완료 상태는 바뀌지 않습니다. (그 값은 "정보 · 스탯" 탭에서 수정하세요)</div>';
   }
   $("detail").innerHTML=h;
 }
 window.addEventListener("beforeunload",function(e){if(dirty){e.preventDefault();e.returnValue=""}});
 $("detail").addEventListener("click",function(e){
-  var b=e.target.closest(".tab");
+  var t=e.target,b=t.closest(".tab");
   if(b&&cache){if(!okLeave())return;dirty=false;tab=b.getAttribute("data-t");renderDetail();return}
-  if(e.target.id==="e_save")return saveEdit();
-  if(e.target.id==="e_reset"){if(okLeave()){dirty=false;renderDetail()}return}
-  if(e.target.id==="e_del")return delPlayer();
+  if(t.id==="e_save")return saveEdit();
+  if(t.id==="e_reset"){if(okLeave()){dirty=false;renderDetail()}return}
+  if(t.id==="e_del")return delPlayer();
+  var act=t.getAttribute&&t.getAttribute("data-act");if(act)rowAct(act,t);
 });
-$("detail").addEventListener("input",function(e){
+function onEdit(e){
   if(!e.target.closest("#editf"))return;
   dirty=true;var m=$("e_msg");if(m){m.className="dirty";m.textContent="저장하지 않은 변경 사항이 있습니다."}
-});
-var EMSG={bad_hunter_name:"헌터 네임은 2~12자여야 합니다.",bad_lv:"레벨은 1~999 사이 정수여야 합니다.",bad_exp:"EXP 범위를 벗어났습니다.",bad_stat:"스탯은 0~9999 사이 정수여야 합니다.",not_found:"헌터를 찾을 수 없습니다.",unauthorized:"로그인이 만료되었습니다.",rate_limited:"요청이 많습니다."};
+}
+$("detail").addEventListener("input",onEdit);
+$("detail").addEventListener("change",onEdit);
+var EMSG={bad_hunter_name:"헌터 네임은 2~12자여야 합니다.",bad_name:"이름은 1~30자여야 합니다.",bad_gender:"성별 값이 올바르지 않습니다.",bad_age:"나이는 1~999 사이 정수여야 합니다.",bad_personality:"성격은 1~1000자여야 합니다.",bad_traits:"특징은 최대 5개, 각 50자 이하여야 합니다.",bad_rank:"등급 값이 올바르지 않습니다.",bad_lv:"레벨은 1~999 사이 정수여야 합니다.",bad_exp:"EXP 범위를 벗어났습니다.",bad_stat:"스탯은 0~9999 사이 정수여야 합니다.",bad_item:"아이템 이름은 1~30자여야 합니다.",bad_qty:"수량은 1~9999 사이 정수여야 합니다.",bad_mon:"몬스터 이름은 1~30자여야 합니다.",bad_result:"결과 값이 올바르지 않습니다.",no_ids:"삭제할 항목을 선택하세요.",not_found:"대상을 찾을 수 없습니다.",unauthorized:"로그인이 만료되었습니다.",rate_limited:"요청이 많습니다."};
 function saveEdit(){
   var m=$("e_msg"),v=function(i){return $(i).value};
   m.className="muted";m.textContent="저장 중...";
-  api("POST","/api/admin/player/update",{code:selCode,hunterName:v("e_hn"),lv:Number(v("e_lv")),exp:Number(v("e_exp")),
+  api("POST","/api/admin/player/update",{code:selCode,hunterName:v("e_hn"),name:v("e_name"),gender:v("e_gender"),age:Number(v("e_age")),rank:v("e_rank"),
+    personality:v("e_pers"),traits:v("e_traits").split("\n").map(function(x){return x.trim()}).filter(Boolean),
+    lv:Number(v("e_lv")),exp:Number(v("e_exp")),
     stats:{hp:Number(v("e_hp")),str:Number(v("e_str")),agi:Number(v("e_agi")),luck:Number(v("e_luck"))}}).then(function(r){
     if(r._status===401){showApp(false);return}
     if(r.ok){dirty=false;loadAll();setTimeout(function(){var mm=$("e_msg");if(mm){mm.className="ok";mm.textContent="저장했습니다. 게임에는 다음 갱신(5초 이내)부터 반영됩니다."}},400)}
     else{m.className="bad";m.textContent=(EMSG[r.error]||"저장하지 못했습니다.")+(r.error==="bad_exp"&&r.max!=null?" (최대 "+r.max+")":"")}
   });
+}
+// 아이템 · 습득 정보 · 토벌 기록: 행마다 바로 서버에 반영됩니다 (삭제는 확인창을 거칩니다)
+function post(url,body,okf){
+  body.code=selCode;
+  api("POST",url,body).then(function(r){
+    if(r._status===401){showApp(false);return}
+    if(r.ok){loadDetail();loadList();if(okf)okf()}else alert(EMSG[r.error]||"처리하지 못했습니다.");
+  });
+}
+function rowAct(act,btn){
+  var tr=btn.closest("tr"),val=function(k){var el=tr&&tr.querySelector('[data-k="'+k+'"]');return el?el.value:""};
+  if(act==="item-add"){post("/api/admin/player/item",{item:$("i_name").value.trim(),qty:Number($("i_qty").value)});return}
+  if(act==="item-save"){post("/api/admin/player/item",{item:tr.getAttribute("data-item"),qty:Number(val("qty"))});return}
+  if(act==="item-del"){if(confirm("'"+tr.getAttribute("data-item")+"' 아이템을 삭제할까요?"))post("/api/admin/player/item/delete",{item:tr.getAttribute("data-item")});return}
+  if(act==="item-clear"){if(confirm("이 헌터의 아이템을 모두 삭제할까요?"))post("/api/admin/player/item/delete",{all:true});return}
+  if(act==="acq-del"){
+    var ids=Array.prototype.map.call($("detail").querySelectorAll('tr[data-id] [data-k="sel"]:checked'),function(c){return Number(c.closest("tr").getAttribute("data-id"))});
+    if(!ids.length){alert("삭제할 항목을 선택하세요.");return}
+    if(confirm("선택한 습득 기록 "+ids.length+"건을 삭제할까요?"))post("/api/admin/player/acquired/delete",{ids:ids});return}
+  if(act==="acq-clear"){if(confirm("이 헌터의 습득 기록을 모두 삭제할까요?"))post("/api/admin/player/acquired/delete",{all:true});return}
+  if(act==="hunt-save"){post("/api/admin/player/hunt/update",{id:Number(tr.getAttribute("data-id")),mon:val("mon"),rank:val("rank"),result:val("result"),exp:Number(val("exp"))});return}
+  if(act==="hunt-del"){if(confirm("이 토벌 기록을 삭제할까요?"))post("/api/admin/player/hunt/delete",{ids:[Number(tr.getAttribute("data-id"))]});return}
+  if(act==="hunt-clear"){if(confirm("이 헌터의 토벌 기록을 모두 삭제할까요?"))post("/api/admin/player/hunt/delete",{all:true});return}
 }
 function delPlayer(){
   var p=cache&&cache.player;if(!p)return;
