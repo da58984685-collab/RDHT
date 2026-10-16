@@ -127,6 +127,24 @@ td input[type=checkbox]{width:auto}
     </section>
     <section class="card" id="detail"><div class="empty">왼쪽 목록에서 헌터를 선택하세요.</div></section>
   </div>
+  <section class="card" id="sbox">
+    <h3 style="margin-bottom:4px">S급 토벌 현황 <span class="muted" style="font-weight:400;font-size:.85rem">(출현·회수는 서버 전체 헌터에게 바로 적용 · 보상은 도전에 참여한 헌터에게만 지급)</span></h3>
+    <div class="chips" id="schips" style="margin:10px 0"></div>
+    <div class="row" style="margin-bottom:8px"><span class="muted" style="font-size:.85rem">출현 지역</span><select id="sregion" style="max-width:180px"></select><button class="btn dbtn sm" id="srecall-all" type="button">출현 중인 S급 전체 회수</button><span id="smsg2" class="muted"></span></div>
+    <h3 style="font-size:.95rem;margin:14px 0 8px">성공 여부 결정 대기 중인 S급 <span class="muted" style="font-weight:400;font-size:.82rem">(서버 참여 100명 또는 도전 300회(중복 포함)에 이르면 자동 성공 · 결정하지 않으면 24시간 뒤 실패로 공개)</span></h3>
+    <div class="tw" style="max-height:300px;margin-bottom:16px"><table><thead><tr><th>몬스터</th><th>지역</th><th>상태</th><th>참여 인원</th><th>도전 횟수</th><th>결정</th></tr></thead><tbody id="sopen"></tbody></table></div>
+    <div class="tw" style="max-height:none"><table><thead><tr><th>S급 몬스터</th><th>출현 여부</th><th>출현 횟수</th><th>토벌 횟수</th><th>도주 횟수</th><th>회수</th><th></th></tr></thead><tbody id="scat"></tbody></table></div>
+    <h3 style="font-size:.95rem;margin:18px 0 8px">S급 토벌 참여 헌터 <span class="muted" style="font-weight:400;font-size:.82rem" id="scnt"></span></h3>
+    <div class="tw" style="max-height:320px"><table><thead><tr><th>헌터</th><th>코드</th><th>등급</th><th>Lv</th><th>참여</th><th>성공</th><th>실패</th><th>결과 대기</th></tr></thead><tbody id="spl"></tbody></table></div>
+    <h3 style="font-size:.95rem;margin:18px 0 8px">최근 출현 기록 <span class="muted" style="font-weight:400;font-size:.82rem">(최근 40건 · 참여 헌터 포함)</span></h3>
+    <div class="tw" style="max-height:360px"><table><thead><tr><th>시각</th><th>몬스터</th><th>지역</th><th>상태</th><th>참여 헌터</th></tr></thead><tbody id="srec"></tbody></table></div>
+  </section>
+  <section class="card" id="invbox">
+    <h3 style="margin-bottom:8px">초대자 코드 <span class="muted" style="font-weight:400;font-size:.85rem">(캐릭터 생성 시 정확히 일치해야 가입 · 코드당 최대 10명)</span></h3>
+    <div class="row"><input id="icode" maxlength="20" placeholder="코드 (영문·숫자·-, 4~20자 / 비우면 자동 생성)"><input id="imax" type="number" min="1" max="10" step="1" value="10" style="max-width:110px" title="사용 가능 인원"><button class="btn" id="iadd" type="button">생성</button></div>
+    <div id="imsg" class="muted" style="min-height:1.3em;font-size:.85rem"></div>
+    <div class="tw"><table><thead><tr><th>초대 코드</th><th>사용 인원</th><th>상태</th><th>사용한 헌터</th><th></th></tr></thead><tbody id="ilist"></tbody></table></div>
+  </section>
   <section class="card" id="recbox">
     <h3 style="margin-bottom:8px">오늘의 추천 <span class="muted" style="font-weight:400;font-size:.85rem">(게임 캐릭터 창에 한 줄 문장으로 표시 · 관리자만 수정 가능)</span></h3>
     <div class="row"><input id="rtext" maxlength="100" placeholder="예) 오늘은 폐광에서 21시 무렵 사냥하면 좋아요. (최대 100자)"></div>
@@ -199,7 +217,7 @@ function loadList(){
       return'<div class="fc" data-c="'+esc(p.code)+'"><h4>'+esc(p.hunterName)+'</h4><dl><dt>고유 코드</dt><dd>'+esc(p.code)+'</dd><dt>등급</dt><dd><span class="rk '+esc(p.rank)+'">'+esc(p.rank)+'</span></dd><dt>레벨</dt><dd>Lv.'+p.lv+'</dd><dt>토벌 지역</dt><dd>'+esc(p.region)+(p.lastRegion?' <span class="muted">(최근 토벌: '+esc(p.lastRegion)+')</span>':'')+'</dd></dl></div>';
     }).join("")+(ps.length>5?'<div class="muted" style="font-size:.82rem">외 '+(ps.length-5)+'명 — 아래 목록에서 확인하세요.</div>':"")+"</div>":'<div class="empty">"'+esc(qv)+'" 헌터를 찾지 못했습니다.</div>'):"";
     $("plist").innerHTML=ps.length?ps.map(function(p){
-      return'<tr data-c="'+esc(p.code)+'"'+(p.code===selCode?' class="sel"':"")+"><td>"+esc(p.hunterName)+'<div class="muted" style="font-size:.78rem">'+esc(p.code)+'</div></td><td><span class="rk '+esc(p.rank)+'">'+esc(p.rank)+"</span></td><td>"+p.lv+"</td><td>"+p.kills+"</td><td>"+esc(p.region)+"</td></tr>";
+      return'<tr data-c="'+esc(p.code)+'"'+(p.code===selCode?' class="sel"':"")+"><td>"+esc(p.hunterName)+'<div class="muted" style="font-size:.78rem">'+esc(p.code)+'</div>'+(p.invite?'<div class="muted" style="font-size:.78rem">초대 '+esc(p.invite)+"</div>":"")+'</td><td><span class="rk '+esc(p.rank)+'">'+esc(p.rank)+"</span></td><td>"+p.lv+"</td><td>"+p.kills+"</td><td>"+esc(p.region)+"</td></tr>";
     }).join(""):'<tr><td colspan="5" class="empty">헌터가 없습니다.</td></tr>';
   });
 }
@@ -240,13 +258,14 @@ function renderDetail(){
     var f=function(id,label,val,min,max,type){return'<label class="fld"><span>'+label+'</span><input id="'+id+'" type="'+(type||"number")+'" value="'+esc(val)+'"'+(type==="text"?' maxlength="30"':' min="'+min+'" max="'+max+'" step="1"')+' autocomplete="off"></label>'};
     h+='<h3 style="font-size:.95rem;margin:12px 0 8px">헌터 정보 수정 <span class="muted" style="font-weight:400;font-size:.8rem">(저장 버튼을 눌러야 서버에 반영됩니다)</span></h3>'+
       '<form id="editf" class="egrid">'+
+      '<label class="fld"><span>입력한 초대자 코드</span><input type="text" value="'+esc(p.invite||"-")+'" readonly></label>'+
       f("e_name","이름",p.name,0,0,"text")+
       '<label class="fld"><span>성별</span><select id="e_gender">'+opt([["여성","여성"],["남성","남성"],["기타","기타"]],p.gender)+"</select></label>"+
       f("e_age","나이",p.age,1,999)+
       f("e_hn","헌터 네임",p.hunterName,0,0,"text")+
       '<label class="fld"><span>헌터 등급</span><select id="e_rank">'+opt(RANKS,p.rank)+"</select></label>"+
       f("e_lv","전투력(레벨)",p.lv,1,999)+f("e_exp","EXP (0~"+(powNeedOf(p.lv)-1)+")",p.exp,0,powNeedOf(p.lv)-1)+
-      f("e_gold","보유 골드 (G)",p.gold||0,0,99999999)+f("e_hp","체력",st.hp,0,9999)+f("e_str","근력",st.str,0,9999)+f("e_agi","민첩",st.agi,0,9999)+f("e_luck","행운",st.luck,0,9999)+'<label class="fld"><span>오염도 (%, 0~100)</span><input id="e_taint" type="number" min="0" max="100" step="0.1" value="'+esc(st.taint||0)+'" autocomplete="off"></label>'+
+      f("e_gold","보유 골드 (G)",p.gold||0,0,99999999)+f("e_hp","체력",st.hp,0,9999)+f("e_str","근력",st.str,0,9999)+f("e_agi","민첩",st.agi,0,9999)+f("e_luck","행운",st.luck,0,9999)+f("e_fame","명성 (레벨·등급 상승 시 자동 증가)",st.fame||0,0,999999)+'<label class="fld"><span>오염도 (%, 0~100)</span><input id="e_taint" type="number" min="0" max="100" step="0.1" value="'+esc(st.taint||0)+'" autocomplete="off"></label>'+
       '<label class="fld wide"><span>성격 (최대 1000자)</span><textarea id="e_pers" rows="3" maxlength="1000">'+esc(p.personality)+"</textarea></label>"+
       '<label class="fld wide"><span>특징 (한 줄에 하나, 최대 5개 · 각 50자)</span><textarea id="e_traits" rows="3">'+esc((p.traits||[]).join("\n"))+"</textarea></label>"+
       "</form>"+
@@ -299,7 +318,7 @@ function saveEdit(){
   api("POST","/api/admin/player/update",{code:selCode,hunterName:v("e_hn"),name:v("e_name"),gender:v("e_gender"),age:Number(v("e_age")),rank:v("e_rank"),
     personality:v("e_pers"),traits:v("e_traits").split("\n").map(function(x){return x.trim()}).filter(Boolean),
     lv:Number(v("e_lv")),exp:Number(v("e_exp")),gold:Number(v("e_gold")),
-    stats:{hp:Number(v("e_hp")),str:Number(v("e_str")),agi:Number(v("e_agi")),luck:Number(v("e_luck")),taint:Number(v("e_taint"))}}).then(function(r){
+    stats:{hp:Number(v("e_hp")),str:Number(v("e_str")),agi:Number(v("e_agi")),luck:Number(v("e_luck")),taint:Number(v("e_taint")),fame:Number(v("e_fame"))}}).then(function(r){
     if(r._status===401){showApp(false);return}
     if(r.ok){dirty=false;loadAll();setTimeout(function(){var mm=$("e_msg");if(mm){mm.className="ok";mm.textContent="저장했습니다. 게임에는 다음 갱신(5초 이내)부터 반영됩니다."}},400)}
     else{m.className="bad";m.textContent=(EMSG[r.error]||"저장하지 못했습니다.")+(r.error==="bad_exp"&&r.max!=null?" (최대 "+r.max+")":"")}
@@ -401,6 +420,57 @@ $("alist").addEventListener("click",function(e){
     if(r.ok){loadAchDefs();if(selCode&&!dirty)loadDetail()}
   });
 });
+// ── S급 토벌 현황 ──
+var SR=[["","랜덤 지역"],["city","도심"],["mine","폐광"],["river","한강변"],["temple","산사"],["port","폐항"],["gate","적월 게이트"]];
+$("sregion").innerHTML=SR.map(function(r){return'<option value="'+r[0]+'">'+r[1]+'</option>'}).join("");
+var S_ST={active:["출현 중","ok"],waiting:["결과 대기","wait"],killed:["토벌됨","ok"],fled:["도주","bad"],recalled:["회수","wait"]};
+function mmss(ms){var m=Math.max(0,Math.floor(ms/60000));return m+"분"}
+function loadS(){
+  api("GET","/api/admin/s").then(function(r){
+    if(!r.catalog)return;
+    var t=r.totals||{};
+    $("schips").innerHTML='<span class="chip">출현 '+t.appear+'회</span><span class="chip ok">토벌 '+t.killed+'회</span><span class="chip bad">도주 '+t.fled+'회</span><span class="chip wait">회수 '+t.recalled+'회</span><span class="chip">참여 헌터 '+t.players+'명</span>';
+    $("scat").innerHTML=r.catalog.map(function(c){
+      var pres=c.present.length?c.present.map(function(p){return esc(p.rname)+" · "+mmss(p.left)+" 남음"}).join("<br>"):'<span class="muted">없음</span>';
+      return'<tr data-n="'+esc(c.name)+'" style="cursor:default"><td><b>'+esc(c.name)+'</b></td><td>'+(c.present.length?'<span style="color:var(--ok)">출현 중 ('+c.present.length+')</span><br><span class="muted" style="font-size:.8rem">'+pres+'</span>':'<span class="muted">출현 안 함</span>')+'</td><td>'+c.appear+'</td><td>'+c.killed+'</td><td>'+c.fled+'</td><td>'+c.recalled+'</td><td><button class="btn sm" data-sa="spawn" type="button">출현</button> <button class="btn dbtn sm" data-sa="recall" type="button"'+(c.present.length?"":" disabled")+'>회수</button></td></tr>'}).join("");
+    $("sopen").innerHTML=(r.open&&r.open.length)?r.open.map(function(o){
+      return'<tr data-mid="'+o.id+'" data-n="'+esc(o.name)+'" style="cursor:default"><td><b>'+esc(o.name)+'</b></td><td>'+esc(o.rname)+'</td><td>'+(o.alive?'<span style="color:var(--ok)">출현 중 ('+mmss(o.left)+' 남음)</span>':'<span class="muted">결과 대기</span>')+'</td><td>'+o.people+' / '+o.need+'명</td><td>'+o.tries+' / '+o.needTries+'회</td><td><button class="btn sm" data-sd="1" type="button">토벌 성공</button> <button class="btn dbtn sm" data-sd="0" type="button">토벌 실패</button></td></tr>'}).join(""):'<tr><td colspan="6" class="muted" style="cursor:default">결정을 기다리는 S급이 없습니다.</td></tr>';
+    $("scnt").textContent="(총 "+r.players.length+"명)";
+    $("spl").innerHTML=r.players.length?r.players.map(function(p){return'<tr style="cursor:default"><td>'+esc(p.hn)+'</td><td class="muted">'+esc(p.code)+'</td><td><span class="rk '+esc(p.rank)+'">'+esc(p.rank)+'</span></td><td>'+p.lv+'</td><td>'+p.attempts+'</td><td>'+p.wins+'</td><td>'+p.fails+'</td><td>'+p.pending+'</td></tr>'}).join(""):'<tr><td colspan="8" class="muted" style="cursor:default">S급 토벌에 참여한 헌터가 아직 없습니다.</td></tr>';
+    $("srec").innerHTML=r.recent.length?r.recent.map(function(x){
+      var st=S_ST[x.status]||[x.status,""];
+      var ps=x.parts.length?x.parts.map(function(p){return esc(p.hn)+(p.st==="win"?" ✔":p.st==="lose"?" ✘":" …")}).join(", "):'<span class="muted">참여 없음</span>';
+      return'<tr style="cursor:default"><td>'+dt(x.at)+'</td><td>'+esc(x.name)+'</td><td>'+esc(x.rname)+'</td><td><span class="chip '+st[1]+'">'+st[0]+'</span></td><td style="white-space:normal;min-width:180px">'+ps+'</td></tr>'}).join(""):'<tr><td colspan="5" class="muted" style="cursor:default">출현 기록이 없습니다.</td></tr>';
+  });
+}
+$("sbox").addEventListener("click",function(e){
+  var t=e.target,a=t.getAttribute&&t.getAttribute("data-sa");
+  var sd=t.getAttribute&&t.getAttribute("data-sd");
+  if(sd!==null&&sd!==undefined){
+    var row=t.closest("tr"),ok=sd==="1",nm=row.getAttribute("data-n");
+    if(!confirm(ok?"'"+nm+"' 토벌을 성공으로 결정할까요?\n모든 헌터에게 'S급 토벌 성공' 팝업이 뜨고, 확인을 누르면 참여한 헌터에게만 보상이 지급됩니다.":"'"+nm+"' 토벌을 실패(도주)로 결정할까요?\n대기 중인 도전은 실패로 공개되고 몬스터는 사라집니다."))return;
+    api("POST","/api/admin/s/decide",{id:Number(row.getAttribute("data-mid")),success:ok}).then(function(r){
+      $("smsg2").textContent=r.ok?(ok?"토벌 성공으로 결정했습니다. 모든 헌터에게 5초 이내에 팝업이 표시됩니다.":"실패(도주)로 결정했습니다."):(r.error==="already_decided"?"이미 결정된 S급입니다.":"처리하지 못했습니다.");loadS()});
+    return;
+  }
+  if(t.id==="srecall-all"){
+    if(!confirm("출현 중인 S급을 모두 회수할까요?\n서버 전체 헌터 화면에서 사라지고, 대기 중이던 도전은 취소되어 도전권이 반환됩니다."))return;
+    api("POST","/api/admin/s/recall",{all:true}).then(sDone);return;
+  }
+  if(!a)return;
+  var name=t.closest("tr").getAttribute("data-n");
+  if(a==="spawn"){
+    api("POST","/api/admin/s/spawn",{name:name,region:$("sregion").value}).then(function(r){
+      $("smsg2").textContent=r.ok?"'"+name+"' 이(가) 출현했습니다. 모든 헌터에게 5초 이내에 표시됩니다.":(r.error==="too_many"?"동시에 20마리까지만 출현시킬 수 있습니다.":"출현시키지 못했습니다.");loadS()});
+  }else if(a==="recall"){
+    if(!confirm("'"+name+"' 을(를) 회수할까요?\n서버 전체에서 사라지고, 대기 중이던 도전은 취소되어 도전권이 반환됩니다."))return;
+    api("POST","/api/admin/s/recall",{name:name}).then(sDone);
+  }
+});
+function sDone(r){
+  $("smsg2").textContent=r.ok?"회수 "+r.recalled+"마리"+(r.cancelled?" · 취소된 도전 "+r.cancelled+"건(도전권 반환)":"")+(r.skipped?" · 이미 처치되어 남긴 "+r.skipped+"마리":""):"회수하지 못했습니다.";
+  loadS();
+}
 function loadShop(){
   api("GET","/api/admin/shop").then(function(r){
     var it=r.items||[];
@@ -430,7 +500,27 @@ $("nsend").addEventListener("click",function(){
     else $("nmsg").textContent="발송하지 못했습니다.";
   });
 });
-function loadAll(){loadOverview();loadRec();loadAchDefs();if(!document.activeElement||!/^(sn|sd|sp|sname|sdesc|sprice)$/.test(document.activeElement.className||document.activeElement.id))loadShop();loadList();if(selCode&&!dirty)loadDetail();var d=new Date(),p=function(n){return String(n).padStart(2,"0")};$("last").textContent="갱신 "+p(d.getHours())+":"+p(d.getMinutes())+":"+p(d.getSeconds())}
+function loadInv(){
+  api("GET","/api/admin/invites").then(function(r){
+    var l=r.invites||[];
+    $("ilist").innerHTML=l.length?l.map(function(i){
+      return'<tr><td><b>'+esc(i.code)+'</b></td><td>'+i.used+"명/"+i.max+"명"+(i.used>=i.max?' <span class="muted">(마감)</span>':"")+"</td><td>"+(i.active?"활성":'<span class="muted">비활성</span>')+"</td><td>"+(i.users.length?i.users.map(function(u){return esc(u.hunterName)}).join(", "):'<span class="muted">-</span>')+'</td><td><button class="btn" data-it="'+esc(i.code)+'" data-a="'+(i.active?0:1)+'">'+(i.active?"비활성화":"활성화")+'</button> <button class="btn" data-idel="'+esc(i.code)+'">삭제</button></td></tr>';
+    }).join(""):'<tr><td colspan="5" class="empty">초대 코드가 없습니다. 코드를 만들어야 새 헌터가 가입할 수 있습니다.</td></tr>';
+  });
+}
+var IERR={bad_invite:"코드는 영문·숫자·-로 4~20자여야 합니다.",bad_max:"사용 인원은 1~10명이어야 합니다.",invite_exists:"이미 있는 코드입니다."};
+$("iadd").addEventListener("click",function(){
+  api("POST","/api/admin/invites/create",{code:$("icode").value,max:$("imax").value}).then(function(r){
+    $("imsg").textContent=r.ok?"생성했습니다: "+r.code:(IERR[r.error]||"생성하지 못했습니다.");
+    if(r.ok){$("icode").value="";loadInv()}
+  });
+});
+$("ilist").addEventListener("click",function(e){
+  var t=e.target.closest("button");if(!t)return;
+  if(t.hasAttribute("data-it")){api("POST","/api/admin/invites/toggle",{code:t.getAttribute("data-it"),active:t.getAttribute("data-a")==="1"}).then(loadInv)}
+  else if(t.hasAttribute("data-idel")){var c=t.getAttribute("data-idel");if(confirm("초대 코드 "+c+" 를 삭제할까요? 이미 가입한 헌터는 유지되고, 이 코드로는 더 이상 가입할 수 없습니다."))api("POST","/api/admin/invites/delete",{code:c}).then(loadInv)}
+});
+function loadAll(){loadInv();loadOverview();loadS();loadRec();loadAchDefs();if(!document.activeElement||!/^(sn|sd|sp|sname|sdesc|sprice)$/.test(document.activeElement.className||document.activeElement.id))loadShop();loadList();if(selCode&&!dirty)loadDetail();var d=new Date(),p=function(n){return String(n).padStart(2,"0")};$("last").textContent="갱신 "+p(d.getHours())+":"+p(d.getMinutes())+":"+p(d.getSeconds())}
 // 1분마다 데이터만 다시 불러옵니다. 선택한 헌터·탭·검색어·작성 중인 알림은 그대로 유지됩니다.
 setInterval(function(){if($("auto").checked&&!document.hidden&&!$("app").classList.contains("hide"))loadAll()},60000);
 document.addEventListener("visibilitychange",function(){if(!document.hidden&&$("auto").checked&&!$("app").classList.contains("hide"))loadAll()});
