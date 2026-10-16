@@ -125,6 +125,11 @@ td input[type=checkbox]{width:auto}
     </section>
     <section class="card" id="detail"><div class="empty">왼쪽 목록에서 헌터를 선택하세요.</div></section>
   </div>
+  <section class="card" id="shop">
+    <h3 style="margin-bottom:8px">상점 관리 <span class="muted" style="font-weight:400;font-size:.85rem">(게임 내 기기 → 상점에 표시)</span></h3>
+    <div class="row"><input id="sname" maxlength="30" placeholder="아이템 이름 (최대 30자)"><input id="sdesc" maxlength="100" placeholder="설명 (선택, 최대 100자)"><input id="sprice" type="number" min="0" max="9999999" step="1" placeholder="가격 (G)" style="max-width:110px"><button class="btn" id="sadd" type="button">추가</button><span id="smsg" class="muted"></span></div>
+    <div class="tw"><table><thead><tr><th>아이템</th><th>설명</th><th>가격 (G)</th><th></th></tr></thead><tbody id="slist"></tbody></table></div>
+  </section>
   <section class="card send">
     <h3 style="margin-bottom:8px">시스템 알림 발송 <span class="muted" style="font-weight:400;font-size:.85rem">(서버 내 모든 헌터에게 전달)</span></h3>
     <textarea id="ntext" maxlength="1000" placeholder="알림 내용 (최대 1000자)"></textarea>
@@ -228,7 +233,7 @@ function renderDetail(){
       f("e_hn","헌터 네임",p.hunterName,0,0,"text")+
       '<label class="fld"><span>헌터 등급</span><select id="e_rank">'+opt(RANKS,p.rank)+"</select></label>"+
       f("e_lv","전투력(레벨)",p.lv,1,999)+f("e_exp","EXP (0~"+(powNeedOf(p.lv)-1)+")",p.exp,0,powNeedOf(p.lv)-1)+
-      f("e_hp","체력",st.hp,0,9999)+f("e_str","근력",st.str,0,9999)+f("e_agi","민첩",st.agi,0,9999)+f("e_luck","행운",st.luck,0,9999)+
+      f("e_gold","보유 골드 (G)",p.gold||0,0,99999999)+f("e_hp","체력",st.hp,0,9999)+f("e_str","근력",st.str,0,9999)+f("e_agi","민첩",st.agi,0,9999)+f("e_luck","행운",st.luck,0,9999)+
       '<label class="fld wide"><span>성격 (최대 1000자)</span><textarea id="e_pers" rows="3" maxlength="1000">'+esc(p.personality)+"</textarea></label>"+
       '<label class="fld wide"><span>특징 (한 줄에 하나, 최대 5개 · 각 50자)</span><textarea id="e_traits" rows="3">'+esc((p.traits||[]).join("\n"))+"</textarea></label>"+
       "</form>"+
@@ -240,7 +245,7 @@ function renderDetail(){
     h+=table(["아이템","수량",""],(r.items||[]).map(function(i){return'<tr data-item="'+esc(i.item)+'"><td>'+esc(i.item)+'</td><td><input class="mini" type="number" min="1" max="9999" value="'+i.qty+'" data-k="qty"></td><td><button class="btn ghost sm" data-act="item-save" type="button">저장</button> <button class="btn dbtn sm" data-act="item-del" type="button">삭제</button></td></tr>'}),"보유한 아이템이 없습니다. 위에서 추가할 수 있습니다.");
     if((r.items||[]).length)h+='<div class="row"><button class="btn dbtn sm" data-act="item-clear" type="button">아이템 전체 삭제</button></div>';
   }else if(tab==="acq"){
-    h+=table(["","시각","종류","내용","수량","출처"],(r.acquired||[]).map(function(a){return'<tr data-id="'+a.id+'"><td><input type="checkbox" data-k="sel"></td><td>'+dt(a.at)+"</td><td>"+(a.kind==="exp"?"경험치":esc(a.kind))+"</td><td>"+esc(a.name)+"</td><td>"+a.qty+"</td><td>"+esc(a.source)+"</td></tr>"}),"습득 기록이 없습니다.");
+    h+=table(["","시각","종류","내용","수량","출처"],(r.acquired||[]).map(function(a){return'<tr data-id="'+a.id+'"><td><input type="checkbox" data-k="sel"></td><td>'+dt(a.at)+"</td><td>"+(a.kind==="exp"?"경험치":a.kind==="gold"?"골드":esc(a.kind))+"</td><td>"+esc(a.name)+"</td><td>"+a.qty+"</td><td>"+esc(a.source)+"</td></tr>"}),"습득 기록이 없습니다.");
     if((r.acquired||[]).length)h+='<div class="row"><button class="btn dbtn sm" data-act="acq-del" type="button">선택 삭제</button><button class="btn dbtn sm" data-act="acq-clear" type="button">전체 삭제</button></div>';
   }else{
     h+='<div class="chips"><span class="chip ok">성공 '+(counts.success||0)+'</span><span class="chip bad">실패 '+(counts.fail||0)+'</span><span class="chip wait">S급 대기 '+(counts.pending||0)+"</span></div>";
@@ -266,13 +271,13 @@ function onEdit(e){
 }
 $("detail").addEventListener("input",onEdit);
 $("detail").addEventListener("change",onEdit);
-var EMSG={bad_hunter_name:"헌터 네임은 2~12자여야 합니다.",bad_name:"이름은 1~30자여야 합니다.",bad_gender:"성별 값이 올바르지 않습니다.",bad_age:"나이는 1~999 사이 정수여야 합니다.",bad_personality:"성격은 1~1000자여야 합니다.",bad_traits:"특징은 최대 5개, 각 50자 이하여야 합니다.",bad_rank:"등급 값이 올바르지 않습니다.",bad_lv:"레벨은 1~999 사이 정수여야 합니다.",bad_exp:"EXP 범위를 벗어났습니다.",bad_stat:"스탯은 0~9999 사이 정수여야 합니다.",bad_item:"아이템 이름은 1~30자여야 합니다.",bad_qty:"수량은 1~9999 사이 정수여야 합니다.",bad_mon:"몬스터 이름은 1~30자여야 합니다.",bad_result:"결과 값이 올바르지 않습니다.",no_ids:"삭제할 항목을 선택하세요.",not_found:"대상을 찾을 수 없습니다.",unauthorized:"로그인이 만료되었습니다.",rate_limited:"요청이 많습니다."};
+var EMSG={bad_gold:"골드는 0~99,999,999 사이 정수여야 합니다.",bad_price:"가격은 0~9,999,999 사이 정수여야 합니다.",bad_hunter_name:"헌터 네임은 2~12자여야 합니다.",bad_name:"이름은 1~30자여야 합니다.",bad_gender:"성별 값이 올바르지 않습니다.",bad_age:"나이는 1~999 사이 정수여야 합니다.",bad_personality:"성격은 1~1000자여야 합니다.",bad_traits:"특징은 최대 5개, 각 50자 이하여야 합니다.",bad_rank:"등급 값이 올바르지 않습니다.",bad_lv:"레벨은 1~999 사이 정수여야 합니다.",bad_exp:"EXP 범위를 벗어났습니다.",bad_stat:"스탯은 0~9999 사이 정수여야 합니다.",bad_item:"아이템 이름은 1~30자여야 합니다.",bad_qty:"수량은 1~9999 사이 정수여야 합니다.",bad_mon:"몬스터 이름은 1~30자여야 합니다.",bad_result:"결과 값이 올바르지 않습니다.",no_ids:"삭제할 항목을 선택하세요.",not_found:"대상을 찾을 수 없습니다.",unauthorized:"로그인이 만료되었습니다.",rate_limited:"요청이 많습니다."};
 function saveEdit(){
   var m=$("e_msg"),v=function(i){return $(i).value};
   m.className="muted";m.textContent="저장 중...";
   api("POST","/api/admin/player/update",{code:selCode,hunterName:v("e_hn"),name:v("e_name"),gender:v("e_gender"),age:Number(v("e_age")),rank:v("e_rank"),
     personality:v("e_pers"),traits:v("e_traits").split("\n").map(function(x){return x.trim()}).filter(Boolean),
-    lv:Number(v("e_lv")),exp:Number(v("e_exp")),
+    lv:Number(v("e_lv")),exp:Number(v("e_exp")),gold:Number(v("e_gold")),
     stats:{hp:Number(v("e_hp")),str:Number(v("e_str")),agi:Number(v("e_agi")),luck:Number(v("e_luck"))}}).then(function(r){
     if(r._status===401){showApp(false);return}
     if(r.ok){dirty=false;loadAll();setTimeout(function(){var mm=$("e_msg");if(mm){mm.className="ok";mm.textContent="저장했습니다. 게임에는 다음 갱신(5초 이내)부터 반영됩니다."}},400)}
@@ -313,6 +318,27 @@ function delPlayer(){
   });
 }
 
+function loadShop(){
+  api("GET","/api/admin/shop").then(function(r){
+    var it=r.items||[];
+    $("slist").innerHTML=it.length?it.map(function(x){return'<tr data-id="'+x.id+'"><td><input class="sn" maxlength="30" value="'+esc(x.name)+'"></td><td><input class="sd" maxlength="100" value="'+esc(x.desc)+'"></td><td><input class="sp" type="number" min="0" max="9999999" step="1" style="max-width:100px" value="'+(x.price||0)+'"></td><td><button class="btn" data-sa="save">저장</button> <button class="btn" data-sa="del">삭제</button></td></tr>'}).join(""):'<tr><td colspan="4" class="muted">등록된 상점 아이템이 없습니다.</td></tr>';
+  });
+}
+function shopErr(r){return r.error==="duplicate"?"이미 같은 이름이 있습니다.":r.error==="bad_item"?"이름을 확인하세요.":r.error==="bad_price"?"가격은 0 이상의 정수여야 합니다.":"처리하지 못했습니다."}
+$("sadd").addEventListener("click",function(){
+  api("POST","/api/admin/shop/save",{name:$("sname").value,desc:$("sdesc").value,price:$("sprice").value}).then(function(r){
+    if(r.ok){$("sname").value="";$("sdesc").value="";$("sprice").value="";$("smsg").textContent="추가했습니다.";loadShop()}else $("smsg").textContent=shopErr(r);
+  });
+});
+$("slist").addEventListener("click",function(e){
+  var a=e.target.getAttribute&&e.target.getAttribute("data-sa");if(!a)return;
+  var tr=e.target.closest("tr"),id=Number(tr.getAttribute("data-id"));
+  if(a==="del"){if(!confirm("상점에서 이 아이템을 삭제할까요? (헌터가 이미 가진 아이템은 유지됩니다)"))return;
+    api("POST","/api/admin/shop/delete",{id:id}).then(loadShop);return}
+  api("POST","/api/admin/shop/save",{id:id,name:tr.querySelector(".sn").value,desc:tr.querySelector(".sd").value,price:tr.querySelector(".sp").value}).then(function(r){
+    $("smsg").textContent=r.ok?"저장했습니다.":shopErr(r);if(r.ok)loadShop();
+  });
+});
 $("nsend").addEventListener("click",function(){
   var t=$("ntext").value.trim();if(!t){$("nmsg").textContent="내용을 입력하세요.";return}
   if(!confirm("모든 헌터에게 이 알림을 발송할까요?"))return;
@@ -321,7 +347,7 @@ $("nsend").addEventListener("click",function(){
     else $("nmsg").textContent="발송하지 못했습니다.";
   });
 });
-function loadAll(){loadOverview();loadList();if(selCode&&!dirty)loadDetail();var d=new Date(),p=function(n){return String(n).padStart(2,"0")};$("last").textContent="갱신 "+p(d.getHours())+":"+p(d.getMinutes())+":"+p(d.getSeconds())}
+function loadAll(){loadOverview();if(!document.activeElement||!/^(sn|sd|sp|sname|sdesc|sprice)$/.test(document.activeElement.className||document.activeElement.id))loadShop();loadList();if(selCode&&!dirty)loadDetail();var d=new Date(),p=function(n){return String(n).padStart(2,"0")};$("last").textContent="갱신 "+p(d.getHours())+":"+p(d.getMinutes())+":"+p(d.getSeconds())}
 // 1분마다 데이터만 다시 불러옵니다. 선택한 헌터·탭·검색어·작성 중인 알림은 그대로 유지됩니다.
 setInterval(function(){if($("auto").checked&&!document.hidden&&!$("app").classList.contains("hide"))loadAll()},60000);
 document.addEventListener("visibilitychange",function(){if(!document.hidden&&$("auto").checked&&!$("app").classList.contains("hide"))loadAll()});
