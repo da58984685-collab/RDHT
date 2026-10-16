@@ -147,6 +147,7 @@ CREATE TABLE IF NOT EXISTS rate_limits (
 // 예전에 만들어진 표에 새 칸을 추가합니다 (이미 있으면 무시).
 const MIGRATIONS = [
   'ALTER TABLE users ADD COLUMN gold INTEGER NOT NULL DEFAULT 0',
+  "ALTER TABLE users ADD COLUMN pinned_ach TEXT NOT NULL DEFAULT '[]'",
   'ALTER TABLE shop_items ADD COLUMN price INTEGER NOT NULL DEFAULT 0',
   'ALTER TABLE s_attempts ADD COLUMN gold_gain INTEGER NOT NULL DEFAULT 0',
 ];
