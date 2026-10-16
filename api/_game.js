@@ -39,23 +39,24 @@ const ACTIVE_MS = 30 * MIN;                       // 출몰 후 토벌 가능한
 // 등급별 처치 골드(G) 범위 [최소, 최대]
 const KILL_GOLD = { F: [1, 5], E: [6, 15], D: [16, 35], C: [36, 70], B: [71, 120], A: [121, 180], S: [190, 200] };
 const rollGold = rank => { const r = KILL_GOLD[rank] || [0, 0]; return r[0] + Math.floor(Math.random() * (r[1] - r[0] + 1)); };
-// 업적: stats = { kills, maxRank(0=F..6=S), sTry, sWin, lv }
+// 업적 종류: always(항상) · kills(처치 수) · rank(해당 등급 이상 처치) · sTry(S급 도전 수) · sWin(S급 처치 수) · lv(전투력 레벨) · manual(관리자가 직접 부여)
 const RANK_IDX = { F: 0, E: 1, D: 2, C: 3, B: 4, A: 5, S: 6 };
-const ACH = [
-  { id: 'reg',    name: '헌터 등록',   desc: '게이트 앞에서 헌터로 등록했다.',       ok: () => true },
-  { id: 'k1',     name: '첫 사냥',     desc: '몬스터를 처음으로 처치했다.',           ok: s => s.kills >= 1 },
-  { id: 'k10',    name: '초보 사냥꾼', desc: '몬스터를 10마리 처치했다.',             ok: s => s.kills >= 10 },
-  { id: 'k50',    name: '숙련 사냥꾼', desc: '몬스터를 50마리 처치했다.',             ok: s => s.kills >= 50 },
-  { id: 'k200',   name: '붉은 달의 학살자', desc: '몬스터를 200마리 처치했다.',        ok: s => s.kills >= 200 },
-  { id: 'rC',     name: 'C급 토벌',    desc: 'C급 이상 몬스터를 처치했다.',           ok: s => s.maxRank >= 3 },
-  { id: 'rA',     name: 'A급 토벌',    desc: 'A급 이상 몬스터를 처치했다.',           ok: s => s.maxRank >= 5 },
-  { id: 'sTry',   name: 'S급 도전',    desc: 'S급 몬스터 토벌에 도전했다.',           ok: s => s.sTry >= 1 },
-  { id: 'sWin',   name: 'S급 토벌자',  desc: 'S급 몬스터를 처치했다.',                ok: s => s.sWin >= 1 },
-  { id: 'lv5',    name: '전투력 Lv.5',  desc: '전투력 5레벨을 달성했다.',             ok: s => s.lv >= 5 },
-  { id: 'lv10',   name: '전투력 Lv.10', desc: '전투력 10레벨을 달성했다.',            ok: s => s.lv >= 10 },
-  { id: 'lv20',   name: '전투력 Lv.20', desc: '전투력 20레벨을 달성했다.',            ok: s => s.lv >= 20 },
+const ACH_KINDS = ['always', 'kills', 'rank', 'sTry', 'sWin', 'lv', 'manual'];
+// 처음 서버가 켜질 때 한 번만 넣는 기본 업적 (이후에는 관리자가 자유롭게 수정·삭제)
+const ACH_SEED = [
+  { id: 'reg',  name: '헌터 등록',   desc: '게이트 앞에서 헌터로 등록했다.', kind: 'always', val: '' },
+  { id: 'k1',   name: '첫 사냥',     desc: '몬스터를 처음으로 처치했다.',     kind: 'kills', val: '1' },
+  { id: 'k10',  name: '초보 사냥꾼', desc: '몬스터를 10마리 처치했다.',       kind: 'kills', val: '10' },
+  { id: 'k50',  name: '숙련 사냥꾼', desc: '몬스터를 50마리 처치했다.',       kind: 'kills', val: '50' },
+  { id: 'k200', name: '붉은 달의 학살자', desc: '몬스터를 200마리 처치했다.', kind: 'kills', val: '200' },
+  { id: 'rC',   name: 'C급 토벌',    desc: 'C급 이상 몬스터를 처치했다.',     kind: 'rank', val: 'C' },
+  { id: 'rA',   name: 'A급 토벌',    desc: 'A급 이상 몬스터를 처치했다.',     kind: 'rank', val: 'A' },
+  { id: 'sTry', name: 'S급 도전',    desc: 'S급 몬스터 토벌에 도전했다.',     kind: 'sTry', val: '1' },
+  { id: 'sWin', name: 'S급 토벌자',  desc: 'S급 몬스터를 처치했다.',          kind: 'sWin', val: '1' },
+  { id: 'lv5',  name: '전투력 Lv.5',  desc: '전투력 5레벨을 달성했다.',       kind: 'lv', val: '5' },
+  { id: 'lv10', name: '전투력 Lv.10', desc: '전투력 10레벨을 달성했다.',      kind: 'lv', val: '10' },
+  { id: 'lv20', name: '전투력 Lv.20', desc: '전투력 20레벨을 달성했다.',      kind: 'lv', val: '20' },
 ];
-const ACH_BY_ID = Object.fromEntries(ACH.map(a => [a.id, a]));
 const ACH_PIN_MAX = 3;
 // 등급별 오염도(%) 상승 범위 [최소, 최대] (0.1% 단위)
 const KILL_TAINT = { F: [0.5, 1], E: [1, 2], D: [2, 3.5], C: [3.5, 5.5], B: [5.5, 7.5], A: [7.5, 9], S: [9, 10] };
@@ -120,7 +121,7 @@ function addExp(lv, exp, gain) {
 }
 
 module.exports = {
-  rnd, chance01, REGIONS, REGION_BY_ID, MON, TIERS, ACTIVE_MS, KILL_EXP, KILL_GOLD, KILL_TAINT, rollTaint, RANK_IDX, ACH, ACH_BY_ID, ACH_PIN_MAX, rollGold, HUNT_DIFF,
+  rnd, chance01, REGIONS, REGION_BY_ID, MON, TIERS, ACTIVE_MS, KILL_EXP, KILL_GOLD, KILL_TAINT, rollTaint, RANK_IDX, ACH_KINDS, ACH_SEED, ACH_PIN_MAX, rollGold, HUNT_DIFF,
   RAID_NEED, S_MAX, S_WINDOW_MS, S_WAIT_MS, powNeed, cdOf, huntChance,
   rollRank, rollStats, makeCode, addExp, MIN, HOUR,
 };
