@@ -180,6 +180,13 @@ async function resolveDue() {
 
 async function catchUp() { await tickSpawns(); await resolveDue(); }
 
+// 오늘의 추천 (관리자가 입력한 값만 보여줍니다)
+async function getRec() {
+  const r = await db.get("SELECT value FROM settings WHERE key = 'daily_rec'");
+  if (!r) return null;
+  try { return JSON.parse(r.value); } catch (_) { return null; }
+}
+
 // ───────────── 응답 구성 ─────────────
 function publicUser(u) {
   return {
@@ -234,6 +241,7 @@ async function buildState(u, now) {
     results: results.map(r => ({ id: r.id, mon: r.name, success: !!r.success, exp: r.exp_gain, gold: r.gold_gain, levelUp: !!r.level_up })),
     unreadNotices: un.c,
     unreadMsgs: um.c,
+    rec: await getRec(),
     inventory: inv.map(r => ({ item: r.item, qty: r.qty })),
   };
 }
@@ -665,6 +673,28 @@ route('POST', '/api/admin/shop/save', async (req, res, ctx) => {
 
 route('POST', '/api/admin/shop/delete', async (req, res, ctx) => {
   await db.run('DELETE FROM shop_items WHERE id = ?', [Number(ctx.body.id) || 0]);
+  send(res, 200, { ok: true });
+}, { auth: false, admin: true });
+
+// ── 오늘의 추천 ──
+route('GET', '/api/admin/rec', async (req, res) => {
+  send(res, 200, { rec: await getRec() });
+}, { auth: false, admin: true });
+
+route('POST', '/api/admin/rec/save', async (req, res, ctx) => {
+  const str = v => String(v == null ? '' : v).trim();
+  const region = str(ctx.body.region), time = str(ctx.body.time), tip = str(ctx.body.tip);
+  if (region && !G.REGION_BY_ID[region]) return fail(res, 400, 'bad_region');
+  if (cp(time) > 20) return fail(res, 400, 'bad_time');
+  if (cp(tip) > 100) return fail(res, 400, 'bad_tip');
+  if (!region && !time && !tip) return fail(res, 400, 'empty');
+  const rec = { region, time, tip, at: Date.now() };
+  await db.run("INSERT INTO settings (key, value) VALUES ('daily_rec', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value", [JSON.stringify(rec)]);
+  send(res, 200, { ok: true, rec });
+}, { auth: false, admin: true });
+
+route('POST', '/api/admin/rec/clear', async (req, res) => {
+  await db.run("DELETE FROM settings WHERE key = 'daily_rec'");
   send(res, 200, { ok: true });
 }, { auth: false, admin: true });
 
