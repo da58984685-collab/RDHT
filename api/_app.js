@@ -111,7 +111,7 @@ async function tickSpawns() {
 // F~A급 몬스터는 헌터마다 따로 출몰합니다. 그 헌터가 접속해 요청할 때 밀린 만큼 따라잡아 만듭니다.
 async function tickPersonal(uid, now) {
   const me = await db.get('SELECT region FROM users WHERE id = ?', [uid]);
-  const myRegions = G.COUNTRY_BY_ID[G.countryOf(me ? me.region : 'city')].regions;      // F~A급은 헌터가 머무는 나라의 세부 지역에서 출몰
+  const myRegions = G.REGIONS;      // F~A급은 헌터가 어디 있든 모든 나라의 모든 세부 지역에서 같은 확률로 출몰
   const rows = await db.all('SELECT tier, next_at FROM user_spawn WHERE user_id = ?', [uid]);
   const have = new Map(rows.map(r => [r.tier, r.next_at]));
   for (const t of G.TIERS) {
