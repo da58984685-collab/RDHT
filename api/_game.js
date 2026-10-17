@@ -73,7 +73,7 @@ const TIERS = [
   { k: 'top',  ranks: ['S'],           gap: () => 8 * HOUR },
 ];
 const ACTIVE_MS = 30 * MIN;
-const ACTIVE_MS_F = 10 * MIN;                     // F급만 예외: 10분 안에 토벌하지 않으면 사라짐
+const ACTIVE_MS_F = 5 * MIN;                      // F급만 예외: 5분 안에 토벌하지 않으면 사라짐
 const ACTIVE_MS_S = 24 * HOUR;                    // S급은 24시간 동안 출현 (토벌되지 않으면 사라짐)
 const activeMsOf = rank => (rank === 'F' ? ACTIVE_MS_F : rank === 'S' ? ACTIVE_MS_S : ACTIVE_MS);
 // 명성: 전투력(레벨)이 오를 때, 헌터 등급이 오를 때만 함께 오릅니다 (시작은 항상 0)
@@ -102,10 +102,21 @@ const ACH_SEED = [
 ];
 const ACH_PIN_MAX = 3;
 // 등급별 오염도(%) 상승 범위 [최소, 최대] (0.1% 단위)
-const KILL_TAINT = { F: [0.5, 1], E: [1, 2], D: [2, 3.5], C: [3.5, 5.5], B: [5.5, 7.5], A: [7.5, 9], S: [9, 10] };
+const KILL_TAINT = { F: [9, 11], E: [11, 13], D: [13, 16], C: [16, 20], B: [20, 25], A: [25, 30], S: [30, 40] };   // F급은 평균 10%: 토벌 10회에 오염도 100% (정화 필요)
+const TAINT_SCALE = 0.97;   // 오염도 상승량 3% 감소
 const rollTaint = rank => {
   const r = KILL_TAINT[rank] || [0, 0], lo = Math.round(r[0] * 10), hi = Math.round(r[1] * 10);
-  return (lo + Math.floor(Math.random() * (hi - lo + 1))) / 10;
+  return Math.round((lo + Math.floor(Math.random() * (hi - lo + 1))) * TAINT_SCALE) / 10;
+};
+// 오염도가 높은 헌터가 보낸 메신저는 받는 쪽에서 일부 글자가 깨져 보입니다 (메시지 번호로 고정되어 새로고침해도 같은 모양)
+const GARBLE = ['▒', '░░', '▒', '▓▓', '▓'];
+const garble = (text, taint, id) => {
+  const t = Number(taint) || 0;
+  if (t < 20) return text;
+  const p = Math.min(0.65, t / 100 * 0.6);
+  let a = (Number(id) * 2654435761 + 12345) >>> 0;
+  const rnd = () => { a = (a + 0x6D2B79F5) >>> 0; let x = a; x = Math.imul(x ^ (x >>> 15), x | 1); x ^= x + Math.imul(x ^ (x >>> 7), x | 61); return ((x ^ (x >>> 14)) >>> 0) / 4294967296; };
+  return Array.from(String(text)).map(ch => (/\s/.test(ch) ? ch : (rnd() < p ? GARBLE[Math.floor(rnd() * GARBLE.length)] : ch))).join('');
 };
 const KILL_EXP = { F: 8, E: 12, D: 20, C: 35, B: 60, A: 120, S: 300 };
 const HUNT_DIFF = { F: '쉬움', E: '쉬움', D: '쉬움', C: '보통', B: '보통', A: '어려움', S: '매우 어려움' };
@@ -117,7 +128,8 @@ const S_MAX = 3;                                   // S급 1시간당 도전 횟
 const S_WINDOW_MS = HOUR;
 const S_WAIT_MS = Number(process.env.S_RESULT_DELAY_MS) || 24 * HOUR;   // S급 결과 공개까지
 
-const powNeed = lv => Math.round(30 * Math.pow(lv, 1.6));
+// 전투력 레벨업에 필요한 경험치. 30레벨까지는 기존보다 훨씬 빠르게 오르고, 30레벨부터는 기존 그대로입니다.
+const powNeed = lv => Math.max(10, Math.round(30 * Math.pow(lv, 1.6) * (lv < 30 ? 0.1 + 0.3 * Math.pow(lv / 30, 1.5) : 1)));
 
 function cdOf(r) {
   return r === 'F' || r === 'E' ? 1 * MIN
@@ -162,7 +174,7 @@ function rollStats(rank) {
   while (high.size < n) high.add(keys[rnd(0, 2)]);
   const out = { hp: HP_START };
   keys.forEach(k => { out[k] = high.has(k) ? rnd(lo, hi) : rnd(1, 9); });
-  out.taint = 0; out.fame = 0;
+  out.taint = 0; out.fame = 0; out.sp = 0;      // sp: 투자하지 않은 스탯포인트 (전투력 레벨이 1 오를 때마다 1)
   return out;
 }
 
@@ -184,7 +196,7 @@ function addExp(lv, exp, gain) {
 }
 
 module.exports = {
-  rnd, chance01, REGIONS, REGION_BY_ID, COUNTRIES, COUNTRY_BY_ID, countryOf, placeName, placeLong, MON, TIERS, ACTIVE_MS, ACTIVE_MS_F, ACTIVE_MS_S, activeMsOf, FAME_PER_LV, FAME_PER_RANK, KILL_EXP, KILL_GOLD, KILL_TAINT, rollTaint, RANK_IDX, ACH_KINDS, ACH_SEED, ACH_PIN_MAX, rollGold, HUNT_DIFF,
+  rnd, chance01, REGIONS, REGION_BY_ID, COUNTRIES, COUNTRY_BY_ID, countryOf, placeName, placeLong, MON, TIERS, ACTIVE_MS, ACTIVE_MS_F, ACTIVE_MS_S, activeMsOf, FAME_PER_LV, FAME_PER_RANK, KILL_EXP, KILL_GOLD, KILL_TAINT, rollTaint, garble, RANK_IDX, ACH_KINDS, ACH_SEED, ACH_PIN_MAX, rollGold, HUNT_DIFF,
   RAID_NEED, RAID_ATTEMPTS, S_MAX, S_WINDOW_MS, S_WAIT_MS, powNeed, cdOf, huntChance,
   rollRank, rollStats, PROB_CAP, STR_WIN, guardChance, freeChance, HP_START, HP_MIN, HP_DYING_MS, HP_REVIVE, hpLoss, makeCode, addExp, MIN, HOUR,
 };
