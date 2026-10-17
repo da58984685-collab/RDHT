@@ -1204,7 +1204,7 @@ function svgUse(id){
   var ns="http://www.w3.org/2000/svg",s=document.createElementNS(ns,"svg"),u=document.createElementNS(ns,"use");
   s.setAttribute("class","ic");s.setAttribute("aria-hidden","true");u.setAttribute("href","#"+id);s.appendChild(u);return s;
 }
-function activeMs(r){return r==="F"?600000:1800000}
+function activeMs(r){return r==="F"?600000:r==="S"?86400000:1800000}
 function isActive(a){return !a.done&&nowS()-a.ts<activeMs(a.r)}
 function regionById(id){for(var i=0;i<REGIONS.length;i++)if(REGIONS[i].id===id)return REGIONS[i]}
 
