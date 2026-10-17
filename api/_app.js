@@ -998,8 +998,8 @@ route('POST', '/api/messages', async (req, res, ctx) => {
 });
 
 route('GET', '/api/notices', async (req, res, ctx) => {
-  const rows = await db.all('SELECT id, text, created_at FROM notices n WHERE NOT EXISTS (SELECT 1 FROM notice_del d WHERE d.user_id = ? AND d.notice_id = n.id) ORDER BY id DESC LIMIT 50', [ctx.user.id]);
-  send(res, 200, { notices: rows.map(n => ({ id: n.id, text: n.text, ts: n.created_at })), seen: ctx.user.notice_seen });
+  const rows = await db.all('SELECT id, title, text, created_at FROM notices n WHERE NOT EXISTS (SELECT 1 FROM notice_del d WHERE d.user_id = ? AND d.notice_id = n.id) ORDER BY id DESC LIMIT 50', [ctx.user.id]);
+  send(res, 200, { notices: rows.map(n => ({ id: n.id, title: n.title || '', text: n.text, ts: n.created_at })), seen: ctx.user.notice_seen });
 });
 
 // 읽은 알림만 지울 수 있습니다 (알림 목록을 한 번 열어 '읽음'으로 기록된 뒤에만)
@@ -1030,8 +1030,9 @@ route('POST', '/api/admin/notice', async (req, res, ctx) => {
   }
   if (!okAuth) return fail(res, 401, 'unauthorized');
   const text = String(ctx.body.text || '').trim();
-  if (!text || cp(text) > 1000) return fail(res, 400, 'bad_text');
-  const r = await db.run('INSERT INTO notices (text, created_at) VALUES (?, ?)', [text, Date.now()]);
+  const title = String(ctx.body.title || '').trim();
+  if (!text || cp(text) > 300 || cp(title) > 40) return fail(res, 400, 'bad_text');      // 본문 최대 300자, 제목 최대 40자
+  const r = await db.run('INSERT INTO notices (title, text, created_at) VALUES (?, ?, ?)', [title, text, Date.now()]);
   send(res, 201, { id: r.lastId });
 }, { auth: false });
 
