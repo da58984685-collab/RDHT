@@ -1,5 +1,5 @@
 'use strict';
-// 적월 헌터 — API 본체. Vercel 함수(api/index.js)와 로컬 개발 서버(dev.js)가 함께 사용합니다.
+// 적월협인 — API 본체. Vercel 함수(api/index.js)와 로컬 개발 서버(dev.js)가 함께 사용합니다.
 const crypto = require('node:crypto');
 const { promisify } = require('node:util');
 const db = require('./_db');
