@@ -468,7 +468,7 @@ async function buildState(u, now) {
             WHERE m.to_id = ? AND m.id > f.last_read`, [u.id]),
   ]);
   const frq = await db.get('SELECT COUNT(*) AS c FROM friend_requests WHERE to_id = ?', [u.id]);
-  const inv = await db.all('SELECT item, qty FROM inventory WHERE user_id = ? AND qty > 0 ORDER BY item', [u.id]);
+  const inv = await db.all('SELECT i.item, i.qty, s.eff_stat, s.eff_amt FROM inventory i LEFT JOIN shop_items s ON s.name = i.item WHERE i.user_id = ? AND i.qty > 0 ORDER BY i.item', [u.id]);
   const closedOk = new Set((await db.all('SELECT monster_id FROM s_close WHERE ok = 1 AND monster_id >= ?', [minId])).map(r => r.monster_id));
   // S급 토벌 성공 안내(모든 헌터에게): 확인을 누르면 참여자에게만 보상이 지급됩니다
   const swin = await db.all(`SELECT c.monster_id AS id, m.name, r.exp, r.gold, r.taint, CASE WHEN r.user_id IS NULL THEN 0 ELSE 1 END AS part
@@ -496,7 +496,7 @@ async function buildState(u, now) {
     friendReqs: frq.c,
     sWin: swin.map(x => ({ id: x.id, mon: x.name, part: !!x.part, exp: x.exp || 0, gold: x.gold || 0, taint: x.taint || 0 })),
     rec: await getRec(),
-    inventory: inv.map(r => ({ item: r.item, qty: r.qty })),
+    inventory: inv.map(r => ({ item: r.item, qty: r.qty, eff: r.eff_stat ? { stat: r.eff_stat, amt: r.eff_amt } : null })),
   };
 }
 
@@ -584,28 +584,69 @@ route('POST', '/api/signup', async (req, res, ctx) => {
     }
   }
   // 동시 가입으로 정원을 넘겼다면 방금 만든 계정을 되돌립니다.
-  const iv2 = await db.get('SELECT active, max_uses FROM invites WHERE code = ?', [inv]);
+  const iv2 = await db.get('SELECT active, max_uses, reward_set, reward_gold, reward_item, reward_qty FROM invites WHERE code = ?', [inv]);
   const used1 = await db.get('SELECT COUNT(*) AS c FROM users WHERE invite_code = ?', [inv]);
   if (!iv2 || !iv2.active || used1.c > iv2.max_uses) {
     await db.run('DELETE FROM users WHERE code = ?', [code]);
     return fail(res, 400, !iv2 ? 'invite_invalid' : !iv2.active ? 'invite_inactive' : 'invite_full');
   }
-  send(res, 201, { code, rank, hunterName: hn });
+  // 초대 코드 첫 보상: 가입할 때 단 한 번만 지급됩니다 (이후 코드를 지워도 지급 기록과 보상은 남습니다)
+  let reward = null;
+  if (iv2.reward_set) {
+    const nu = await db.get('SELECT id FROM users WHERE code = ?', [code]);
+    const ins = await db.run('INSERT OR IGNORE INTO invite_rewards (user_id, code, gold, item, qty, at) VALUES (?, ?, ?, ?, ?, ?)',
+      [nu.id, inv, iv2.reward_gold, iv2.reward_item, iv2.reward_qty, Date.now()]);
+    if (ins.changes === 1) {
+      const now = Date.now();
+      if (iv2.reward_gold > 0) { await grantGold(nu.id, iv2.reward_gold); await logAcquire(nu.id, 'gold', '골드', iv2.reward_gold, '초대 보상', now); }
+      if (iv2.reward_item && iv2.reward_qty > 0) {
+        await db.run('INSERT INTO inventory (user_id, item, qty) VALUES (?, ?, ?) ON CONFLICT(user_id, item) DO UPDATE SET qty = MIN(9999, qty + excluded.qty)', [nu.id, iv2.reward_item, iv2.reward_qty]);
+        await logAcquire(nu.id, 'item', iv2.reward_item, iv2.reward_qty, '초대 보상', now);
+      }
+      reward = { gold: iv2.reward_gold, item: iv2.reward_item, qty: iv2.reward_qty };
+    }
+  }
+  send(res, 201, { code, rank, hunterName: hn, reward });
 }, { auth: false, limit: 1200000 });
 
 // ───────────── 초대 코드 (관리자) ─────────────
 const MAX_INVITE_USES = 10;
 const normInvite = v => String(v == null ? '' : v).trim().toUpperCase();
 const INVITE_RE = /^[A-Z0-9-]{4,20}$/;
+async function inviteRewardOf(uid) {
+  const r = await db.get('SELECT code, gold, item, qty FROM invite_rewards WHERE user_id = ?', [uid]);
+  return r ? { code: r.code, gold: r.gold, item: r.item, qty: r.qty } : null;
+}
 route('GET', '/api/admin/invites', async (req, res) => {
-  const rows = await db.all(`SELECT i.code, i.active, i.max_uses, i.created_at,
+  const rows = await db.all(`SELECT i.code, i.active, i.max_uses, i.created_at, i.reward_set, i.reward_gold, i.reward_item, i.reward_qty,
+      (SELECT COUNT(*) FROM invite_rewards r WHERE r.code = i.code) AS granted,
       (SELECT COUNT(*) FROM users u WHERE u.invite_code = i.code) AS used FROM invites i ORDER BY i.created_at DESC`);
   const users = await db.all("SELECT hunter_name, code, invite_code FROM users WHERE invite_code <> '' ORDER BY id");
   const by = {};
   users.forEach(u => { (by[u.invite_code] = by[u.invite_code] || []).push({ hunterName: u.hunter_name, code: u.code }); });
-  send(res, 200, { max: MAX_INVITE_USES, invites: rows.map(r => ({ code: r.code, active: !!r.active, max: r.max_uses, used: r.used, created: r.created_at, users: by[r.code] || [] })) });
+  send(res, 200, { max: MAX_INVITE_USES, invites: rows.map(r => ({ code: r.code, active: !!r.active, max: r.max_uses, used: r.used, created: r.created_at, users: by[r.code] || [], reward: r.reward_set ? { gold: r.reward_gold, item: r.reward_item, qty: r.reward_qty, granted: r.granted } : null })) });
 }, { auth: false, admin: true });
 
+// 초대 보상 입력 확인: { gold, item, qty } → 올바르면 값, 비어 있으면 null, 잘못되면 오류 문자열
+async function parseReward(b) {
+  const gold = b.gold == null || b.gold === '' ? 0 : Number(b.gold);
+  const item = String(b.item == null ? '' : b.item).trim();
+  const qty = item ? (b.qty == null || b.qty === '' ? 1 : Number(b.qty)) : 0;
+  if (!Number.isInteger(gold) || gold < 0 || gold > 9999999) return 'bad_reward_gold';
+  if (item && (!Number.isInteger(qty) || qty < 1 || qty > 99)) return 'bad_reward_qty';
+  if (item && !(await db.get('SELECT 1 AS x FROM shop_items WHERE name = ?', [item]))) return 'bad_reward_item';
+  if (gold === 0 && !item) return null;
+  return { gold, item, qty };
+}
+route('POST', '/api/admin/invites/reward', async (req, res, ctx) => {
+  const code = normInvite(ctx.body.code);
+  const rw = await parseReward(ctx.body);
+  if (rw === null) return fail(res, 400, 'bad_reward_empty');
+  if (typeof rw === 'string') return fail(res, 400, rw);
+  const w = await db.run('UPDATE invites SET reward_set = 1, reward_gold = ?, reward_item = ?, reward_qty = ? WHERE code = ? AND reward_set = 0', [rw.gold, rw.item, rw.qty, code]);
+  if (w.changes !== 1) return fail(res, (await db.get('SELECT 1 AS x FROM invites WHERE code = ?', [code])) ? 409 : 404, (await db.get('SELECT 1 AS x FROM invites WHERE code = ?', [code])) ? 'reward_locked' : 'not_found');
+  send(res, 200, { ok: true });
+}, { auth: false, admin: true });
 route('POST', '/api/admin/invites/create', async (req, res, ctx) => {
   let code = normInvite(ctx.body.code);
   if (!code) code = crypto.randomBytes(5).toString('hex').toUpperCase();
@@ -613,7 +654,10 @@ route('POST', '/api/admin/invites/create', async (req, res, ctx) => {
   const max = ctx.body.max == null || ctx.body.max === '' ? MAX_INVITE_USES : Number(ctx.body.max);
   if (!Number.isInteger(max) || max < 1 || max > MAX_INVITE_USES) return fail(res, 400, 'bad_max');
   if (await db.get('SELECT 1 AS x FROM invites WHERE code = ?', [code])) return fail(res, 409, 'invite_exists');
-  await db.run('INSERT INTO invites (code, active, max_uses, created_at) VALUES (?, 1, ?, ?)', [code, max, Date.now()]);
+  const rw = ctx.body.reward ? await parseReward(ctx.body.reward) : null;
+  if (typeof rw === 'string') return fail(res, 400, rw);
+  await db.run('INSERT INTO invites (code, active, max_uses, created_at, reward_set, reward_gold, reward_item, reward_qty) VALUES (?, 1, ?, ?, ?, ?, ?, ?)',
+    [code, max, Date.now(), rw ? 1 : 0, rw ? rw.gold : 0, rw ? rw.item : '', rw ? rw.qty : 0]);
   send(res, 200, { ok: true, code });
 }, { auth: false, admin: true });
 
@@ -888,8 +932,19 @@ route('POST', '/api/messages', async (req, res, ctx) => {
 });
 
 route('GET', '/api/notices', async (req, res, ctx) => {
-  const rows = await db.all('SELECT id, text, created_at FROM notices ORDER BY id DESC LIMIT 50');
+  const rows = await db.all('SELECT id, text, created_at FROM notices n WHERE NOT EXISTS (SELECT 1 FROM notice_del d WHERE d.user_id = ? AND d.notice_id = n.id) ORDER BY id DESC LIMIT 50', [ctx.user.id]);
   send(res, 200, { notices: rows.map(n => ({ id: n.id, text: n.text, ts: n.created_at })), seen: ctx.user.notice_seen });
+});
+
+// 읽은 알림만 지울 수 있습니다 (알림 목록을 한 번 열어 '읽음'으로 기록된 뒤에만)
+route('POST', '/api/notices/delete', async (req, res, ctx) => {
+  const id = Number(ctx.body.id);
+  if (!Number.isInteger(id) || id < 1) return fail(res, 400, 'bad_id');
+  if (!(await db.get('SELECT 1 AS x FROM notices WHERE id = ?', [id]))) return fail(res, 404, 'no_notice');
+  const me = await db.get('SELECT notice_seen FROM users WHERE id = ?', [ctx.user.id]);
+  if (!me || id > me.notice_seen) return fail(res, 409, 'unread');
+  await db.run('INSERT OR IGNORE INTO notice_del (user_id, notice_id) VALUES (?, ?)', [ctx.user.id, id]);
+  send(res, 200, { ok: true });
 });
 
 route('POST', '/api/notices/seen', async (req, res, ctx) => {
@@ -974,7 +1029,7 @@ route('GET', '/api/admin/player', async (req, res) => {
   const ach = await achOf(u);
   send(res, 200, {
     achievements: ach.map(a => ({ id: a.id, name: a.name, desc: a.descr, kind: a.kind, met: a.met, granted: a.granted, done: a.done })),
-    player: Object.assign(publicUser(u), { invite: u.invite_code || '', created: u.created_at, region: G.placeLong(u.region), friends: fr.c }),
+    player: Object.assign(publicUser(u), { inviteReward: await inviteRewardOf(u.id), invite: u.invite_code || '', created: u.created_at, region: G.placeLong(u.region), friends: fr.c }),
     items: inv, acquired: acq, hunts, counts: cnt, pendingS: pend.map(p => ({ mon: p.name, at: p.resolve_at })),
   });
 }, { auth: false, admin: true });
@@ -1063,8 +1118,8 @@ route('POST', '/api/admin/player/item/delete', async (req, res, ctx) => {
 
 // ───────────── 상점 ─────────────
 route('GET', '/api/shop', async (req, res, ctx) => {
-  const items = await db.all('SELECT id, name, descr, price FROM shop_items ORDER BY id');
-  send(res, 200, { gold: ctx.user.gold, items: items.map(i => ({ id: i.id, name: i.name, desc: i.descr, price: i.price })) });
+  const items = await db.all('SELECT id, name, descr, price, eff_stat, eff_amt FROM shop_items ORDER BY id');
+  send(res, 200, { gold: ctx.user.gold, items: items.map(i => ({ id: i.id, name: i.name, desc: i.descr, price: i.price, eff: i.eff_stat ? { stat: i.eff_stat, amt: i.eff_amt } : null })) });
 });
 
 route('POST', '/api/shop/buy', async (req, res, ctx) => {
@@ -1088,9 +1143,43 @@ route('POST', '/api/shop/buy', async (req, res, ctx) => {
   send(res, 200, { ok: true, item: it.name, gold: me.gold });
 });
 
+// 아이템 사용: 상점에 등록된 아이템의 효과대로 스탯이 바뀝니다 (예: 회복 포션 = 체력 +10)
+const STAT_KO = { hp: '체력', str: '근력', agi: '민첩', luck: '행운', taint: '오염도' };
+async function applyItemEffect(userId, stat, amt, now) {
+  for (let i = 0; i < 6; i++) {
+    const u = await db.get('SELECT stats, dying_until FROM users WHERE id = ?', [userId]);
+    if (!u) return null;
+    const st = JSON.parse(u.stats), before = Number(st[stat]) || 0;
+    let after, dying = u.dying_until;
+    if (stat === 'hp') {
+      after = Math.max(G.HP_MIN, Math.min(Math.max(G.HP_START, before), before + amt));    // 체력은 100(원래 더 높았다면 그 값)까지만, 5 아래로는 내려가지 않음
+      if (after > G.HP_MIN) dying = 0;                                                       // 5보다 높아지면 빈사 상태에서 벗어남
+      else if (!dying) dying = now + G.HP_DYING_MS;
+    } else if (stat === 'taint') after = Math.max(0, Math.min(100, Math.round((before + amt) * 10) / 10));
+    else after = Math.max(0, Math.min(9999, before + amt));
+    st[stat] = after;
+    const w = await db.run('UPDATE users SET stats = ?, dying_until = ? WHERE id = ? AND stats = ? AND dying_until = ?', [JSON.stringify(st), dying, userId, u.stats, u.dying_until]);
+    if (w.changes === 1) return { before, after, dying: dying > now ? dying : 0 };
+  }
+  throw new Error('stat_conflict');
+}
+route('POST', '/api/inventory/use', async (req, res, ctx) => {
+  if (await limited('use:' + ctx.user.id, 120, 60000)) return fail(res, 429, 'rate_limited');
+  const name = String(ctx.body.item == null ? '' : ctx.body.item);
+  const it = await db.get('SELECT eff_stat, eff_amt FROM shop_items WHERE name = ?', [name]);
+  if (!it || !it.eff_stat) return fail(res, 400, 'no_effect');
+  const dec = await db.run('UPDATE inventory SET qty = qty - 1 WHERE user_id = ? AND item = ? AND qty > 0', [ctx.user.id, name]);
+  if (dec.changes !== 1) return fail(res, 404, 'no_item');
+  let r;
+  try { r = await applyItemEffect(ctx.user.id, it.eff_stat, it.eff_amt, Date.now()); }
+  catch (e) { await db.run('UPDATE inventory SET qty = qty + 1 WHERE user_id = ? AND item = ?', [ctx.user.id, name]); throw e; }
+  await db.run('DELETE FROM inventory WHERE user_id = ? AND item = ? AND qty <= 0', [ctx.user.id, name]);
+  send(res, 200, { ok: true, item: name, stat: it.eff_stat, label: STAT_KO[it.eff_stat], amt: it.eff_amt, before: r.before, after: r.after, dyingUntil: r.dying });
+});
+
 route('GET', '/api/admin/shop', async (req, res) => {
-  const items = await db.all('SELECT id, name, descr, price FROM shop_items ORDER BY id');
-  send(res, 200, { items: items.map(i => ({ id: i.id, name: i.name, desc: i.descr, price: i.price })) });
+  const items = await db.all('SELECT id, name, descr, price, eff_stat, eff_amt FROM shop_items ORDER BY id');
+  send(res, 200, { items: items.map(i => ({ id: i.id, name: i.name, desc: i.descr, price: i.price, stat: i.eff_stat, amt: i.eff_amt })) });
 }, { auth: false, admin: true });
 
 route('POST', '/api/admin/shop/save', async (req, res, ctx) => {
@@ -1100,15 +1189,19 @@ route('POST', '/api/admin/shop/save', async (req, res, ctx) => {
   if (cp(desc) > 100) return fail(res, 400, 'bad_desc');
   const price = ctx.body.price == null || ctx.body.price === '' ? 0 : Number(ctx.body.price);
   if (!Number.isInteger(price) || price < 0 || price > 9999999) return fail(res, 400, 'bad_price');
+  const stat = String(ctx.body.stat == null ? '' : ctx.body.stat);
+  const amt = stat ? Number(ctx.body.amt) : 0;
+  if (!['', 'hp', 'str', 'agi', 'luck', 'taint'].includes(stat)) return fail(res, 400, 'bad_stat');
+  if (stat && (!Number.isInteger(amt) || amt === 0 || amt < -999 || amt > 999)) return fail(res, 400, 'bad_amt');
   const id = Number(ctx.body.id) || 0;
   const dup = await db.get('SELECT id FROM shop_items WHERE name = ? AND id != ?', [name, id]);
   if (dup) return fail(res, 409, 'duplicate');
   if (id) {
     const r = await db.get('SELECT id FROM shop_items WHERE id = ?', [id]);
     if (!r) return fail(res, 404, 'no_item');
-    await db.run('UPDATE shop_items SET name = ?, descr = ?, price = ? WHERE id = ?', [name, desc, price, id]);
+    await db.run('UPDATE shop_items SET name = ?, descr = ?, price = ?, eff_stat = ?, eff_amt = ? WHERE id = ?', [name, desc, price, stat, amt, id]);
   } else {
-    await db.run('INSERT INTO shop_items (name, descr, price, at) VALUES (?, ?, ?, ?)', [name, desc, price, Date.now()]);
+    await db.run('INSERT INTO shop_items (name, descr, price, at, eff_stat, eff_amt) VALUES (?, ?, ?, ?, ?, ?)', [name, desc, price, Date.now(), stat, amt]);
   }
   send(res, 200, { ok: true });
 }, { auth: false, admin: true });
@@ -1392,6 +1485,8 @@ route('POST', '/api/admin/player/delete', async (req, res, ctx) => {
     ['DELETE FROM hunt_log WHERE user_id = ?', [id]],
     ['DELETE FROM acquire_log WHERE user_id = ?', [id]],
     ['DELETE FROM inventory WHERE user_id = ?', [id]],
+    ['DELETE FROM invite_rewards WHERE user_id = ?', [id]],
+    ['DELETE FROM notice_del WHERE user_id = ?', [id]],
     ['DELETE FROM ach_grants WHERE user_id = ?', [id]],
     ['DELETE FROM user_spawn WHERE user_id = ?', [id]],
     ['DELETE FROM monsters WHERE owner_id = ?', [id]],
