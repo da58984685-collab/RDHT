@@ -5,15 +5,51 @@ const crypto = require('node:crypto');
 const rnd = (a, b) => crypto.randomInt(a, b + 1);          // a~b (양끝 포함)
 const chance01 = () => crypto.randomInt(0, 1000000) / 1000000;
 
-const REGIONS = [
-  { id: 'city',   name: '도심' },
-  { id: 'mine',   name: '폐광' },
-  { id: 'river',  name: '한강변' },
-  { id: 'temple', name: '산사' },
-  { id: 'port',   name: '폐항' },
-  { id: 'gate',   name: '적월 게이트' },
+// 세계: 10개국, 나라마다 세부 지역. 헌터는 세부 지역에 머물고, F~A급은 그 나라 안의 세부 지역에서 출몰하며,
+// S급만 서버 전체가 같은 '나라'에서 출몰합니다. pos 는 레이더(200x200) 위의 좌표입니다.
+const P4 = [[78, 112], [142, 64], [58, 152], [150, 138]];
+const R = (id, name, sub, icon, danger, pos) => ({ id, name, sub, icon, danger, pos });
+const COUNTRIES = [
+  { id: 'KR', name: '대한민국', lat: 36.5, lon: 127.8, regions: [
+    R('city', '도심', '중구 게이트 지대', 'i-city', 'D', [78, 112]), R('mine', '폐광', '북부 지하 갱도', 'i-mine', 'C', [142, 64]),
+    R('river', '한강변', '안개 자욱한 강가', 'i-wave', 'E', [58, 152]), R('temple', '산사', '봉인된 옛 절터', 'i-temple', 'B', [150, 138]),
+    R('port', '폐항', '오염된 항만', 'i-port', 'C', [44, 66]), R('gate', '적월 게이트', '붉은 달 아래 균열', 'i-gate', 'A', [112, 38])] },
+  { id: 'JP', name: '일본', lat: 36, lon: 138, regions: [
+    R('jp-tokyo', '도쿄 번화가', '네온이 꺼진 게이트 거리', 'i-city', 'D', P4[0]), R('jp-mine', '이와미 갱도', '폐은광 깊은 곳', 'i-mine', 'C', P4[1]),
+    R('jp-bay', '오사카만', '녹슨 컨테이너 항구', 'i-port', 'C', P4[2]), R('jp-shrine', '후지 신사', '산기슭의 봉인 신사', 'i-temple', 'B', P4[3])] },
+  { id: 'CN', name: '중국', lat: 35, lon: 104, regions: [
+    R('cn-old', '베이징 구시가', '붉은 성벽 아래 균열', 'i-city', 'D', P4[0]), R('cn-coal', '산시 탄광', '불타는 지하 탄층', 'i-mine', 'C', P4[1]),
+    R('cn-gorge', '장강 협곡', '물안개 낀 절벽', 'i-wave', 'E', P4[2]), R('cn-temple', '소림 폐사', '무너진 선원', 'i-temple', 'B', P4[3])] },
+  { id: 'RU', name: '러시아', lat: 61, lon: 95, regions: [
+    R('ru-metro', '모스크바 지하철', '끝없는 지하 승강장', 'i-city', 'D', P4[0]), R('ru-ural', '우랄 광산', '얼어붙은 갱도', 'i-mine', 'C', P4[1]),
+    R('ru-port', '블라디보스토크항', '얼음에 갇힌 부두', 'i-port', 'C', P4[2]), R('ru-snow', '시베리아 설원', '눈 속에 열린 균열', 'i-gate', 'A', P4[3])] },
+  { id: 'US', name: '미국', lat: 39, lon: -98, regions: [
+    R('us-ny', '뉴욕 맨해튼', '무너진 마천루 사이', 'i-city', 'D', P4[0]), R('us-canyon', '그랜드캐니언', '협곡 아래 폐갱도', 'i-mine', 'C', P4[1]),
+    R('us-bayou', '미시시피 습지', '늪지에 깔린 안개', 'i-wave', 'E', P4[2]), R('us-desert', '네바다 사막', '모래 위에 열린 균열', 'i-gate', 'A', P4[3])] },
+  { id: 'IT', name: '이탈리아', lat: 42.5, lon: 12.5, regions: [
+    R('it-rome', '로마 유적', '콜로세움 아래 봉인', 'i-temple', 'B', P4[0]), R('it-venice', '베네치아 수로', '가라앉은 골목길', 'i-wave', 'E', P4[1]),
+    R('it-genoa', '제노바항', '낡은 범선 부두', 'i-port', 'C', P4[2]), R('it-vesuvius', '베수비오 화구', '끓어오르는 균열', 'i-gate', 'A', P4[3])] },
+  { id: 'MG', name: '마다가스카르', lat: -19, lon: 47, regions: [
+    R('mg-tsingy', '칭기 석림', '칼날 같은 석회암 숲', 'i-mine', 'C', P4[0]), R('mg-river', '마하장가 강', '붉은 흙탕물 강', 'i-wave', 'E', P4[1]),
+    R('mg-baobab', '바오바브 길', '거목 사이에 봉인된 제단', 'i-temple', 'B', P4[2]), R('mg-port', '토아마시나항', '버려진 어선 부두', 'i-port', 'C', P4[3])] },
+  { id: 'BR', name: '브라질', lat: -10, lon: -52, regions: [
+    R('br-rio', '리우 언덕마을', '밤마다 문이 열리는 골목', 'i-city', 'D', P4[0]), R('br-mine', '미나스 광산', '금빛 지하 갱도', 'i-mine', 'C', P4[1]),
+    R('br-amazon', '아마존 강', '끝이 보이지 않는 수면', 'i-wave', 'E', P4[2]), R('br-gate', '파라 밀림', '밀림 속 붉은 균열', 'i-gate', 'A', P4[3])] },
+  { id: 'EG', name: '이집트', lat: 26, lon: 30, regions: [
+    R('eg-cairo', '카이로 구시가', '미로 같은 시장 골목', 'i-city', 'D', P4[0]), R('eg-nile', '나일 강변', '고요한 검은 물', 'i-wave', 'E', P4[1]),
+    R('eg-pyramid', '기자 피라미드', '묘실에 갇힌 저주', 'i-temple', 'B', P4[2]), R('eg-suez', '수에즈 운하', '좌초된 화물선', 'i-port', 'C', P4[3])] },
+  { id: 'AU', name: '호주', lat: -25, lon: 134, regions: [
+    R('au-sydney', '시드니항', '불 꺼진 오페라 하우스', 'i-port', 'C', P4[0]), R('au-opal', '쿠버페디 광산', '지하 오팔 갱도', 'i-mine', 'C', P4[1]),
+    R('au-reef', '대보초', '죽어 가는 산호 군락', 'i-wave', 'E', P4[2]), R('au-outback', '아웃백', '붉은 사막의 균열', 'i-gate', 'A', P4[3])] },
 ];
+const COUNTRY_BY_ID = Object.fromEntries(COUNTRIES.map(c => [c.id, c]));
+const REGIONS = COUNTRIES.flatMap(c => c.regions.map(r => Object.assign({}, r, { country: c.id })));
 const REGION_BY_ID = Object.fromEntries(REGIONS.map(r => [r.id, r]));
+const countryOf = id => (REGION_BY_ID[id] ? REGION_BY_ID[id].country : COUNTRY_BY_ID[id] ? id : 'KR');
+// 나라 또는 세부 지역의 이름 (S급은 나라, F~A급은 세부 지역에서 출몰)
+const placeName = id => (COUNTRY_BY_ID[id] ? COUNTRY_BY_ID[id].name : REGION_BY_ID[id] ? REGION_BY_ID[id].name : String(id || ''));
+// 세부 지역 이름에 나라 이름을 붙여 보여줍니다
+const placeLong = id => (REGION_BY_ID[id] ? COUNTRY_BY_ID[REGION_BY_ID[id].country].name + ' · ' + REGION_BY_ID[id].name : placeName(id));
 
 const MON = {
   F: ['오염된 쥐떼', '허깨비'],
@@ -126,7 +162,7 @@ function addExp(lv, exp, gain) {
 }
 
 module.exports = {
-  rnd, chance01, REGIONS, REGION_BY_ID, MON, TIERS, ACTIVE_MS, ACTIVE_MS_F, activeMsOf, FAME_PER_LV, FAME_PER_RANK, KILL_EXP, KILL_GOLD, KILL_TAINT, rollTaint, RANK_IDX, ACH_KINDS, ACH_SEED, ACH_PIN_MAX, rollGold, HUNT_DIFF,
+  rnd, chance01, REGIONS, REGION_BY_ID, COUNTRIES, COUNTRY_BY_ID, countryOf, placeName, placeLong, MON, TIERS, ACTIVE_MS, ACTIVE_MS_F, activeMsOf, FAME_PER_LV, FAME_PER_RANK, KILL_EXP, KILL_GOLD, KILL_TAINT, rollTaint, RANK_IDX, ACH_KINDS, ACH_SEED, ACH_PIN_MAX, rollGold, HUNT_DIFF,
   RAID_NEED, RAID_ATTEMPTS, S_MAX, S_WINDOW_MS, S_WAIT_MS, powNeed, cdOf, huntChance,
   rollRank, rollStats, makeCode, addExp, MIN, HOUR,
 };
