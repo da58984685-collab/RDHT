@@ -1025,7 +1025,7 @@ route('GET', '/api/admin/s', async (req, res) => {
     const rows = recent.filter(r => r.name === name);
     return {
       name,
-      present: rows.filter(r => r.live && r.alive).map(r => ({ id: r.id, region: r.region, rname: G.placeName(r.region), left: r.at + G.ACTIVE_MS - now, status: r.status })),
+      present: rows.filter(r => r.live && r.alive && (r.status === 'active' || r.status === 'waiting')).map(r => ({ id: r.id, region: r.region, rname: G.placeName(r.region), left: r.at + G.ACTIVE_MS - now, status: r.status })),
       appear: rows.length,
       killed: rows.filter(r => r.status === 'killed').length,
       fled: rows.filter(r => r.status === 'fled').length,
