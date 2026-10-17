@@ -125,25 +125,44 @@ function cdOf(r) {
 }
 
 // 성공 확률. S급은 서버 전체 참여 인원(participants)에 따라 달라집니다.
-function huntChance(r, lv, participants) {
+// 모든 확률은 값이 어떻든 95%를 넘지 않습니다.
+const PROB_CAP = 0.95;
+const capP = p => Math.max(0, Math.min(PROB_CAP, p));
+// 스탯 효과 (1포인트당): 근력 = 토벌 성공 확률 +1%p, 민첩 = 실패 시 체력 차감 방지 +3%p, 행운 = 시간 제한 없이 재토벌 1회 +3%p
+const STR_WIN = 0.01, AGI_GUARD = 0.03, LUCK_FREE = 0.03;
+const guardChance = agi => capP((Number(agi) || 0) * AGI_GUARD);
+const freeChance = luck => capP((Number(luck) || 0) * LUCK_FREE);
+function huntChance(r, lv, participants, str) {
   if (r === 'S') {
     const lb = Math.min(0.1, (lv - 1) * 0.01);
-    const p = 0.05 + 0.9 * Math.min(1, participants / RAID_NEED) + lb;
-    return Math.max(0.05, Math.min(0.95, p));
+    const p = 0.05 + 0.9 * Math.min(1, participants / RAID_NEED) + lb + (Number(str) || 0) * STR_WIN;
+    return Math.max(0.05, capP(p));
   }
-  const p = HUNT_BASE[HUNT_DIFF[r]] + Math.min(0.12, (lv - 1) * 0.015);
-  return Math.max(0.05, Math.min(0.97, p));
+  const p = HUNT_BASE[HUNT_DIFF[r]] + Math.min(0.12, (lv - 1) * 0.015) + (Number(str) || 0) * STR_WIN;
+  return Math.max(0.05, capP(p));
 }
+
+// 체력: 100에서 시작. 토벌에 실패하면 등급에 따라 줄고(최대 20), 5 아래로는 내려가지 않습니다.
+// 5 이하가 되면 빈사 상태로 5분간 토벌할 수 없고, 5분 뒤 체력 10으로 돌아옵니다. 그 외에는 저절로 회복되지 않습니다.
+const HP_START = 100, HP_MIN = 5, HP_DYING_MS = 5 * MIN, HP_REVIVE = 10;
+const HP_LOSS = { F: [1, 3], E: [2, 5], D: [4, 7], C: [6, 10], B: [9, 13], A: [12, 17], S: [16, 20] };
+const hpLoss = rank => { const r = HP_LOSS[rank] || [1, 3]; return Math.min(20, rnd(r[0], r[1])); };
 
 function rollRank() {
   const r = chance01();
   return r < 0.5 ? 'F' : r < 0.65 ? 'E' : r < 0.8 ? 'D' : r < 0.875 ? 'C' : r < 0.95 ? 'B' : 'A';
 }
-const RANK_BASE = { F: 8, E: 11, D: 15, C: 20, B: 27, A: 36 };
+// 등급별 시작 스탯: 체력은 항상 100. 근력·민첩·행운은 기본 1~9이고, 등급에 따라 일부가 더 높게 시작합니다.
+//  F: 모두 한 자리 / E: 10~12 한 개 / D: 10~12 두 개 / C: 13~15 한 개 / B: 15~16 한 개 / A: 18~20 한 개 / S: 20~21 두 개
+const STAT_TIER = { F: [0, 0, 0], E: [1, 10, 12], D: [2, 10, 12], C: [1, 13, 15], B: [1, 15, 16], A: [1, 18, 20], S: [2, 20, 21] };
 function rollStats(rank) {
-  const b = RANK_BASE[rank] || 8;
-  const v = () => Math.max(1, b + rnd(-2, 3));
-  return { hp: v(), str: v(), agi: v(), luck: v(), taint: 0, fame: 0 };
+  const [n, lo, hi] = STAT_TIER[rank] || STAT_TIER.F;
+  const keys = ['str', 'agi', 'luck'], high = new Set();
+  while (high.size < n) high.add(keys[rnd(0, 2)]);
+  const out = { hp: HP_START };
+  keys.forEach(k => { out[k] = high.has(k) ? rnd(lo, hi) : rnd(1, 9); });
+  out.taint = 0; out.fame = 0;
+  return out;
 }
 
 const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -166,5 +185,5 @@ function addExp(lv, exp, gain) {
 module.exports = {
   rnd, chance01, REGIONS, REGION_BY_ID, COUNTRIES, COUNTRY_BY_ID, countryOf, placeName, placeLong, MON, TIERS, ACTIVE_MS, ACTIVE_MS_F, activeMsOf, FAME_PER_LV, FAME_PER_RANK, KILL_EXP, KILL_GOLD, KILL_TAINT, rollTaint, RANK_IDX, ACH_KINDS, ACH_SEED, ACH_PIN_MAX, rollGold, HUNT_DIFF,
   RAID_NEED, RAID_ATTEMPTS, S_MAX, S_WINDOW_MS, S_WAIT_MS, powNeed, cdOf, huntChance,
-  rollRank, rollStats, makeCode, addExp, MIN, HOUR,
+  rollRank, rollStats, PROB_CAP, STR_WIN, guardChance, freeChance, HP_START, HP_MIN, HP_DYING_MS, HP_REVIVE, hpLoss, makeCode, addExp, MIN, HOUR,
 };
