@@ -175,7 +175,8 @@ body{overflow-wrap:break-word}
   </section>
   <section class="card send">
     <h3 style="margin-bottom:8px">시스템 알림 발송 <span class="muted" style="font-weight:400;font-size:.85rem">(서버 내 모든 헌터에게 전달)</span></h3>
-    <textarea id="ntext" maxlength="1000" placeholder="알림 내용 (최대 1000자)"></textarea>
+    <input id="ntitle" maxlength="40" placeholder="제목 (선택, 최대 40자)" style="margin-bottom:8px">
+    <textarea id="ntext" maxlength="300" placeholder="본문 (최대 300자)"></textarea>
     <div class="row"><button class="btn" id="nsend" type="button">발송</button><span id="nmsg" class="muted"></span></div>
   </section>
 </main>
@@ -539,8 +540,8 @@ $("slist").addEventListener("click",function(e){
 $("nsend").addEventListener("click",function(){
   var t=$("ntext").value.trim();if(!t){$("nmsg").textContent="내용을 입력하세요.";return}
   if(!confirm("모든 헌터에게 이 알림을 발송할까요?"))return;
-  api("POST","/api/admin/notice",{text:t}).then(function(r){
-    if(r._status===201){$("ntext").value="";$("nmsg").textContent="발송했습니다.";loadOverview()}
+  api("POST","/api/admin/notice",{title:$("ntitle").value.trim(),text:t}).then(function(r){
+    if(r._status===201){$("ntext").value="";$("ntitle").value="";$("nmsg").textContent="발송했습니다.";loadOverview()}
     else $("nmsg").textContent="발송하지 못했습니다.";
   });
 });
