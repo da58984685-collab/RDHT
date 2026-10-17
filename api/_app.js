@@ -98,7 +98,7 @@ async function tickSpawns() {
       const rank = t.ranks[G.rnd(0, t.ranks.length - 1)];
       const names = G.MON[rank];
       list.push(['INSERT INTO monsters (region, name, rank, spawned_at) VALUES (?, ?, ?, ?)',
-        [G.REGIONS[G.rnd(0, G.REGIONS.length - 1)].id, names[G.rnd(0, names.length - 1)], rank, next]]);
+        [G.COUNTRIES[G.rnd(0, G.COUNTRIES.length - 1)].id, names[G.rnd(0, names.length - 1)], rank, next]]);
       next += t.gap();
     }
     // 동시에 다른 요청이 같은 시간대를 처리하지 않도록, 다음 시각을 먼저 '차지'한 쪽만 몬스터를 만듭니다.
@@ -109,6 +109,8 @@ async function tickSpawns() {
 
 // F~A급 몬스터는 헌터마다 따로 출몰합니다. 그 헌터가 접속해 요청할 때 밀린 만큼 따라잡아 만듭니다.
 async function tickPersonal(uid, now) {
+  const me = await db.get('SELECT region FROM users WHERE id = ?', [uid]);
+  const myRegions = G.COUNTRY_BY_ID[G.countryOf(me ? me.region : 'city')].regions;      // F~A급은 헌터가 머무는 나라의 세부 지역에서 출몰
   const rows = await db.all('SELECT tier, next_at FROM user_spawn WHERE user_id = ?', [uid]);
   const have = new Map(rows.map(r => [r.tier, r.next_at]));
   for (const t of G.TIERS) {
@@ -128,7 +130,7 @@ async function tickPersonal(uid, now) {
       const rank = t.ranks[G.rnd(0, t.ranks.length - 1)];
       const names = G.MON[rank];
       list.push(['INSERT INTO monsters (region, name, rank, spawned_at, owner_id) VALUES (?, ?, ?, ?, ?)',
-        [G.REGIONS[G.rnd(0, G.REGIONS.length - 1)].id, names[G.rnd(0, names.length - 1)], rank, next, uid]]);
+        [myRegions[G.rnd(0, myRegions.length - 1)].id, names[G.rnd(0, names.length - 1)], rank, next, uid]]);
       next += t.gap();
     }
     const claim = await db.run('UPDATE user_spawn SET next_at = ? WHERE user_id = ? AND tier = ? AND next_at = ?', [next, uid, t.k, from]);
@@ -373,9 +375,9 @@ async function buildState(u, now) {
   const pm = new Map(parts.map(r => [r.monster_id, r.c]));
   return {
     now,
-    user: { pinned: pinnedList(u, await loadAch()), lv: u.lv, exp: u.exp, gold: u.gold, region: u.region, hunterName: u.hunter_name, stats: JSON.parse(u.stats) },
+    user: { pinned: pinnedList(u, await loadAch()), lv: u.lv, exp: u.exp, gold: u.gold, region: u.region, country: G.countryOf(u.region), hunterName: u.hunter_name, stats: JSON.parse(u.stats) },
     monsters: mons.map(m => ({
-      id: m.id, region: m.region, rname: G.REGION_BY_ID[m.region].name, mon: m.name, r: m.rank, ts: m.spawned_at,
+      id: m.id, region: m.region, rname: G.placeName(m.region), mon: m.name, r: m.rank, ts: m.spawned_at,
       done: killed.has(m.id), cd: cdm.get(m.id) || 0,
       parts: m.rank === 'S' ? (pm.get(m.id) || 0) : undefined,
     })),
@@ -551,11 +553,29 @@ route('GET', '/api/state', async (req, res, ctx) => {
   send(res, 200, await buildState(u, Date.now()));
 });
 
+// 세계 지도(나라와 세부 지역)
+route('GET', '/api/world', async (req, res) => {
+  send(res, 200, { countries: G.COUNTRIES.map(c => ({ id: c.id, name: c.name, lat: c.lat, lon: c.lon,
+    regions: c.regions.map(r => ({ id: r.id, name: r.name, sub: r.sub, icon: r.icon, danger: r.danger, pos: r.pos })) })) });
+});
+
+// 나라별 현재 헌터 수와 S급 출몰 여부 (지구본에 표시)
+route('GET', '/api/world/stats', async (req, res) => {
+  const now = Date.now();
+  const rows = await db.all('SELECT region, COUNT(*) AS c FROM users GROUP BY region');
+  const hunters = {};
+  rows.forEach(r => { const k = G.countryOf(r.region); hunters[k] = (hunters[k] || 0) + r.c; });
+  const ss = await db.all(`SELECT id, name, region, spawned_at FROM monsters m WHERE rank = 'S' AND owner_id IS NULL AND spawned_at > ?
+    AND id NOT IN (SELECT monster_id FROM s_close)`, [now - G.ACTIVE_MS]);
+  send(res, 200, { hunters, s: ss.map(m => ({ id: m.id, name: m.name, country: m.region, left: m.spawned_at + G.ACTIVE_MS - now })) });
+});
+
 route('POST', '/api/move', async (req, res, ctx) => {
-  const id = ctx.body.region;
+  let id = ctx.body.region;
+  if (typeof id === 'string' && G.COUNTRY_BY_ID[id]) id = G.COUNTRY_BY_ID[id].regions[0].id;      // 나라를 고르면 그 나라의 첫 지역으로 이동
   if (typeof id !== 'string' || !G.REGION_BY_ID[id]) return fail(res, 400, 'bad_region');
   await db.run('UPDATE users SET region = ? WHERE id = ?', [id, ctx.user.id]);
-  send(res, 200, { region: id });
+  send(res, 200, { region: id, country: G.countryOf(id) });
 });
 
 route('POST', '/api/hunt', async (req, res, ctx) => {
@@ -568,7 +588,9 @@ route('POST', '/api/hunt', async (req, res, ctx) => {
   if ((m.owner_id != null && m.owner_id !== cur.id) || (m.owner_id == null && m.rank !== 'S')) return fail(res, 404, 'no_monster');
   if (await db.get('SELECT 1 AS x FROM kills WHERE user_id = ? AND monster_id = ?', [cur.id, m.id])) return fail(res, 409, 'already_done');
   if (now - m.spawned_at >= G.activeMsOf(m.rank)) return fail(res, 410, 'expired');
-  if (cur.region !== m.region) return fail(res, 409, 'wrong_region', { region: m.region, rname: G.REGION_BY_ID[m.region].name });
+  // S급은 나라 단위, 나머지는 세부 지역 단위로 같은 곳에 있어야 합니다.
+  const here = m.rank === 'S' ? G.countryOf(cur.region) : cur.region;
+  if (here !== m.region) return fail(res, 409, 'wrong_region', { region: m.region, rname: G.placeName(m.region) });
 
   if (m.rank === 'S') {
     if (await db.get('SELECT 1 AS x FROM s_close WHERE monster_id = ?', [m.id])) return fail(res, 409, 'already_done');
@@ -668,6 +690,28 @@ route('POST', '/api/friends/respond', async (req, res, ctx) => {
   send(res, 200, { ok: true, accepted: !!ctx.body.accept });
 });
 
+route('POST', '/api/friends/read', async (req, res, ctx) => {
+  const u = ctx.user;
+  const f = await userByCode(normCode(ctx.body.code));
+  if (!f || !(await isFriend(u.id, f.id))) return fail(res, 404, 'not_found');
+  const last = await db.get('SELECT MAX(id) AS m FROM messages WHERE from_id = ? AND to_id = ?', [f.id, u.id]);
+  if (last && last.m) await db.run('UPDATE friends SET last_read = MAX(last_read, ?) WHERE user_id = ? AND friend_id = ?', [last.m, u.id, f.id]);
+  send(res, 200, { ok: true });
+});
+
+// 친구 삭제: 양쪽 친구 관계와 둘 사이의 대화를 지웁니다.
+route('POST', '/api/friends/remove', async (req, res, ctx) => {
+  const u = ctx.user;
+  const f = await userByCode(normCode(ctx.body.code));
+  if (!f || !(await isFriend(u.id, f.id))) return fail(res, 404, 'not_found');
+  await db.batch([
+    ['DELETE FROM friends WHERE (user_id = ? AND friend_id = ?) OR (user_id = ? AND friend_id = ?)', [u.id, f.id, f.id, u.id]],
+    ['DELETE FROM messages WHERE (from_id = ? AND to_id = ?) OR (from_id = ? AND to_id = ?)', [u.id, f.id, f.id, u.id]],
+    ['DELETE FROM friend_requests WHERE (from_id = ? AND to_id = ?) OR (from_id = ? AND to_id = ?)', [u.id, f.id, f.id, u.id]],
+  ]);
+  send(res, 200, { ok: true });
+});
+
 route('POST', '/api/friends/cancel', async (req, res, ctx) => {
   const f = await userByCode(normCode(ctx.body.code));
   if (!f) return fail(res, 404, 'not_found');
@@ -683,9 +727,8 @@ route('GET', '/api/friend/profile', async (req, res, ctx) => {
   await syncAchEarned(f, Date.now(), true);
   const a = await db.get(`SELECT a.name, a.descr, e.at FROM ach_earned e JOIN achievements a ON a.id = e.ach_id
     WHERE e.user_id = ? ORDER BY e.at DESC, e.rowid DESC LIMIT 1`, [f.id]);
-  const rg = G.REGION_BY_ID[f.region];
   send(res, 200, { profile: { code: f.code, hn: f.hunter_name, rank: f.rank, image: f.image || '',
-    region: rg ? rg.name : '', ach: a ? { name: a.name, desc: a.descr, at: a.at } : null } });
+    region: G.placeLong(f.region), ach: a ? { name: a.name, desc: a.descr, at: a.at } : null } });
 });
 
 
@@ -694,6 +737,12 @@ route('GET', '/api/messages', async (req, res, ctx) => {
   const f = await userByCode(normCode(url.searchParams.get('with')));
   if (!f || !(await isFriend(u.id, f.id))) return fail(res, 404, 'not_found');
   const after = Math.max(0, Number(url.searchParams.get('after')) || 0);
+  // 미리보기: 최근 4개만 돌려주고 읽음 처리는 하지 않습니다.
+  if (url.searchParams.get('preview')) {
+    const pr = await db.all(`SELECT * FROM (SELECT id, from_id, text, ts FROM messages
+        WHERE (from_id = ? AND to_id = ?) OR (from_id = ? AND to_id = ?) ORDER BY id DESC LIMIT 4) ORDER BY id`, [u.id, f.id, f.id, u.id]);
+    return send(res, 200, { messages: pr.map(m => ({ id: m.id, me: m.from_id === u.id, t: m.text, ts: m.ts })) });
+  }
   const rows = after
     ? await db.all(`SELECT id, from_id, text, ts FROM messages
         WHERE ((from_id = ? AND to_id = ?) OR (from_id = ? AND to_id = ?)) AND id > ? ORDER BY id LIMIT 200`, [u.id, f.id, f.id, u.id, after])
@@ -782,7 +831,7 @@ route('GET', '/api/admin/players', async (req, res) => {
       (SELECT m.region FROM hunt_log h JOIN monsters m ON m.id = h.monster_id WHERE h.user_id = u.id ORDER BY h.id DESC LIMIT 1) AS last_region
     FROM users u WHERE (? = '' OR u.hunter_name LIKE ? OR u.name LIKE ? OR u.code LIKE ?)
     ORDER BY (u.hunter_name = ?) DESC, u.created_at DESC LIMIT 300`, [q, like, like, like.toUpperCase(), q]);
-  const rn = id => id ? (G.REGION_BY_ID[id] || { name: id }).name : '';
+  const rn = id => id ? G.placeLong(id) : '';
   send(res, 200, { players: rows.map(r => ({ code: r.code, hunterName: r.hn, name: r.name, rank: r.rank, lv: r.lv, exp: r.exp,
     region: rn(r.region), lastRegion: rn(r.last_region), created: r.created_at, invite: r.inv || '', kills: r.kills, lastHunt: r.last_hunt || 0 })) });
 }, { auth: false, admin: true });
@@ -802,7 +851,7 @@ route('GET', '/api/admin/player', async (req, res) => {
   const ach = await achOf(u);
   send(res, 200, {
     achievements: ach.map(a => ({ id: a.id, name: a.name, desc: a.descr, kind: a.kind, met: a.met, granted: a.granted, done: a.done })),
-    player: Object.assign(publicUser(u), { invite: u.invite_code || '', created: u.created_at, region: (G.REGION_BY_ID[u.region] || { name: u.region }).name, friends: fr.c }),
+    player: Object.assign(publicUser(u), { invite: u.invite_code || '', created: u.created_at, region: G.placeLong(u.region), friends: fr.c }),
     items: inv, acquired: acq, hunts, counts: cnt, pendingS: pend.map(p => ({ mon: p.name, at: p.resolve_at })),
   });
 }, { auth: false, admin: true });
@@ -976,7 +1025,7 @@ route('GET', '/api/admin/s', async (req, res) => {
     const rows = recent.filter(r => r.name === name);
     return {
       name,
-      present: rows.filter(r => r.live && r.alive).map(r => ({ id: r.id, region: r.region, rname: (G.REGION_BY_ID[r.region] || { name: r.region }).name, left: r.at + G.ACTIVE_MS - now, status: r.status })),
+      present: rows.filter(r => r.live && r.alive).map(r => ({ id: r.id, region: r.region, rname: G.placeName(r.region), left: r.at + G.ACTIVE_MS - now, status: r.status })),
       appear: rows.length,
       killed: rows.filter(r => r.status === 'killed').length,
       fled: rows.filter(r => r.status === 'fled').length,
@@ -991,11 +1040,11 @@ route('GET', '/api/admin/s', async (req, res) => {
   send(res, 200, {
     open: live.filter(m => !cl.has(m.id) && ((now - m.spawned_at < G.ACTIVE_MS) || (pc.get(m.id) || 0) > 0)).map(m => {
       const t = pp.get(m.id) || { n: 0, p: 0 };
-      return { id: m.id, name: m.name, rname: (G.REGION_BY_ID[m.region] || { name: m.region }).name, at: m.spawned_at, alive: now - m.spawned_at < G.ACTIVE_MS, left: m.spawned_at + G.ACTIVE_MS - now, people: t.p, tries: t.n, need: G.RAID_NEED, needTries: G.RAID_ATTEMPTS };
+      return { id: m.id, name: m.name, rname: G.placeName(m.region), at: m.spawned_at, alive: now - m.spawned_at < G.ACTIVE_MS, left: m.spawned_at + G.ACTIVE_MS - now, people: t.p, tries: t.n, need: G.RAID_NEED, needTries: G.RAID_ATTEMPTS };
     }),
     catalog, players,
     totals: { appear: recent.length, killed: recent.filter(r => r.status === 'killed').length, fled: recent.filter(r => r.status === 'fled').length, recalled: recent.filter(r => r.status === 'recalled').length, players: players.length },
-    recent: top.map(r => ({ id: r.id, name: r.name, rname: (G.REGION_BY_ID[r.region] || { name: r.region }).name, at: r.at, status: r.status, parts: part.get(r.id) || [] })),
+    recent: top.map(r => ({ id: r.id, name: r.name, rname: G.placeName(r.region), at: r.at, status: r.status, parts: part.get(r.id) || [] })),
   });
 }, { auth: false, admin: true });
 
@@ -1003,8 +1052,8 @@ route('POST', '/api/admin/s/spawn', async (req, res, ctx) => {
   const name = String(ctx.body.name || '');
   if (!G.MON.S.includes(name)) return fail(res, 400, 'bad_name');
   let region = String(ctx.body.region || '');
-  if (region && !G.REGION_BY_ID[region]) return fail(res, 400, 'bad_region');
-  if (!region) region = G.REGIONS[G.rnd(0, G.REGIONS.length - 1)].id;
+  if (region && !G.COUNTRY_BY_ID[region]) return fail(res, 400, 'bad_region');      // S급은 나라 단위로만 출현
+  if (!region) region = G.COUNTRIES[G.rnd(0, G.COUNTRIES.length - 1)].id;
   const now = Date.now();
   const live = await db.get("SELECT COUNT(*) AS c FROM monsters WHERE rank = 'S' AND owner_id IS NULL AND spawned_at > ?", [now - G.ACTIVE_MS]);
   if (live.c >= 20) return fail(res, 400, 'too_many');
