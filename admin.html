@@ -97,6 +97,20 @@ select.mini{width:auto}
 .addrow{display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap}
 .addrow input{flex:1;min-width:120px}
 td input[type=checkbox]{width:auto}
+/* 체크박스 · 드롭다운: 게임 화면과 같은 둥근 사각형 디자인 */
+input[type=checkbox]{-webkit-appearance:none;appearance:none;flex:none;display:inline-grid;place-content:center;width:20px!important;height:20px!important;min-width:20px;margin:0;padding:0;vertical-align:middle;border:1px solid #5c1b22;border-radius:6px;background:var(--field);cursor:pointer;transition:border-color .15s,background .15s,box-shadow .15s}
+input[type=checkbox]:hover{border-color:var(--red2)}
+input[type=checkbox]::after{content:"";width:9px;height:5px;margin-top:-2px;border-left:2px solid #fff;border-bottom:2px solid #fff;transform:rotate(-45deg) scale(0);transition:transform .12s ease-out}
+input[type=checkbox]:checked{background:linear-gradient(135deg,var(--red2),var(--red));border-color:var(--red2);box-shadow:0 0 8px rgba(212,32,46,.35)}
+input[type=checkbox]:checked::after{transform:rotate(-45deg) scale(1)}
+input[type=checkbox]:focus-visible{outline:2px solid var(--red2);outline-offset:2px}
+input[type=checkbox]:disabled{opacity:.4;cursor:not-allowed}
+select,.fld select,select.mini{-webkit-appearance:none;appearance:none;color-scheme:dark;background:var(--field) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1.5 1.5 6 6l4.5-4.5' fill='none' stroke='%23ff3b4a' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 11px center/12px 8px;color:var(--text);border:1px solid #5c1b22;border-radius:8px;padding:8px 32px 8px 11px;font:inherit;line-height:1.3;cursor:pointer;transition:border-color .15s,box-shadow .15s}
+select:hover,.fld select:hover{border-color:var(--red2)}
+select:focus-visible,.fld select:focus-visible{outline:none;border-color:var(--red2);box-shadow:0 0 0 2px rgba(255,59,74,.3)}
+select:disabled{opacity:.45;cursor:not-allowed}
+select option{background:#140d0f;color:var(--text)}
+select option:checked{background:#3a1218;color:#fff}
 </style>
 <style>
 html,body,body *{word-break:keep-all}
@@ -298,12 +312,13 @@ function renderDetail(){
     if(r.pendingS&&r.pendingS.length)h+='<h3 style="font-size:.95rem;margin:10px 0 4px">S급 결과 대기</h3>'+r.pendingS.map(function(x){return'<div class="muted">'+esc(x.mon)+" — "+dt(x.at)+" 공개</div>"}).join("");
   }else if(tab==="act"){
     var ac=r.activity||{},bl=ac.blocked|0,ACTS=[["hunt",1,"토벌"],["move",2,"지역 이동"],["shop",4,"상점 구매"],["msg",8,"메신저 보내기"]];
-    var sys=[];
+    var sys=[],h0="";
     if(ac.corruptUntil>ac.now)sys.push('<span class="chip bad">오염 폭주 · '+mmss(ac.corruptUntil-ac.now)+' 남음 (활동 불가)</span>');
     if(ac.taint>=100)sys.push('<span class="chip bad">오염도 100% (토벌 불가)</span>');
     if(ac.dyingUntil>ac.now)sys.push('<span class="chip wait">빈사 · '+mmss(ac.dyingUntil-ac.now)+' 남음 (토벌 불가)</span>');
     var anyBlock=bl||sys.length;
-    h+='<h3 style="font-size:.95rem;margin:12px 0 8px">활동 가능 여부</h3><div class="chips">'+(anyBlock?'<span class="chip bad">일부 활동 제한 중</span>':'<span class="chip ok">모든 활동 가능</span>')+sys.join("")+"</div>";
+    if(ac.corruptUntil>ac.now||ac.corruptMonster||ac.taint>=100)h0='<div class="row" style="margin:4px 0 10px"><button class="btn dbtn sm" id="uncorrupt" type="button">오염 폭주 해제 · 오염도 0%</button><span id="uncorrupt_msg" class="muted">활동 불가를 풀고, 출몰 중인 오염 몬스터를 즉시 사라지게 하며, 오염도를 0%로 낮춥니다.</span></div>';
+    h+='<h3 style="font-size:.95rem;margin:12px 0 8px">활동 가능 여부</h3><div class="chips">'+(anyBlock?'<span class="chip bad">일부 활동 제한 중</span>':'<span class="chip ok">모든 활동 가능</span>')+sys.join("")+"</div>"+h0;
     h+='<h3 style="font-size:.95rem;margin:16px 0 6px">관리자 전용 캐릭터</h3><label style="display:flex;align-items:center;justify-content:flex-start;gap:8px;margin:6px 0;cursor:pointer;width:auto"><input type="checkbox" id="adminchar"'+(ac.adminChar?" checked":"")+' style="width:18px;height:18px;flex:none;margin:0;padding:0"><span>관리자 전용 캐릭터로 지정 (게임 메신저에서 받은 문의를 읽을 수 있음)</span></label><div class="row"><button class="btn" id="adminchar_save" type="button">저장</button><span id="adminchar_msg" class="muted"></span></div>'+
       '<h3 style="font-size:.95rem;margin:16px 0 0">활동 허용</h3>';
     h+='<form id="actf" style="margin:12px 0 8px">'+ACTS.map(function(a){var on=!(bl&a[1]);return'<label style="display:flex;align-items:center;justify-content:flex-start;gap:8px;margin:8px 0;cursor:pointer;width:auto"><input type="checkbox" data-act="'+a[0]+'"'+(on?" checked":"")+' style="width:18px;height:18px;flex:none;margin:0;padding:0"><span style="white-space:nowrap">'+a[2]+" 가능</span>"+(on?"":'<span class="chip bad" style="white-space:nowrap">운영자 제한</span>')+"</label>"}).join("")+"</form>"+
@@ -338,6 +353,7 @@ $("detail").addEventListener("click",function(e){
   var t=e.target,b=t.closest(".tab");
   if(b&&cache){if(!okLeave())return;dirty=false;tab=b.getAttribute("data-t");renderDetail();return}
   if(t.id==="act_save")return saveAct();
+  if(t.id==="uncorrupt"){if(!confirm("이 헌터의 오염 폭주를 해제할까요?\n활동 불가가 풀리고, 출몰 중인 오염 몬스터가 사라지며, 오염도가 0%가 됩니다."))return;api("POST","/api/admin/player/uncorrupt",{code:selCode}).then(function(r){if(r._status===401){showApp(false);return}if(r.ok){loadDetail();loadList()}else{var x=$("uncorrupt_msg");x.className="bad";x.textContent="해제하지 못했습니다."}});return}
   if(t.id==="adminchar_save"){var am=$("adminchar_msg");api("POST","/api/admin/player/adminchar",{code:selCode,on:$("adminchar").checked}).then(function(r){if(r._status===401){showApp(false);return}if(r.ok){loadDetail();setTimeout(function(){var x=$("adminchar_msg");if(x){x.className="ok";x.textContent="저장했습니다."}},400)}else{am.className="bad";am.textContent="저장하지 못했습니다."}});return}
   if(t.id==="e_save")return saveEdit();
   if(t.id==="e_reset"){if(okLeave()){dirty=false;renderDetail()}return}
