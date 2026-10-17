@@ -158,6 +158,14 @@ CREATE TABLE IF NOT EXISTS ach_earned (
   at      INTEGER NOT NULL,
   PRIMARY KEY (user_id, ach_id)
 );
+CREATE TABLE IF NOT EXISTS board_posts (
+  id    INTEGER PRIMARY KEY AUTOINCREMENT,
+  who   TEXT NOT NULL,
+  title TEXT NOT NULL,
+  body  TEXT NOT NULL,
+  tag   TEXT NOT NULL,
+  at    INTEGER NOT NULL
+);
 CREATE TABLE IF NOT EXISTS s_close (
   monster_id INTEGER PRIMARY KEY,
   ok         INTEGER NOT NULL,
@@ -208,6 +216,9 @@ CREATE TABLE IF NOT EXISTS invites (
 
 // 예전에 만들어진 표에 새 칸을 추가합니다 (이미 있으면 무시).
 const MIGRATIONS = [
+  // 헌터 커뮤니티: 마지막으로 글에서 언급한 등급 (등급이 오른 헌터를 한 번만 언급하기 위해 사용)
+  'ALTER TABLE users ADD COLUMN board_rank TEXT',
+  'UPDATE users SET board_rank = rank WHERE board_rank IS NULL',
   // S급은 나라 단위로만 출몰합니다. 예전에 세부 지역(도심 등)에서 나온 기록은 대한민국으로 옮깁니다.
   "UPDATE monsters SET region = 'KR' WHERE rank = 'S' AND region NOT IN ('KR','JP','CN','RU','US','IT','MG','BR','EG','AU')",
   "UPDATE s_log SET region = 'KR' WHERE region NOT IN ('KR','JP','CN','RU','US','IT','MG','BR','EG','AU')",
