@@ -467,7 +467,7 @@ $("alist").addEventListener("click",function(e){
 var SR=[["","랜덤 나라"],["KR","대한민국"],["JP","일본"],["CN","중국"],["RU","러시아"],["US","미국"],["IT","이탈리아"],["MG","마다가스카르"],["BR","브라질"],["EG","이집트"],["AU","호주"]];
 $("sregion").innerHTML=SR.map(function(r){return'<option value="'+r[0]+'">'+r[1]+'</option>'}).join("");
 var S_ST={active:["출현 중","ok"],waiting:["결과 대기","wait"],killed:["토벌됨","ok"],fled:["도주","bad"],recalled:["회수","wait"]};
-function mmss(ms){var m=Math.max(0,Math.floor(ms/60000));return m+"분"}
+function mmss(ms){var m=Math.max(0,Math.floor(ms/60000));return m>=60?Math.floor(m/60)+"시간 "+(m%60)+"분":m+"분"}
 function loadS(){
   api("GET","/api/admin/s").then(function(r){
     if(!r.catalog)return;
