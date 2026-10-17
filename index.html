@@ -2408,7 +2408,7 @@ document.querySelectorAll("svg.ic").forEach(function(sv){sv.setAttribute("aria-h
 makeBg();
 alignPhoto();
 showFront();
-startSession();
+if($("gate").hidden)startSession();      // 입장 화면이 떠 있으면 '입장'을 누를 때까지 넘어가지 않습니다
 })();
 
 /* ───── 대문 배경 띠: 평소엔 느긋하게 흐르고, 스크롤·휠·터치 속도만큼 빨라지며 진행 방향으로 기웁니다 ───── */
