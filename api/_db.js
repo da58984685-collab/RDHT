@@ -229,6 +229,8 @@ CREATE TABLE IF NOT EXISTS invites (
 
 // 예전에 만들어진 표에 새 칸을 추가합니다 (이미 있으면 무시).
 const MIGRATIONS = [
+  // 시스템 알림 제목 (비어 있으면 '시스템 알림'으로 표시)
+  "ALTER TABLE notices ADD COLUMN title TEXT NOT NULL DEFAULT ''",
   // 오염도 100: 활동 불가 종료 시각 / 발동 표시 / 오염 몬스터가 어느 헌터에서 나왔는지 / 메시지를 보낼 때의 보낸 사람 오염도
   'ALTER TABLE users ADD COLUMN corrupt_until INTEGER NOT NULL DEFAULT 0',
   'ALTER TABLE users ADD COLUMN corrupt_flag INTEGER NOT NULL DEFAULT 0',
