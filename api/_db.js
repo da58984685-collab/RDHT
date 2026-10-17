@@ -229,6 +229,8 @@ CREATE TABLE IF NOT EXISTS invites (
 
 // 예전에 만들어진 표에 새 칸을 추가합니다 (이미 있으면 무시).
 const MIGRATIONS = [
+  // 새로 가입한 헌터의 첫 로그인을 커뮤니티에서 한 번 언급하기 위한 상태 (0 해당 없음, 1 로그인 대기, 2 언급 대기, 3 언급 끝)
+  'ALTER TABLE users ADD COLUMN intro_state INTEGER NOT NULL DEFAULT 0',
   // 초대 코드 첫 보상(한 번 정하면 수정 불가) / 아이템 사용 효과
   'ALTER TABLE invites ADD COLUMN reward_set INTEGER NOT NULL DEFAULT 0',
   'ALTER TABLE invites ADD COLUMN reward_gold INTEGER NOT NULL DEFAULT 0',
