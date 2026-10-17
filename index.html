@@ -540,6 +540,12 @@ input[type=text],input[type=number],input[type=password],input[type=url],textare
 .rd-hint{margin:2px 0 0;text-align:center;font-size:.72rem;color:var(--sub)}
 @media (prefers-reduced-motion:reduce){.rwrap .radar,.globe,.gl-tip{transition:none!important}.gl-hd b::before,.rd-s{animation:none!important}}
 </style>
+<style>
+/* 안내 문구는 단어 중간에서 줄이 바뀌지 않게 (너무 긴 글자열만 예외적으로 나눔) */
+html,body,body *{word-break:keep-all}
+body{overflow-wrap:break-word}
+.cper,.kv dd{word-break:keep-all}
+</style>
 </head>
 <body>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
@@ -567,7 +573,7 @@ input[type=text],input[type=number],input[type=password],input[type=url],textare
   <h2><svg class="ic"><use href="#i-heart"/></svg>HUNTER SYSTEM</h2>
   <div class="body">
     <p class="eyebrow">RED MOON GATE</p>
-    <h1 aria-label="적월 헌터">赤月<br>獵人</h1>
+    <h1 aria-label="적월협인">赤月<br>獵人</h1>
     
     <p class="desc">게이트가 열렸습니다.</p>
     <div class="actions menu">
@@ -583,7 +589,7 @@ input[type=text],input[type=number],input[type=password],input[type=url],textare
   <div class="gband" id="gband" aria-hidden="true"></div>
   <section class="gate" aria-labelledby="gtitle">
     <div class="gate-arch" aria-hidden="true"><div class="gate-in"><span class="gmoon"></span></div></div>
-    <h1 id="gtitle" aria-label="적월 헌터" style="margin-top:0">赤月獵人</h1>
+    <h1 id="gtitle" aria-label="적월협인" style="margin-top:0">赤月獵人</h1>
     <p class="gsub">RED MOON GATE</p>
     <p class="gwel" id="gwel" style="margin-top:18px">게이트가 다시 열렸습니다.</p>
     <div class="actions"><button type="button" class="primary" id="genter"><svg class="ic"><use href="#i-gate"/></svg>입장</button></div>
@@ -594,7 +600,7 @@ input[type=text],input[type=number],input[type=password],input[type=url],textare
 </main>
 <div id="game" hidden>
 <div class="g-wrap">
-  <h1 class="sr">적월 헌터 게임 화면</h1>
+  <h1 class="sr">적월협인 게임 화면</h1>
   <header class="hud">
     <span class="hud-l"><svg class="ic"><use href="#i-heart"/></svg>HUNTER SYSTEM</span>
     <span class="hud-m" id="hudloc" role="status"></span>
@@ -632,7 +638,7 @@ input[type=text],input[type=number],input[type=password],input[type=url],textare
       </section>
       <section id="gstat">
         <h2><svg class="ic"><use href="#i-star"/></svg>스탯</h2>
-        <div class="body"><div class="pow" id="gpow"></div><ul class="stats" id="gstats"></ul><p class="statfx" id="statfx"></p><p class="dying-note" id="dyingnote" role="status" hidden></p></div>
+        <div class="body"><div class="pow" id="gpow"></div><ul class="stats" id="gstats"></ul><p class="dying-note" id="dyingnote" role="status" hidden></p></div>
       </section>
     </div>
     <div class="g-col">
@@ -1366,6 +1372,8 @@ document.addEventListener("keydown",function(e){if(e.key==="Escape"&&!hmodal.hid
 
 function updFx(){
   var e=$("statfx");if(!e||!statFx)return;
+  e.textContent="근력 → 성공 확률 +"+statFx.win+"%p · 민첩 → 실패 시 체력 차감 방지 "+statFx.guard+"% · 행운 → 바로 재토벌 "+statFx.free+"% (모두 최대 95%)";
+}
 function isDying(){return dyingUntil>nowS()}
 function updDying(){
   var n=$("dyingnote");if(!n)return;
