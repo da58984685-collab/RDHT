@@ -74,7 +74,8 @@ const TIERS = [
 ];
 const ACTIVE_MS = 30 * MIN;
 const ACTIVE_MS_F = 10 * MIN;                     // F급만 예외: 10분 안에 토벌하지 않으면 사라짐
-const activeMsOf = rank => (rank === 'F' ? ACTIVE_MS_F : ACTIVE_MS);
+const ACTIVE_MS_S = 24 * HOUR;                    // S급은 24시간 동안 출현 (토벌되지 않으면 사라짐)
+const activeMsOf = rank => (rank === 'F' ? ACTIVE_MS_F : rank === 'S' ? ACTIVE_MS_S : ACTIVE_MS);
 // 명성: 전투력(레벨)이 오를 때, 헌터 등급이 오를 때만 함께 오릅니다 (시작은 항상 0)
 const FAME_PER_LV = 5, FAME_PER_RANK = 20;                       // 출몰 후 토벌 가능한 시간
 
@@ -183,7 +184,7 @@ function addExp(lv, exp, gain) {
 }
 
 module.exports = {
-  rnd, chance01, REGIONS, REGION_BY_ID, COUNTRIES, COUNTRY_BY_ID, countryOf, placeName, placeLong, MON, TIERS, ACTIVE_MS, ACTIVE_MS_F, activeMsOf, FAME_PER_LV, FAME_PER_RANK, KILL_EXP, KILL_GOLD, KILL_TAINT, rollTaint, RANK_IDX, ACH_KINDS, ACH_SEED, ACH_PIN_MAX, rollGold, HUNT_DIFF,
+  rnd, chance01, REGIONS, REGION_BY_ID, COUNTRIES, COUNTRY_BY_ID, countryOf, placeName, placeLong, MON, TIERS, ACTIVE_MS, ACTIVE_MS_F, ACTIVE_MS_S, activeMsOf, FAME_PER_LV, FAME_PER_RANK, KILL_EXP, KILL_GOLD, KILL_TAINT, rollTaint, RANK_IDX, ACH_KINDS, ACH_SEED, ACH_PIN_MAX, rollGold, HUNT_DIFF,
   RAID_NEED, RAID_ATTEMPTS, S_MAX, S_WINDOW_MS, S_WAIT_MS, powNeed, cdOf, huntChance,
   rollRank, rollStats, PROB_CAP, STR_WIN, guardChance, freeChance, HP_START, HP_MIN, HP_DYING_MS, HP_REVIVE, hpLoss, makeCode, addExp, MIN, HOUR,
 };
