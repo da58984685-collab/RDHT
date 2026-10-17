@@ -228,8 +228,18 @@ main.landing{display:flex;align-items:center;justify-content:center;max-width:no
 .app-note{margin:0 0 10px;padding:8px 10px;border:1px solid var(--line);border-radius:10px;font-size:.82rem;color:var(--text)}
 .statfx{margin:12px 0 0;font-size:.76rem;line-height:1.6;color:var(--deep)}
 .dying-note{margin:10px 0 0;padding:9px 12px;border:1px solid var(--red);border-radius:10px;background:rgba(212,32,46,.12);font-size:.82rem;font-weight:700;color:#ff8a93}
+/* 스탯 투자 */
+.sprow{margin:0 0 12px;padding:7px 11px;display:flex;align-items:center;justify-content:space-between;background:var(--field);border:1px solid var(--line);border-radius:10px;font-size:.85rem;color:var(--sub)}
+.sprow b{color:#fff;font-size:1rem}
+.sprow.has{border-color:var(--red2);color:var(--text)}
+.st-inv{width:24px;height:24px;padding:0;display:grid;place-content:center;font:700 1rem/1 "Noto Sans KR",sans-serif;color:#fff;background:linear-gradient(135deg,var(--red2),var(--red));border:1px solid var(--red2);border-radius:7px;cursor:pointer}
+.st-inv:hover{box-shadow:0 0 8px var(--glow)}
+.st-inv:disabled{opacity:.5;cursor:default}
+.st-l{position:relative;cursor:help;outline:none}
+.st-l::after{content:attr(data-tip);position:absolute;left:0;bottom:calc(100% + 8px);z-index:20;padding:6px 10px;white-space:nowrap;font-size:.78rem;font-weight:400;color:var(--text);background:var(--card);border:1px solid var(--red2);border-radius:8px;box-shadow:0 4px 14px rgba(0,0,0,.5);opacity:0;transform:translateY(3px);pointer-events:none;transition:opacity .12s,transform .12s}
+.st-l:hover::after,.st-l:focus-visible::after{opacity:1;transform:none}
 .stats{list-style:none;margin:0;padding:0;display:grid;gap:13px}
-.st{display:grid;grid-template-columns:18px 40px 1fr 42px;align-items:center;gap:8px;font-size:.88rem}
+.st{display:grid;grid-template-columns:18px 40px 1fr 42px 26px;align-items:center;gap:8px;font-size:.88rem}
 .st .ic{color:#fff}
 .st>span:nth-child(2),.st-v{color:#fff}
 .bar{height:10px;background:var(--field);border:1px solid var(--line);overflow:hidden}
@@ -545,6 +555,17 @@ input[type=text],input[type=number],input[type=password],input[type=url],textare
 html,body,body *{word-break:keep-all}
 body{overflow-wrap:break-word}
 .cper,.kv dd{word-break:keep-all}
+/* 체크 상자: 둥근 사각형, 사이트 색 */
+input[type=checkbox]{-webkit-appearance:none;appearance:none;flex:none;display:inline-grid;place-content:center;width:20px;height:20px;margin:0;border:1px solid var(--line);border-radius:6px;background:var(--field);cursor:pointer;transition:border-color .15s,background .15s,box-shadow .15s}
+input[type=checkbox]:hover{border-color:var(--red2)}
+input[type=checkbox]::after{content:"";width:9px;height:5px;margin-top:-2px;border-left:2px solid #fff;border-bottom:2px solid #fff;transform:rotate(-45deg) scale(0);transition:transform .12s ease-out}
+input[type=checkbox]:checked{background:linear-gradient(135deg,var(--red2),var(--red));border-color:var(--red2);box-shadow:0 0 8px var(--glow)}
+input[type=checkbox]:checked::after{transform:rotate(-45deg) scale(1)}
+input[type=checkbox]:focus-visible{outline:2px solid var(--deep);outline-offset:2px}
+.privrow{display:flex;align-items:center;gap:10px;margin:12px 0 0;padding:8px 10px;background:var(--field);border:1px solid var(--line);border-radius:10px;font-size:.88rem;cursor:pointer}
+.privrow:hover{border-color:var(--red2)}
+.todo li input[type=checkbox]{width:18px;height:18px;border-radius:5px}
+.todo li input[type=checkbox]::after{width:8px;height:4px}
 </style>
 </head>
 <body>
@@ -620,6 +641,7 @@ body{overflow-wrap:break-word}
               <div class="crank"><span>헌터 등급</span><b class="rk" id="grank"></b></div>
             </div>
           </div>
+          <label class="privrow"><input type="checkbox" id="gpriv"><span>비공개 유저</span></label>
           <p class="lbl">BGM</p>
           <form class="bgm" id="bgmf">
             <input id="bgmurl" type="url" inputmode="url" autocomplete="off" placeholder="유튜브 링크를 붙여넣으세요" aria-label="유튜브 링크">
@@ -638,7 +660,7 @@ body{overflow-wrap:break-word}
       </section>
       <section id="gstat">
         <h2><svg class="ic"><use href="#i-star"/></svg>스탯</h2>
-        <div class="body"><div class="pow" id="gpow"></div><ul class="stats" id="gstats"></ul><p class="dying-note" id="dyingnote" role="status" hidden></p></div>
+        <div class="body"><div class="pow" id="gpow"></div><p class="sprow" id="gsp" hidden></p><ul class="stats" id="gstats"></ul><p class="dying-note" id="dyingnote" role="status" hidden></p></div>
       </section>
     </div>
     <div class="g-col">
@@ -1182,12 +1204,13 @@ function countryOf(id){var r=regionById(id);return r?r.country:(COUNTRY_BY_ID[id
 function placeName(id){return COUNTRY_BY_ID[id]?COUNTRY_BY_ID[id].name:(regionById(id)?regionById(id).name:id)}
 function placeLong(id){var r=regionById(id);return r?COUNTRY_BY_ID[r.country].name+" · "+r.name:placeName(id)}
 // S급은 나라 단위, 나머지는 세부 지역 단위로 같은 곳에 있어야 토벌할 수 있습니다
-function inPlace(a){return a.r==="S"?a.region===curCountry:a.region===curRegion}
-function countryHot(cid){return alerts.some(function(a){return isActive(a)&&(a.r==="S"?a.region===cid:countryOf(a.region)===cid)})}
+function inPlace(a){return (a.r==="S"&&!a.c)?a.region===curCountry:a.region===curRegion}
+function countryHot(cid){return alerts.some(function(a){return isActive(a)&&((a.r==="S"&&!a.c)?a.region===cid:countryOf(a.region)===cid)})}
 var STAT_KO={hp:"체력",str:"근력",agi:"민첩",luck:"행운",taint:"오염도"};
 function fxText(e){return (STAT_KO[e.stat]||e.stat)+" "+(e.amt>0?"+":"")+e.amt}
-var STAT_TIP={hp:"토벌에 실패하면 줄어듭니다. 5 이하가 되면 빈사 상태입니다.",str:"높을수록 몬스터 토벌 성공 확률이 올라갑니다.",agi:"높을수록 토벌 실패 시 체력 차감을 막을 확률이 올라갑니다.",luck:"높을수록 실패해도 시간 제한 없이 재토벌할 수 있는 확률이 올라갑니다."};
-var dyingUntil=0,statFx=null;
+var STAT_TIP={hp:"토벌에 실패하면 줄어듭니다. 5 이하가 되면 빈사 상태입니다.",str:"몬스터 토벌 성공 확률",agi:"체력 하락 방지 확률",luck:"즉시 재토벌 가능 확률"};
+var STAT_INV={str:1,agi:1,luck:1};
+var dyingUntil=0,statFx=null,corruptUntil=0,taintedNow=false;
 var STAT_DEF=[["hp","체력","i-hp"],["str","근력","i-str"],["agi","민첩","i-agi"],["luck","행운","i-luck"],["taint","오염","i-taint"],["fame","명성","i-star"]];
 var HUNT_DIFF={F:"쉬움",E:"쉬움",D:"쉬움",C:"보통",B:"보통",A:"어려움",S:"매우 어려움"};
 var curRegion="city",alerts=[],pollTimer=null,skew=0,polling=false,paused=false;
@@ -1204,8 +1227,8 @@ function svgUse(id){
   var ns="http://www.w3.org/2000/svg",s=document.createElementNS(ns,"svg"),u=document.createElementNS(ns,"use");
   s.setAttribute("class","ic");s.setAttribute("aria-hidden","true");u.setAttribute("href","#"+id);s.appendChild(u);return s;
 }
-function activeMs(r){return r==="F"?600000:r==="S"?86400000:1800000}
-function isActive(a){return !a.done&&nowS()-a.ts<activeMs(a.r)}
+function activeMs(r){return r==="F"?300000:r==="S"?86400000:1800000}
+function isActive(a){return !a.done&&nowS()-a.ts<(a.c?3600000:activeMs(a.r))}
 function regionById(id){for(var i=0;i<REGIONS.length;i++)if(REGIONS[i].id===id)return REGIONS[i]}
 
 // ── 캐릭터 창: BGM · 할 일 · 오늘의 추천 ──
@@ -1232,6 +1255,11 @@ $("todof").addEventListener("submit",function(e){
   e.preventDefault();var inp=$("todoin"),t=inp.value.trim();if(!t)return;
   var a=loadTodo();if(a.length>=TODO_MAX){inp.value="";inp.placeholder="최대 "+TODO_MAX+"개까지 등록할 수 있습니다.";return}
   a.push({t:t.slice(0,60),d:false});saveTodo(a);inp.value="";renderTodo();
+});
+var privBusy=false;
+$("gpriv").addEventListener("change",function(){
+  var cb=this,want=cb.checked;privBusy=true;
+  api("POST","/api/me/private",{on:want}).then(function(r){if(r._status!==200)cb.checked=!want;privBusy=false});
 });
 var curRec=null,recSig="";
 function renderRec(){
@@ -1296,7 +1324,7 @@ function renderChar(d){
   var rk=$("grank");rk.textContent=d.rank||"-";rk.dataset.r=d.rank||"";
   myCode=d.code||d.hunterName||"me";renderTodo();renderRec();pinned=[];renderPins();
 }
-function powNeed(lv){return Math.round(30*Math.pow(lv,1.6))}
+function powNeed(lv){return Math.max(10,Math.round(30*Math.pow(lv,1.6)*(lv<30?0.1+0.3*Math.pow(lv/30,1.5):1)))}
 function renderPower(up){
   var box=$("gpow");if(!box)return;
   var need=powNeed(power.lv);
@@ -1311,21 +1339,38 @@ function renderPower(up){
 }
 function renderStats(st){
   var ul=$("gstats");ul.innerHTML="";
+  var sp=Math.max(0,Math.floor(Number(st.sp)||0)),spb=$("gsp");
+  if(spb){spb.hidden=false;spb.className="sprow"+(sp>0?" has":"");spb.innerHTML="";var t1=document.createElement("span");t1.textContent="스탯포인트";var t2=document.createElement("b");t2.textContent=String(sp);spb.appendChild(t1);spb.appendChild(t2)}
   STAT_DEF.forEach(function(d){
     var v=st[d[0]]||0,max=d[0]==="taint"?100:d[0]==="fame"?Math.max(100,Math.ceil((v+1)/100)*100):d[0]==="hp"?Math.max(100,v):Math.max(30,v);
     var li=document.createElement("li");li.className="st";li.dataset.k=d[0];
     li.appendChild(svgUse(d[2]));
-    var l=document.createElement("span");l.textContent=d[1];if(STAT_TIP[d[0]])li.title=STAT_TIP[d[0]];li.appendChild(l);
+    var l=document.createElement("span");l.textContent=d[1];
+    if(STAT_INV[d[0]]){l.className="st-l";l.tabIndex=0;l.setAttribute("data-tip",STAT_TIP[d[0]])}else if(STAT_TIP[d[0]])li.title=STAT_TIP[d[0]];
+    li.appendChild(l);
     var bar=document.createElement("div"),f=document.createElement("i");
     bar.className="bar";bar.setAttribute("role","progressbar");bar.setAttribute("aria-label",d[1]);
     bar.setAttribute("aria-valuemin","0");bar.setAttribute("aria-valuemax",String(max));bar.setAttribute("aria-valuenow",String(v));
     bar.appendChild(f);li.appendChild(bar);
     var n=document.createElement("span");n.className="st-v";n.textContent=d[0]==="taint"?(Math.round(v*10)/10)+"%":String(Math.round(v));li.appendChild(n);
+    if(STAT_INV[d[0]]){
+      var ib=document.createElement("button");ib.type="button";ib.className="st-inv";ib.textContent="+";ib.hidden=!(sp>0);
+      ib.setAttribute("aria-label",d[1]+"에 스탯포인트 1 투자");
+      ib.addEventListener("click",function(){investStat(d[0],ib)});li.appendChild(ib);
+    }
     ul.appendChild(li);
     setTimeout(function(){f.style.transform="scaleX("+Math.min(1,v/max)+")"},60);
   });
 }
 
+var invBusy=false;
+function investStat(k,btn){
+  if(invBusy)return;invBusy=true;btn.disabled=true;
+  api("POST","/api/stats/invest",{stat:k,amt:1}).then(function(r){
+    invBusy=false;btn.disabled=false;
+    if(r._status===200&&r.stats){statSig=($("ghn").textContent||"")+"|"+JSON.stringify(r.stats);if(r.fx)statFx=r.fx;renderStats(r.stats)}
+  });
+}
 /* ───── 토벌 팝업 ───── */
 var hmodal=$("hmodal"),hBusy=false;
 function showHunt(state,title,desc,extra,small,sub){
@@ -1377,14 +1422,19 @@ function updFx(){
 function isDying(){return dyingUntil>nowS()}
 function updDying(){
   var n=$("dyingnote");if(!n)return;
-  if(isDying()){n.hidden=false;n.textContent="빈사 상태 · "+mmss(dyingUntil-nowS())+" 후 체력 10으로 회복되어 다시 토벌할 수 있습니다."}
+  if(isCorrupt()){n.hidden=false;n.textContent="오염도 100% · 오염이 폭주해 "+mmss(corruptUntil-nowS())+" 동안 활동할 수 없습니다."}
+  else if(taintedNow){n.hidden=false;n.textContent="오염도가 100%입니다. 오염도를 줄여야 토벌에 참여할 수 있습니다."}
+  else if(isDying()){n.hidden=false;n.textContent="빈사 상태 · "+mmss(dyingUntil-nowS())+" 후 체력 10으로 회복되어 다시 토벌할 수 있습니다."}
   else n.hidden=true;
 }
-setInterval(function(){if(dyingUntil)updDying()},1000);
+function isCorrupt(){return corruptUntil>nowS()}
+setInterval(function(){if(dyingUntil||corruptUntil)updDying()},1000);
 function refreshBtn(bt){
   var a=bt._a,now=nowS();
+  if(isCorrupt()){bt.disabled=true;bt.textContent="활동 불가 "+mmss(corruptUntil-now);return}
+  if(taintedNow){bt.disabled=true;bt.textContent="오염도 100%";return}
   if(isDying()){bt.disabled=true;bt.textContent="빈사 "+mmss(dyingUntil-now);return}
-  if(a.r==="S"){
+  if(a.r==="S"&&!a.c){
     if(SI.remaining>0){bt.disabled=false;bt.textContent="토벌 ("+SI.remaining+"/"+SI.max+")"}
     else{bt.disabled=true;bt.textContent="횟수 소진 · "+mmss(SI.resetAt-now)}
   }else if(a.cd&&a.cd>now){bt.disabled=true;bt.textContent="재토벌 "+mmss(a.cd-now)}
@@ -1416,6 +1466,8 @@ function huntErr(a,r){
     case "expired":return a.mon+"은(는) 이미 사라졌습니다.";
     case "already_done":return a.mon+"은(는) 이미 토벌했습니다.";
     case "wrong_region":return (r.rname||a.rname)+"(으)로 이동해야 "+a.mon+"을(를) 토벌할 수 있습니다.";
+    case "corrupted":corruptUntil=r.until;updDying();return "오염이 폭주해 "+mmss(r.until-nowS())+" 동안 활동할 수 없습니다.";
+    case "tainted":taintedNow=true;updDying();return "오염도가 100%입니다. 오염도를 줄여야 토벌에 참여할 수 있습니다.";
     case "dying":dyingUntil=r.until;updDying();return "빈사 상태입니다. "+mmss(r.until-nowS())+" 후 체력 10으로 회복되어 다시 토벌할 수 있습니다.";
     case "cooldown":return a.mon+"은(는) "+mmss(r.until-nowS())+" 후 다시 토벌할 수 있습니다.";
     case "s_limit":return "S급 토벌 가능 횟수를 모두 사용했습니다. "+mmss(r.resetAt-nowS())+" 후 초기화됩니다.";
@@ -1430,7 +1482,9 @@ function huntAlert(a){
   if(a.done||hBusy)return;
   if(!isActive(a)){say(a.mon+"은(는) 이미 사라졌습니다.");return}
   if(!inPlace(a)){say(a.rname+"(으)로 이동해야 "+a.mon+"을(를) 토벌할 수 있습니다.");return}
-  var isS=a.r==="S";
+  var isS=a.r==="S"&&!a.c;
+  if(isCorrupt()){say("오염이 폭주해 "+mmss(corruptUntil-now)+" 동안 활동할 수 없습니다.");return}
+  if(taintedNow){say("오염도가 100%입니다. 오염도를 줄여야 토벌에 참여할 수 있습니다.");return}
   if(isDying()){say("빈사 상태입니다. "+mmss(dyingUntil-now)+" 후 체력 10으로 회복되어 다시 토벌할 수 있습니다.");return}
   if(isS&&SI.remaining<1){say("S급 토벌 가능 횟수를 모두 사용했습니다. "+mmss(SI.resetAt-now)+" 후 초기화됩니다.");return}
   if(!isS&&a.cd&&a.cd>now){say(a.mon+"은(는) "+mmss(a.cd-now)+" 후 다시 토벌할 수 있습니다.");return}
@@ -1497,7 +1551,7 @@ function drawRadar(){
     var t=document.createElementNS(NS,"text");t.setAttribute("class","rd-lbl"+(hot?" hot":""));t.setAttribute("x",p[0]+10);t.setAttribute("y",p[1]+3);t.textContent=rg.name;g.appendChild(t);
   });
   // S급은 나라 단위로 출몰하므로, 이 나라에 출몰 중이면 레이더 아래쪽에 크게 표시합니다
-  var sA=alerts.filter(function(a){return a.r==="S"&&isActive(a)&&a.region===curCountry})[0];
+  var sA=alerts.filter(function(a){return a.r==="S"&&!a.c&&isActive(a)&&a.region===curCountry})[0];
   if(sA){
     hotN++;
     var sc=document.createElementNS(NS,"circle");sc.setAttribute("class","rd-s");sc.setAttribute("cx",100);sc.setAttribute("cy",176);sc.setAttribute("r",9);g.appendChild(sc);
@@ -1538,7 +1592,7 @@ var globe=(function(){
     var y2=y*Math.cos(TILT)-z*Math.sin(TILT),z2=y*Math.sin(TILT)+z*Math.cos(TILT);
     return {x:C[0]+x*R,y:C[1]-y2*R,z:z2};
   }
-  function sOf(cid){return alerts.filter(function(a){return a.r==="S"&&isActive(a)&&a.region===cid})[0]}
+  function sOf(cid){return alerts.filter(function(a){return a.r==="S"&&!a.c&&isActive(a)&&a.region===cid})[0]}
   function size(){
     W=wrap.clientWidth||340;R=W*0.385;C=[W/2,W/2+W*0.03];
     cv.width=Math.round(W*dpr);cv.height=Math.round(W*dpr);cx.setTransform(dpr,0,0,dpr,0,0);
@@ -1750,7 +1804,7 @@ function loadShop(){
       b.addEventListener("click",function(){
         b.disabled=true;
         api("POST","/api/shop/buy",{id:it.id}).then(function(x){
-          b.disabled=false;b.textContent=x.ok?"구매 완료 ✓":x.error==="no_gold"?"골드가 부족합니다":x.error==="max_qty"?"더 가질 수 없습니다":"구매 실패";
+          b.disabled=false;b.textContent=x.ok?"구매 완료 ✓":x.error==="no_gold"?"골드가 부족합니다":x.error==="max_qty"?"더 가질 수 없습니다":x.error==="corrupted"?"활동 불가 상태입니다":"구매 실패";
           setTimeout(function(){b.textContent=lbl},1400);
           if(x.ok){gold=x.gold;setGoldTag();pollState(false)}
         });
@@ -1836,7 +1890,7 @@ function alItem(a,withBtn){
   else if(withBtn&&isActive(a)){var bt=document.createElement("button");bt.type="button";bt.className="al-go";bt._a=a;bt.setAttribute("aria-label",a.mon+" 토벌");bt.addEventListener("click",function(){huntAlert(a)});refreshBtn(bt);li.appendChild(bt)}
   return li;
 }
-function isPinS(a){return a.r==="S"&&isActive(a)}
+function isPinS(a){return (a.r==="S"||a.c)&&isActive(a)}
 function renderAlerts(){
   // 토벌 가능한 S급 출몰 정보는 항상 맨 위에 고정 (그 안에서는 최신순)
   alerts.sort(function(x,y){var px=isPinS(x)?1:0,py=isPinS(y)?1:0;return px!==py?py-px:(y.ts-x.ts)||(y.id-x.id)});
@@ -1864,12 +1918,13 @@ function applyState(st,first){
   var isg=JSON.stringify(st.inventory||[]);
   if(isg!==invSig){invSig=isg;inventory=st.inventory||[];if(devApp==="inv")renderDevice()}
   SI=st.s;pendingList=st.pending||[];unreadNotices=st.unreadNotices||0;unreadMsgs=st.unreadMsgs||0;friendReqs=st.friendReqs||0;cmUpdate(st.board||0);
-  if(st.user){dyingUntil=st.user.dyingUntil||0;statFx=st.user.fx||null;updFx();updDying()}
+  if(st.user&&!privBusy){var pcb=$("gpriv");if(pcb)pcb.checked=!!st.user.private}
+  if(st.user){corruptUntil=st.user.corruptUntil||0;taintedNow=!!st.user.tainted;dyingUntil=st.user.dyingUntil||0;statFx=st.user.fx||null;updFx();updDying()}
   if(!paused||first){
     var prev=seenIds;seenIds={};
     alerts=st.monsters.map(function(m){
       seenIds[m.id]=1;
-      return {id:m.id,region:m.region,rname:m.rname,mon:m.mon,r:m.r,ts:m.ts,time:fmtTime(m.ts),done:m.done,cd:m.cd,parts:m.parts,isNew:!first&&!prev[m.id]};
+      return {id:m.id,region:m.region,rname:m.rname,mon:m.mon,r:m.r,ts:m.ts,time:fmtTime(m.ts),done:m.done,cd:m.cd,parts:m.parts,c:m.c,isNew:!first&&!prev[m.id]};
     });
     renderAlerts();
   }
@@ -1896,8 +1951,8 @@ function moveTo(id,silent){
   document.querySelectorAll("#ctabs .ct").forEach(function(b){b.setAttribute("aria-current",b.dataset.id===curCountry?"true":"false")});
   $("hudloc").textContent="현재 위치 · "+placeLong(id);
   if(!silent){
-    api("POST","/api/move",{region:id}).then(function(r){if(r.error)$("mapmsg").textContent="이동하지 못했어요. 잠시 후 다시 시도해주세요."});
-    var hot=alerts.some(function(a){return isActive(a)&&(a.r==="S"?a.region===curCountry:a.region===id)});
+    api("POST","/api/move",{region:id}).then(function(r){if(r.error)$("mapmsg").textContent=r.error==="corrupted"?"오염이 폭주해 "+mmss(r.until-nowS())+" 동안 이동할 수 없습니다.":"이동하지 못했어요. 잠시 후 다시 시도해주세요."});
+    var hot=alerts.some(function(a){return isActive(a)&&((a.r==="S"&&!a.c)?a.region===curCountry:a.region===id)});
     $("mapmsg").textContent=(before!==curCountry?COUNTRY_BY_ID[curCountry].name+" ":"")+rg.name+"(으)로 이동했어요."+(hot?" 이곳에서 몬스터가 출몰 중이에요!":"");
     markRegions();
   }
@@ -1905,7 +1960,7 @@ function moveTo(id,silent){
 
 /* ───── 지역 팝업 ───── */
 var rmodal=$("rmodal"),ropener=null,rRegion=null;
-function regionHot(id){return alerts.filter(function(a){return isActive(a)&&(a.r==="S"?a.region===countryOf(id):a.region===id)})}
+function regionHot(id){return alerts.filter(function(a){return isActive(a)&&((a.r==="S"&&!a.c)?a.region===countryOf(id):a.region===id)})}
 function fillR(){
   var ul=$("rlist");ul.innerHTML="";
   var list=regionHot(rRegion);
