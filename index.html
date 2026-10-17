@@ -758,6 +758,41 @@ input[type=text],input[type=number],input[type=password],input[type=url],textare
     <p class="pwnote" id="rmsg" role="status"></p>
   </div>
 </div>
+<style>
+/* 헌터 커뮤니티 (읽기 전용 창) */
+.cmh{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:2px 0 12px}
+.cmh .cmn{margin:0;font-size:.8rem;color:var(--deep);line-height:1.5}
+.cmsnd{flex:none;min-height:40px;padding:0 14px;font:500 .82rem/1 "Noto Sans KR",sans-serif;color:var(--text);background:var(--field);border:1px solid var(--line);border-radius:10px;cursor:pointer}
+.cmsnd[aria-pressed="true"]{border-color:var(--red);color:#fff}
+.cmsnd:focus-visible{outline:2px solid var(--red2);outline-offset:2px}
+.cml{list-style:none;margin:0;padding:0;display:grid;gap:10px;max-height:60vh;overflow-y:auto;overscroll-behavior:contain}
+.cml li{padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:rgba(255,255,255,.02)}
+.cml li.is-new{border-color:var(--red);animation:cmIn .5s ease both}
+.cml .cmm{display:flex;align-items:center;gap:8px;margin:0 0 6px;font-size:.74rem;color:var(--deep)}
+.cml .cmt{padding:2px 8px;border:1px solid var(--line);border-radius:999px;font-size:.7rem;color:var(--text)}
+.cml .cmt.s{border-color:var(--red);color:#ff8a93}
+.cml .cmw{font-family:"Share Tech Mono",monospace}
+.cml .cmat{margin-left:auto}
+.cml h3{margin:0 0 6px;font-size:.98rem;line-height:1.45;word-break:keep-all}
+.cml p{margin:0;font-size:.88rem;line-height:1.65;color:var(--text);word-break:keep-all;overflow-wrap:anywhere}
+.cmempty{padding:24px 8px;text-align:center;color:var(--deep);font-size:.9rem}
+@keyframes cmIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.cml li.is-new{animation:none}}
+</style>
+<div class="modal" id="cmodal" hidden>
+  <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="cmtitle">
+    <button type="button" class="x" id="cmclose" aria-label="닫기"><svg class="ic"><use href="#i-x"/></svg></button>
+    <div class="dhead">
+      <p class="eyebrow">COMMUNITY</p>
+      <h1 id="cmtitle">헌터 커뮤니티</h1>
+    </div>
+    <div class="cmh">
+      <p class="cmn">시민들이 올린 글이 5분마다 갱신됩니다. 읽기만 할 수 있습니다.</p>
+      <button type="button" class="cmsnd" id="cmsnd" aria-pressed="true">알림음 켜짐</button>
+    </div>
+    <ul class="cml" id="cml" aria-live="polite"></ul>
+  </div>
+</div>
 <div class="modal" id="mmodal" hidden>
   <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="mtitle">
     <button type="button" class="x" id="mclose" aria-label="닫기"><svg class="ic"><use href="#i-x"/></svg></button>
@@ -1283,7 +1318,7 @@ function showHunt(state,title,desc,extra,small,sub){
 }
 function closeHunt(){
   if(hBusy)return;hmodal.hidden=true;
-  document.body.style.overflow=(!rmodal.hidden||!mmodal.hidden)?"hidden":"";
+  document.body.style.overflow=(!rmodal.hidden||!mmodal.hidden||!$("cmodal").hidden)?"hidden":"";
   if(!rmodal.hidden)$("rclose").focus();
 }
 $("hok").addEventListener("click",function(){
@@ -1582,7 +1617,7 @@ var globe=(function(){
 var gold=0,devApp=null,inventory=[],invSig="";
 var APPS=[["msg","메신저","i-chat"],["com","헌터 커뮤니티","i-board"],["ach","업적","i-medal"],["sys","시스템 알림","i-bell"],["shop","상점","i-shop"],["inv","인벤토리","i-bag"]];
 function devClock(){var d=new Date(),c=$("phclk");if(c)c.textContent=pad(d.getHours())+":"+pad(d.getMinutes())}
-function badgeOf(id){return id==="sys"?unreadNotices:id==="msg"?unreadMsgs+friendReqs:0}
+function badgeOf(id){return id==="sys"?unreadNotices:id==="msg"?unreadMsgs+friendReqs:id==="com"?Math.max(0,Math.min(99,cmLatest-cmSeen)):0}
 function loadNotices(){
   var scr=$("phscr");
   api("GET","/api/notices").then(function(r){
@@ -1674,7 +1709,7 @@ function renderDevice(){
       var t=document.createElement("span");t.textContent=a[1];b.appendChild(t);
       var bc=badgeOf(a[0]);
       if(bc){var n=document.createElement("span");n.className="app-b";n.textContent=String(bc);n.setAttribute("aria-label","읽지 않은 항목 "+bc+"건");b.appendChild(n)}
-      b.addEventListener("click",function(){if(a[0]==="msg"){openMs();return}devApp=a[0];renderDevice()});
+      b.addEventListener("click",function(){if(a[0]==="msg"){openMs();return}if(a[0]==="com"){openCm();return}devApp=a[0];renderDevice()});
       g.appendChild(b);
     });
     scr.appendChild(g);return;
@@ -1751,7 +1786,7 @@ function applyState(st,first){
   var rsg=JSON.stringify(st.rec||null);if(rsg!==recSig){recSig=rsg;curRec=st.rec||null;renderRec()}
   var isg=JSON.stringify(st.inventory||[]);
   if(isg!==invSig){invSig=isg;inventory=st.inventory||[];if(devApp==="inv")renderDevice()}
-  SI=st.s;pendingList=st.pending||[];unreadNotices=st.unreadNotices||0;unreadMsgs=st.unreadMsgs||0;friendReqs=st.friendReqs||0;
+  SI=st.s;pendingList=st.pending||[];unreadNotices=st.unreadNotices||0;unreadMsgs=st.unreadMsgs||0;friendReqs=st.friendReqs||0;cmUpdate(st.board||0);
   if(!paused||first){
     var prev=seenIds;seenIds={};
     alerts=st.monsters.map(function(m){
@@ -2195,10 +2230,85 @@ function enterGame(me){
   clearInterval(pollTimer);pollTimer=setInterval(pollState,5000);
   var h=$("hudloc");h.tabIndex=-1;h.focus();
 }
+// ── 헌터 커뮤니티 (읽기 전용) ──
+var cmLatest=0,cmSeen=0,cmInit=false,cmSound=true,cmCtx=null,cmOpener=null,cmmodal=$("cmodal");
+try{cmSound=localStorage.getItem("hx_cmsnd")!=="off"}catch(e){}
+function cmKey(){return "hx_cmseen_"+myCode}
+function cmSave(){try{localStorage.setItem(cmKey(),String(cmSeen))}catch(e){}}
+function cmReset(){cmInit=false;cmLatest=0;cmSeen=0}
+function cmAudio(){
+  try{var AC=window.AudioContext||window.webkitAudioContext;if(!AC)return null;
+    if(!cmCtx)cmCtx=new AC();if(cmCtx.state==="suspended")cmCtx.resume();return cmCtx}catch(e){return null}
+}
+document.addEventListener("pointerdown",function(){if(!$("game").hidden)cmAudio()},{passive:true});
+document.addEventListener("keydown",function(){if(!$("game").hidden)cmAudio()},{passive:true});
+function cmPing(){
+  if(!cmSound)return;var c=cmAudio();if(!c||c.state!=="running")return;
+  try{
+    var t=c.currentTime;
+    [[880,0,.42],[1320,.2,.78]].forEach(function(n){
+      var o=c.createOscillator(),g=c.createGain();o.type="sine";o.frequency.value=n[0];
+      g.gain.setValueAtTime(0,t+n[1]);g.gain.linearRampToValueAtTime(.16,t+n[1]+.03);g.gain.exponentialRampToValueAtTime(.0008,t+n[1]+n[2]);
+      o.connect(g);g.connect(c.destination);o.start(t+n[1]);o.stop(t+n[1]+n[2]+.05);
+    });
+  }catch(e){}
+}
+function cmUpdate(l){
+  if(!cmInit){
+    cmInit=true;cmLatest=l;var sv=0;try{sv=parseInt(localStorage.getItem(cmKey()),10)||0}catch(e){}
+    cmSeen=sv>0&&sv<=l?sv:l;if(!devApp)renderDevice();return;
+  }
+  if(l>cmLatest){
+    cmLatest=l;cmPing();
+    if(!cmmodal.hidden){cmLoad();cmSeen=l;cmSave()}
+    else if(!devApp)renderDevice();
+  }
+}
+function cmAgo(ts){var m=Math.floor((Date.now()-ts)/60000);return m<1?"방금":m<60?m+"분 전":m<1440?Math.floor(m/60)+"시간 전":fmtTime(ts)}
+function cmLoad(open){
+  var ul=$("cml"),mark=open?cmSeen:cmLatest;
+  api("GET","/api/board").then(function(r){
+    var list=r.posts||[];ul.innerHTML="";
+    if(!list.length){var e=document.createElement("li");e.className="cmempty";e.textContent="아직 올라온 글이 없습니다.";ul.appendChild(e);return}
+    list.forEach(function(p){
+      var li=document.createElement("li");if(open&&p.id>mark)li.className="is-new";
+      var m=document.createElement("p");m.className="cmm";
+      var tg=document.createElement("span");tg.className="cmt"+(p.tag==="S급"?" s":"");tg.textContent=p.tag;
+      var w=document.createElement("span");w.className="cmw";w.textContent=p.who;
+      var at=document.createElement("span");at.className="cmat";at.textContent=cmAgo(p.at);
+      m.appendChild(tg);m.appendChild(w);m.appendChild(at);
+      var h=document.createElement("h3");h.textContent=p.title;
+      var b=document.createElement("p");b.textContent=p.body;
+      li.appendChild(m);li.appendChild(h);li.appendChild(b);ul.appendChild(li);
+    });
+    if(r.latest>cmLatest)cmLatest=r.latest;
+  }).catch(function(){ul.innerHTML="";var e=document.createElement("li");e.className="cmempty";e.textContent="글을 불러오지 못했습니다.";ul.appendChild(e)});
+}
+function cmSndUi(){var b=$("cmsnd");b.setAttribute("aria-pressed",cmSound?"true":"false");b.textContent=cmSound?"알림음 켜짐":"알림음 꺼짐"}
+function openCm(){
+  cmOpener=document.activeElement;cmSndUi();cmLoad(true);
+  cmmodal.hidden=false;document.body.style.overflow="hidden";cmmodal.scrollTop=0;
+  cmSeen=Math.max(cmSeen,cmLatest);cmSave();if(!devApp)renderDevice();$("cmclose").focus();
+}
+function closeCm(){cmmodal.hidden=true;document.body.style.overflow=(!rmodal.hidden||!mmodal.hidden)?"hidden":"";if(!devApp)renderDevice();if(cmOpener&&cmOpener.focus)cmOpener.focus()}
+$("cmclose").addEventListener("click",closeCm);
+cmmodal.addEventListener("mousedown",function(e){if(e.target===cmmodal)closeCm()});
+$("cmsnd").addEventListener("click",function(){
+  cmSound=!cmSound;try{localStorage.setItem("hx_cmsnd",cmSound?"on":"off")}catch(e){}
+  cmSndUi();if(cmSound)cmPing();
+});
+document.addEventListener("keydown",function(e){if(e.key==="Escape"&&!cmmodal.hidden&&hmodal.hidden)closeCm()});
+cmmodal.addEventListener("keydown",function(e){
+  if(e.key!=="Tab")return;
+  var list=Array.prototype.filter.call(cmmodal.querySelectorAll("button"),function(el){return el.offsetParent!==null&&!el.disabled});
+  if(!list.length)return;var f=list[0],l=list[list.length-1];
+  if(e.shiftKey&&document.activeElement===f){e.preventDefault();l.focus()}
+  else if(!e.shiftKey&&document.activeElement===l){e.preventDefault();f.focus()}
+});
 function leaveGame(note){
   bgmStop();globe.set(false);
   clearInterval(pollTimer);clearInterval(mTimer);
-  [rmodal,hmodal,mmodal].forEach(function(m){m.hidden=true});document.body.style.overflow="";
+  [rmodal,hmodal,mmodal,$("cmodal")].forEach(function(m){m.hidden=true});cmReset();document.body.style.overflow="";
   $("game").hidden=true;forceFront=false;showFront();
   if(note){var hm=$("hmsg");if(hm){hm.textContent=note;hm.className="hmsg"}}
 }
