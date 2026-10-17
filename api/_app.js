@@ -271,7 +271,7 @@ async function resolveDue() {
   }
 }
 
-// 30분이 지나도록 아무도 토벌하지 못한 몬스터는 서버에서 삭제합니다.
+// 출현 시간(F급 10분, S급 24시간, 그 외 30분)이 지나도록 아무도 토벌하지 못한 몬스터는 서버에서 삭제합니다.
 // (S급 도전 결과가 아직 처리·확인되지 않은 몬스터는 결과 공개 전까지 보존)
 let lastPurge = 0;
 async function purgeMonsters(force) {
@@ -284,12 +284,12 @@ async function purgeMonsters(force) {
     AND NOT EXISTS (SELECT 1 FROM kills k WHERE k.monster_id = monsters.id)
     AND NOT EXISTS (SELECT 1 FROM s_close c WHERE c.monster_id = monsters.id AND c.ok = 1)
     AND NOT EXISTS (SELECT 1 FROM s_attempts a WHERE a.monster_id = monsters.id AND (a.resolved != 1 OR a.notified = 0))`,
-    [now, now - G.ACTIVE_MS]);
-  await db.run(`DELETE FROM monsters WHERE (spawned_at < ? OR (rank = 'F' AND spawned_at < ?))
+    [now, now - G.ACTIVE_MS_S]);
+  await db.run(`DELETE FROM monsters WHERE ((rank = 'S' AND spawned_at < ?) OR (rank != 'S' AND spawned_at < ?) OR (rank = 'F' AND spawned_at < ?))
     AND NOT EXISTS (SELECT 1 FROM kills k WHERE k.monster_id = monsters.id)
     AND NOT EXISTS (SELECT 1 FROM s_close c WHERE c.monster_id = monsters.id AND c.ok = 1)
     AND NOT EXISTS (SELECT 1 FROM s_attempts a WHERE a.monster_id = monsters.id AND (a.resolved != 1 OR a.notified = 0))`,
-    [now - G.ACTIVE_MS, now - G.ACTIVE_MS_F]);
+    [now - G.ACTIVE_MS_S, now - G.ACTIVE_MS, now - G.ACTIVE_MS_F]);
   await db.run('DELETE FROM fail_cd WHERE monster_id NOT IN (SELECT id FROM monsters)');
 }
 
@@ -299,7 +299,7 @@ async function boardCtx(now) {
   const mons = {}, regions = G.REGIONS.map(r => G.placeLong(r.id));
   ['F', 'E', 'D', 'C', 'B', 'A'].forEach(k => { mons[k] = G.MON[k]; });
   const sOn = (await db.all(`SELECT name, region FROM monsters WHERE rank = 'S' AND owner_id IS NULL AND spawned_at > ?
-      AND id NOT IN (SELECT monster_id FROM s_close)`, [now - G.ACTIVE_MS])).map(m => ({ name: m.name, place: G.placeName(m.region) }));
+      AND id NOT IN (SELECT monster_id FROM s_close)`, [now - G.ACTIVE_MS_S])).map(m => ({ name: m.name, place: G.placeName(m.region) }));
   const sKill = (await db.all(`SELECT m.name, m.region FROM s_close c JOIN monsters m ON m.id = c.monster_id WHERE c.ok = 1 AND c.at > ? LIMIT 10`, [now - 3 * G.HOUR]))
     .map(m => ({ name: m.name, place: G.placeName(m.region) }));
   const sFled = (await db.all("SELECT name, region FROM s_log WHERE status = 'fled' AND ended_at > ? LIMIT 10", [now - 3 * G.HOUR]))
@@ -456,10 +456,10 @@ async function buildState(u, now) {
   // 보이는 몬스터: 서버 공통 S급 + 내 몬스터(F~A). 예전 공통 F~A 몬스터는 보이지 않습니다.
   const vis = "((owner_id IS NULL AND rank = 'S') OR owner_id = ?)";
   const mons = await db.all(`SELECT * FROM monsters
-    WHERE ${vis} AND (spawned_at > ? OR id IN (SELECT id FROM monsters WHERE ${vis} ORDER BY id DESC LIMIT 6))
+    WHERE ${vis} AND (spawned_at > ? OR (rank = 'S' AND spawned_at > ?) OR id IN (SELECT id FROM monsters WHERE ${vis} ORDER BY id DESC LIMIT 6))
       AND id NOT IN (SELECT monster_id FROM s_close WHERE ok = 0)
       AND NOT (rank = 'F' AND spawned_at < ${now - G.ACTIVE_MS_F} AND id NOT IN (SELECT monster_id FROM kills WHERE user_id = ?))
-    ORDER BY spawned_at DESC, id DESC LIMIT 40`, [u.id, now - G.ACTIVE_MS, u.id, u.id]);
+    ORDER BY spawned_at DESC, id DESC LIMIT 40`, [u.id, now - G.ACTIVE_MS, now - G.ACTIVE_MS_S, u.id, u.id]);
   const minId = mons.length ? Math.min.apply(null, mons.map(m => m.id)) : 0;
   const [kills, cds, parts, si, pending, results, un, um] = await Promise.all([
     db.all('SELECT monster_id FROM kills WHERE user_id = ? AND monster_id >= ?', [u.id, minId]),
@@ -733,8 +733,8 @@ route('GET', '/api/world/stats', async (req, res) => {
   const hunters = {};
   rows.forEach(r => { const k = G.countryOf(r.region); hunters[k] = (hunters[k] || 0) + r.c; });
   const ss = await db.all(`SELECT id, name, region, spawned_at FROM monsters m WHERE rank = 'S' AND owner_id IS NULL AND spawned_at > ?
-    AND id NOT IN (SELECT monster_id FROM s_close)`, [now - G.ACTIVE_MS]);
-  send(res, 200, { hunters, s: ss.map(m => ({ id: m.id, name: m.name, country: m.region, left: m.spawned_at + G.ACTIVE_MS - now })) });
+    AND id NOT IN (SELECT monster_id FROM s_close)`, [now - G.ACTIVE_MS_S]);
+  send(res, 200, { hunters, s: ss.map(m => ({ id: m.id, name: m.name, country: m.region, left: m.spawned_at + G.ACTIVE_MS_S - now })) });
 });
 
 route('POST', '/api/move', async (req, res, ctx) => {
@@ -1236,7 +1236,7 @@ route('GET', '/api/admin/s', async (req, res) => {
     (await db.all(`SELECT monster_id, COUNT(*) AS c FROM s_attempts WHERE resolved != 1 AND monster_id IN (${inList(ids)}) GROUP BY monster_id`, ids)).forEach(r => pc.set(r.monster_id, r.c));
   }
   const recent = [...live.map(m => {
-    const alive = now - m.spawned_at < G.ACTIVE_MS, k = kc.get(m.id) || 0, p = pc.get(m.id) || 0;
+    const alive = now - m.spawned_at < G.ACTIVE_MS_S, k = kc.get(m.id) || 0, p = pc.get(m.id) || 0;
     const c = cl.get(m.id);
     const st = c === 1 ? 'killed' : c === 0 ? 'fled' : k ? 'killed' : p ? 'waiting' : alive ? 'active' : 'fled';
     return { id: m.id, name: m.name, region: m.region, at: m.spawned_at, status: st, alive, live: true };
@@ -1251,7 +1251,7 @@ route('GET', '/api/admin/s', async (req, res) => {
     const rows = recent.filter(r => r.name === name);
     return {
       name,
-      present: rows.filter(r => r.live && r.alive && (r.status === 'active' || r.status === 'waiting')).map(r => ({ id: r.id, region: r.region, rname: G.placeName(r.region), left: r.at + G.ACTIVE_MS - now, status: r.status })),
+      present: rows.filter(r => r.live && r.alive && (r.status === 'active' || r.status === 'waiting')).map(r => ({ id: r.id, region: r.region, rname: G.placeName(r.region), left: r.at + G.ACTIVE_MS_S - now, status: r.status })),
       appear: rows.length,
       killed: rows.filter(r => r.status === 'killed').length,
       fled: rows.filter(r => r.status === 'fled').length,
@@ -1264,9 +1264,9 @@ route('GET', '/api/admin/s', async (req, res) => {
       SUM(CASE WHEN a.resolved != 1 THEN 1 ELSE 0 END) AS pending
     FROM s_attempts a JOIN users u ON u.id = a.user_id GROUP BY u.id ORDER BY attempts DESC, u.hunter_name LIMIT 300`);
   send(res, 200, {
-    open: live.filter(m => !cl.has(m.id) && ((now - m.spawned_at < G.ACTIVE_MS) || (pc.get(m.id) || 0) > 0)).map(m => {
+    open: live.filter(m => !cl.has(m.id) && ((now - m.spawned_at < G.ACTIVE_MS_S) || (pc.get(m.id) || 0) > 0)).map(m => {
       const t = pp.get(m.id) || { n: 0, p: 0 };
-      return { id: m.id, name: m.name, rname: G.placeName(m.region), at: m.spawned_at, alive: now - m.spawned_at < G.ACTIVE_MS, left: m.spawned_at + G.ACTIVE_MS - now, people: t.p, tries: t.n, need: G.RAID_NEED, needTries: G.RAID_ATTEMPTS };
+      return { id: m.id, name: m.name, rname: G.placeName(m.region), at: m.spawned_at, alive: now - m.spawned_at < G.ACTIVE_MS_S, left: m.spawned_at + G.ACTIVE_MS_S - now, people: t.p, tries: t.n, need: G.RAID_NEED, needTries: G.RAID_ATTEMPTS };
     }),
     catalog, players,
     totals: { appear: recent.length, killed: recent.filter(r => r.status === 'killed').length, fled: recent.filter(r => r.status === 'fled').length, recalled: recent.filter(r => r.status === 'recalled').length, players: players.length },
@@ -1281,7 +1281,7 @@ route('POST', '/api/admin/s/spawn', async (req, res, ctx) => {
   if (region && !G.COUNTRY_BY_ID[region]) return fail(res, 400, 'bad_region');      // S급은 나라 단위로만 출현
   if (!region) region = G.COUNTRIES[G.rnd(0, G.COUNTRIES.length - 1)].id;
   const now = Date.now();
-  const live = await db.get("SELECT COUNT(*) AS c FROM monsters WHERE rank = 'S' AND owner_id IS NULL AND spawned_at > ?", [now - G.ACTIVE_MS]);
+  const live = await db.get("SELECT COUNT(*) AS c FROM monsters WHERE rank = 'S' AND owner_id IS NULL AND spawned_at > ?", [now - G.ACTIVE_MS_S]);
   if (live.c >= 20) return fail(res, 400, 'too_many');
   const r = await db.run("INSERT INTO monsters (region, name, rank, spawned_at) VALUES (?, ?, 'S', ?)", [region, name, now]);
   send(res, 200, { ok: true, id: r.lastId, region });
@@ -1321,9 +1321,9 @@ route('POST', '/api/admin/s/decide', async (req, res, ctx) => {
 route('POST', '/api/admin/s/recall', async (req, res, ctx) => {
   const now = Date.now();
   let rows;
-  if (ctx.body.all === true) rows = await db.all("SELECT * FROM monsters WHERE rank = 'S' AND owner_id IS NULL AND spawned_at > ?", [now - G.ACTIVE_MS]);
+  if (ctx.body.all === true) rows = await db.all("SELECT * FROM monsters WHERE rank = 'S' AND owner_id IS NULL AND spawned_at > ?", [now - G.ACTIVE_MS_S]);
   else if (ctx.body.id) rows = await db.all("SELECT * FROM monsters WHERE id = ? AND rank = 'S' AND owner_id IS NULL", [Number(ctx.body.id) || 0]);
-  else if (ctx.body.name) rows = await db.all("SELECT * FROM monsters WHERE name = ? AND rank = 'S' AND owner_id IS NULL AND spawned_at > ?", [String(ctx.body.name), now - G.ACTIVE_MS]);
+  else if (ctx.body.name) rows = await db.all("SELECT * FROM monsters WHERE name = ? AND rank = 'S' AND owner_id IS NULL AND spawned_at > ?", [String(ctx.body.name), now - G.ACTIVE_MS_S]);
   else return fail(res, 400, 'bad_target');
   let recalled = 0, skipped = 0, cancelled = 0;
   for (const m of rows) {
