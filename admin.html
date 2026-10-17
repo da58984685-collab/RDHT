@@ -173,10 +173,21 @@ body{overflow-wrap:break-word}
     <div class="row"><input id="sname" maxlength="30" placeholder="아이템 이름 (최대 30자)"><input id="sdesc" maxlength="100" placeholder="설명 (선택, 최대 100자)"><input id="sprice" type="number" min="0" max="9999999" step="1" placeholder="가격 (G)" style="max-width:110px"><select id="sstat" style="max-width:130px"><option value="">사용 효과 없음</option><option value="hp">체력</option><option value="str">근력</option><option value="agi">민첩</option><option value="luck">행운</option><option value="taint">오염도</option></select><input id="samt" type="number" min="-999" max="999" step="1" placeholder="변동값 (예: 10, -5)" style="max-width:130px"><button class="btn" id="sadd" type="button">추가</button><span id="smsg" class="muted"></span></div>
     <div class="tw"><table><thead><tr><th>아이템</th><th>설명</th><th>가격 (G)</th><th>사용 효과 (스탯 변동)</th><th></th></tr></thead><tbody id="slist"></tbody></table></div>
   </section>
+  <section class="card" id="inq">
+    <h3 style="margin-bottom:8px">문의함 <span class="muted" style="font-weight:400;font-size:.85rem">(헌터가 관리자에게 보낸 메신저 · 관리자 전용 캐릭터는 게임 메신저에서 읽기만 가능)</span></h3>
+    <div id="inqlist"></div>
+    <div id="inqchat" hidden>
+      <div class="row" style="margin:10px 0 6px"><button class="btn ghost sm" id="inqback" type="button">← 목록</button><b id="inqname"></b></div>
+      <div id="inqmsgs" style="display:flex;flex-direction:column;gap:6px;max-height:280px;overflow-y:auto;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--bg,#0b0708)"></div>
+      <div class="row" style="margin-top:8px"><input id="inqtext" maxlength="200" placeholder="답변 (최대 200자)"><button class="btn" id="inqsend" type="button">답변 보내기</button><span id="inqmsg" class="muted"></span></div>
+    </div>
+  </section>
   <section class="card send">
     <h3 style="margin-bottom:8px">시스템 알림 발송 <span class="muted" style="font-weight:400;font-size:.85rem">(서버 내 모든 헌터에게 전달)</span></h3>
     <input id="ntitle" maxlength="40" placeholder="제목 (선택, 최대 40자)" style="margin-bottom:8px">
     <textarea id="ntext" maxlength="300" placeholder="본문 (최대 300자)"></textarea>
+    <div class="row" style="margin-top:8px"><input id="nitem" list="shoplist" maxlength="30" placeholder="첨부 아이템 (선택 · 상점 아이템 선택)"><input id="nqty" type="number" min="1" max="9999" value="1" style="max-width:90px" title="수량"></div>
+    <div class="muted" style="font-size:.8rem;margin:2px 0 8px">아이템을 넣으면 헌터가 알림을 열어 직접 수령합니다 (헌터당 1회, 발송 이후 가입한 헌터는 받지 못함).</div>
     <div class="row"><button class="btn" id="nsend" type="button">발송</button><span id="nmsg" class="muted"></span></div>
   </section>
 </main>
@@ -263,7 +274,7 @@ function renderDetail(){
   var counts={};(r.counts||[]).forEach(function(x){counts[x.result]=x.c});
   var h='<div class="head">'+(p.image?'<img alt="" src="'+esc(p.image)+'">':'<div class="ph"></div>')+
     '<div><h2>'+esc(p.hunterName)+' <span class="rk '+esc(p.rank)+'">'+esc(p.rank)+'</span></h2><div class="muted">'+esc(p.code)+" · Lv."+p.lv+" · EXP "+p.exp+"</div></div></div>";
-  h+='<div class="tabs">'+[["info","정보 · 스탯"],["items","아이템"],["acq","습득 정보"],["ach","업적"],["hunt","토벌 기록"]].map(function(t){return'<button class="tab'+(tab===t[0]?" on":"")+'" data-t="'+t[0]+'" type="button">'+t[1]+"</button>"}).join("")+"</div>";
+  h+='<div class="tabs">'+[["info","정보 · 스탯"],["items","아이템"],["acq","습득 정보"],["ach","업적"],["act","활동 관리"],["hunt","토벌 기록"]].map(function(t){return'<button class="tab'+(tab===t[0]?" on":"")+'" data-t="'+t[0]+'" type="button">'+t[1]+"</button>"}).join("")+"</div>";
   var opt=function(list,cur){return list.map(function(x){return'<option value="'+esc(x[0])+'"'+(x[0]===cur?" selected":"")+">"+esc(x[1])+"</option>"}).join("")};
   var RANKS=["F","E","D","C","B","A","S"].map(function(x){return[x,x]});
   if(tab==="info"){
@@ -285,6 +296,19 @@ function renderDetail(){
       '<div class="row"><button class="btn" id="e_save" type="button">저장</button><button class="btn ghost" id="e_reset" type="button">되돌리기</button><span id="e_msg" class="muted"></span></div>'+
       '<div class="danger"><div><b>강제 탈퇴</b><div class="muted" style="font-size:.82rem">캐릭터와 토벌·습득·친구·메시지 기록이 서버에서 영구 삭제됩니다.</div></div><button class="btn dbtn" id="e_del" type="button">강제 탈퇴</button></div>';
     if(r.pendingS&&r.pendingS.length)h+='<h3 style="font-size:.95rem;margin:10px 0 4px">S급 결과 대기</h3>'+r.pendingS.map(function(x){return'<div class="muted">'+esc(x.mon)+" — "+dt(x.at)+" 공개</div>"}).join("");
+  }else if(tab==="act"){
+    var ac=r.activity||{},bl=ac.blocked|0,ACTS=[["hunt",1,"토벌"],["move",2,"지역 이동"],["shop",4,"상점 구매"],["msg",8,"메신저 보내기"]];
+    var sys=[];
+    if(ac.corruptUntil>ac.now)sys.push('<span class="chip bad">오염 폭주 · '+mmss(ac.corruptUntil-ac.now)+' 남음 (활동 불가)</span>');
+    if(ac.taint>=100)sys.push('<span class="chip bad">오염도 100% (토벌 불가)</span>');
+    if(ac.dyingUntil>ac.now)sys.push('<span class="chip wait">빈사 · '+mmss(ac.dyingUntil-ac.now)+' 남음 (토벌 불가)</span>');
+    var anyBlock=bl||sys.length;
+    h+='<h3 style="font-size:.95rem;margin:12px 0 8px">활동 가능 여부</h3><div class="chips">'+(anyBlock?'<span class="chip bad">일부 활동 제한 중</span>':'<span class="chip ok">모든 활동 가능</span>')+sys.join("")+"</div>";
+    h+='<h3 style="font-size:.95rem;margin:16px 0 6px">관리자 전용 캐릭터</h3><label style="display:flex;align-items:center;justify-content:flex-start;gap:8px;margin:6px 0;cursor:pointer;width:auto"><input type="checkbox" id="adminchar"'+(ac.adminChar?" checked":"")+' style="width:18px;height:18px;flex:none;margin:0;padding:0"><span>관리자 전용 캐릭터로 지정 (게임 메신저에서 받은 문의를 읽을 수 있음)</span></label><div class="row"><button class="btn" id="adminchar_save" type="button">저장</button><span id="adminchar_msg" class="muted"></span></div>'+
+      '<h3 style="font-size:.95rem;margin:16px 0 0">활동 허용</h3>';
+    h+='<form id="actf" style="margin:12px 0 8px">'+ACTS.map(function(a){var on=!(bl&a[1]);return'<label style="display:flex;align-items:center;justify-content:flex-start;gap:8px;margin:8px 0;cursor:pointer;width:auto"><input type="checkbox" data-act="'+a[0]+'"'+(on?" checked":"")+' style="width:18px;height:18px;flex:none;margin:0;padding:0"><span style="white-space:nowrap">'+a[2]+" 가능</span>"+(on?"":'<span class="chip bad" style="white-space:nowrap">운영자 제한</span>')+"</label>"}).join("")+"</form>"+
+      '<div class="row"><button class="btn" id="act_save" type="button">저장</button><span id="act_msg" class="muted"></span></div>'+
+      '<div class="note">체크를 해제하고 저장하면 해당 활동이 막히고, 체크하면 다시 가능해집니다. 오염 폭주·빈사·오염도 100%는 게임 규칙에 따른 상태라 여기서 바꾸지 않으며(오염도·체력은 "정보 · 스탯" 탭에서 수정), 위에 표시만 합니다.</div>';
   }else if(tab==="items"){
     h+='<div class="addrow"><input id="i_name" list="shoplist" placeholder="아이템 이름 (상점 아이템 선택)" maxlength="30"><input id="i_qty" type="number" min="1" max="9999" value="1" style="max-width:90px"><button class="btn" data-act="item-add" type="button">추가 / 수량 변경</button></div>';
     h+=table(["아이템","수량",""],(r.items||[]).map(function(i){return'<tr data-item="'+esc(i.item)+'"><td>'+esc(i.item)+'</td><td><input class="mini" type="number" min="1" max="9999" value="'+i.qty+'" data-k="qty"></td><td><button class="btn ghost sm" data-act="item-save" type="button">저장</button> <button class="btn dbtn sm" data-act="item-del" type="button">삭제</button></td></tr>'}),"보유한 아이템이 없습니다. 위에서 추가할 수 있습니다.");
@@ -313,6 +337,8 @@ window.addEventListener("beforeunload",function(e){if(dirty){e.preventDefault();
 $("detail").addEventListener("click",function(e){
   var t=e.target,b=t.closest(".tab");
   if(b&&cache){if(!okLeave())return;dirty=false;tab=b.getAttribute("data-t");renderDetail();return}
+  if(t.id==="act_save")return saveAct();
+  if(t.id==="adminchar_save"){var am=$("adminchar_msg");api("POST","/api/admin/player/adminchar",{code:selCode,on:$("adminchar").checked}).then(function(r){if(r._status===401){showApp(false);return}if(r.ok){loadDetail();setTimeout(function(){var x=$("adminchar_msg");if(x){x.className="ok";x.textContent="저장했습니다."}},400)}else{am.className="bad";am.textContent="저장하지 못했습니다."}});return}
   if(t.id==="e_save")return saveEdit();
   if(t.id==="e_reset"){if(okLeave()){dirty=false;renderDetail()}return}
   if(t.id==="e_del")return delPlayer();
@@ -325,6 +351,16 @@ function onEdit(e){
 $("detail").addEventListener("input",onEdit);
 $("detail").addEventListener("change",onEdit);
 var EMSG={no_ach:"존재하지 않는 업적입니다.",bad_gold:"골드는 0~99,999,999 사이 정수여야 합니다.",bad_price:"가격은 0~9,999,999 사이 정수여야 합니다.",bad_hunter_name:"헌터 네임은 2~12자여야 합니다.",bad_name:"이름은 1~30자여야 합니다.",bad_gender:"성별 값이 올바르지 않습니다.",bad_age:"나이는 1~999 사이 정수여야 합니다.",bad_personality:"성격은 1~1000자여야 합니다.",bad_traits:"특징은 최대 5개, 각 50자 이하여야 합니다.",bad_rank:"등급 값이 올바르지 않습니다.",bad_lv:"레벨은 1~999 사이 정수여야 합니다.",bad_exp:"EXP 범위를 벗어났습니다.",bad_stat:"스탯은 0~9999 사이 정수여야 합니다.",bad_item:"아이템 이름은 1~30자여야 합니다.",bad_qty:"수량은 1~9999 사이 정수여야 합니다.",bad_mon:"몬스터 이름은 1~30자여야 합니다.",bad_result:"결과 값이 올바르지 않습니다.",no_ids:"삭제할 항목을 선택하세요.",not_found:"대상을 찾을 수 없습니다.",unauthorized:"로그인이 만료되었습니다.",rate_limited:"요청이 많습니다."};
+function saveAct(){
+  var m=$("act_msg"),allow={};
+  Array.prototype.forEach.call(document.querySelectorAll("#actf input[data-act]"),function(c){allow[c.getAttribute("data-act")]=c.checked});
+  m.className="muted";m.textContent="저장 중...";
+  api("POST","/api/admin/player/activity",{code:selCode,allow:allow}).then(function(r){
+    if(r._status===401){showApp(false);return}
+    if(r.ok){loadDetail();setTimeout(function(){var mm=$("act_msg");if(mm){mm.className="ok";mm.textContent="저장했습니다. 게임에는 다음 갱신(5초 이내)부터 반영됩니다."}},400)}
+    else{m.className="bad";m.textContent="저장하지 못했습니다."}
+  });
+}
 function saveEdit(){
   var m=$("e_msg"),v=function(i){return $(i).value};
   m.className="muted";m.textContent="저장 중...";
@@ -539,10 +575,11 @@ $("slist").addEventListener("click",function(e){
 });
 $("nsend").addEventListener("click",function(){
   var t=$("ntext").value.trim();if(!t){$("nmsg").textContent="내용을 입력하세요.";return}
-  if(!confirm("모든 헌터에게 이 알림을 발송할까요?"))return;
-  api("POST","/api/admin/notice",{title:$("ntitle").value.trim(),text:t}).then(function(r){
-    if(r._status===201){$("ntext").value="";$("ntitle").value="";$("nmsg").textContent="발송했습니다.";loadOverview()}
-    else $("nmsg").textContent="발송하지 못했습니다.";
+  if(!confirm("모든 헌터에게 이 알림을 발송할까요?"+($("nitem").value.trim()?"\n첨부 아이템: "+$("nitem").value.trim()+" × "+$("nqty").value:"")))return;
+  var ni=$("nitem").value.trim();
+  api("POST","/api/admin/notice",{title:$("ntitle").value.trim(),text:t,item:ni,qty:Number($("nqty").value)}).then(function(r){
+    if(r._status===201){$("ntext").value="";$("ntitle").value="";$("nitem").value="";$("nqty").value="1";$("nmsg").textContent="발송했습니다.";loadOverview()}
+    else $("nmsg").textContent=r.error==="bad_item"?"아이템 이름(30자 이내)과 수량(1~9999)을 확인하세요.":"발송하지 못했습니다.";
   });
 });
 var SHOPL=[];
@@ -573,7 +610,31 @@ $("ilist").addEventListener("click",function(e){
   else if(t.hasAttribute("data-it")){api("POST","/api/admin/invites/toggle",{code:t.getAttribute("data-it"),active:t.getAttribute("data-a")==="1"}).then(loadInv)}
   else if(t.hasAttribute("data-idel")){var c=t.getAttribute("data-idel");if(confirm("초대 코드 "+c+" 를 삭제할까요? 이미 가입한 헌터는 유지되고, 이 코드로는 더 이상 가입할 수 없습니다."))api("POST","/api/admin/invites/delete",{code:c}).then(loadInv)}
 });
-function loadAll(){loadInv();loadOverview();loadS();loadRec();loadBoard();loadAchDefs();if(!document.activeElement||!/^(sn|sd|sp|ss|sam|sname|sdesc|sprice|sstat|samt)$/.test(document.activeElement.className||document.activeElement.id))loadShop();loadList();if(selCode&&!dirty)loadDetail();var d=new Date(),p=function(n){return String(n).padStart(2,"0")};$("last").textContent="갱신 "+p(d.getHours())+":"+p(d.getMinutes())+":"+p(d.getSeconds())}
+var inqCode="";
+function loadInq(){
+  api("GET","/api/admin/inquiries"+(inqCode?"?code="+encodeURIComponent(inqCode):"")).then(function(r){
+    if(r._status===401)return;
+    if(inqCode&&r.messages){
+      $("inqlist").hidden=true;$("inqchat").hidden=false;$("inqname").textContent=r.hn+" ("+r.code+")";
+      var b=$("inqmsgs"),near=b.scrollHeight-b.scrollTop-b.clientHeight<40,first=!b.children.length;
+      b.innerHTML=r.messages.map(function(m){return'<div style="align-self:'+(m.admin?"flex-end":"flex-start")+';max-width:80%;padding:6px 10px;border-radius:10px;border:1px solid var(--line);background:'+(m.admin?"#3a1218":"#1c1416")+';overflow-wrap:anywhere">'+esc(m.t)+'<div class="muted" style="font-size:.7rem">'+(m.admin?"관리자":esc(r.hn))+" · "+dt(m.ts)+"</div></div>"}).join("");
+      if(first||near)b.scrollTop=b.scrollHeight;
+    }else if(r.threads){
+      $("inqlist").hidden=false;$("inqchat").hidden=true;
+      $("inqlist").innerHTML=r.threads.length?'<div class="tw" style="max-height:300px"><table><thead><tr><th>헌터</th><th>마지막 문의/답변</th><th>시각</th><th></th></tr></thead><tbody>'+r.threads.map(function(t){return'<tr data-c="'+esc(t.code)+'" style="cursor:pointer"><td>'+esc(t.hn)+' <span class="muted">'+esc(t.code)+"</span></td><td>"+esc(t.last)+"</td><td>"+dt(t.ts)+"</td><td>"+(t.waiting?'<span class="chip bad">답변 대기</span>':"")+"</td></tr>"}).join("")+"</tbody></table></div>":'<div class="empty">받은 문의가 없습니다.</div>';
+    }
+  });
+}
+$("inqlist").addEventListener("click",function(e){var tr=e.target.closest("tr[data-c]");if(tr){inqCode=tr.getAttribute("data-c");$("inqmsgs").innerHTML="";loadInq()}});
+$("inqback").addEventListener("click",function(){inqCode="";loadInq()});
+$("inqsend").addEventListener("click",function(){
+  var t=$("inqtext").value.trim(),m=$("inqmsg");if(!t||!inqCode)return;
+  api("POST","/api/admin/inquiry/reply",{code:inqCode,text:t}).then(function(r){
+    if(r.ok){$("inqtext").value="";m.textContent="";loadInq()}else m.textContent="보내지 못했습니다.";
+  });
+});
+$("inqtext").addEventListener("keydown",function(e){if(e.key==="Enter"){e.preventDefault();$("inqsend").click()}});
+function loadAll(){loadInq();loadInv();loadOverview();loadS();loadRec();loadBoard();loadAchDefs();if(!document.activeElement||!/^(sn|sd|sp|ss|sam|sname|sdesc|sprice|sstat|samt)$/.test(document.activeElement.className||document.activeElement.id))loadShop();loadList();if(selCode&&!dirty)loadDetail();var d=new Date(),p=function(n){return String(n).padStart(2,"0")};$("last").textContent="갱신 "+p(d.getHours())+":"+p(d.getMinutes())+":"+p(d.getSeconds())}
 // 1분마다 데이터만 다시 불러옵니다. 선택한 헌터·탭·검색어·작성 중인 알림은 그대로 유지됩니다.
 setInterval(function(){if($("auto").checked&&!document.hidden&&!$("app").classList.contains("hide"))loadAll()},60000);
 document.addEventListener("visibilitychange",function(){if(!document.hidden&&$("auto").checked&&!$("app").classList.contains("hide"))loadAll()});
