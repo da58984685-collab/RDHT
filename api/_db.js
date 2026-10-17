@@ -216,6 +216,13 @@ CREATE TABLE IF NOT EXISTS invites (
 
 // 예전에 만들어진 표에 새 칸을 추가합니다 (이미 있으면 무시).
 const MIGRATIONS = [
+  // 스탯 시스템: 체력은 100에서 시작합니다 (기존 헌터는 한 번만 100으로 맞춤). 빈사 상태·재토벌·체력 손실 기록용 칸.
+  'ALTER TABLE users ADD COLUMN dying_until INTEGER NOT NULL DEFAULT 0',
+  'ALTER TABLE fail_cd ADD COLUMN free INTEGER NOT NULL DEFAULT 0',
+  'ALTER TABLE s_attempts ADD COLUMN hp_loss INTEGER NOT NULL DEFAULT 0',
+  'ALTER TABLE s_attempts ADD COLUMN hp_done INTEGER NOT NULL DEFAULT 0',
+  "UPDATE users SET stats = json_set(stats, '$.hp', 100) WHERE NOT EXISTS (SELECT 1 FROM settings WHERE key = 'hp100_v1')",
+  "INSERT OR IGNORE INTO settings (key, value) VALUES ('hp100_v1', '1')",
   // 헌터 커뮤니티: 마지막으로 글에서 언급한 등급 (등급이 오른 헌터를 한 번만 언급하기 위해 사용)
   'ALTER TABLE users ADD COLUMN board_rank TEXT',
   'UPDATE users SET board_rank = rank WHERE board_rank IS NULL',
