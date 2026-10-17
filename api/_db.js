@@ -208,6 +208,9 @@ CREATE TABLE IF NOT EXISTS invites (
 
 // 예전에 만들어진 표에 새 칸을 추가합니다 (이미 있으면 무시).
 const MIGRATIONS = [
+  // S급은 나라 단위로만 출몰합니다. 예전에 세부 지역(도심 등)에서 나온 기록은 대한민국으로 옮깁니다.
+  "UPDATE monsters SET region = 'KR' WHERE rank = 'S' AND region NOT IN ('KR','JP','CN','RU','US','IT','MG','BR','EG','AU')",
+  "UPDATE s_log SET region = 'KR' WHERE region NOT IN ('KR','JP','CN','RU','US','IT','MG','BR','EG','AU')",
   "ALTER TABLE users ADD COLUMN invite_code TEXT NOT NULL DEFAULT ''",
   'ALTER TABLE users ADD COLUMN gold INTEGER NOT NULL DEFAULT 0',
   "ALTER TABLE users ADD COLUMN pinned_ach TEXT NOT NULL DEFAULT '[]'",
