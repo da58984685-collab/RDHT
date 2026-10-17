@@ -14,10 +14,10 @@ h1,h2,h3{margin:0;font-weight:700}
 button,input,textarea{font:inherit;color:inherit}
 .hide{display:none!important}
 .wrap{max-width:1200px;margin:0 auto;padding:16px}
-.card{background:var(--card);border:1px solid var(--line);border-radius:6px;padding:16px}
-input,textarea{width:100%;background:var(--field);border:1px solid var(--line);border-radius:4px;padding:10px 12px;outline:none}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:16px}
+input,textarea{width:100%;background:var(--field);border:1px solid var(--line);border-radius:8px;padding:10px 12px;outline:none}
 input:focus,textarea:focus{border-color:var(--red)}
-.btn{white-space:nowrap;flex:none;background:var(--red);border:0;border-radius:4px;padding:10px 16px;cursor:pointer;font-weight:700;color:#fff}
+.btn{white-space:nowrap;flex:none;background:var(--red);border:0;border-radius:8px;padding:10px 16px;cursor:pointer;font-weight:700;color:#fff}
 .btn:hover{background:var(--red2)}
 .btn.ghost{background:transparent;border:1px solid var(--line);color:var(--text);font-weight:400}
 .btn.ghost:hover{border-color:var(--red)}
@@ -34,13 +34,13 @@ input:focus,textarea:focus{border-color:var(--red)}
 .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin-bottom:32px}
 #app>section.card,#app>.cols{margin-bottom:32px}
 #app>section.card:last-child{margin-bottom:8px}
-.stat{background:var(--card);border:1px solid var(--line);border-radius:6px;padding:10px 12px}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px}
 .stat b{display:block;font-size:1.4rem}
 .stat span{color:var(--sub);font-size:.8rem}
 .cols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.2fr);gap:14px;align-items:start}
 @media(max-width:860px){.cols{grid-template-columns:1fr}}
 .search{display:flex;gap:8px;margin-bottom:10px}
-.tw{overflow:auto;max-height:70vh;border:1px solid var(--line);border-radius:4px}
+.tw{overflow:auto;max-height:70vh;border:1px solid var(--line);border-radius:10px}
 table{border-collapse:collapse;width:100%;font-size:.88rem}
 th,td{padding:8px 10px;text-align:left;border-bottom:1px solid var(--line);white-space:nowrap}
 th{position:sticky;top:0;background:#1b1013;color:var(--sub);font-weight:500}
@@ -130,14 +130,14 @@ td input[type=checkbox]{width:auto}
   <section class="card" id="sbox">
     <h3 style="margin-bottom:4px">S급 토벌 현황 <span class="muted" style="font-weight:400;font-size:.85rem">(출현·회수는 서버 전체 헌터에게 바로 적용 · 보상은 도전에 참여한 헌터에게만 지급)</span></h3>
     <div class="chips" id="schips" style="margin:10px 0"></div>
-    <div class="row" style="margin-bottom:8px"><span class="muted" style="font-size:.85rem">출현 지역</span><select id="sregion" style="max-width:180px"></select><button class="btn dbtn sm" id="srecall-all" type="button">출현 중인 S급 전체 회수</button><span id="smsg2" class="muted"></span></div>
+    <div class="row" style="margin-bottom:8px"><span class="muted" style="font-size:.85rem">출현 나라 (S급은 나라 단위로만 출현)</span><select id="sregion" style="max-width:180px"></select><button class="btn dbtn sm" id="srecall-all" type="button">출현 중인 S급 전체 회수</button><span id="smsg2" class="muted"></span></div>
     <h3 style="font-size:.95rem;margin:14px 0 8px">성공 여부 결정 대기 중인 S급 <span class="muted" style="font-weight:400;font-size:.82rem">(서버 참여 100명 또는 도전 300회(중복 포함)에 이르면 자동 성공 · 결정하지 않으면 24시간 뒤 실패로 공개)</span></h3>
-    <div class="tw" style="max-height:300px;margin-bottom:16px"><table><thead><tr><th>몬스터</th><th>지역</th><th>상태</th><th>참여 인원</th><th>도전 횟수</th><th>결정</th></tr></thead><tbody id="sopen"></tbody></table></div>
+    <div class="tw" style="max-height:300px;margin-bottom:16px"><table><thead><tr><th>몬스터</th><th>나라</th><th>상태</th><th>참여 인원</th><th>도전 횟수</th><th>결정</th></tr></thead><tbody id="sopen"></tbody></table></div>
     <div class="tw" style="max-height:none"><table><thead><tr><th>S급 몬스터</th><th>출현 여부</th><th>출현 횟수</th><th>토벌 횟수</th><th>도주 횟수</th><th>회수</th><th></th></tr></thead><tbody id="scat"></tbody></table></div>
     <h3 style="font-size:.95rem;margin:18px 0 8px">S급 토벌 참여 헌터 <span class="muted" style="font-weight:400;font-size:.82rem" id="scnt"></span></h3>
     <div class="tw" style="max-height:320px"><table><thead><tr><th>헌터</th><th>코드</th><th>등급</th><th>Lv</th><th>참여</th><th>성공</th><th>실패</th><th>결과 대기</th></tr></thead><tbody id="spl"></tbody></table></div>
     <h3 style="font-size:.95rem;margin:18px 0 8px">최근 출현 기록 <span class="muted" style="font-weight:400;font-size:.82rem">(최근 40건 · 참여 헌터 포함)</span></h3>
-    <div class="tw" style="max-height:360px"><table><thead><tr><th>시각</th><th>몬스터</th><th>지역</th><th>상태</th><th>참여 헌터</th></tr></thead><tbody id="srec"></tbody></table></div>
+    <div class="tw" style="max-height:360px"><table><thead><tr><th>시각</th><th>몬스터</th><th>나라</th><th>상태</th><th>참여 헌터</th></tr></thead><tbody id="srec"></tbody></table></div>
   </section>
   <section class="card" id="invbox">
     <h3 style="margin-bottom:8px">초대자 코드 <span class="muted" style="font-weight:400;font-size:.85rem">(캐릭터 생성 시 정확히 일치해야 가입 · 코드당 최대 10명)</span></h3>
@@ -421,7 +421,7 @@ $("alist").addEventListener("click",function(e){
   });
 });
 // ── S급 토벌 현황 ──
-var SR=[["","랜덤 지역"],["city","도심"],["mine","폐광"],["river","한강변"],["temple","산사"],["port","폐항"],["gate","적월 게이트"]];
+var SR=[["","랜덤 나라"],["KR","대한민국"],["JP","일본"],["CN","중국"],["RU","러시아"],["US","미국"],["IT","이탈리아"],["MG","마다가스카르"],["BR","브라질"],["EG","이집트"],["AU","호주"]];
 $("sregion").innerHTML=SR.map(function(r){return'<option value="'+r[0]+'">'+r[1]+'</option>'}).join("");
 var S_ST={active:["출현 중","ok"],waiting:["결과 대기","wait"],killed:["토벌됨","ok"],fled:["도주","bad"],recalled:["회수","wait"]};
 function mmss(ms){var m=Math.max(0,Math.floor(ms/60000));return m+"분"}
