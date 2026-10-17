@@ -185,6 +185,45 @@ async function grantTaint(userId, n) {
   throw new Error('taint_conflict');
 }
 
+// ── 체력 ──
+// 5분 빈사 상태가 끝났다면 체력을 10으로 되돌립니다 (빈사 상태일 때만 회복됩니다).
+async function settleDying(userId, now) {
+  for (let i = 0; i < 4; i++) {
+    const u = await db.get('SELECT stats, dying_until FROM users WHERE id = ?', [userId]);
+    if (!u || !(u.dying_until > 0) || now < u.dying_until) return;
+    const st = JSON.parse(u.stats);
+    st.hp = G.HP_REVIVE;
+    const w = await db.run('UPDATE users SET stats = ?, dying_until = 0 WHERE id = ? AND stats = ? AND dying_until = ?', [JSON.stringify(st), userId, u.stats, u.dying_until]);
+    if (w.changes === 1) return;
+  }
+}
+// 토벌 실패: 민첩에 비례한 확률로 체력 차감을 막고, 아니면 등급에 따라 체력이 줄어듭니다 (5 아래로는 내려가지 않음).
+async function applyHpLoss(userId, rank, now) {
+  for (let i = 0; i < 6; i++) {
+    const u = await db.get('SELECT stats, dying_until FROM users WHERE id = ?', [userId]);
+    if (!u) return { loss: 0, prevented: false, hp: 0, dying: false, until: 0 };
+    const st = JSON.parse(u.stats), hp = Number(st.hp) || 0;
+    if (G.chance01() < G.guardChance(st.agi)) return { loss: 0, prevented: true, hp, dying: u.dying_until > now, until: u.dying_until };
+    const nh = Math.max(G.HP_MIN, hp - G.hpLoss(rank)), loss = Math.max(0, hp - nh);
+    st.hp = nh;
+    const dying = nh <= G.HP_MIN, until = dying ? (u.dying_until > now ? u.dying_until : now + G.HP_DYING_MS) : u.dying_until;
+    const w = await db.run('UPDATE users SET stats = ?, dying_until = ? WHERE id = ? AND stats = ? AND dying_until = ?', [JSON.stringify(st), until, userId, u.stats, u.dying_until]);
+    if (w.changes === 1) return { loss, prevented: false, hp: nh, dying, until: dying ? until : 0 };
+  }
+  throw new Error('hp_conflict');
+}
+// S급 토벌 실패가 공개될 때, 도전에 참여한 헌터에게도 체력 손실이 적용됩니다 (한 번만).
+async function hpForAttempts(ids, now) {
+  for (const id of ids) {
+    const a = await db.get('SELECT user_id FROM s_attempts WHERE id = ? AND hp_done = 0', [id]);
+    if (!a) continue;
+    const claim = await db.run('UPDATE s_attempts SET hp_done = 1 WHERE id = ? AND hp_done = 0', [id]);
+    if (claim.changes !== 1) continue;
+    const r = await applyHpLoss(a.user_id, 'S', now);
+    await db.run('UPDATE s_attempts SET hp_loss = ? WHERE id = ?', [r.prevented ? -1 : r.loss, id]);
+  }
+}
+
 // S급 토벌 성공: 관리자가 결정하거나, 참여 100명 / 도전 300회(중복 포함)에 이르면 자동으로 성공합니다.
 // 보상은 '도전에 참여한 헌터'에게만 정해지며, 그 헌터가 성공 팝업에서 확인을 누를 때 지급됩니다.
 async function declareSuccess(m, how) {
@@ -208,10 +247,12 @@ async function declareSuccess(m, how) {
 async function declareFail(m, how) {
   const w = await db.run('INSERT OR IGNORE INTO s_close (monster_id, ok, how, at) VALUES (?, 0, ?, ?)', [m.id, how, Date.now()]);
   if (w.changes !== 1) return false;
+  const ids = (await db.all('SELECT id FROM s_attempts WHERE monster_id = ? AND resolved = 0', [m.id])).map(r => r.id);
   await db.batch([
     ["UPDATE hunt_log SET result = 'fail' WHERE monster_id = ? AND result = 'pending'", [m.id]],
     ['UPDATE s_attempts SET resolved = 1, success = 0 WHERE monster_id = ? AND resolved = 0', [m.id]],
   ]);
+  await hpForAttempts(ids, Date.now());
   return true;
 }
 
@@ -226,6 +267,7 @@ async function resolveDue() {
     if (cl && cl.ok === 1) { await db.run('UPDATE s_attempts SET resolved = 1, success = 1, notified = 1 WHERE id = ?', [a.id]); continue; }
     await db.run('UPDATE s_attempts SET resolved = 1, success = 0 WHERE id = ?', [a.id]);
     await db.run("UPDATE hunt_log SET result = 'fail' WHERE user_id = ? AND monster_id = ? AND result = 'pending'", [a.user_id, a.monster_id]);
+    await hpForAttempts([a.id], now);
   }
 }
 
@@ -396,7 +438,11 @@ async function sInfo(userId, now) {
   return { remaining: Math.max(0, G.S_MAX - w.n), resetAt: w.start + G.S_WINDOW_MS };
 }
 
+// 스탯이 만드는 확률 (모두 95% 이하)
+const fxOf = st => ({ win: Math.round(Math.min(G.PROB_CAP, (Number(st.str) || 0) * G.STR_WIN) * 100), guard: Math.round(G.guardChance(st.agi) * 100), free: Math.round(G.freeChance(st.luck) * 100) });
 async function buildState(u, now) {
+  await settleDying(u.id, now);
+  u = (await db.get('SELECT * FROM users WHERE id = ?', [u.id])) || u;
   await tickPersonal(u.id, now);
   await syncAchEarned(u, now);
   // 보이는 몬스터: 서버 공통 S급 + 내 몬스터(F~A). 예전 공통 F~A 몬스터는 보이지 않습니다.
@@ -415,7 +461,7 @@ async function buildState(u, now) {
     sInfo(u.id, now),
     db.all(`SELECT a.id, a.resolve_at, m.name FROM s_attempts a JOIN monsters m ON m.id = a.monster_id
             WHERE a.user_id = ? AND a.resolved = 0 ORDER BY a.resolve_at`, [u.id]),
-    db.all(`SELECT a.id, a.success, a.exp_gain, a.gold_gain, a.taint_gain, a.level_up, m.name FROM s_attempts a JOIN monsters m ON m.id = a.monster_id
+    db.all(`SELECT a.id, a.success, a.exp_gain, a.gold_gain, a.taint_gain, a.level_up, a.hp_loss, m.name FROM s_attempts a JOIN monsters m ON m.id = a.monster_id
             WHERE a.user_id = ? AND a.resolved = 1 AND a.notified = 0 ORDER BY a.id`, [u.id]),
     db.get('SELECT COUNT(*) AS c FROM notices WHERE id > ?', [u.notice_seen]),
     db.get(`SELECT COUNT(*) AS c FROM messages m JOIN friends f ON f.user_id = m.to_id AND f.friend_id = m.from_id
@@ -435,7 +481,7 @@ async function buildState(u, now) {
   const pm = new Map(parts.map(r => [r.monster_id, r.c]));
   return {
     now,
-    user: { pinned: pinnedList(u, await loadAch()), lv: u.lv, exp: u.exp, gold: u.gold, region: u.region, country: G.countryOf(u.region), hunterName: u.hunter_name, stats: JSON.parse(u.stats) },
+    user: { pinned: pinnedList(u, await loadAch()), lv: u.lv, exp: u.exp, gold: u.gold, region: u.region, country: G.countryOf(u.region), hunterName: u.hunter_name, stats: JSON.parse(u.stats), dyingUntil: u.dying_until > now ? u.dying_until : 0, fx: fxOf(JSON.parse(u.stats)) },
     monsters: mons.map(m => ({
       id: m.id, region: m.region, rname: G.placeName(m.region), mon: m.name, r: m.rank, ts: m.spawned_at,
       done: killed.has(m.id), cd: cdm.get(m.id) || 0,
@@ -443,7 +489,7 @@ async function buildState(u, now) {
     })),
     s: Object.assign(si, { need: G.RAID_NEED, needTries: G.RAID_ATTEMPTS, max: G.S_MAX }),
     pending: pending.map(p => ({ id: p.id, mon: p.name, at: p.resolve_at })),
-    results: results.map(r => ({ id: r.id, mon: r.name, success: !!r.success, exp: r.exp_gain, gold: r.gold_gain, taint: r.taint_gain, levelUp: !!r.level_up })),
+    results: results.map(r => ({ id: r.id, mon: r.name, success: !!r.success, exp: r.exp_gain, gold: r.gold_gain, taint: r.taint_gain, levelUp: !!r.level_up, hpLoss: r.hp_loss })),
     unreadNotices: un.c,
     unreadMsgs: um.c,
     board: (await db.get('SELECT COALESCE(MAX(id), 0) AS m FROM board_posts')).m,
@@ -660,6 +706,11 @@ route('POST', '/api/hunt', async (req, res, ctx) => {
   const here = m.rank === 'S' ? G.countryOf(cur.region) : cur.region;
   if (here !== m.region) return fail(res, 409, 'wrong_region', { region: m.region, rname: G.placeName(m.region) });
 
+  await settleDying(cur.id, now);
+  const me = await db.get('SELECT stats, dying_until FROM users WHERE id = ?', [cur.id]);
+  if (me.dying_until > now) return fail(res, 409, 'dying', { until: me.dying_until });        // 빈사 상태: 5분간 토벌 불가
+  const myStats = JSON.parse(me.stats);
+
   if (m.rank === 'S') {
     if (await db.get('SELECT 1 AS x FROM s_close WHERE monster_id = ?', [m.id])) return fail(res, 409, 'already_done');
     // 도전권 1장 사용: 1시간 창이 끝났으면 새로 시작, 아니면 3회까지만 (한 문장으로 처리해 동시 요청에도 안전)
@@ -682,7 +733,7 @@ route('POST', '/api/hunt', async (req, res, ctx) => {
 
   const cd = await db.get('SELECT until FROM fail_cd WHERE user_id = ? AND monster_id = ?', [cur.id, m.id]);
   if (cd && cd.until > now) return fail(res, 429, 'cooldown', { until: cd.until });
-  if (G.chance01() < G.huntChance(m.rank, cur.lv, 0)) {
+  if (G.chance01() < G.huntChance(m.rank, cur.lv, 0, myStats.str)) {
     const k = await db.run('INSERT OR IGNORE INTO kills (user_id, monster_id, at) VALUES (?, ?, ?)', [cur.id, m.id, now]);
     if (k.changes !== 1) return fail(res, 409, 'already_done');
     const gain = G.KILL_EXP[m.rank];
@@ -694,11 +745,15 @@ route('POST', '/api/hunt', async (req, res, ctx) => {
     await logAcquire(cur.id, 'gold', '골드', gold, m.name + ' 토벌', now);
     return send(res, 200, { result: 'success', gain, gold, taint, taintNow, levelUp: r.up, lv: r.lv, exp: r.exp });
   }
-  const until = now + G.cdOf(m.rank);
   await logHunt(cur.id, m, 'fail', 0, now);
-  await db.run(`INSERT INTO fail_cd (user_id, monster_id, until) VALUES (?, ?, ?)
-                ON CONFLICT(user_id, monster_id) DO UPDATE SET until = excluded.until`, [cur.id, m.id, until]);
-  send(res, 200, { result: 'fail', until });
+  // 행운: 실패해도 시간 제한 없이 바로 재토벌할 수 있습니다 (1회). 재토벌에서 또 실패하면 보통의 대기 시간이 적용됩니다.
+  const prev = await db.get('SELECT free FROM fail_cd WHERE user_id = ? AND monster_id = ?', [cur.id, m.id]);
+  const free = !(prev && prev.free === 1) && G.chance01() < G.freeChance(myStats.luck);
+  const until = free ? now : now + G.cdOf(m.rank);
+  await db.run(`INSERT INTO fail_cd (user_id, monster_id, until, free) VALUES (?, ?, ?, ?)
+                ON CONFLICT(user_id, monster_id) DO UPDATE SET until = excluded.until, free = excluded.free`, [cur.id, m.id, until, free ? 1 : 0]);
+  const hp = await applyHpLoss(cur.id, m.rank, now);
+  send(res, 200, { result: 'fail', until, free, hpLoss: hp.loss, prevented: hp.prevented, hpNow: hp.hp, dying: hp.dying, dyingUntil: hp.dying ? hp.until : 0 });
 });
 
 route('POST', '/api/results/ack', async (req, res, ctx) => {
@@ -972,6 +1027,7 @@ route('POST', '/api/admin/player/update', async (req, res, ctx) => {
     if (G.RANK_IDX[rank] > G.RANK_IDX[u.rank]) fame += (G.RANK_IDX[rank] - G.RANK_IDX[u.rank]) * G.FAME_PER_RANK;
   }
   stats.fame = Math.min(999999, fame);
+  if (Number(stats.hp) > G.HP_MIN) await db.run('UPDATE users SET dying_until = 0 WHERE id = ?', [u.id]);
   await db.run(`UPDATE users SET hunter_name = ?, stats = ?, lv = ?, exp = ?, name = ?, gender = ?, age = ?, personality = ?, traits = ?, rank = ?, gold = ? WHERE id = ?`,
     [hn, JSON.stringify(stats), lv, exp, name, gender, age, pers, JSON.stringify(traits), rank, gold, u.id]);
   send(res, 200, { ok: true });
