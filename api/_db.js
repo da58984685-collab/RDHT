@@ -166,6 +166,19 @@ CREATE TABLE IF NOT EXISTS board_posts (
   tag   TEXT NOT NULL,
   at    INTEGER NOT NULL
 );
+CREATE TABLE IF NOT EXISTS invite_rewards (
+  user_id INTEGER PRIMARY KEY,
+  code    TEXT NOT NULL,
+  gold    INTEGER NOT NULL DEFAULT 0,
+  item    TEXT NOT NULL DEFAULT '',
+  qty     INTEGER NOT NULL DEFAULT 0,
+  at      INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS notice_del (
+  user_id   INTEGER NOT NULL,
+  notice_id INTEGER NOT NULL,
+  PRIMARY KEY (user_id, notice_id)
+);
 CREATE TABLE IF NOT EXISTS s_close (
   monster_id INTEGER PRIMARY KEY,
   ok         INTEGER NOT NULL,
@@ -216,6 +229,13 @@ CREATE TABLE IF NOT EXISTS invites (
 
 // 예전에 만들어진 표에 새 칸을 추가합니다 (이미 있으면 무시).
 const MIGRATIONS = [
+  // 초대 코드 첫 보상(한 번 정하면 수정 불가) / 아이템 사용 효과
+  'ALTER TABLE invites ADD COLUMN reward_set INTEGER NOT NULL DEFAULT 0',
+  'ALTER TABLE invites ADD COLUMN reward_gold INTEGER NOT NULL DEFAULT 0',
+  "ALTER TABLE invites ADD COLUMN reward_item TEXT NOT NULL DEFAULT ''",
+  'ALTER TABLE invites ADD COLUMN reward_qty INTEGER NOT NULL DEFAULT 0',
+  "ALTER TABLE shop_items ADD COLUMN eff_stat TEXT NOT NULL DEFAULT ''",
+  'ALTER TABLE shop_items ADD COLUMN eff_amt INTEGER NOT NULL DEFAULT 0',
   // 스탯 시스템: 체력은 100에서 시작합니다 (기존 헌터는 한 번만 100으로 맞춤). 빈사 상태·재토벌·체력 손실 기록용 칸.
   'ALTER TABLE users ADD COLUMN dying_until INTEGER NOT NULL DEFAULT 0',
   'ALTER TABLE fail_cd ADD COLUMN free INTEGER NOT NULL DEFAULT 0',
