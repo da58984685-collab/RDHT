@@ -7,7 +7,7 @@
 <title>적월 헌터</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@400;700;800&family=Noto+Sans+KR:wght@400;500;700&family=Share+Tech+Mono&family=Noto+Serif+TC:wght@900&family=Noto+Serif+KR:wght@600;800&family=Song+Myung&family=Gugi&family=Diphylleia&family=Black+Han+Sans&family=Do+Hyeon&family=Gowun+Dodum&family=Orbitron:wght@500;800&family=Cinzel:wght@600;800&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nanum+Myeongjo:wght@400;700;800&family=Noto+Sans+KR:wght@400;500;700&family=Share+Tech+Mono&family=Noto+Serif+TC:wght@900&family=Noto+Serif+KR:wght@600;800&display=swap">
 <style>
 :root{--bg1:#0a0607;--bg2:#1a0709;--card:#140d0f;--field:#0b0708;--text:#f3e9e7;--sub:#ab9d9b;--line:#5c1b22;--red:#d4202e;--red2:#ff3b4a;--deep:#ff6672;--glow:rgba(212,32,46,.35);--bar1:#3a0a11;--bar2:#150a0c;--ok:#8fe3b0;--err:#ff8a94;color-scheme:dark;
 box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
@@ -369,29 +369,6 @@ label[for="name"]::after,label[for="age"]::after,label[for="hname"]::after,#gl::
 .al[data-r="S"]{border-color:var(--red2);box-shadow:0 0 18px rgba(255,59,74,.55)}
 .al[data-r="S"] .al-r{background:linear-gradient(135deg,#ff5a66,#a30f1d);box-shadow:0 0 12px var(--red2);animation:blink 1.2s steps(2) infinite}
 
-/* ── 게임 화면 구획별 전용 글꼴 ──
-   산돌 가웨인 등 유료 글꼴이 기기에 설치돼 있으면 그 글꼴이 가장 먼저 쓰이고,
-   없으면 아래의 무료 글꼴(구글 폰트)이 쓰입니다. */
-#gchar{--fx:"Sandoll Gawain","산돌 가웨인","Cinzel","Song Myung","Nanum Myeongjo",serif}
-#gstat{--fx:"Orbitron","Gugi","Noto Sans KR",sans-serif}
-#gradar{--fx:"Orbitron","Do Hyeon","Noto Sans KR",sans-serif}
-#gmap{--fx:"Cinzel","Diphylleia","Nanum Myeongjo",serif}
-#galert{--fx:"Black Han Sans","Noto Sans KR",sans-serif}
-#gdev{--fx:"Orbitron","Gowun Dodum","Noto Sans KR",sans-serif}
-:is(#gchar,#gstat,#gradar,#gmap,#galert,#gdev){font-family:var(--fx)}
-:is(#gchar,#gstat,#gradar,#gmap,#galert,#gdev) :is(h2,button,input,textarea,select,.chn,.cnm,.lbl,.rk,.pow-h,.pow-n,.pow-x,.rd-cap,.ph-top,.al-r,.al-t,.al-s,.al-gain,.al-pin,.al-go,.reg,.rec,.todo li,.bgm-note,.pwnote,.hud-btn){font-family:var(--fx)}
-#gchar h2,#gmap h2{letter-spacing:.14em}
-#gchar .chn{font-size:1.65rem;letter-spacing:.06em;text-shadow:0 0 14px var(--glow)}
-#gchar .lbl{letter-spacing:.18em}
-#gstat h2,#gradar h2,#gdev h2{letter-spacing:.2em;font-weight:700}
-#gstat .pow-n{font-size:1.8rem;letter-spacing:.04em}
-#gstat .stats{letter-spacing:.04em}
-#gradar .rd-cap{letter-spacing:.12em}
-#gmap .regions{letter-spacing:.06em}
-#galert h2{letter-spacing:.06em;font-weight:400}
-#galert .al-t{letter-spacing:.02em}
-#galert .al-r{font-weight:400}
-#gdev .ph-top{letter-spacing:.2em}
 
 /* ── 친구 프로필 패널 (오른쪽에서 미끄러져 나옴) ── */
 #mlistv{position:relative;overflow:hidden;min-height:560px}
@@ -455,6 +432,34 @@ label[for="name"]::after,label[for="age"]::after,label[for="hname"]::after,#gl::
 .mfl.frl li button.fb:disabled{opacity:.5;cursor:default}
 .frl li.fin{animation:fpup .4s ease both}
 @media (prefers-reduced-motion:reduce){.ft-th,.ftrack{transition:none!important}.frl li.fin{animation:none}}
+
+/* ── 모든 창: 모서리가 둥근 사각형 ── */
+section{border-radius:16px}
+section::before,.dialog::before{border-top-left-radius:18px}
+section::after,.dialog::after{border-bottom-right-radius:18px}
+section>h2,.dialog>h2{border-radius:15px 15px 0 0}
+.dialog{border-radius:18px}
+.hud{border-radius:14px}
+.mcol,.rec,.todo li,.al,.regions>*,.fp-kv>div,.frl li,.mfl li button,.mmsgs,.ftabs,.ft-th,.bar,.pow .bar,.ctr li,.achbar>*,.tools>*{border-radius:10px}
+.fp{border-radius:16px 0 0 16px}
+.fp-img,.cport,.wimg,.imgbox{border-radius:14px}
+.imgbox img{border-radius:12px}
+.fp-tb button,.x,.hud-btn,.genders button,.actions button,#result button,.pw button,.al-go,.bgm button,.todo-add button,.mbtn,.fp-chat,.ft{border-radius:9px}
+.mfl.frl li button.fb{border-radius:8px}
+input[type=text],input[type=number],input[type=password],input[type=url],textarea,#maddc,#msendt,.bgm input[type=url],.todo-add input{border-radius:9px}
+.rk,.al-r{border-radius:8px}
+.mmsgs li{border-radius:12px 12px 12px 3px}
+.mmsgs li.me{border-radius:12px 12px 3px 12px}
+.radar{border-radius:16px;overflow:hidden}
+.ph-scr{border-radius:12px}
+
+/* ── 대문 배경: 스크롤에 엇갈려 흐르는 赤月獵人 띠 (Lucian UX/UI #394 · MIT) ── */
+.gband{position:fixed;inset:0;z-index:0;display:flex;flex-direction:column;justify-content:center;gap:2vmin;overflow:hidden;pointer-events:none;opacity:.17;-webkit-mask-image:radial-gradient(ellipse at center,#000 30%,rgba(0,0,0,.55) 100%);mask-image:radial-gradient(ellipse at center,#000 30%,rgba(0,0,0,.55) 100%)}
+.gband-row{display:flex;white-space:nowrap;will-change:transform}
+.gband-row span{flex:none;padding-right:.3em;font:900 clamp(64px,17vmin,170px)/1.05 "Noto Serif TC","Nanum Myeongjo",serif;letter-spacing:.04em;color:var(--red2)}
+.gband-row:nth-child(2) span{font-size:clamp(34px,9vmin,90px);font-weight:800;color:var(--deep);letter-spacing:.1em}
+.gband-row:nth-child(3) span{color:transparent;-webkit-text-stroke:1.5px rgba(255,102,114,.9)}
+.gate-wrap>.gate{position:relative;z-index:1}
 </style>
 </head>
 <body>
@@ -496,6 +501,7 @@ label[for="name"]::after,label[for="age"]::after,label[for="hname"]::after,#gl::
 </section>
 </main>
 <main class="gate-wrap" id="gate" hidden>
+  <div class="gband" id="gband" aria-hidden="true"></div>
   <section class="gate" aria-labelledby="gtitle">
     <div class="gate-arch" aria-hidden="true"><div class="gate-in"><span class="gmoon"></span></div></div>
     <h1 id="gtitle" aria-label="적월 헌터" style="margin-top:0">赤月獵人</h1>
@@ -1692,7 +1698,8 @@ function appendMsgs(list){
   var ul=$("mmsgs"),stick=ul.scrollHeight-ul.scrollTop-ul.clientHeight<40||!ul.children.length;
   list.forEach(function(m){
     mLast=Math.max(mLast,m.id);
-    var li=document.createElement("li");if(m.me)li.className="me";
+    if(ul.querySelector('[data-id="'+m.id+'"]'))return;   // 보낸 직후 응답과 새로고침이 겹쳐도 한 번만 표시
+    var li=document.createElement("li");li.setAttribute("data-id",m.id);if(m.me)li.className="me";
     li.appendChild(document.createTextNode(m.t));
     var sm=document.createElement("small");sm.textContent=fmtTime(m.ts);li.appendChild(sm);ul.appendChild(li);
   });
@@ -1842,6 +1849,42 @@ makeBg();
 alignPhoto();
 showFront();
 startSession();
+})();
+
+/* ───── 대문 배경 띠: 평소엔 느긋하게 흐르고, 스크롤·휠·터치 속도만큼 빨라지며 진행 방향으로 기웁니다 ───── */
+(function(){
+  var layer=document.getElementById("gband");if(!layer)return;
+  var rm=window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var T="赤月獵人 · ";
+  var rows=[0,1,2].map(function(i){
+    var r=document.createElement("div");r.className="gband-row";
+    for(var k=0;k<8;k++){var sp=document.createElement("span");sp.textContent=T;r.appendChild(sp)}
+    layer.appendChild(r);
+    return {el:r,x:-Math.random()*200,dir:i%2?1:-1,w:0};
+  });
+  var lastY=window.scrollY||0,boost=0,sign=1,last=0,vis=false,skew=0,ty=0;
+  function kick(dy){if(!dy)return;boost=Math.min(40,boost+Math.abs(dy)*0.25);sign=dy>0?1:-1}
+  window.addEventListener("scroll",function(){var y=window.scrollY||0;kick(y-lastY);lastY=y},{passive:true});
+  window.addEventListener("wheel",function(e){if(vis)kick(e.deltaY)},{passive:true});
+  window.addEventListener("touchstart",function(e){ty=e.touches[0].clientY},{passive:true});
+  window.addEventListener("touchmove",function(e){if(!vis)return;var y=e.touches[0].clientY;kick(ty-y);ty=y},{passive:true});
+  function frame(now){
+    if(!vis)return;
+    var dt=Math.max(0,Math.min(50,now-(last||now)))/16.7;last=now;
+    boost*=Math.pow(0.92,dt);
+    skew+=((boost>1?sign*Math.min(8,boost*0.35):0)-skew)*0.15*dt;
+    rows.forEach(function(r){
+      if(!r.w)r.w=r.el.firstChild.offsetWidth;
+      if(!r.w)return;
+      r.x+=r.dir*sign*(0.5+boost)*dt;
+      if(r.x<-r.w)r.x+=r.w;if(r.x>0)r.x-=r.w;
+      r.el.style.transform="translateX("+r.x.toFixed(1)+"px) skewX("+(-skew*r.dir).toFixed(2)+"deg)";
+    });
+    if(!rm)requestAnimationFrame(frame);
+  }
+  // 대문이 보일 때만 움직입니다
+  new IntersectionObserver(function(en){var was=vis;vis=en[0].isIntersecting;if(vis&&!was){last=0;requestAnimationFrame(frame)}}).observe(layer);
+  document.fonts&&document.fonts.ready&&document.fonts.ready.then(function(){rows.forEach(function(r){r.w=0})});
 })();
 </script>
 </body>
