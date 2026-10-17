@@ -1366,8 +1366,6 @@ document.addEventListener("keydown",function(e){if(e.key==="Escape"&&!hmodal.hid
 
 function updFx(){
   var e=$("statfx");if(!e||!statFx)return;
-  e.textContent="근력 → 성공 확률 +"+statFx.win+"%p · 민첩 → 실패 시 체력 차감 방지 "+statFx.guard+"% · 행운 → 바로 재토벌 "+statFx.free+"% (모두 최대 95%)";
-}
 function isDying(){return dyingUntil>nowS()}
 function updDying(){
   var n=$("dyingnote");if(!n)return;
