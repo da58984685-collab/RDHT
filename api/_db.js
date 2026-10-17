@@ -105,6 +105,20 @@ CREATE TABLE IF NOT EXISTS notices (
   text       TEXT NOT NULL,
   created_at INTEGER NOT NULL
 );
+CREATE TABLE IF NOT EXISTS inquiries (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id    INTEGER NOT NULL,
+  from_admin INTEGER NOT NULL DEFAULT 0,
+  text       TEXT NOT NULL,
+  ts         INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS inquiries_user ON inquiries(user_id, id);
+CREATE TABLE IF NOT EXISTS notice_claims (
+  user_id   INTEGER NOT NULL,
+  notice_id INTEGER NOT NULL,
+  at        INTEGER NOT NULL,
+  PRIMARY KEY (user_id, notice_id)
+);
 CREATE TABLE IF NOT EXISTS hunt_log (
   id         INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id    INTEGER NOT NULL,
@@ -229,6 +243,14 @@ CREATE TABLE IF NOT EXISTS invites (
 
 // 예전에 만들어진 표에 새 칸을 추가합니다 (이미 있으면 무시).
 const MIGRATIONS = [
+  // 관리자 전용 캐릭터(문의함 열람 가능) / 문의 답변 읽음 표시
+  'ALTER TABLE users ADD COLUMN admin_char INTEGER NOT NULL DEFAULT 0',
+  'ALTER TABLE users ADD COLUMN inq_read INTEGER NOT NULL DEFAULT 0',
+  // 운영자가 막아 둔 활동 (비트: 1 토벌, 2 이동, 4 상점 구매, 8 메신저 보내기. 0이면 모두 가능)
+  'ALTER TABLE users ADD COLUMN block_flags INTEGER NOT NULL DEFAULT 0',
+  // 시스템 알림에 첨부하는 아이템 (알림을 연 헌터가 직접 수령)
+  "ALTER TABLE notices ADD COLUMN item TEXT NOT NULL DEFAULT ''",
+  'ALTER TABLE notices ADD COLUMN qty INTEGER NOT NULL DEFAULT 0',
   // 시스템 알림 제목 (비어 있으면 '시스템 알림'으로 표시)
   "ALTER TABLE notices ADD COLUMN title TEXT NOT NULL DEFAULT ''",
   // 오염도 100: 활동 불가 종료 시각 / 발동 표시 / 오염 몬스터가 어느 헌터에서 나왔는지 / 메시지를 보낼 때의 보낸 사람 오염도
