@@ -159,6 +159,9 @@ main.landing{display:flex;align-items:center;justify-content:center;max-width:no
 #gchar{order:1}#gradar{order:2}#galert{order:3}#gstat{order:5}#gmap{order:6}#gdev{order:4}
 @media (min-width:1100px){.g-grid{grid-template-columns:minmax(0,1.5fr) minmax(0,3fr) minmax(0,1.5fr);align-items:stretch}.g-col{display:flex;flex-direction:column;min-width:0}.g-col>section:last-child{flex:1 1 auto}}
 .cwin{display:flex;gap:14px;align-items:flex-start}
+.imgrow{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 4px}
+.imgrow .hud-btn{flex:1 1 0;min-width:110px;white-space:nowrap}
+.imgrow .hud-btn:disabled{opacity:.5;cursor:default}
 .cport{flex:none;width:112px;height:112px;display:flex;align-items:center;justify-content:center;overflow:hidden;color:var(--line);background:var(--field);border:1px solid var(--red);box-shadow:0 0 16px var(--glow)}
 .cport img{width:100%;height:100%;object-fit:cover;display:block}
 .cport .ic{width:40px;height:40px}
@@ -663,6 +666,8 @@ input[type=checkbox]:focus-visible{outline:2px solid var(--deep);outline-offset:
               <div class="crank"><span>헌터 등급</span><b class="rk" id="grank"></b></div>
             </div>
           </div>
+          <div class="imgrow"><button type="button" class="hud-btn" id="gimgbtn">이미지 변경</button><button type="button" class="hud-btn" id="gimgrm">이미지 삭제</button><input type="file" id="gimgfile" accept="image/*" hidden></div>
+          <p class="pwnote" id="gimgmsg" role="status"></p>
           <label class="privrow"><input type="checkbox" id="gpriv"><span>비공개 유저</span></label>
           <p class="lbl">BGM</p>
           <form class="bgm" id="bgmf">
@@ -1371,6 +1376,31 @@ function bgmRestore(){
     var u=localStorage.getItem("hx_bgmurl");if(u){$("bgmurl").value=u;var id=ytId(u);if(id){bgmLoad(id,true);$("bgmnote").textContent="브라우저가 자동 재생을 막았다면 ▶ 재생을 눌러주세요."}}
   }catch(e){}
 }
+var gImgBusy=false;
+function gImgSay(t,err){var m=$("gimgmsg");m.textContent=t;m.className="pwnote"+(err?" err":"")}
+function gImgSave(data,okMsg){
+  if(gImgBusy)return;gImgBusy=true;$("gimgbtn").disabled=$("gimgrm").disabled=true;gImgSay("저장 중…");
+  api("POST","/api/me/image",{image:data}).then(function(r){
+    gImgBusy=false;$("gimgbtn").disabled=$("gimgrm").disabled=false;
+    if(r.ok){var im=$("gimg"),no=$("gnoimg");if(data){im.src=data;im.hidden=false;no.hidden=true}else{im.removeAttribute("src");im.hidden=true;no.hidden=false}gImgSay(okMsg)}
+    else gImgSay(r.error==="rate_limited"?"너무 자주 바꾸고 있어요. 잠시 후 다시 시도해주세요.":"이미지를 저장하지 못했어요.",true);
+  });
+}
+$("gimgbtn").addEventListener("click",function(){$("gimgfile").click()});
+$("gimgrm").addEventListener("click",function(){if(confirm("캐릭터 이미지를 삭제할까요?"))gImgSave("","이미지를 삭제했어요.")});
+$("gimgfile").addEventListener("change",function(){
+  var f=this.files&&this.files[0],inp=this;if(!f)return;
+  if(f.type.indexOf("image/")!==0){gImgSay("이미지 파일만 선택할 수 있어요.",true);inp.value="";return}
+  var url=URL.createObjectURL(f),img=new Image();
+  img.onload=function(){
+    var d="";try{d=toSquare(img)}catch(e){}
+    URL.revokeObjectURL(url);inp.value="";
+    if(!d||bytes(d)>IMG_MAX_BYTES){gImgSay("이미지를 처리하지 못했어요. 다른 이미지를 선택해주세요.",true);return}
+    gImgSave(d,"캐릭터 이미지를 바꿨어요.");
+  };
+  img.onerror=function(){URL.revokeObjectURL(url);inp.value="";gImgSay("이미지를 불러오지 못했어요.",true)};
+  img.src=url;
+});
 function renderChar(d){
   var im=$("gimg"),no=$("gnoimg");
   if(d.image){im.src=d.image;im.hidden=false;no.hidden=true}
