@@ -151,6 +151,11 @@ body{overflow-wrap:break-word}
     <div id="imsg" class="muted" style="min-height:1.3em;font-size:.85rem"></div>
     <div class="tw"><table><thead><tr><th>초대 코드</th><th>사용 인원</th><th>상태</th><th>첫 보상 (1회 · 수정 불가)</th><th>사용한 헌터</th><th></th></tr></thead><tbody id="ilist"></tbody></table></div>
   </section>
+  <section class="card" id="bdbox">
+    <h3 style="margin-bottom:4px">헌터 커뮤니티 관리 <span class="muted" style="font-weight:400;font-size:.85rem">(최근 글 100개 · 수정·삭제는 관리자만 가능 · 저장하면 헌터 화면에 바로 반영)</span></h3>
+    <div id="bdmsg" class="muted" style="min-height:1.3em;font-size:.85rem"></div>
+    <div class="tw"><table><thead><tr><th>작성 시각</th><th>작성자</th><th>분류</th><th>제목</th><th>본문</th><th></th></tr></thead><tbody id="bdlist"></tbody></table></div>
+  </section>
   <section class="card" id="recbox">
     <h3 style="margin-bottom:8px">오늘의 추천 <span class="muted" style="font-weight:400;font-size:.85rem">(게임 캐릭터 창에 한 줄 문장으로 표시 · 관리자만 수정 가능)</span></h3>
     <div class="row"><input id="rtext" maxlength="100" placeholder="예) 오늘은 폐광에서 21시 무렵 사냥하면 좋아요. (최대 100자)"></div>
@@ -366,6 +371,37 @@ function delPlayer(){
   });
 }
 
+// ── 헌터 커뮤니티 게시글 관리 ──
+var bdDirty=false;
+function bdRow(p){
+  return '<tr data-bid="'+p.id+'"><td style="white-space:nowrap">'+esc(dt(p.at))+'<div class="muted" style="font-size:.75rem">#'+p.id+'</div></td>'+
+    '<td><input class="bw" maxlength="20" value="'+esc(p.who)+'" style="width:96px"></td>'+
+    '<td><input class="bt" maxlength="8" value="'+esc(p.tag)+'" style="width:64px"></td>'+
+    '<td><input class="bti" maxlength="60" value="'+esc(p.title)+'" style="width:100%;min-width:160px"></td>'+
+    '<td><textarea class="bb" rows="3" maxlength="500" style="width:100%;min-width:220px">'+esc(p.body)+'</textarea></td>'+
+    '<td style="white-space:nowrap"><button class="btn" type="button" data-bsave="'+p.id+'">저장</button> <button class="btn" type="button" data-bdel="'+p.id+'">삭제</button></td></tr>';
+}
+function loadBoard(){
+  if(bdDirty)return;
+  api("GET","/api/admin/board").then(function(r){
+    if(!r.posts||bdDirty)return;
+    $("bdlist").innerHTML=r.posts.length?r.posts.map(bdRow).join(""):'<tr><td colspan="6" class="muted">게시글이 없습니다.</td></tr>';
+  });
+}
+$("bdlist").addEventListener("input",function(){bdDirty=true});
+$("bdlist").addEventListener("click",function(e){
+  var t=e.target.closest("button");if(!t)return;
+  var tr=t.closest("tr"),id=Number(tr.getAttribute("data-bid"));
+  if(t.hasAttribute("data-bsave")){
+    api("POST","/api/admin/board/save",{id:id,who:tr.querySelector(".bw").value,tag:tr.querySelector(".bt").value,title:tr.querySelector(".bti").value,body:tr.querySelector(".bb").value}).then(function(r){
+      if(r.ok){bdDirty=false;$("bdmsg").textContent="#"+id+" 글을 저장했습니다.";loadBoard()}
+      else $("bdmsg").textContent=r.error==="empty"?"작성자·분류·제목·본문을 모두 입력하세요.":r.error==="too_long"?"글자 수 제한(제목 60자, 본문 500자, 작성자 20자, 분류 8자)을 넘었습니다.":r.error==="not_found"?"이미 삭제된 글입니다.":"저장하지 못했습니다.";
+    });
+  }else if(t.hasAttribute("data-bdel")){
+    if(!confirm("#"+id+" 글을 삭제할까요? 되돌릴 수 없습니다."))return;
+    api("POST","/api/admin/board/delete",{id:id}).then(function(r){bdDirty=false;$("bdmsg").textContent=r.ok?"#"+id+" 글을 삭제했습니다.":"삭제하지 못했습니다.";loadBoard()});
+  }
+});
 var recDirty=false;
 $("rtext").addEventListener("input",function(){recDirty=true});
 function loadRec(){
@@ -536,7 +572,7 @@ $("ilist").addEventListener("click",function(e){
   else if(t.hasAttribute("data-it")){api("POST","/api/admin/invites/toggle",{code:t.getAttribute("data-it"),active:t.getAttribute("data-a")==="1"}).then(loadInv)}
   else if(t.hasAttribute("data-idel")){var c=t.getAttribute("data-idel");if(confirm("초대 코드 "+c+" 를 삭제할까요? 이미 가입한 헌터는 유지되고, 이 코드로는 더 이상 가입할 수 없습니다."))api("POST","/api/admin/invites/delete",{code:c}).then(loadInv)}
 });
-function loadAll(){loadInv();loadOverview();loadS();loadRec();loadAchDefs();if(!document.activeElement||!/^(sn|sd|sp|ss|sam|sname|sdesc|sprice|sstat|samt)$/.test(document.activeElement.className||document.activeElement.id))loadShop();loadList();if(selCode&&!dirty)loadDetail();var d=new Date(),p=function(n){return String(n).padStart(2,"0")};$("last").textContent="갱신 "+p(d.getHours())+":"+p(d.getMinutes())+":"+p(d.getSeconds())}
+function loadAll(){loadInv();loadOverview();loadS();loadRec();loadBoard();loadAchDefs();if(!document.activeElement||!/^(sn|sd|sp|ss|sam|sname|sdesc|sprice|sstat|samt)$/.test(document.activeElement.className||document.activeElement.id))loadShop();loadList();if(selCode&&!dirty)loadDetail();var d=new Date(),p=function(n){return String(n).padStart(2,"0")};$("last").textContent="갱신 "+p(d.getHours())+":"+p(d.getMinutes())+":"+p(d.getSeconds())}
 // 1분마다 데이터만 다시 불러옵니다. 선택한 헌터·탭·검색어·작성 중인 알림은 그대로 유지됩니다.
 setInterval(function(){if($("auto").checked&&!document.hidden&&!$("app").classList.contains("hide"))loadAll()},60000);
 document.addEventListener("visibilitychange",function(){if(!document.hidden&&$("auto").checked&&!$("app").classList.contains("hide"))loadAll()});
