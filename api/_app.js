@@ -530,7 +530,7 @@ async function buildState(u, now) {
   const pm = new Map(parts.map(r => [r.monster_id, r.c]));
   return {
     now,
-    user: { pinned: pinnedList(u, await loadAch()), lv: u.lv, exp: u.exp, gold: u.gold, region: u.region, country: G.countryOf(u.region), hunterName: u.hunter_name, private: !!u.is_private, stats: statsOf(u), dyingUntil: u.dying_until > now ? u.dying_until : 0, corruptUntil: u.corrupt_until > now ? u.corrupt_until : 0, tainted: (JSON.parse(u.stats).taint || 0) >= 100, fx: fxOf(JSON.parse(u.stats)) },
+    user: { pinned: pinnedList(u, await loadAch()), lv: u.lv, exp: u.exp, gold: u.gold, region: u.region, country: G.countryOf(u.region), hunterName: u.hunter_name, private: !!u.is_private, stats: statsOf(u), dyingUntil: u.dying_until > now ? u.dying_until : 0, blocked: u.block_flags | 0, adminChar: !!u.admin_char, inqUnread: (await db.get('SELECT COUNT(*) AS c FROM inquiries WHERE user_id = ? AND from_admin = 1 AND id > ?', [u.id, u.inq_read])).c, corruptUntil: u.corrupt_until > now ? u.corrupt_until : 0, tainted: (JSON.parse(u.stats).taint || 0) >= 100, fx: fxOf(JSON.parse(u.stats)) },
     monsters: mons.map(m => ({
       id: m.id, region: m.region, rname: G.placeName(m.region), mon: m.name, r: m.rank, ts: m.spawned_at,
       done: killed.has(m.id), cd: cdm.get(m.id) || 0,
@@ -791,6 +791,7 @@ route('POST', '/api/move', async (req, res, ctx) => {
   let id = ctx.body.region;
   if (typeof id === 'string' && G.COUNTRY_BY_ID[id]) id = G.COUNTRY_BY_ID[id].regions[0].id;      // 나라를 고르면 그 나라의 첫 지역으로 이동
   if (typeof id !== 'string' || !G.REGION_BY_ID[id]) return fail(res, 400, 'bad_region');
+  if (ctx.user.block_flags & 2) return fail(res, 403, 'blocked', { what: 'move' });
   if (ctx.user.corrupt_until > Date.now()) return fail(res, 409, 'corrupted', { until: ctx.user.corrupt_until });
   await db.run('UPDATE users SET region = ? WHERE id = ?', [id, ctx.user.id]);
   send(res, 200, { region: id, country: G.countryOf(id) });
@@ -801,6 +802,7 @@ route('POST', '/api/hunt', async (req, res, ctx) => {
   if (await limited('hunt:' + u.id, 30, 60000)) return fail(res, 429, 'rate_limited');
   await catchUp();
   const cur = await db.get('SELECT * FROM users WHERE id = ?', [u.id]);
+  if (cur.block_flags & 1) return fail(res, 403, 'blocked', { what: 'hunt' });      // 운영자가 토벌을 막아 둠
   const m = await db.get('SELECT * FROM monsters WHERE id = ?', [Number(ctx.body.id)]);
   if (!m) return fail(res, 410, 'expired');
   if ((m.owner_id != null && m.owner_id !== cur.id) || (m.owner_id == null && m.rank !== 'S' && m.corrupt_of == null)) return fail(res, 404, 'no_monster');
@@ -986,6 +988,7 @@ route('GET', '/api/messages', async (req, res, ctx) => {
 
 route('POST', '/api/messages', async (req, res, ctx) => {
   const u = ctx.user;
+  if (u.block_flags & 8) return fail(res, 403, 'blocked', { what: 'msg' });
   if (await limited('msg:' + u.id, 30, 60000)) return fail(res, 429, 'rate_limited');
   const f = await userByCode(normCode(ctx.body.to));
   const text = String(ctx.body.text || '').trim();
@@ -998,8 +1001,32 @@ route('POST', '/api/messages', async (req, res, ctx) => {
 });
 
 route('GET', '/api/notices', async (req, res, ctx) => {
-  const rows = await db.all('SELECT id, title, text, created_at FROM notices n WHERE NOT EXISTS (SELECT 1 FROM notice_del d WHERE d.user_id = ? AND d.notice_id = n.id) ORDER BY id DESC LIMIT 50', [ctx.user.id]);
-  send(res, 200, { notices: rows.map(n => ({ id: n.id, title: n.title || '', text: n.text, ts: n.created_at })), seen: ctx.user.notice_seen });
+  const rows = await db.all(`SELECT n.id, n.title, n.text, n.item, n.qty, n.created_at,
+      (SELECT 1 FROM notice_claims c WHERE c.user_id = ? AND c.notice_id = n.id) AS claimed
+    FROM notices n WHERE NOT EXISTS (SELECT 1 FROM notice_del d WHERE d.user_id = ? AND d.notice_id = n.id) ORDER BY n.id DESC LIMIT 50`, [ctx.user.id, ctx.user.id]);
+  // 아이템은 알림이 발송된 뒤에 가입한 헌터에게는 지급되지 않습니다
+  send(res, 200, { notices: rows.map(n => ({ id: n.id, title: n.title || '', text: n.text, ts: n.created_at,
+    item: n.item || '', qty: n.item ? n.qty : 0, claimed: !!n.claimed, can: !!n.item && ctx.user.created_at < n.created_at })), seen: ctx.user.notice_seen });
+});
+
+// 알림에 첨부된 아이템 수령 (헌터당 알림 1회)
+route('POST', '/api/notices/claim', async (req, res, ctx) => {
+  if (await limited('claim:' + ctx.user.id, 30, 60000)) return fail(res, 429, 'rate_limited');
+  const n = await db.get('SELECT id, item, qty, created_at FROM notices WHERE id = ?', [Number(ctx.body.id) || 0]);
+  if (!n) return fail(res, 404, 'no_notice');
+  if (!n.item) return fail(res, 400, 'no_item');
+  if (!(ctx.user.created_at < n.created_at)) return fail(res, 403, 'not_eligible');
+  const now = Date.now();
+  const c = await db.run('INSERT OR IGNORE INTO notice_claims (user_id, notice_id, at) VALUES (?, ?, ?)', [ctx.user.id, n.id, now]);
+  if (c.changes !== 1) return fail(res, 409, 'claimed');
+  try {
+    await db.run('INSERT INTO inventory (user_id, item, qty) VALUES (?, ?, ?) ON CONFLICT(user_id, item) DO UPDATE SET qty = MIN(9999, qty + excluded.qty)', [ctx.user.id, n.item, n.qty]);
+  } catch (e) {
+    await db.run('DELETE FROM notice_claims WHERE user_id = ? AND notice_id = ?', [ctx.user.id, n.id]);
+    throw e;
+  }
+  await logAcquire(ctx.user.id, 'item', n.item, n.qty, '시스템 알림', now);
+  send(res, 200, { ok: true, item: n.item, qty: n.qty });
 });
 
 // 읽은 알림만 지울 수 있습니다 (알림 목록을 한 번 열어 '읽음'으로 기록된 뒤에만)
@@ -1009,6 +1036,8 @@ route('POST', '/api/notices/delete', async (req, res, ctx) => {
   if (!(await db.get('SELECT 1 AS x FROM notices WHERE id = ?', [id]))) return fail(res, 404, 'no_notice');
   const me = await db.get('SELECT notice_seen FROM users WHERE id = ?', [ctx.user.id]);
   if (!me || id > me.notice_seen) return fail(res, 409, 'unread');
+  const nn = await db.get('SELECT item, created_at FROM notices WHERE id = ?', [id]);
+  if (nn.item && ctx.user.created_at < nn.created_at && !(await db.get('SELECT 1 AS x FROM notice_claims WHERE user_id = ? AND notice_id = ?', [ctx.user.id, id]))) return fail(res, 409, 'unclaimed');
   await db.run('INSERT OR IGNORE INTO notice_del (user_id, notice_id) VALUES (?, ?)', [ctx.user.id, id]);
   send(res, 200, { ok: true });
 });
@@ -1032,7 +1061,10 @@ route('POST', '/api/admin/notice', async (req, res, ctx) => {
   const text = String(ctx.body.text || '').trim();
   const title = String(ctx.body.title || '').trim();
   if (!text || cp(text) > 300 || cp(title) > 40) return fail(res, 400, 'bad_text');      // 본문 최대 300자, 제목 최대 40자
-  const r = await db.run('INSERT INTO notices (title, text, created_at) VALUES (?, ?, ?)', [title, text, Date.now()]);
+  const item = String(ctx.body.item == null ? '' : ctx.body.item).trim();
+  const qty = item ? Number(ctx.body.qty) : 0;
+  if (item && (cp(item) > 30 || !Number.isInteger(qty) || qty < 1 || qty > 9999)) return fail(res, 400, 'bad_item');
+  const r = await db.run('INSERT INTO notices (title, text, item, qty, created_at) VALUES (?, ?, ?, ?, ?)', [title, text, item, qty, Date.now()]);
   send(res, 201, { id: r.lastId });
 }, { auth: false });
 
@@ -1098,6 +1130,8 @@ route('GET', '/api/admin/player', async (req, res) => {
     achievements: ach.map(a => ({ id: a.id, name: a.name, desc: a.descr, kind: a.kind, met: a.met, granted: a.granted, done: a.done })),
     player: Object.assign(publicUser(u), { inviteReward: await inviteRewardOf(u.id), invite: u.invite_code || '', created: u.created_at, region: G.placeLong(u.region), friends: fr.c }),
     items: inv, acquired: acq, hunts, counts: cnt, pendingS: pend.map(p => ({ mon: p.name, at: p.resolve_at })),
+    activity: { adminChar: !!u.admin_char, blocked: u.block_flags | 0, corruptUntil: u.corrupt_until > Date.now() ? u.corrupt_until : 0, dyingUntil: u.dying_until > Date.now() ? u.dying_until : 0,
+      taint: Number(JSON.parse(u.stats).taint) || 0, now: Date.now() },
   });
 }, { auth: false, admin: true });
 
@@ -1165,6 +1199,73 @@ const adminTarget = async (ctx, res) => {
 const intIds = v => (Array.isArray(v) ? v : []).slice(0, 500).map(Number).filter(Number.isInteger);
 
 // 아이템 추가·수량 변경 (같은 이름이면 수량을 덮어씁니다)
+// ── 문의: 헌터 ↔ 관리자 1:1 대화 (메신저와 같은 방식, 상대는 관리자뿐) ──
+const inqOut = m => ({ id: m.id, admin: !!m.from_admin, t: m.text, ts: m.ts });
+route('GET', '/api/inquiry', async (req, res, ctx) => {
+  const after = Math.max(0, Number(new URL(req.url, 'http://x').searchParams.get('after')) || 0);
+  const rows = after
+    ? await db.all('SELECT * FROM inquiries WHERE user_id = ? AND id > ? ORDER BY id LIMIT 200', [ctx.user.id, after])
+    : await db.all('SELECT * FROM (SELECT * FROM inquiries WHERE user_id = ? ORDER BY id DESC LIMIT 100) ORDER BY id', [ctx.user.id]);
+  if (rows.length) await db.run('UPDATE users SET inq_read = MAX(inq_read, ?) WHERE id = ?', [rows[rows.length - 1].id, ctx.user.id]);
+  send(res, 200, { messages: rows.map(inqOut) });
+});
+route('POST', '/api/inquiry', async (req, res, ctx) => {
+  if (await limited('inq:' + ctx.user.id, 20, 60000)) return fail(res, 429, 'rate_limited');
+  const text = String(ctx.body.text || '').trim();
+  if (!text || cp(text) > 200) return fail(res, 400, 'bad_text');
+  const ts = Date.now();
+  const r = await db.run('INSERT INTO inquiries (user_id, from_admin, text, ts) VALUES (?, 0, ?, ?)', [ctx.user.id, text, ts]);
+  send(res, 201, { message: { id: r.lastId, admin: false, t: text, ts } });
+});
+const inqThreads = async () => (await db.all(`SELECT u.code, u.hunter_name AS hn, u.rank, COUNT(*) AS n,
+    (SELECT i2.text FROM inquiries i2 WHERE i2.user_id = u.id ORDER BY i2.id DESC LIMIT 1) AS last,
+    (SELECT i2.from_admin FROM inquiries i2 WHERE i2.user_id = u.id ORDER BY i2.id DESC LIMIT 1) AS last_admin,
+    MAX(i.ts) AS ts FROM inquiries i JOIN users u ON u.id = i.user_id GROUP BY u.id ORDER BY ts DESC LIMIT 200`))
+  .map(x => ({ code: x.code, hn: x.hn, rank: x.rank, n: x.n, last: x.last, waiting: !x.last_admin, ts: x.ts }));
+const inqThread = async code => {
+  const u = code && await userByCode(code);
+  if (!u) return null;
+  const rows = await db.all('SELECT * FROM (SELECT * FROM inquiries WHERE user_id = ? ORDER BY id DESC LIMIT 200) ORDER BY id', [u.id]);
+  return { hn: u.hunter_name, code: u.code, messages: rows.map(inqOut) };
+};
+// 관리자 전용 캐릭터: 받은 문의를 메신저에서 열람 (읽기 전용)
+route('GET', '/api/inquiry/inbox', async (req, res, ctx) => {
+  if (!ctx.user.admin_char) return fail(res, 403, 'forbidden');
+  const url = new URL(req.url, 'http://x'), code = normCode(url.searchParams.get('code'));
+  if (code) { const t = await inqThread(code); return t ? send(res, 200, t) : fail(res, 404, 'not_found'); }
+  send(res, 200, { threads: await inqThreads() });
+});
+route('GET', '/api/admin/inquiries', async (req, res) => {
+  const code = normCode(new URL(req.url, 'http://x').searchParams.get('code'));
+  if (code) { const t = await inqThread(code); return t ? send(res, 200, t) : fail(res, 404, 'not_found'); }
+  send(res, 200, { threads: await inqThreads() });
+}, { auth: false, admin: true });
+route('POST', '/api/admin/inquiry/reply', async (req, res, ctx) => {
+  const u = await adminTarget(ctx, res); if (!u) return;
+  const text = String(ctx.body.text || '').trim();
+  if (!text || cp(text) > 200) return fail(res, 400, 'bad_text');
+  await db.run('INSERT INTO inquiries (user_id, from_admin, text, ts) VALUES (?, 1, ?, ?)', [u.id, text, Date.now()]);
+  send(res, 200, { ok: true });
+}, { auth: false, admin: true });
+route('POST', '/api/admin/player/adminchar', async (req, res, ctx) => {
+  const u = await adminTarget(ctx, res); if (!u) return;
+  if (typeof ctx.body.on !== 'boolean') return fail(res, 400, 'bad_on');
+  await db.run('UPDATE users SET admin_char = ? WHERE id = ?', [ctx.body.on ? 1 : 0, u.id]);
+  send(res, 200, { ok: true });
+}, { auth: false, admin: true });
+
+// 활동 관리: allow 에서 true 인 활동만 가능, false 는 운영자가 막습니다
+const ACT_BITS = { hunt: 1, move: 2, shop: 4, msg: 8 };
+route('POST', '/api/admin/player/activity', async (req, res, ctx) => {
+  const u = await adminTarget(ctx, res); if (!u) return;
+  const allow = ctx.body.allow;
+  if (!allow || typeof allow !== 'object') return fail(res, 400, 'bad_allow');
+  let flags = 0;
+  for (const k of Object.keys(ACT_BITS)) { if (typeof allow[k] !== 'boolean') return fail(res, 400, 'bad_allow'); if (!allow[k]) flags |= ACT_BITS[k]; }
+  await db.run('UPDATE users SET block_flags = ? WHERE id = ?', [flags, u.id]);
+  send(res, 200, { ok: true, blocked: flags });
+}, { auth: false, admin: true });
+
 route('POST', '/api/admin/player/item', async (req, res, ctx) => {
   const u = await adminTarget(ctx, res); if (!u) return;
   const item = String(ctx.body.item == null ? '' : ctx.body.item).trim(), qty = Number(ctx.body.qty);
@@ -1192,6 +1293,7 @@ route('GET', '/api/shop', async (req, res, ctx) => {
 
 route('POST', '/api/shop/buy', async (req, res, ctx) => {
   if (await limited('buy:' + ctx.user.id, 60, G.HOUR)) return fail(res, 429, 'rate_limited');
+  if (ctx.user.block_flags & 4) return fail(res, 403, 'blocked', { what: 'shop' });
   if (ctx.user.corrupt_until > Date.now()) return fail(res, 409, 'corrupted', { until: ctx.user.corrupt_until });
   const it = await db.get('SELECT id, name, price FROM shop_items WHERE id = ?', [Number(ctx.body.id) || 0]);
   if (!it) return fail(res, 404, 'no_item');
@@ -1600,6 +1702,7 @@ route('POST', '/api/admin/player/delete', async (req, res, ctx) => {
     ['DELETE FROM friends WHERE user_id = ? OR friend_id = ?', [id, id]],
     ['DELETE FROM friend_requests WHERE from_id = ? OR to_id = ?', [id, id]],
     ['DELETE FROM messages WHERE from_id = ? OR to_id = ?', [id, id]],
+    ['DELETE FROM inquiries WHERE user_id = ?', [id]],
     ['DELETE FROM hunt_log WHERE user_id = ?', [id]],
     ['DELETE FROM acquire_log WHERE user_id = ?', [id]],
     ['DELETE FROM inventory WHERE user_id = ?', [id]],
