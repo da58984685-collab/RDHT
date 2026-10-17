@@ -347,6 +347,14 @@ async function tickBoard() {
         list.push(['INSERT INTO board_posts (who, title, body, tag, at) VALUES (?, ?, ?, ?, ?)', [p.who, p.title, p.body, p.tag, now]]);
       }
     }
+    // 가입 후 처음 로그인한 헌터는 반드시 한 번만 언급합니다 (처음 본다, 누구냐는 분위기)
+    const fresh = await db.all('SELECT id, hunter_name FROM users WHERE intro_state = 2 ORDER BY id LIMIT 10');
+    for (const u of fresh) {
+      const done = await db.run('UPDATE users SET intro_state = 3 WHERE id = ? AND intro_state = 2', [u.id]);
+      if (done.changes !== 1) continue;
+      const p = B.makeIntroPost(u.hunter_name);
+      list.push(['INSERT INTO board_posts (who, title, body, tag, at) VALUES (?, ?, ?, ?, ?)', [p.who, p.title, p.body, p.tag, now]]);
+    }
     list.push(['DELETE FROM board_posts WHERE id <= (SELECT MAX(id) FROM board_posts) - 300', []]);
     await db.batch(list);
   } finally { boardBusy = false; }
@@ -575,8 +583,8 @@ route('POST', '/api/signup', async (req, res, ctx) => {
     code = G.makeCode();
     try {
       await db.run(`INSERT INTO users
-        (code, name, gender, age, personality, traits, image, hunter_name, rank, stats, pw_salt, pw_hash, created_at, invite_code, board_rank)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        (code, name, gender, age, personality, traits, image, hunter_name, rank, stats, pw_salt, pw_hash, created_at, invite_code, board_rank, intro_state)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
         [code, name, gender, age, pers, JSON.stringify(traits), image, hn, rank, JSON.stringify(stats), salt, hash, Date.now(), inv, rank]);
       break;
     } catch (e) {
@@ -683,6 +691,7 @@ route('POST', '/api/login', async (req, res, ctx) => {
   if (!u || !safeEq(hash, u.pw_hash)) return bad();
   const token = crypto.randomBytes(32).toString('base64url');
   await db.run('INSERT INTO sessions (token_hash, user_id, expires_at) VALUES (?, ?, ?)', [sha256(token), u.id, Date.now() + SESSION_MS]);
+  await db.run('UPDATE users SET intro_state = 2 WHERE id = ? AND intro_state = 1', [u.id]);   // 가입 후 첫 로그인
   send(res, 200, { ok: true }, { 'Set-Cookie': cookieHeader(token, SESSION_MS / 1000) });
 }, { auth: false });
 
