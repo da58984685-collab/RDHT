@@ -214,6 +214,8 @@ main.landing{display:flex;align-items:center;justify-content:center;max-width:no
 .cper{margin:0;font-size:.92rem;white-space:pre-wrap;word-break:break-word}
 .ctr{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:6px}
 .ctr li{padding:3px 9px;font-size:.8rem;color:var(--text);background:var(--field);border:1px solid var(--line);overflow-wrap:anywhere}
+.statfx{margin:12px 0 0;font-size:.76rem;line-height:1.6;color:var(--deep)}
+.dying-note{margin:10px 0 0;padding:9px 12px;border:1px solid var(--red);border-radius:10px;background:rgba(212,32,46,.12);font-size:.82rem;font-weight:700;color:#ff8a93}
 .stats{list-style:none;margin:0;padding:0;display:grid;gap:13px}
 .st{display:grid;grid-template-columns:18px 40px 1fr 42px;align-items:center;gap:8px;font-size:.88rem}
 .st .ic{color:#fff}
@@ -618,7 +620,7 @@ input[type=text],input[type=number],input[type=password],input[type=url],textare
       </section>
       <section id="gstat">
         <h2><svg class="ic"><use href="#i-star"/></svg>스탯</h2>
-        <div class="body"><div class="pow" id="gpow"></div><ul class="stats" id="gstats"></ul></div>
+        <div class="body"><div class="pow" id="gpow"></div><ul class="stats" id="gstats"></ul><p class="statfx" id="statfx"></p><p class="dying-note" id="dyingnote" role="status" hidden></p></div>
       </section>
     </div>
     <div class="g-col">
@@ -1163,6 +1165,8 @@ function placeLong(id){var r=regionById(id);return r?COUNTRY_BY_ID[r.country].na
 // S급은 나라 단위, 나머지는 세부 지역 단위로 같은 곳에 있어야 토벌할 수 있습니다
 function inPlace(a){return a.r==="S"?a.region===curCountry:a.region===curRegion}
 function countryHot(cid){return alerts.some(function(a){return isActive(a)&&(a.r==="S"?a.region===cid:countryOf(a.region)===cid)})}
+var STAT_TIP={hp:"토벌에 실패하면 줄어듭니다. 5 이하가 되면 빈사 상태입니다.",str:"높을수록 몬스터 토벌 성공 확률이 올라갑니다.",agi:"높을수록 토벌 실패 시 체력 차감을 막을 확률이 올라갑니다.",luck:"높을수록 실패해도 시간 제한 없이 재토벌할 수 있는 확률이 올라갑니다."};
+var dyingUntil=0,statFx=null;
 var STAT_DEF=[["hp","체력","i-hp"],["str","근력","i-str"],["agi","민첩","i-agi"],["luck","행운","i-luck"],["taint","오염","i-taint"],["fame","명성","i-star"]];
 var HUNT_DIFF={F:"쉬움",E:"쉬움",D:"쉬움",C:"보통",B:"보통",A:"어려움",S:"매우 어려움"};
 var curRegion="city",alerts=[],pollTimer=null,skew=0,polling=false,paused=false;
@@ -1287,10 +1291,10 @@ function renderPower(up){
 function renderStats(st){
   var ul=$("gstats");ul.innerHTML="";
   STAT_DEF.forEach(function(d){
-    var v=st[d[0]]||0,max=d[0]==="taint"?100:d[0]==="fame"?Math.max(100,Math.ceil((v+1)/100)*100):60;
+    var v=st[d[0]]||0,max=d[0]==="taint"?100:d[0]==="fame"?Math.max(100,Math.ceil((v+1)/100)*100):d[0]==="hp"?Math.max(100,v):Math.max(30,v);
     var li=document.createElement("li");li.className="st";li.dataset.k=d[0];
     li.appendChild(svgUse(d[2]));
-    var l=document.createElement("span");l.textContent=d[1];li.appendChild(l);
+    var l=document.createElement("span");l.textContent=d[1];if(STAT_TIP[d[0]])li.title=STAT_TIP[d[0]];li.appendChild(l);
     var bar=document.createElement("div"),f=document.createElement("i");
     bar.className="bar";bar.setAttribute("role","progressbar");bar.setAttribute("aria-label",d[1]);
     bar.setAttribute("aria-valuemin","0");bar.setAttribute("aria-valuemax",String(max));bar.setAttribute("aria-valuenow",String(v));
@@ -1345,8 +1349,20 @@ function showSWin(list){
 }
 document.addEventListener("keydown",function(e){if(e.key==="Escape"&&!hmodal.hidden){if(hmodal.dataset.sw)return;e.stopImmediatePropagation();closeHunt()}});
 
+function updFx(){
+  var e=$("statfx");if(!e||!statFx)return;
+  e.textContent="근력 → 성공 확률 +"+statFx.win+"%p · 민첩 → 실패 시 체력 차감 방지 "+statFx.guard+"% · 행운 → 바로 재토벌 "+statFx.free+"% (모두 최대 95%)";
+}
+function isDying(){return dyingUntil>nowS()}
+function updDying(){
+  var n=$("dyingnote");if(!n)return;
+  if(isDying()){n.hidden=false;n.textContent="빈사 상태 · "+mmss(dyingUntil-nowS())+" 후 체력 10으로 회복되어 다시 토벌할 수 있습니다."}
+  else n.hidden=true;
+}
+setInterval(function(){if(dyingUntil)updDying()},1000);
 function refreshBtn(bt){
   var a=bt._a,now=nowS();
+  if(isDying()){bt.disabled=true;bt.textContent="빈사 "+mmss(dyingUntil-now);return}
   if(a.r==="S"){
     if(SI.remaining>0){bt.disabled=false;bt.textContent="토벌 ("+SI.remaining+"/"+SI.max+")"}
     else{bt.disabled=true;bt.textContent="횟수 소진 · "+mmss(SI.resetAt-now)}
@@ -1366,8 +1382,10 @@ function showResults(list){
   if(!list.length||hBusy||!hmodal.hidden)return;
   var ok=list.filter(function(r){return r.success}).length,gain=list.reduce(function(s,r){return s+r.exp},0),tt=Math.round(list.reduce(function(s,r){return s+(r.taint||0)},0)*10)/10,gg=list.reduce(function(s,r){return s+(r.gold||0)},0);
   var up=list.some(function(r){return r.levelUp});
+  var hpl=list.reduce(function(s,r){return s+(r.hpLoss>0?r.hpLoss:0)},0),hpg=list.some(function(r){return r.hpLoss<0});
+  var hpx=hpl?" · 체력 -"+hpl:hpg?" · 민첩 발동(체력 유지)":"";
   var names=list.map(function(r){return r.mon}).filter(function(v,i,x){return x.indexOf(v)===i}).join(", ");
-  showHunt(ok?"ok":"fail",ok?"S급 토벌 결과":"S급 토벌 실패",ok?names+" · "+list.length+"건 중 "+ok+"건 성공":names+" 토벌에 실패했습니다.",gain?"전투력 경험치 +"+gain+(gg?" · 골드 +"+gg+" G":"")+(tt?" · 오염도 +"+tt+"%":"")+(up?" · 전투력 Lv."+power.lv+" 달성!":""):(ok?"이미 처치한 몬스터라 추가 경험치는 없습니다.":"몬스터를 처치하지 못했습니다."));
+  showHunt(ok?"ok":"fail",ok?"S급 토벌 결과":"S급 토벌 실패",ok?names+" · "+list.length+"건 중 "+ok+"건 성공":names+" 토벌에 실패했습니다.",gain?"전투력 경험치 +"+gain+(gg?" · 골드 +"+gg+" G":"")+(tt?" · 오염도 +"+tt+"%":"")+(up?" · 전투력 Lv."+power.lv+" 달성!":"")+hpx:(ok?"이미 처치한 몬스터라 추가 경험치는 없습니다.":"몬스터를 처치하지 못했습니다."+hpx));
   $("mapmsg").textContent="S급 토벌 결과가 공개되었습니다.";
   $("hok").focus();
   api("POST","/api/results/ack",{ids:list.map(function(r){return r.id})});
@@ -1377,6 +1395,7 @@ function huntErr(a,r){
     case "expired":return a.mon+"은(는) 이미 사라졌습니다.";
     case "already_done":return a.mon+"은(는) 이미 토벌했습니다.";
     case "wrong_region":return (r.rname||a.rname)+"(으)로 이동해야 "+a.mon+"을(를) 토벌할 수 있습니다.";
+    case "dying":dyingUntil=r.until;updDying();return "빈사 상태입니다. "+mmss(r.until-nowS())+" 후 체력 10으로 회복되어 다시 토벌할 수 있습니다.";
     case "cooldown":return a.mon+"은(는) "+mmss(r.until-nowS())+" 후 다시 토벌할 수 있습니다.";
     case "s_limit":return "S급 토벌 가능 횟수를 모두 사용했습니다. "+mmss(r.resetAt-nowS())+" 후 초기화됩니다.";
     case "rate_limited":return "요청이 너무 많아요. 잠시 후 다시 시도해주세요.";
@@ -1391,6 +1410,7 @@ function huntAlert(a){
   if(!isActive(a)){say(a.mon+"은(는) 이미 사라졌습니다.");return}
   if(!inPlace(a)){say(a.rname+"(으)로 이동해야 "+a.mon+"을(를) 토벌할 수 있습니다.");return}
   var isS=a.r==="S";
+  if(isDying()){say("빈사 상태입니다. "+mmss(dyingUntil-now)+" 후 체력 10으로 회복되어 다시 토벌할 수 있습니다.");return}
   if(isS&&SI.remaining<1){say("S급 토벌 가능 횟수를 모두 사용했습니다. "+mmss(SI.resetAt-now)+" 후 초기화됩니다.");return}
   if(!isS&&a.cd&&a.cd>now){say(a.mon+"은(는) "+mmss(a.cd-now)+" 후 다시 토벌할 수 있습니다.");return}
   var diff=HUNT_DIFF[a.r]||"보통",dur=isS?4200:a.r==="A"?3200:2200;
@@ -1428,9 +1448,12 @@ function huntAlert(a){
         showHunt("ok","토벌 성공",a.mon+"을(를) 처치했습니다.","전투력 경험치 +"+r.gain+(r.gold?" · 골드 +"+r.gold+" G":"")+(r.taint?" · 오염도 +"+r.taint+"%":"")+up);
         alertSig="";renderAlerts();
       }else{
-        a.cd=r.until;
-        mm.textContent=a.mon+" 토벌에 실패했습니다.";
-        showHunt("fail","토벌 실패",a.mon+"을(를) 처치하지 못했습니다.",mmss(r.until-nowS())+" 후 다시 토벌할 수 있습니다.");
+        a.cd=r.free?0:r.until;
+        var hpT=r.prevented?"민첩 발동 · 체력이 깎이지 않았습니다":r.hpLoss?"체력 -"+r.hpLoss+" (남은 체력 "+r.hpNow+")":"";
+        if(r.dying){dyingUntil=r.dyingUntil;updDying()}
+        var nxt=r.dying?"빈사 상태 · "+mmss(r.dyingUntil-nowS())+" 동안 토벌할 수 없습니다":r.free?"행운 발동 · 시간 제한 없이 바로 재토벌할 수 있습니다":mmss(r.until-nowS())+" 후 다시 토벌할 수 있습니다";
+        mm.textContent=a.mon+" 토벌에 실패했습니다."+(hpT?" "+hpT+".":"");
+        showHunt("fail","토벌 실패",a.mon+"을(를) 처치하지 못했습니다."+(hpT?" "+hpT+".":""),nxt);
       }
       if(!rmodal.hidden){fillR();$("rmsg").textContent=mm.textContent}
       $("hok").focus();
@@ -1787,6 +1810,7 @@ function applyState(st,first){
   var isg=JSON.stringify(st.inventory||[]);
   if(isg!==invSig){invSig=isg;inventory=st.inventory||[];if(devApp==="inv")renderDevice()}
   SI=st.s;pendingList=st.pending||[];unreadNotices=st.unreadNotices||0;unreadMsgs=st.unreadMsgs||0;friendReqs=st.friendReqs||0;cmUpdate(st.board||0);
+  if(st.user){dyingUntil=st.user.dyingUntil||0;statFx=st.user.fx||null;updFx();updDying()}
   if(!paused||first){
     var prev=seenIds;seenIds={};
     alerts=st.monsters.map(function(m){
