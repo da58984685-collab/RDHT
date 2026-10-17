@@ -288,6 +288,7 @@ function renderDetail(){
   var counts={};(r.counts||[]).forEach(function(x){counts[x.result]=x.c});
   var h='<div class="head">'+(p.image?'<img alt="" src="'+esc(p.image)+'">':'<div class="ph"></div>')+
     '<div><h2>'+esc(p.hunterName)+' <span class="rk '+esc(p.rank)+'">'+esc(p.rank)+'</span></h2><div class="muted">'+esc(p.code)+" · Lv."+p.lv+" · EXP "+p.exp+"</div></div></div>";
+  h+='<div class="row" style="margin:0 0 10px"><button class="btn ghost sm" id="p_imgbtn" type="button">이미지 변경</button><button class="btn ghost sm" id="p_imgrm" type="button">이미지 삭제</button><input type="file" id="p_imgfile" accept="image/*" hidden><span id="p_imgmsg" class="muted"></span></div>';
   h+='<div class="tabs">'+[["info","정보 · 스탯"],["items","아이템"],["acq","습득 정보"],["ach","업적"],["act","활동 관리"],["hunt","토벌 기록"]].map(function(t){return'<button class="tab'+(tab===t[0]?" on":"")+'" data-t="'+t[0]+'" type="button">'+t[1]+"</button>"}).join("")+"</div>";
   var opt=function(list,cur){return list.map(function(x){return'<option value="'+esc(x[0])+'"'+(x[0]===cur?" selected":"")+">"+esc(x[1])+"</option>"}).join("")};
   var RANKS=["F","E","D","C","B","A","S"].map(function(x){return[x,x]});
@@ -352,6 +353,8 @@ window.addEventListener("beforeunload",function(e){if(dirty){e.preventDefault();
 $("detail").addEventListener("click",function(e){
   var t=e.target,b=t.closest(".tab");
   if(b&&cache){if(!okLeave())return;dirty=false;tab=b.getAttribute("data-t");renderDetail();return}
+  if(t.id==="p_imgbtn"){$("p_imgfile").click();return}
+  if(t.id==="p_imgrm"){if(confirm("이 헌터의 캐릭터 이미지를 삭제할까요?"))saveImg("");return}
   if(t.id==="act_save")return saveAct();
   if(t.id==="uncorrupt"){if(!confirm("이 헌터의 오염 폭주를 해제할까요?\n활동 불가가 풀리고, 출몰 중인 오염 몬스터가 사라지며, 오염도가 0%가 됩니다."))return;api("POST","/api/admin/player/uncorrupt",{code:selCode}).then(function(r){if(r._status===401){showApp(false);return}if(r.ok){loadDetail();loadList()}else{var x=$("uncorrupt_msg");x.className="bad";x.textContent="해제하지 못했습니다."}});return}
   if(t.id==="adminchar_save"){var am=$("adminchar_msg");api("POST","/api/admin/player/adminchar",{code:selCode,on:$("adminchar").checked}).then(function(r){if(r._status===401){showApp(false);return}if(r.ok){loadDetail();setTimeout(function(){var x=$("adminchar_msg");if(x){x.className="ok";x.textContent="저장했습니다."}},400)}else{am.className="bad";am.textContent="저장하지 못했습니다."}});return}
@@ -367,6 +370,30 @@ function onEdit(e){
 $("detail").addEventListener("input",onEdit);
 $("detail").addEventListener("change",onEdit);
 var EMSG={no_ach:"존재하지 않는 업적입니다.",bad_gold:"골드는 0~99,999,999 사이 정수여야 합니다.",bad_price:"가격은 0~9,999,999 사이 정수여야 합니다.",bad_hunter_name:"헌터 네임은 2~12자여야 합니다.",bad_name:"이름은 1~30자여야 합니다.",bad_gender:"성별 값이 올바르지 않습니다.",bad_age:"나이는 1~999 사이 정수여야 합니다.",bad_personality:"성격은 1~1000자여야 합니다.",bad_traits:"특징은 최대 5개, 각 50자 이하여야 합니다.",bad_rank:"등급 값이 올바르지 않습니다.",bad_lv:"레벨은 1~999 사이 정수여야 합니다.",bad_exp:"EXP 범위를 벗어났습니다.",bad_stat:"스탯은 0~9999 사이 정수여야 합니다.",bad_item:"아이템 이름은 1~30자여야 합니다.",bad_qty:"수량은 1~9999 사이 정수여야 합니다.",bad_mon:"몬스터 이름은 1~30자여야 합니다.",bad_result:"결과 값이 올바르지 않습니다.",no_ids:"삭제할 항목을 선택하세요.",not_found:"대상을 찾을 수 없습니다.",unauthorized:"로그인이 만료되었습니다.",rate_limited:"요청이 많습니다."};
+function saveImg(data){
+  var m=$("p_imgmsg");m.className="muted";m.textContent="저장 중...";
+  api("POST","/api/admin/player/image",{code:selCode,image:data}).then(function(r){
+    if(r._status===401){showApp(false);return}
+    if(r.ok){loadDetail();loadList();setTimeout(function(){var x=$("p_imgmsg");if(x){x.className="ok";x.textContent=data?"이미지를 바꿨습니다.":"이미지를 삭제했습니다."}},400)}
+    else{m.className="bad";m.textContent="이미지를 저장하지 못했습니다."}
+  });
+}
+function imgToSquare(img){
+  var s=Math.min(img.naturalWidth,img.naturalHeight),sx=(img.naturalWidth-s)/2,sy=(img.naturalHeight-s)/2,o=Math.min(512,s);
+  var c=document.createElement("canvas");c.width=c.height=o;var x=c.getContext("2d");x.fillStyle="#fff";x.fillRect(0,0,o,o);x.drawImage(img,sx,sy,s,s,0,0,o,o);
+  var q=0.9,d=c.toDataURL("image/jpeg",q);
+  while((d.length-d.indexOf(",")-1)*3/4>512*1024&&q>0.31){q-=0.1;d=c.toDataURL("image/jpeg",q)}
+  return d;
+}
+$("detail").addEventListener("change",function(e){
+  if(e.target.id!=="p_imgfile")return;
+  var inp=e.target,f=inp.files&&inp.files[0],m=$("p_imgmsg");if(!f)return;
+  if(f.type.indexOf("image/")!==0){m.className="bad";m.textContent="이미지 파일만 선택할 수 있습니다.";inp.value="";return}
+  var url=URL.createObjectURL(f),img=new Image();
+  img.onload=function(){var d="";try{d=imgToSquare(img)}catch(x){}URL.revokeObjectURL(url);inp.value="";if(!d){m.className="bad";m.textContent="이미지를 처리하지 못했습니다.";return}saveImg(d)};
+  img.onerror=function(){URL.revokeObjectURL(url);inp.value="";m.className="bad";m.textContent="이미지를 불러오지 못했습니다."};
+  img.src=url;
+});
 function saveAct(){
   var m=$("act_msg"),allow={};
   Array.prototype.forEach.call(document.querySelectorAll("#actf input[data-act]"),function(c){allow[c.getAttribute("data-act")]=c.checked});
