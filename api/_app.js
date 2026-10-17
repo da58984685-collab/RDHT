@@ -1420,6 +1420,32 @@ route('POST', '/api/admin/player/ach', async (req, res, ctx) => {
 }, { auth: false, admin: true });
 
 // ── 오늘의 추천 ──
+// 헌터 커뮤니티 게시글 관리 (관리자만 수정·삭제 가능)
+route('GET', '/api/admin/board', async (req, res) => {
+  const posts = await db.all('SELECT id, who, title, body, tag, at FROM board_posts ORDER BY id DESC LIMIT 100');
+  send(res, 200, { posts });
+}, { auth: false, admin: true });
+
+route('POST', '/api/admin/board/save', async (req, res, ctx) => {
+  const b = ctx.body, id = Number(b.id);
+  const clean = (v, n) => String(v == null ? '' : v).replace(/\r/g, '').trim().slice(0, n);
+  const who = clean(b.who, 30).replace(/\s+/g, ' '), tag = clean(b.tag, 10).replace(/\s+/g, ' ');
+  const title = clean(b.title, 100).replace(/\s+/g, ' '), body = clean(b.body, 1000);
+  if (!Number.isInteger(id) || id < 1) return fail(res, 400, 'bad_id');
+  if (!who || !tag || !title || !body) return fail(res, 400, 'empty');
+  if (cp(title) > 60 || cp(body) > 500 || cp(who) > 20 || cp(tag) > 8) return fail(res, 400, 'too_long');
+  const r = await db.run('UPDATE board_posts SET who = ?, title = ?, body = ?, tag = ? WHERE id = ?', [who, title, body, tag, id]);
+  if (r.changes !== 1) return fail(res, 404, 'not_found');
+  send(res, 200, { ok: true });
+}, { auth: false, admin: true });
+
+route('POST', '/api/admin/board/delete', async (req, res, ctx) => {
+  const id = Number(ctx.body.id);
+  if (!Number.isInteger(id) || id < 1) return fail(res, 400, 'bad_id');
+  const r = await db.run('DELETE FROM board_posts WHERE id = ?', [id]);
+  send(res, 200, { ok: true, deleted: r.changes });
+}, { auth: false, admin: true });
+
 route('GET', '/api/admin/rec', async (req, res) => {
   send(res, 200, { rec: await getRec() });
 }, { auth: false, admin: true });
