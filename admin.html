@@ -193,7 +193,7 @@ function api(m,u,b){
 function dt(t){if(!t)return"-";var d=new Date(t),p=function(n){return String(n).padStart(2,"0")};return d.getFullYear()+"-"+p(d.getMonth()+1)+"-"+p(d.getDate())+" "+p(d.getHours())+":"+p(d.getMinutes())}
 var RES={success:["토벌 성공","ok"],fail:["토벌 실패","bad"],pending:["S급 결과 대기","wait"]};
 var selCode=null,tab="info",cache=null,dirty=false;
-function powNeedOf(lv){return Math.round(30*Math.pow(lv,1.6))}
+function powNeedOf(lv){return Math.max(10,Math.round(30*Math.pow(lv,1.6)*(lv<30?0.1+0.3*Math.pow(lv/30,1.5):1)))}
 function okLeave(){return !dirty||confirm("저장하지 않은 변경 내용이 사라집니다. 계속할까요?")}
 
 function showApp(on){$("login").classList.toggle("hide",on);$("app").classList.toggle("hide",!on)}
