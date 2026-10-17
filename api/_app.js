@@ -1366,6 +1366,22 @@ route('POST', '/api/stats/invest', async (req, res, ctx) => {
 });
 
 // 비공개 유저 설정 (켜면 헌터 커뮤니티에서 언급되지 않음)
+// 캐릭터 이미지 변경 (가입 때와 같은 규격: JPEG 데이터 주소, 빈 값이면 삭제)
+const IMG_RE = /^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/;
+const validImage = im => typeof im === 'string' && (im === '' || (im.length <= 800000 && IMG_RE.test(im)));
+route('POST', '/api/me/image', async (req, res, ctx) => {
+  if (await limited('img:' + ctx.user.id, 10, 60000)) return fail(res, 429, 'rate_limited');
+  const image = ctx.body.image;
+  if (!validImage(image)) return fail(res, 400, 'bad_image');
+  await db.run('UPDATE users SET image = ? WHERE id = ?', [image, ctx.user.id]);
+  send(res, 200, { ok: true, image });
+});
+route('POST', '/api/admin/player/image', async (req, res, ctx) => {
+  const u = await adminTarget(ctx, res); if (!u) return;
+  if (!validImage(ctx.body.image)) return fail(res, 400, 'bad_image');
+  await db.run('UPDATE users SET image = ? WHERE id = ?', [ctx.body.image, u.id]);
+  send(res, 200, { ok: true });
+}, { auth: false, admin: true });
 route('POST', '/api/me/private', async (req, res, ctx) => {
   const on = ctx.body.on === true ? 1 : 0;
   await db.run('UPDATE users SET is_private = ? WHERE id = ?', [on, ctx.user.id]);
