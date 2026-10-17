@@ -4,6 +4,7 @@ const crypto = require('node:crypto');
 const { promisify } = require('node:util');
 const db = require('./_db');
 const G = require('./_game');
+const B = require('./_board');
 
 const scrypt = promisify(crypto.scrypt);
 const ADMIN_TOKEN = process.env.ADMIN_TOKEN || '';
@@ -250,7 +251,66 @@ async function purgeMonsters(force) {
   await db.run('DELETE FROM fail_cd WHERE monster_id NOT IN (SELECT id FROM monsters)');
 }
 
-async function catchUp() { await tickSpawns(); await resolveDue(); await purgeMonsters(); }
+// ── 헌터 커뮤니티: 5분마다 새 글이 올라옵니다 (요청이 올 때 밀린 만큼 따라잡음) ──
+const BOARD_GAP = 5 * G.MIN;
+async function boardCtx(now) {
+  const mons = {}, regions = G.REGIONS.map(r => G.placeLong(r.id));
+  ['F', 'E', 'D', 'C', 'B', 'A'].forEach(k => { mons[k] = G.MON[k]; });
+  const sOn = (await db.all(`SELECT name, region FROM monsters WHERE rank = 'S' AND owner_id IS NULL AND spawned_at > ?
+      AND id NOT IN (SELECT monster_id FROM s_close)`, [now - G.ACTIVE_MS])).map(m => ({ name: m.name, place: G.placeName(m.region) }));
+  const sKill = (await db.all(`SELECT m.name, m.region FROM s_close c JOIN monsters m ON m.id = c.monster_id WHERE c.ok = 1 AND c.at > ? LIMIT 10`, [now - 3 * G.HOUR]))
+    .map(m => ({ name: m.name, place: G.placeName(m.region) }));
+  const sFled = (await db.all("SELECT name, region FROM s_log WHERE status = 'fled' AND ended_at > ? LIMIT 10", [now - 3 * G.HOUR]))
+    .map(m => ({ name: m.name, place: G.placeName(m.region) }));
+  const us = await db.all('SELECT hunter_name AS hn, rank, stats FROM users');
+  const all = us.map(u => { let f = 0; try { f = Number(JSON.parse(u.stats).fame) || 0; } catch (_) {} return { hn: u.hn, rank: u.rank, fame: f }; });
+  const fame = all.filter(u => u.fame > 0).sort((a, b) => b.fame - a.fame).slice(0, 40);
+  const sUsers = all.filter(u => u.rank === 'S').sort((a, b) => b.fame - a.fame).slice(0, 40);
+  return { mons, regions, sOn, sKill, sFled, sUsers, fame };
+}
+let boardBusy = false;
+async function tickBoard() {
+  if (boardBusy) return;
+  const now = Date.now();
+  const row = await db.get("SELECT next_at FROM spawn_state WHERE tier = 'board'");
+  let next = row ? row.next_at : null;
+  if (next !== null && next > now) return;
+  boardBusy = true;
+  try {
+    if (next === null) {
+      await db.run("INSERT OR IGNORE INTO spawn_state (tier, next_at) VALUES ('board', ?)", [now]);
+      next = now - 5 * BOARD_GAP;                                      // 처음에는 최근 글 몇 개를 채워 둡니다
+    }
+    const from = row ? row.next_at : now;
+    if (next < now - 6 * BOARD_GAP) next = now - 6 * BOARD_GAP;        // 오래 비어 있었다면 최근 30분만 반영
+    const slots = [];
+    for (let t = next; t <= now && slots.length < 8; t += BOARD_GAP) slots.push(t);
+    if (!slots.length) return;
+    const nextAt = slots[slots.length - 1] + BOARD_GAP;
+    const claim = await db.run("UPDATE spawn_state SET next_at = ? WHERE tier = 'board' AND next_at = ?", [nextAt, from]);
+    if (claim.changes !== 1) return;
+    const ctx = await boardCtx(now), list = [];
+    slots.forEach((t, i) => {
+      const p = B.makePost(ctx);
+      list.push(['INSERT INTO board_posts (who, title, body, tag, at) VALUES (?, ?, ?, ?, ?)', [p.who, p.title, p.body, p.tag, Math.min(now, t + G.rnd(0, 40) * 1000)]]);
+    });
+    // 업로드 전에 등급이 오른 헌터는 반드시 한 번만 언급합니다
+    await db.run('UPDATE users SET board_rank = rank WHERE board_rank IS NULL');
+    const up = (await db.all('SELECT id, hunter_name, rank, board_rank FROM users WHERE board_rank IS NOT NULL AND board_rank != rank')).filter(u => G.RANK_IDX[u.rank] !== undefined);
+    for (const u of up.slice(0, 10)) {
+      const done = await db.run('UPDATE users SET board_rank = ? WHERE id = ? AND board_rank = ?', [u.rank, u.id, u.board_rank]);
+      if (done.changes !== 1) continue;
+      if (G.RANK_IDX[u.rank] > G.RANK_IDX[u.board_rank]) {
+        const p = B.makeRankPost(u.hunter_name, u.board_rank, u.rank);
+        list.push(['INSERT INTO board_posts (who, title, body, tag, at) VALUES (?, ?, ?, ?, ?)', [p.who, p.title, p.body, p.tag, now]]);
+      }
+    }
+    list.push(['DELETE FROM board_posts WHERE id <= (SELECT MAX(id) FROM board_posts) - 300', []]);
+    await db.batch(list);
+  } finally { boardBusy = false; }
+}
+
+async function catchUp() { await tickSpawns(); await resolveDue(); await purgeMonsters(); await tickBoard(); }
 
 // ── 업적 (정의는 DB에 저장되어 모든 헌터에게 똑같이 적용됩니다) ──
 async function loadAch() {
@@ -386,6 +446,7 @@ async function buildState(u, now) {
     results: results.map(r => ({ id: r.id, mon: r.name, success: !!r.success, exp: r.exp_gain, gold: r.gold_gain, taint: r.taint_gain, levelUp: !!r.level_up })),
     unreadNotices: un.c,
     unreadMsgs: um.c,
+    board: (await db.get('SELECT COALESCE(MAX(id), 0) AS m FROM board_posts')).m,
     friendReqs: frq.c,
     sWin: swin.map(x => ({ id: x.id, mon: x.name, part: !!x.part, exp: x.exp || 0, gold: x.gold || 0, taint: x.taint || 0 })),
     rec: await getRec(),
@@ -468,9 +529,9 @@ route('POST', '/api/signup', async (req, res, ctx) => {
     code = G.makeCode();
     try {
       await db.run(`INSERT INTO users
-        (code, name, gender, age, personality, traits, image, hunter_name, rank, stats, pw_salt, pw_hash, created_at, invite_code)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [code, name, gender, age, pers, JSON.stringify(traits), image, hn, rank, JSON.stringify(stats), salt, hash, Date.now(), inv]);
+        (code, name, gender, age, personality, traits, image, hunter_name, rank, stats, pw_salt, pw_hash, created_at, invite_code, board_rank)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [code, name, gender, age, pers, JSON.stringify(traits), image, hn, rank, JSON.stringify(stats), salt, hash, Date.now(), inv, rank]);
       break;
     } catch (e) {
       if (!/UNIQUE/i.test(String(e.message)) || ++tries > 10) throw e;
@@ -551,6 +612,13 @@ route('GET', '/api/state', async (req, res, ctx) => {
   await catchUp();
   const u = await db.get('SELECT * FROM users WHERE id = ?', [ctx.user.id]);
   send(res, 200, await buildState(u, Date.now()));
+});
+
+// 헌터 커뮤니티: 읽기 전용 (글쓰기·댓글 기능 없음)
+route('GET', '/api/board', async (req, res) => {
+  await tickBoard();
+  const rows = await db.all('SELECT id, who, title, body, tag, at FROM board_posts ORDER BY id DESC LIMIT 60');
+  send(res, 200, { posts: rows, latest: rows.length ? rows[0].id : 0 });
 });
 
 // 세계 지도(나라와 세부 지역)
