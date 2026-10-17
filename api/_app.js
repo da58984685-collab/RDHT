@@ -1130,7 +1130,7 @@ route('GET', '/api/admin/player', async (req, res) => {
     achievements: ach.map(a => ({ id: a.id, name: a.name, desc: a.descr, kind: a.kind, met: a.met, granted: a.granted, done: a.done })),
     player: Object.assign(publicUser(u), { inviteReward: await inviteRewardOf(u.id), invite: u.invite_code || '', created: u.created_at, region: G.placeLong(u.region), friends: fr.c }),
     items: inv, acquired: acq, hunts, counts: cnt, pendingS: pend.map(p => ({ mon: p.name, at: p.resolve_at })),
-    activity: { adminChar: !!u.admin_char, blocked: u.block_flags | 0, corruptUntil: u.corrupt_until > Date.now() ? u.corrupt_until : 0, dyingUntil: u.dying_until > Date.now() ? u.dying_until : 0,
+    activity: { corruptMonster: !!(await db.get('SELECT 1 AS x FROM monsters WHERE corrupt_of = ? AND spawned_at > ?', [u.id, Date.now() - CORRUPT_MS])), adminChar: !!u.admin_char, blocked: u.block_flags | 0, corruptUntil: u.corrupt_until > Date.now() ? u.corrupt_until : 0, dyingUntil: u.dying_until > Date.now() ? u.dying_until : 0,
       taint: Number(JSON.parse(u.stats).taint) || 0, now: Date.now() },
   });
 }, { auth: false, admin: true });
@@ -1245,6 +1245,21 @@ route('POST', '/api/admin/inquiry/reply', async (req, res, ctx) => {
   const text = String(ctx.body.text || '').trim();
   if (!text || cp(text) > 200) return fail(res, 400, 'bad_text');
   await db.run('INSERT INTO inquiries (user_id, from_admin, text, ts) VALUES (?, 1, ?, ?)', [u.id, text, Date.now()]);
+  send(res, 200, { ok: true });
+}, { auth: false, admin: true });
+// 오염 폭주 해제: 활동 불가를 풀고, 그 헌터의 오염 몬스터를 즉시 소멸시키고, 오염도를 0%로 낮춤
+route('POST', '/api/admin/player/uncorrupt', async (req, res, ctx) => {
+  const u = await adminTarget(ctx, res); if (!u) return;
+  for (let i = 0; i < 6; i++) {          // 오염도 0% (동시 요청에도 안전하게 비교 후 갱신)
+    const cur = await db.get('SELECT stats FROM users WHERE id = ?', [u.id]);
+    const st = JSON.parse(cur.stats); st.taint = 0;
+    const w = await db.run('UPDATE users SET stats = ? WHERE id = ? AND stats = ?', [JSON.stringify(st), u.id, cur.stats]);
+    if (w.changes === 1) break;
+    if (i === 5) return fail(res, 409, 'conflict');
+  }
+  await db.run('UPDATE users SET corrupt_until = 0, corrupt_flag = 0 WHERE id = ?', [u.id]);
+  await db.run('UPDATE monsters SET spawned_at = 0 WHERE corrupt_of = ?', [u.id]);   // 만료 처리 (토벌 기록이 있어도 목록에서 사라짐, 곧 정리됨)
+  await db.run('DELETE FROM monsters WHERE corrupt_of = ? AND NOT EXISTS (SELECT 1 FROM kills k WHERE k.monster_id = monsters.id)', [u.id]);
   send(res, 200, { ok: true });
 }, { auth: false, admin: true });
 route('POST', '/api/admin/player/adminchar', async (req, res, ctx) => {
