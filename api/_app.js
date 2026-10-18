@@ -1670,14 +1670,18 @@ async function promoInfo(u) {
   const rule = G.PROMO[u.rank];
   if (!rule) return { rank: u.rank, next: '', conds: [], can: false, max: true };
   const conds = [{ t: '전투력 Lv.' + rule.lv + ' 이상', have: u.lv, need: rule.lv, ok: u.lv >= rule.lv }];
-  const rk = n => G.RANK_IDX[n];
-  const killsFrom = async min => {
-    const rs = Object.keys(G.RANK_IDX).filter(r => rk(r) >= rk(min));
-    return Number((await db.get(`SELECT COUNT(*) AS c FROM hunt_log WHERE user_id = ? AND result = 'success' AND rank IN (${rs.map(() => '?').join(',')})`, [u.id].concat(rs))).c) || 0;
-  };
-  if (rule.kills) { const h = await killsFrom(rule.kills.min); conds.push({ t: rule.kills.min + '급 이상 몬스터 ' + rule.kills.n + '마리 처치', have: Math.min(h, rule.kills.n), need: rule.kills.n, ok: h >= rule.kills.n }); }
-  if (rule.killsA) { const h = await killsFrom('A'); conds.push({ t: 'A급 이상 몬스터 ' + rule.killsA + '마리 처치', have: Math.min(h, rule.killsA), need: rule.killsA, ok: h >= rule.killsA }); }
+  if (rule.kills) {
+    const rows = await db.all("SELECT rank, COUNT(*) AS c FROM hunt_log WHERE user_id = ? AND result = 'success' GROUP BY rank", [u.id]);
+    for (const k of rule.kills) {
+      const h = rows.reduce((a, r) => a + (G.RANK_IDX[r.rank] >= G.RANK_IDX[k.min] ? Number(r.c) || 0 : 0), 0);
+      conds.push({ t: k.min + '급 이상 몬스터 ' + k.n + '마리 처치', have: Math.min(h, k.n), need: k.n, ok: h >= k.n });
+    }
+  }
   if (rule.sTry) { const h = Number((await db.get('SELECT COUNT(*) AS c FROM s_attempts WHERE user_id = ?', [u.id])).c) || 0; conds.push({ t: 'S급 몬스터 토벌 도전 ' + rule.sTry + '회', have: Math.min(h, rule.sTry), need: rule.sTry, ok: h >= rule.sTry }); }
+  if (rule.taintMax != null) {
+    let tn = 0; try { tn = Number(JSON.parse(u.stats).taint) || 0; } catch (_) {}
+    conds.push({ t: '오염도 ' + rule.taintMax + '% 이하 (정화의 물약 등으로 낮추기)', have: Math.round(tn * 10) / 10, need: rule.taintMax, ok: tn <= rule.taintMax, atMost: true });
+  }
   return { rank: u.rank, next: rule.to, conds, can: conds.every(c => c.ok), max: false, fame: G.FAME_PER_RANK };
 }
 route('GET', '/api/promote', async (req, res, ctx) => {
