@@ -584,7 +584,7 @@ async function authAdmin(req) {
   const row = await db.get('SELECT 1 AS x FROM sessions WHERE token_hash = ? AND user_id = -1 AND expires_at > ?', [sha256(t), Date.now()]);
   return !!row;
 }
-const adminCookie = (v, sec) => `asid=${v}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${sec}` + (COOKIE_SECURE ? '; Secure' : '');
+const adminCookie = (v, sec) => `asid=${v}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${sec}` + (COOKIE_SECURE ? '; Secure' : '');
 // 토벌·습득 기록 (관리자 창에서 조회)
 const logHunt = (uid, m, result, gain, at) => db.run(
   'INSERT INTO hunt_log (user_id, monster_id, mon, rank, result, exp_gain, at) VALUES (?, ?, ?, ?, ?, ?, ?)', [uid, m.id, m.name, m.rank, result, gain, at]);
