@@ -395,7 +395,8 @@ label[for="name"]::after,label[for="age"]::after,label[for="hname"]::after,#gl::
 .apps{flex:1;display:grid;grid-template-columns:1fr 1fr;gap:10px;align-content:center}
 .app{position:relative;min-height:84px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:8px 4px;color:var(--text);background:#161012;border:1px solid var(--line);border-radius:10px;font:500 .8rem/1.25 "Noto Sans KR",sans-serif;cursor:pointer;text-align:center}
 .app .ic{width:26px;height:26px;color:#fff}
-.app .ic:has(use[href="#i-eye"]){width:34px;height:24px}
+.app.gw{grid-column:1/-1;aspect-ratio:2/1;min-height:0;gap:10px;font-size:.9rem}
+.app.gw .ic{width:68px;height:48px}
 .app:hover{border-color:var(--red2)}
 .app-b{position:absolute;top:6px;right:8px;min-width:18px;height:18px;padding:0 4px;display:flex;align-items:center;justify-content:center;font:800 .7rem/1 "Noto Sans KR",sans-serif;color:#fff;background:var(--red2);border-radius:9px}
 .app-h{display:flex;align-items:center;gap:8px;margin-bottom:10px;font:700 .92rem/1.2 "Nanum Myeongjo",serif}
@@ -906,6 +907,9 @@ input[type=checkbox]:focus-visible{outline:2px solid var(--deep);outline-offset:
 .gwcs .gwm{margin-bottom:3px}
 .gwch{margin:6px 0 8px;font-size:.82rem;color:var(--deep)}
 .gwdel[data-arm="1"]{border-color:var(--red);color:#ff8a93}
+.gwcs li{position:relative}
+.gwcx{display:block;margin:6px 0 0 auto;padding:4px 10px;font:500 .74rem/1.2 "Noto Sans KR",sans-serif;color:var(--sub);background:transparent;border:1px solid var(--line);border-radius:8px;cursor:pointer}
+.gwcx:hover,.gwcx[data-arm="1"]{border-color:var(--red);color:#ff8a93}
 .gwnote{margin:8px 0 0;min-height:1.2em;font-size:.84rem;color:var(--sub)}
 .gwempty{padding:24px 8px;text-align:center;color:var(--deep);font-size:.9rem}
 </style>
@@ -1874,7 +1878,7 @@ var globe=(function(){
   return {set:set,isOn:function(){return on},redraw:function(){if(on&&rm)draw()}};
 })();
 var gold=0,devApp=null,inventory=[],invSig="",invNote="";
-var APPS=[["msg","메신저","i-chat"],["com","커뮤니티","i-board"],["gw","게이트웨이브","i-eye"],["ach","업적","i-medal"],["sys","시스템 알림","i-bell"],["shop","상점","i-shop"],["inv","인벤토리","i-bag"]];
+var APPS=[["gw","게이트웨이브","i-eye"],["msg","메신저","i-chat"],["com","커뮤니티","i-board"],["ach","업적","i-medal"],["sys","시스템 알림","i-bell"],["shop","상점","i-shop"],["inv","인벤토리","i-bag"]];
 function devClock(){var d=new Date(),c=$("phclk");if(c)c.textContent=pad(d.getHours())+":"+pad(d.getMinutes())}
 function badgeOf(id){return id==="sys"?unreadNotices:id==="msg"?unreadMsgs+friendReqs:id==="com"?Math.max(0,Math.min(99,cmLatest-cmSeen)):0}
 function loadNotices(){
@@ -2009,7 +2013,7 @@ function renderDevice(){
   if(!devApp){
     var g=document.createElement("div");g.className="apps";
     APPS.forEach(function(a){
-      var b=document.createElement("button");b.type="button";b.className="app";b.appendChild(svgUse(a[2]));
+      var b=document.createElement("button");b.type="button";b.className="app"+(a[0]==="gw"?" gw":"");b.appendChild(svgUse(a[2]));
       var t=document.createElement("span");t.textContent=a[1];b.appendChild(t);
       var bc=badgeOf(a[0]);
       if(bc){var n=document.createElement("span");n.className="app-b";n.textContent=String(bc);n.setAttribute("aria-label","읽지 않은 항목 "+bc+"건");b.appendChild(n)}
@@ -2757,14 +2761,25 @@ function gwOpenPost(id,keepScroll){
     if(r.error){$("gwvnote").textContent=gwErr(r);return}
     var p=r.post,mt=$("gwvmeta");mt.innerHTML="";mt.appendChild(gwMeta(p,p.ts));
     $("gwvtitle").textContent=p.title;$("gwvbody").textContent=p.body;
-    var d=$("gwdel");d.hidden=!p.mine;d.dataset.arm="0";d.textContent="삭제";
+    var d=$("gwdel");d.hidden=!p.canDel;d.dataset.arm="0";d.textContent="삭제";
     $("gwch").textContent="댓글 "+r.comments.length;
     var ul=$("gwcs");ul.innerHTML="";
     r.comments.forEach(function(c){
       var li=document.createElement("li");if(c.mine)li.className="me";
       var m=document.createElement("p");m.className="gwm";m.appendChild(gwMeta(c,c.ts));
       var t=document.createElement("span");t.textContent=c.text;
-      li.appendChild(m);li.appendChild(t);ul.appendChild(li);
+      li.appendChild(m);li.appendChild(t);
+      if(c.canDel){var x=document.createElement("button");x.type="button";x.className="gwcx";x.textContent="삭제";x.setAttribute("aria-label","댓글 삭제");
+        x.addEventListener("click",function(){
+          if(x.dataset.arm!=="1"){x.dataset.arm="1";x.textContent="한 번 더";setTimeout(function(){if(x.dataset.arm==="1"){x.dataset.arm="0";x.textContent="삭제"}},4000);return}
+          x.disabled=true;
+          api("POST","/api/gw/comment/delete",{id:c.id}).then(function(r){
+            if(r.error){x.disabled=false;$("gwvnote").textContent=gwErr(r);return}
+            gwOpenPost(gwPost);
+          }).catch(function(){x.disabled=false;$("gwvnote").textContent="삭제하지 못했습니다."});
+        });
+        li.appendChild(x)}
+      ul.appendChild(li);
     });
     if(keepScroll)gwmodal.scrollTop=gwmodal.scrollHeight;
   }).catch(function(){$("gwvnote").textContent="불러오지 못했습니다."});
