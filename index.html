@@ -395,6 +395,7 @@ label[for="name"]::after,label[for="age"]::after,label[for="hname"]::after,#gl::
 .apps{flex:1;display:grid;grid-template-columns:1fr 1fr;gap:10px;align-content:center}
 .app{position:relative;min-height:84px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:8px 4px;color:var(--text);background:#161012;border:1px solid var(--line);border-radius:10px;font:500 .8rem/1.25 "Noto Sans KR",sans-serif;cursor:pointer;text-align:center}
 .app .ic{width:26px;height:26px;color:#fff}
+.app .ic:has(use[href="#i-eye"]){width:34px;height:24px}
 .app:hover{border-color:var(--red2)}
 .app-b{position:absolute;top:6px;right:8px;min-width:18px;height:18px;padding:0 4px;display:flex;align-items:center;justify-content:center;font:800 .7rem/1 "Noto Sans KR",sans-serif;color:#fff;background:var(--red2);border-radius:9px}
 .app-h{display:flex;align-items:center;gap:8px;margin-bottom:10px;font:700 .92rem/1.2 "Nanum Myeongjo",serif}
@@ -612,7 +613,7 @@ input[type=checkbox]:focus-visible{outline:2px solid var(--deep);outline-offset:
 <symbol id="i-temple" viewBox="0 0 8 8"><path d="M3 0h2v1H3zM2 1h4v1H2zM1 2h6v1H1zM3 3h2v1H3zM2 4h4v1H2zM0 5h8v1H0zM2 6h1v2H2zM5 6h1v2H5z"/></symbol>
 <symbol id="i-port" viewBox="0 0 8 8"><path d="M3 0h2v1H3zM3 1h2v6H3zM1 2h6v1H1zM0 5h1v2H0zM1 7h6v1H1zM7 5h1v2H7z"/></symbol>
 <symbol id="i-gate" viewBox="0 0 8 8"><path fill-rule="evenodd" d="M2 0h4v1H2zM1 1h6v1H1zM0 2h8v6H0zM3 3h2v5H3z"/></symbol>
-<symbol id="i-x" viewBox="0 0 7 7"><path d="M0 0h2v2H0zM5 0h2v2H5zM1 1h2v2H1zM4 1h2v2H4zM2 2h3v3H2zM1 4h2v2H1zM4 4h2v2H4zM0 5h2v2H0zM5 5h2v2H5z"/></symbol></svg>
+<symbol id="i-eye" viewBox="0 0 17 12"><path d="M8 0h1v1h-1zM3 1h1v1h-1zM8 1h1v1h-1zM13 1h1v1h-1zM4 2h1v1h-1zM12 2h1v1h-1zM6 3h5v1h-5zM4 4h2v1h-2zM11 4h2v1h-2zM2 5h2v1h-2zM7 5h3v1h-3zM13 5h2v1h-2zM1 6h1v1h-1zM6 6h1v1h-1zM10 6h1v1h-1zM15 6h1v1h-1zM0 7h1v1h-1zM6 7h1v1h-1zM8 7h1v1h-1zM10 7h1v1h-1zM16 7h1v1h-1zM1 8h1v1h-1zM6 8h1v1h-1zM10 8h1v1h-1zM15 8h1v1h-1zM2 9h2v1h-2zM7 9h3v1h-3zM13 9h2v1h-2zM4 10h2v1h-2zM11 10h2v1h-2zM6 11h5v1h-5z"/></symbol><symbol id="i-x" viewBox="0 0 7 7"><path d="M0 0h2v2H0zM5 0h2v2H5zM1 1h2v2H1zM4 1h2v2H4zM2 2h3v3H2zM1 4h2v2H1zM4 4h2v2H4zM0 5h2v2H0zM5 5h2v2H5z"/></symbol></svg>
 <div id="bg" aria-hidden="true"></div>
 <main class="landing">
 <section class="hero">
@@ -860,7 +861,7 @@ input[type=checkbox]:focus-visible{outline:2px solid var(--deep);outline-offset:
   </div>
 </div>
 <style>
-/* 헌터 커뮤니티 (읽기 전용 창) */
+/* 커뮤니티 (읽기 전용 창) */
 .cmh{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:2px 0 12px}
 .cmh .cmn{margin:0;font-size:.8rem;color:var(--deep);line-height:1.5}
 .cmsnd{flex:none;min-height:40px;padding:0 14px;font:500 .82rem/1 "Noto Sans KR",sans-serif;color:var(--text);background:var(--field);border:1px solid var(--line);border-radius:10px;cursor:pointer}
@@ -879,19 +880,90 @@ input[type=checkbox]:focus-visible{outline:2px solid var(--deep);outline-offset:
 .cmempty{padding:24px 8px;text-align:center;color:var(--deep);font-size:.9rem}
 @keyframes cmIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
 @media (prefers-reduced-motion:reduce){.cml li.is-new{animation:none}}
+/* 게이트웨이브 (헌터 전용 게시판) */
+.gwl{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+.gwi{display:block;width:100%;text-align:left;padding:12px 14px;color:var(--text);font:inherit;background:rgba(255,255,255,.02);border:1px solid var(--line);border-radius:12px;cursor:pointer}
+.gwi:hover{border-color:var(--red2)}
+.gwi:focus-visible{outline:2px solid var(--red2);outline-offset:2px}
+.gwm{display:flex;align-items:center;gap:8px;margin:0 0 6px;font-size:.74rem;color:var(--deep)}
+.gwm .gwr{padding:2px 8px;border:1px solid var(--line);border-radius:999px;font-size:.7rem;color:var(--text)}
+.gwm .gwr.s{border-color:var(--red);color:#ff8a93}
+.gwm .gww{font-family:"Share Tech Mono","Noto Sans KR",monospace}
+.gwm .gwat{margin-left:auto}
+.gwi h3,.gwv h3{margin:0 0 6px;font-size:.98rem;line-height:1.45;word-break:keep-all;overflow-wrap:anywhere}
+.gwi p{margin:0;font-size:.84rem;line-height:1.6;color:var(--sub);overflow-wrap:anywhere}
+.gwi .gwcc{display:block;margin-top:6px;font-size:.74rem;color:var(--deep)}
+.gwtop{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin:2px 0 12px}
+.gwtop .cmn{margin:0;font-size:.8rem;color:var(--deep);line-height:1.5}
+.gwf label{display:block;margin:12px 0 4px;font-size:.8rem;color:var(--sub)}
+.gwf textarea{min-height:180px}
+.gwcnt{margin:4px 0 0;font-size:.74rem;color:var(--deep);text-align:right}
+.gwrow{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+.gwbody{margin:10px 0 0;padding:12px 0 14px;font-size:.92rem;line-height:1.75;white-space:pre-wrap;overflow-wrap:anywhere;border-top:1px solid var(--line)}
+.gwcs{list-style:none;margin:0 0 10px;padding:0;display:grid;gap:8px}
+.gwcs li{padding:9px 12px;font-size:.88rem;line-height:1.55;overflow-wrap:anywhere;white-space:pre-wrap;background:#1c1416;border:1px solid var(--line);border-radius:10px}
+.gwcs li.me{border-color:var(--red);background:#2a1014}
+.gwcs .gwm{margin-bottom:3px}
+.gwch{margin:6px 0 8px;font-size:.82rem;color:var(--deep)}
+.gwdel[data-arm="1"]{border-color:var(--red);color:#ff8a93}
+.gwnote{margin:8px 0 0;min-height:1.2em;font-size:.84rem;color:var(--sub)}
+.gwempty{padding:24px 8px;text-align:center;color:var(--deep);font-size:.9rem}
 </style>
 <div class="modal" id="cmodal" hidden>
   <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="cmtitle">
     <button type="button" class="x" id="cmclose" aria-label="닫기"><svg class="ic"><use href="#i-x"/></svg></button>
     <div class="dhead">
       <p class="eyebrow">COMMUNITY</p>
-      <h1 id="cmtitle">헌터 커뮤니티</h1>
+      <h1 id="cmtitle">커뮤니티</h1>
     </div>
     <div class="cmh">
       <p class="cmn">시민들이 올린 글이 5분마다 갱신됩니다. 읽기만 할 수 있습니다.</p>
       <button type="button" class="cmsnd" id="cmsnd" aria-pressed="true">알림음 켜짐</button>
     </div>
     <ul class="cml" id="cml" aria-live="polite"></ul>
+  </div>
+</div>
+<div class="modal" id="gwmodal" hidden>
+  <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="gwtitle">
+    <button type="button" class="x" id="gwclose" aria-label="닫기"><svg class="ic"><use href="#i-x"/></svg></button>
+    <div class="dhead">
+      <p class="eyebrow">GATEWAVE</p>
+      <h1 id="gwtitle">게이트웨이브</h1>
+    </div>
+    <div id="gwlist">
+      <div class="gwtop">
+        <p class="cmn">헌터들끼리만 이용하는 게시판입니다.</p>
+        <button type="button" class="hud-btn" id="gwnew">글쓰기</button>
+      </div>
+      <ul class="gwl" id="gwul" aria-live="polite"></ul>
+      <div class="gwrow"><button type="button" class="hud-btn" id="gwmore" hidden>더 보기</button></div>
+    </div>
+    <div id="gwwrite" class="gwf" hidden>
+      <div class="gwtop"><button type="button" class="hud-btn" id="gwwback">← 목록</button></div>
+      <form id="gwform" novalidate>
+        <label for="gwt">제목</label>
+        <input id="gwt" type="text" autocomplete="off" maxlength="40" placeholder="제목 (40자 이내)">
+        <label for="gwb">내용</label>
+        <textarea id="gwb" maxlength="1000" placeholder="내용 (1000자 이내)"></textarea>
+        <p class="gwcnt" id="gwbcnt">0 / 1000</p>
+        <div class="gwrow"><button type="submit" class="hud-btn" id="gwsubmit">올리기</button></div>
+      </form>
+      <p class="gwnote" id="gwwnote" role="status"></p>
+    </div>
+    <div id="gwview" class="gwv" hidden>
+      <div class="gwtop"><button type="button" class="hud-btn" id="gwvback">← 목록</button><button type="button" class="hud-btn gwdel" id="gwdel" hidden>삭제</button></div>
+      <p class="gwm" id="gwvmeta"></p>
+      <h3 id="gwvtitle"></h3>
+      <p class="gwbody" id="gwvbody"></p>
+      <p class="gwch" id="gwch"></p>
+      <ul class="gwcs" id="gwcs" aria-live="polite"></ul>
+      <form id="gwcform" class="msend" novalidate>
+        <label for="gwct" class="sr">댓글</label>
+        <input id="gwct" type="text" autocomplete="off" maxlength="200" placeholder="댓글을 입력하세요 (200자 이내)">
+        <button type="submit" class="hud-btn mbtn">등록</button>
+      </form>
+      <p class="gwnote" id="gwvnote" role="status"></p>
+    </div>
   </div>
 </div>
 <div class="modal" id="mmodal" hidden>
@@ -1802,7 +1874,7 @@ var globe=(function(){
   return {set:set,isOn:function(){return on},redraw:function(){if(on&&rm)draw()}};
 })();
 var gold=0,devApp=null,inventory=[],invSig="",invNote="";
-var APPS=[["msg","메신저","i-chat"],["com","헌터 커뮤니티","i-board"],["ach","업적","i-medal"],["sys","시스템 알림","i-bell"],["shop","상점","i-shop"],["inv","인벤토리","i-bag"]];
+var APPS=[["msg","메신저","i-chat"],["com","커뮤니티","i-board"],["gw","게이트웨이브","i-eye"],["ach","업적","i-medal"],["sys","시스템 알림","i-bell"],["shop","상점","i-shop"],["inv","인벤토리","i-bag"]];
 function devClock(){var d=new Date(),c=$("phclk");if(c)c.textContent=pad(d.getHours())+":"+pad(d.getMinutes())}
 function badgeOf(id){return id==="sys"?unreadNotices:id==="msg"?unreadMsgs+friendReqs:id==="com"?Math.max(0,Math.min(99,cmLatest-cmSeen)):0}
 function loadNotices(){
@@ -1941,7 +2013,7 @@ function renderDevice(){
       var t=document.createElement("span");t.textContent=a[1];b.appendChild(t);
       var bc=badgeOf(a[0]);
       if(bc){var n=document.createElement("span");n.className="app-b";n.textContent=String(bc);n.setAttribute("aria-label","읽지 않은 항목 "+bc+"건");b.appendChild(n)}
-      b.addEventListener("click",function(){if(a[0]==="msg"){openMs();return}if(a[0]==="com"){openCm();return}devApp=a[0];invNote="";renderDevice()});
+      b.addEventListener("click",function(){if(a[0]==="msg"){openMs();return}if(a[0]==="com"){openCm();return}if(a[0]==="gw"){openGw();return}devApp=a[0];invNote="";renderDevice()});
       g.appendChild(b);
     });
     scr.appendChild(g);return;
@@ -2563,7 +2635,7 @@ function enterGame(me){
   clearInterval(pollTimer);pollTimer=setInterval(pollState,5000);
   var h=$("hudloc");h.tabIndex=-1;h.focus();
 }
-// ── 헌터 커뮤니티 (읽기 전용) ──
+// ── 커뮤니티 (읽기 전용) ──
 var cmLatest=0,cmSeen=0,cmInit=false,cmSound=true,cmCtx=null,cmOpener=null,cmmodal=$("cmodal");
 try{cmSound=localStorage.getItem("hx_cmsnd")!=="off"}catch(e){}
 function cmKey(){return "hx_cmseen_"+myCode}
@@ -2586,7 +2658,7 @@ function cmPing(){
     });
   }catch(e){}
 }
-// 시스템 알림음: 헌터 커뮤니티(높은 두 음, 사인파)와 구별되는 낮고 짧은 세 음 하강 (약 0.8초, 삼각파)
+// 시스템 알림음: 커뮤니티(높은 두 음, 사인파)와 구별되는 낮고 짧은 세 음 하강 (약 0.8초, 삼각파)
 function sysPing(){
   if(!cmSound)return;var c=cmAudio();if(!c||c.state!=="running")return;
   try{
@@ -2650,10 +2722,107 @@ cmmodal.addEventListener("keydown",function(e){
   if(e.shiftKey&&document.activeElement===f){e.preventDefault();l.focus()}
   else if(!e.shiftKey&&document.activeElement===l){e.preventDefault();f.focus()}
 });
+// ── 게이트웨이브 (헌터 전용 게시판: 글 올리기·삭제, 댓글) ──
+var gwmodal=$("gwmodal"),gwOpener=null,gwLast=0,gwPost=0;
+function gwPane(n){["gwlist","gwwrite","gwview"].forEach(function(id){$(id).hidden=id!==n});gwmodal.scrollTop=0}
+function gwErr(r){return r.error==="rate_limited"?"잠시 후 다시 시도해주세요.":r.error==="bad_title"?"제목을 1~40자로 입력해주세요.":r.error==="bad_text"?"내용을 확인해주세요.":r.error==="not_found"?"글을 찾을 수 없습니다.":"처리하지 못했습니다."}
+function gwMeta(p,at){
+  var m=document.createDocumentFragment();
+  if(p.rank){var t=document.createElement("span");t.className="gwr"+(p.rank==="S"?" s":"");t.textContent=p.rank+"급";m.appendChild(t)}
+  var w=document.createElement("span");w.className="gww";w.textContent=p.hn;m.appendChild(w);
+  var a=document.createElement("span");a.className="gwat";a.textContent=cmAgo(at);m.appendChild(a);
+  return m;
+}
+function gwLoad(reset){
+  var ul=$("gwul");if(reset){gwLast=0;ul.innerHTML=""}
+  api("GET","/api/gw"+(gwLast?"?before="+gwLast:"")).then(function(r){
+    if(r.error){if(reset){ul.innerHTML="";var e=document.createElement("li");e.className="gwempty";e.textContent="글을 불러오지 못했습니다.";ul.appendChild(e)}return}
+    if(reset&&!r.posts.length){var e2=document.createElement("li");e2.className="gwempty";e2.textContent="아직 올라온 글이 없습니다. 첫 글을 올려보세요.";ul.appendChild(e2)}
+    r.posts.forEach(function(p){
+      var li=document.createElement("li"),b=document.createElement("button");b.type="button";b.className="gwi";
+      var m=document.createElement("p");m.className="gwm";m.appendChild(gwMeta(p,p.ts));
+      var h=document.createElement("h3");h.textContent=p.title;
+      var pv=document.createElement("p");pv.textContent=p.preview;
+      var cc=document.createElement("span");cc.className="gwcc";cc.textContent="댓글 "+p.cc;
+      b.appendChild(m);b.appendChild(h);b.appendChild(pv);b.appendChild(cc);li.appendChild(b);ul.appendChild(li);
+      b.addEventListener("click",function(){gwOpenPost(p.id)});
+      gwLast=p.id;
+    });
+    $("gwmore").hidden=!r.more;
+  }).catch(function(){});
+}
+function gwOpenPost(id,keepScroll){
+  gwPost=id;gwPane("gwview");$("gwvnote").textContent="";
+  api("GET","/api/gw/post?id="+id).then(function(r){
+    if(r.error){$("gwvnote").textContent=gwErr(r);return}
+    var p=r.post,mt=$("gwvmeta");mt.innerHTML="";mt.appendChild(gwMeta(p,p.ts));
+    $("gwvtitle").textContent=p.title;$("gwvbody").textContent=p.body;
+    var d=$("gwdel");d.hidden=!p.mine;d.dataset.arm="0";d.textContent="삭제";
+    $("gwch").textContent="댓글 "+r.comments.length;
+    var ul=$("gwcs");ul.innerHTML="";
+    r.comments.forEach(function(c){
+      var li=document.createElement("li");if(c.mine)li.className="me";
+      var m=document.createElement("p");m.className="gwm";m.appendChild(gwMeta(c,c.ts));
+      var t=document.createElement("span");t.textContent=c.text;
+      li.appendChild(m);li.appendChild(t);ul.appendChild(li);
+    });
+    if(keepScroll)gwmodal.scrollTop=gwmodal.scrollHeight;
+  }).catch(function(){$("gwvnote").textContent="불러오지 못했습니다."});
+}
+function openGw(){
+  gwOpener=document.activeElement;gwPane("gwlist");gwLoad(true);
+  gwmodal.hidden=false;document.body.style.overflow="hidden";$("gwclose").focus();
+}
+function closeGw(){gwmodal.hidden=true;document.body.style.overflow=(!rmodal.hidden||!mmodal.hidden)?"hidden":"";if(gwOpener&&gwOpener.focus)gwOpener.focus()}
+$("gwclose").addEventListener("click",closeGw);
+gwmodal.addEventListener("mousedown",function(e){if(e.target===gwmodal)closeGw()});
+$("gwmore").addEventListener("click",function(){gwLoad(false)});
+$("gwnew").addEventListener("click",function(){$("gwt").value="";$("gwb").value="";$("gwbcnt").textContent="0 / 1000";$("gwwnote").textContent="";gwPane("gwwrite");$("gwt").focus()});
+$("gwwback").addEventListener("click",function(){gwPane("gwlist")});
+$("gwvback").addEventListener("click",function(){gwPane("gwlist");gwLoad(true)});
+$("gwb").addEventListener("input",function(){$("gwbcnt").textContent=Array.from(this.value).length+" / 1000"});
+$("gwform").addEventListener("submit",function(e){
+  e.preventDefault();var t=$("gwt").value.trim(),b=$("gwb").value.trim(),n=$("gwwnote"),btn=$("gwsubmit");
+  if(!t){n.textContent="제목을 입력해주세요.";return}
+  if(!b){n.textContent="내용을 입력해주세요.";return}
+  btn.disabled=true;n.textContent="";
+  api("POST","/api/gw/post",{title:t,text:b}).then(function(r){
+    btn.disabled=false;
+    if(r.error){n.textContent=gwErr(r);return}
+    gwOpenPost(r.id);
+  }).catch(function(){btn.disabled=false;n.textContent="올리지 못했습니다."});
+});
+$("gwdel").addEventListener("click",function(){
+  var d=this;
+  if(d.dataset.arm!=="1"){d.dataset.arm="1";d.textContent="한 번 더 누르면 삭제됩니다";setTimeout(function(){if(d.dataset.arm==="1"){d.dataset.arm="0";d.textContent="삭제"}},4000);return}
+  d.disabled=true;
+  api("POST","/api/gw/post/delete",{id:gwPost}).then(function(r){
+    d.disabled=false;
+    if(r.error){$("gwvnote").textContent=gwErr(r);return}
+    gwPane("gwlist");gwLoad(true);
+  }).catch(function(){d.disabled=false;$("gwvnote").textContent="삭제하지 못했습니다."});
+});
+$("gwcform").addEventListener("submit",function(e){
+  e.preventDefault();var i=$("gwct"),t=i.value.trim();if(!t)return;
+  var btn=this.querySelector("button");btn.disabled=true;
+  api("POST","/api/gw/comment",{id:gwPost,text:t}).then(function(r){
+    btn.disabled=false;
+    if(r.error){$("gwvnote").textContent=gwErr(r);return}
+    i.value="";gwOpenPost(gwPost,true);
+  }).catch(function(){btn.disabled=false;$("gwvnote").textContent="등록하지 못했습니다."});
+});
+document.addEventListener("keydown",function(e){if(e.key==="Escape"&&!gwmodal.hidden&&hmodal.hidden)closeGw()});
+gwmodal.addEventListener("keydown",function(e){
+  if(e.key!=="Tab")return;
+  var list=Array.prototype.filter.call(gwmodal.querySelectorAll("button,input,textarea"),function(el){return el.offsetParent!==null&&!el.disabled});
+  if(!list.length)return;var f=list[0],l=list[list.length-1];
+  if(e.shiftKey&&document.activeElement===f){e.preventDefault();l.focus()}
+  else if(!e.shiftKey&&document.activeElement===l){e.preventDefault();f.focus()}
+});
 function leaveGame(note){
   bgmStop();globe.set(false);
   clearInterval(pollTimer);clearInterval(mTimer);
-  [rmodal,hmodal,mmodal,$("cmodal"),ntmodal,qmodal].forEach(function(m){m.hidden=true});cmReset();document.body.style.overflow="";
+  [rmodal,hmodal,mmodal,$("cmodal"),$("gwmodal"),ntmodal,qmodal].forEach(function(m){m.hidden=true});cmReset();document.body.style.overflow="";
   $("game").hidden=true;forceFront=false;showFront();
   if(note){var hm=$("hmsg");if(hm){hm.textContent=note;hm.className="hmsg"}}
 }
