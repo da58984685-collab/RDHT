@@ -41,6 +41,11 @@ const COUNTRIES = [
   { id: 'AU', name: '호주', lat: -25, lon: 134, regions: [
     R('au-sydney', '시드니항', '불 꺼진 오페라 하우스', 'i-port', 'C', P4[0]), R('au-opal', '쿠버페디 광산', '지하 오팔 갱도', 'i-mine', 'C', P4[1]),
     R('au-reef', '대보초', '죽어 가는 산호 군락', 'i-wave', 'E', P4[2]), R('au-outback', '아웃백', '붉은 사막의 균열', 'i-gate', 'A', P4[3])] },
+  // 적월문: 일본 동쪽 먼바다 위의 구역. 문으로 들어가면 안쪽 지역 가운데 한 곳으로 무작위 이동합니다.
+  { id: 'GT', name: '적월문', lat: 35, lon: 155, gate: true, regions: [
+    R('gt-hill', '푸른 언덕', '바람이 부는 풀밭 언덕', 'i-grass', 'E', [60, 120]), R('gt-ridge', '바위 골짜기', '깎아지른 바위벽 사이의 골짜기', 'i-rock', 'D', [140, 70]),
+    R('gt-peak', '구름 봉우리', '구름을 두른 먼 산', 'i-mtn', 'C', [100, 45]), R('gt-wood', '외딴 숲길', '홀로 선 나무들의 길', 'i-tree', 'D', [50, 60]),
+    R('gt-field', '폐허의 도시', '무너진 건물이 늘어선 거리', 'i-city', 'B', [140, 140]), R('gt-lake', '푸른 바다', '파도가 닿는 해안 절벽', 'i-wave', 'C', [95, 150])] },
 ];
 const COUNTRY_BY_ID = Object.fromEntries(COUNTRIES.map(c => [c.id, c]));
 const REGIONS = COUNTRIES.flatMap(c => c.regions.map(r => Object.assign({}, r, { country: c.id })));
@@ -103,7 +108,7 @@ const ACH_SEED = [
 const ACH_PIN_MAX = 3;
 // 등급별 오염도(%) 상승 범위 [최소, 최대] (0.1% 단위)
 const KILL_TAINT = { F: [9, 11], E: [11, 13], D: [13, 16], C: [16, 20], B: [20, 25], A: [25, 30], S: [30, 40] };   // F급은 평균 10%: 토벌 10회에 오염도 100% (정화 필요)
-const TAINT_SCALE = 0.97;   // 오염도 상승량 3% 감소
+const TAINT_SCALE = 0.485;   // 오염도 상승량 50% 감소 (이전 0.97 의 절반)
 const rollTaint = rank => {
   const r = KILL_TAINT[rank] || [0, 0], lo = Math.round(r[0] * 10), hi = Math.round(r[1] * 10);
   return Math.round((lo + Math.floor(Math.random() * (hi - lo + 1))) * TAINT_SCALE) / 10;
