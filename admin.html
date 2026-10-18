@@ -166,7 +166,7 @@ body{overflow-wrap:break-word}
     <div class="tw"><table><thead><tr><th>초대 코드</th><th>사용 인원</th><th>상태</th><th>첫 보상 (1회 · 수정 불가)</th><th>사용한 헌터</th><th></th></tr></thead><tbody id="ilist"></tbody></table></div>
   </section>
   <section class="card" id="bdbox">
-    <h3 style="margin-bottom:4px">헌터 커뮤니티 관리 <span class="muted" style="font-weight:400;font-size:.85rem">(최근 글 100개 · 수정·삭제는 관리자만 가능 · 저장하면 헌터 화면에 바로 반영)</span></h3>
+    <h3 style="margin-bottom:4px">커뮤니티 관리 <span class="muted" style="font-weight:400;font-size:.85rem">(최근 글 100개 · 수정·삭제는 관리자만 가능 · 저장하면 헌터 화면에 바로 반영)</span></h3>
     <div id="bdmsg" class="muted" style="min-height:1.3em;font-size:.85rem"></div>
     <div class="tw"><table><thead><tr><th>작성 시각</th><th>작성자</th><th>분류</th><th>제목</th><th>본문</th><th></th></tr></thead><tbody id="bdlist"></tbody></table></div>
   </section>
@@ -451,7 +451,7 @@ function delPlayer(){
   });
 }
 
-// ── 헌터 커뮤니티 게시글 관리 ──
+// ── 커뮤니티 게시글 관리 ──
 var bdDirty=false;
 function bdRow(p){
   return '<tr data-bid="'+p.id+'"><td style="white-space:nowrap">'+esc(dt(p.at))+'<div class="muted" style="font-size:.75rem">#'+p.id+'</div></td>'+
