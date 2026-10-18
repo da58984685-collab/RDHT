@@ -521,7 +521,7 @@ async function getRec() {
 function publicUser(u) {
   return {
     code: u.code, name: u.name, gender: u.gender, age: u.age, personality: u.personality,
-    traits: JSON.parse(u.traits), image: u.image, hunterName: u.hunter_name, rank: u.rank,
+    traits: JSON.parse(u.traits), image: u.image || '', hunterName: u.hunter_name, rank: u.rank,
     stats: statsOf(u), lv: u.lv, exp: u.exp, gold: u.gold, region: u.region,
   };
 }
@@ -536,10 +536,10 @@ async function sInfo(userId, now) {
 const fxOf = st => ({ win: Math.round(Math.min(G.PROB_CAP, (Number(st.str) || 0) * G.STR_WIN) * 100), guard: Math.round(G.guardChance(st.agi) * 100), free: Math.round(G.freeChance(st.luck) * 100) });
 async function buildState(u, now) {
   await settleDying(u.id, now);
-  u = (await db.get('SELECT * FROM users WHERE id = ?', [u.id])) || u;
+  u = (await userById(u.id)) || u;
   await tickPersonal(u.id, now);
   await corruptCheck(u.id);
-  u = (await db.get('SELECT * FROM users WHERE id = ?', [u.id])) || u;
+  u = (await userById(u.id)) || u;
   await syncAchEarned(u, now);
   // 보이는 몬스터: 서버 공통 S급 + 내 몬스터(F~A). 예전 공통 F~A 몬스터는 보이지 않습니다.
   const vis = "((owner_id IS NULL AND (rank = 'S' OR corrupt_of IS NOT NULL)) OR owner_id = ?)";
@@ -603,7 +603,7 @@ async function authUser(req) {
   const t = cookies(req).sid;
   if (!t) return null;
   const row = await db.get(
-    'SELECT u.* FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token_hash = ? AND s.expires_at > ?',
+    'SELECT ' + (await userSel('u.')) + ' FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token_hash = ? AND s.expires_at > ?',
     [sha256(t), Date.now()]);
   if (row) {      // 접속 시각 기록 (요청마다 쓰지 않도록 20초에 한 번만 갱신)
     const now = Date.now();
@@ -635,7 +635,19 @@ const logHunt = (uid, m, result, gain, at) => db.run(
   'INSERT INTO hunt_log (user_id, monster_id, mon, rank, result, exp_gain, at) VALUES (?, ?, ?, ?, ?, ?, ?)', [uid, m.id, m.name, m.rank, result, gain, at]);
 const logAcquire = (uid, kind, name, qty, source, at) => db.run(
   'INSERT INTO acquire_log (user_id, kind, name, qty, source, at) VALUES (?, ?, ?, ?, ?, ?)', [uid, kind, name, qty, source, at]);
-const userByCode = code => db.get('SELECT * FROM users WHERE code = ?', [code]);
+// 캐릭터 이미지(최대 약 800KB)는 매 요청마다 읽으면 DB 전송량이 크게 늘어서, 일반 조회에서는 빼고 필요할 때만 따로 읽습니다.
+let _userCols = null;
+async function userSel(prefix) {
+  if (!_userCols) {
+    const r = await db.get('SELECT * FROM users LIMIT 1');
+    if (!r) return (prefix || '') + '*';           // 아직 가입자가 없을 때
+    _userCols = Object.keys(r).filter(k => k !== 'image');
+  }
+  return _userCols.map(k => (prefix || '') + k).join(', ');
+}
+const userById = async id => db.get('SELECT ' + (await userSel()) + ' FROM users WHERE id = ?', [id]);
+const userByCode = async code => db.get('SELECT ' + (await userSel()) + ' FROM users WHERE code = ?', [code]);
+const withImage = async u => { if (!u) return u; const r = await db.get('SELECT image FROM users WHERE id = ?', [u.id]); return Object.assign({}, u, { image: r ? r.image : '' }); };
 const isFriend = async (a, b) => !!(await db.get('SELECT 1 AS x FROM friends WHERE user_id = ? AND friend_id = ?', [a, b]));
 
 // ───────────── 경로 ─────────────
@@ -799,13 +811,13 @@ route('POST', '/api/logout', async (req, res) => {
 
 route('GET', '/api/me', async (req, res, ctx) => {
   await catchUp();
-  const u = await db.get('SELECT * FROM users WHERE id = ?', [ctx.user.id]);
-  send(res, 200, { user: publicUser(u), state: await buildState(u, Date.now()) });
+  const u = await userById(ctx.user.id);
+  send(res, 200, { user: publicUser(await withImage(u)), state: await buildState(u, Date.now()) });
 });
 
 route('GET', '/api/state', async (req, res, ctx) => {
   await catchUp();
-  const u = await db.get('SELECT * FROM users WHERE id = ?', [ctx.user.id]);
+  const u = await userById(ctx.user.id);
   send(res, 200, await buildState(u, Date.now()));
 });
 
@@ -961,7 +973,7 @@ function pickMaterial(region) {
 route('POST', '/api/survey', async (req, res, ctx) => {
   if (await limited('survey:' + ctx.user.id, 30, 60000)) return fail(res, 429, 'rate_limited');
   const now = Date.now();
-  const cur = await db.get('SELECT * FROM users WHERE id = ?', [ctx.user.id]);
+  const cur = await userById(ctx.user.id);
   if (G.countryOf(cur.region) !== 'GT') return fail(res, 409, 'not_here');                 // 적월문 안쪽에서만 조사할 수 있음
   if (corruptLock(cur, now)) return fail(res, 409, 'corrupted', { until: cur.corrupt_until });
   const region = cur.region, idx = Number(ctx.body.idx);
@@ -1015,7 +1027,7 @@ route('POST', '/api/craft', async (req, res, ctx) => {
   if (await limited('craft:' + ctx.user.id, 60, 60000)) return fail(res, 429, 'rate_limited');
   const rc = G.RECIPES.find(r => r.id === String(ctx.body.id || ''));
   if (!rc) return fail(res, 404, 'no_recipe');
-  const cur = await db.get('SELECT * FROM users WHERE id = ?', [ctx.user.id]);
+  const cur = await userById(ctx.user.id);
   if (corruptLock(cur, Date.now())) return fail(res, 409, 'corrupted', { until: cur.corrupt_until });
   const have = await db.get('SELECT qty FROM inventory WHERE user_id = ? AND item = ?', [cur.id, rc.name]);
   if (have && Number(have.qty) >= 9999) return fail(res, 409, 'max_qty');
@@ -1078,7 +1090,7 @@ route('POST', '/api/hunt', async (req, res, ctx) => {
   const u = ctx.user, now = Date.now();
   if (await limited('hunt:' + u.id, 30, 60000)) return fail(res, 429, 'rate_limited');
   await catchUp();
-  const cur = await db.get('SELECT * FROM users WHERE id = ?', [u.id]);
+  const cur = await userById(u.id);
   if (cur.block_flags & 1) return fail(res, 403, 'blocked', { what: 'hunt' });      // 운영자가 토벌을 막아 둠
   const m = await db.get('SELECT * FROM monsters WHERE id = ?', [Number(ctx.body.id)]);
   if (!m) return fail(res, 410, 'expired');
@@ -1237,7 +1249,7 @@ route('GET', '/api/friend/profile', async (req, res, ctx) => {
   await syncAchEarned(f, Date.now(), true);
   const a = await db.get(`SELECT a.name, a.descr, e.at FROM ach_earned e JOIN achievements a ON a.id = e.ach_id
     WHERE e.user_id = ? ORDER BY e.at DESC, e.rowid DESC LIMIT 1`, [f.id]);
-  send(res, 200, { profile: { code: f.code, hn: f.hunter_name, rank: f.rank, image: f.image || '',
+  send(res, 200, { profile: { code: f.code, hn: f.hunter_name, rank: f.rank, image: (await withImage(f)).image || '',
     region: G.placeLong(f.region), ach: a ? { name: a.name, desc: a.descr, at: a.at } : null } });
 });
 
@@ -1413,7 +1425,7 @@ route('GET', '/api/admin/player', async (req, res) => {
   const ach = await achOf(u);
   send(res, 200, {
     achievements: ach.map(a => ({ id: a.id, name: a.name, desc: a.descr, kind: a.kind, met: a.met, granted: a.granted, done: a.done })),
-    player: Object.assign(publicUser(u), { inviteReward: await inviteRewardOf(u.id), invite: u.invite_code || '', created: u.created_at, lastSeen: Number(u.last_seen) || 0, region: G.placeLong(u.region), friends: fr.c }),
+    player: Object.assign(publicUser(await withImage(u)), { inviteReward: await inviteRewardOf(u.id), invite: u.invite_code || '', created: u.created_at, lastSeen: Number(u.last_seen) || 0, region: G.placeLong(u.region), friends: fr.c }),
     items: inv, acquired: acq, hunts, counts: cnt, pendingS: pend.map(p => ({ mon: p.name, at: p.resolve_at })),
     activity: { corruptMonster: !!(await db.get('SELECT 1 AS x FROM monsters WHERE corrupt_of = ? AND spawned_at > ?', [u.id, Date.now() - CORRUPT_MS])), adminChar: !!u.admin_char, blocked: u.block_flags | 0, corruptUntil: corruptLock(u, Date.now()) ? u.corrupt_until : 0, dyingUntil: u.dying_until > Date.now() ? u.dying_until : 0,
       taint: Number(JSON.parse(u.stats).taint) || 0, now: Date.now() },
@@ -1669,11 +1681,11 @@ async function promoInfo(u) {
   return { rank: u.rank, next: rule.to, conds, can: conds.every(c => c.ok), max: false, fame: G.FAME_PER_RANK };
 }
 route('GET', '/api/promote', async (req, res, ctx) => {
-  const u = await db.get('SELECT * FROM users WHERE id = ?', [ctx.user.id]);
+  const u = await userById(ctx.user.id);
   send(res, 200, await promoInfo(u));
 });
 route('POST', '/api/promote', async (req, res, ctx) => {
-  const u = await db.get('SELECT * FROM users WHERE id = ?', [ctx.user.id]);
+  const u = await userById(ctx.user.id);
   const info = await promoInfo(u);
   if (info.max) return fail(res, 400, 'max_rank');
   if (!info.can) return fail(res, 400, 'not_ready', { conds: info.conds });
@@ -1881,13 +1893,13 @@ route('POST', '/api/admin/s/recall', async (req, res, ctx) => {
 
 // ── 업적 API ──
 route('GET', '/api/achievements', async (req, res, ctx) => {
-  const u = await db.get('SELECT * FROM users WHERE id = ?', [ctx.user.id]);
+  const u = await userById(ctx.user.id);
   const list = await achOf(u), pins = pinnedList(u, list).map(p => p.id);
   send(res, 200, { max: G.ACH_PIN_MAX, list: list.map(a => ({ id: a.id, name: a.name, desc: a.descr, done: a.done, pinned: pins.includes(a.id) })) });
 });
 
 route('POST', '/api/achievements/pin', async (req, res, ctx) => {
-  const u = await db.get('SELECT * FROM users WHERE id = ?', [ctx.user.id]);
+  const u = await userById(ctx.user.id);
   const list = await achOf(u), a = list.find(x => x.id === String(ctx.body.id));
   if (!a) return fail(res, 404, 'no_ach');
   let pins = pinnedList(u, list).map(p => p.id);
