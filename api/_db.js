@@ -355,22 +355,33 @@ function postgres() {
     init: async () => {
       const c = await pool.connect();
       try {
+        // 이미 최신 표 구조이면 잠금 없이 바로 통과합니다 (대부분의 요청은 여기서 끝남)
+        const upToDate = async () => {
+          const has = await c.query("SELECT to_regclass('public.settings') AS t");
+          if (!has.rows[0].t) return false;
+          const v = await c.query("SELECT value FROM settings WHERE key = 'pg_schema_v'");
+          return !!(v.rows[0] && v.rows[0].value === SCHEMA_V);
+        };
+        if (await upToDate()) return;
         // 여러 서버가 동시에 처음 켜져도 한 곳만 표를 만들도록 잠급니다.
         await c.query('SELECT pg_advisory_lock(727001)');
         try {
-          const has = await c.query("SELECT to_regclass('public.settings') AS t");
-          if (has.rows[0].t) {
-            const v = await c.query("SELECT value FROM settings WHERE key = 'pg_schema_v'");
-            if (v.rows[0] && v.rows[0].value === SCHEMA_V) return;
-          }
-          for (const st of toPgSchema(SCHEMA).split(';').map(x => x.trim()).filter(Boolean)) await c.query(st);
+          if (await upToDate()) return;
+          // 문장을 하나씩 보내면 DB가 멀리 있을 때 왕복 시간만 수십 초가 걸려 서버가 시간 초과로 멈춥니다.
+          // 그래서 표 만들기와 보정 문장을 각각 한 번에 묶어서 보냅니다.
+          await c.query(toPgSchema(SCHEMA).split(';').map(x => x.trim()).filter(Boolean).join(';\n'));
+          const migs = [];
           for (const m of MIGRATIONS) {
             if (/json_set|hp100_v1/.test(m)) continue; // SQLite 전용 옛 데이터 보정 (새 데이터베이스에는 필요 없음)
-            const sql = toPgSchema(m).replace(/ADD COLUMN (?!IF NOT EXISTS)/, 'ADD COLUMN IF NOT EXISTS ');
-            try { await c.query(tr.translate(sql)); } catch (_) {}
+            migs.push(tr.translate(toPgSchema(m).replace(/ADD COLUMN (?!IF NOT EXISTS)/, 'ADD COLUMN IF NOT EXISTS ')));
           }
-          await c.query('ALTER TABLE monsters ADD COLUMN IF NOT EXISTS owner_id BIGINT');
-          await c.query('CREATE INDEX IF NOT EXISTS monsters_owner ON monsters(owner_id, spawned_at)');
+          migs.push('ALTER TABLE monsters ADD COLUMN IF NOT EXISTS owner_id BIGINT');
+          migs.push('CREATE INDEX IF NOT EXISTS monsters_owner ON monsters(owner_id, spawned_at)');
+          try { await c.query(migs.join(';\n')); }                       // 한 번에 성공하면 끝
+          catch (_) {                                                      // 한 문장이라도 실패하면 하나씩 보내 실패한 것만 건너뜁니다
+            try { await c.query('ROLLBACK'); } catch (__) {}
+            for (const m of migs) { try { await c.query(m); } catch (__) {} }
+          }
           await c.query("INSERT INTO settings (key, value) VALUES ('pg_schema_v', $1) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value", [SCHEMA_V]);
         } finally { try { await c.query('SELECT pg_advisory_unlock(727001)'); } catch (_) {} }
       } finally { c.release(); }
