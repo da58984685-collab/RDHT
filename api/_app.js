@@ -870,6 +870,51 @@ route('POST', '/api/gifts/send', async (req, res, ctx) => {
   await logAcquire(f.id, 'item', item, qty, '선물 (' + u.hunter_name + ')', now);
   send(res, 200, { ok: true, kind, to: f.hunter_name, item, qty });
 });
+// ── 적월문 조사: 안쪽 지역의 '!' 를 눌러 아이템을 찾습니다. 한 번 마치면 3시간 동안 다시 조사할 수 없습니다. ──
+const SURVEY_CD = 3 * G.HOUR;
+route('GET', '/api/survey', async (req, res, ctx) => {
+  const u = await db.get('SELECT survey_at FROM users WHERE id = ?', [ctx.user.id]);
+  const until = (Number(u.survey_at) || 0) + SURVEY_CD, now = Date.now();
+  send(res, 200, { ready: until <= now, until, now });
+});
+route('POST', '/api/survey', async (req, res, ctx) => {
+  if (await limited('survey:' + ctx.user.id, 12, 60000)) return fail(res, 429, 'rate_limited');
+  const now = Date.now();
+  const cur = await db.get('SELECT * FROM users WHERE id = ?', [ctx.user.id]);
+  if (G.countryOf(cur.region) !== 'GT') return fail(res, 409, 'not_here');                 // 적월문 안쪽에서만 조사할 수 있음
+  if (corruptLock(cur, now)) return fail(res, 409, 'corrupted', { until: cur.corrupt_until });
+  // 쿨다운 확인과 시작 시각 기록을 한 문장으로 처리해, 동시에 눌러도 한 번만 성공합니다.
+  const mark = await db.run('UPDATE users SET survey_at = ? WHERE id = ? AND survey_at <= ?', [now, cur.id, now - SURVEY_CD]);
+  if (mark.changes !== 1) {
+    const f = await db.get('SELECT survey_at FROM users WHERE id = ?', [cur.id]);
+    return fail(res, 429, 'cooldown', { until: (Number(f.survey_at) || 0) + SURVEY_CD, now });
+  }
+  try {
+    // 상점에 등록된 아이템 중 하나를 찾습니다 (값이 싼 아이템일수록 더 자주 나옴). 아이템이 없으면 골드를 찾습니다.
+    const items = await db.all('SELECT name, price FROM shop_items');
+    let pick = null;
+    if (items.length) {
+      const ws = items.map(i => 1 / (1 + (Number(i.price) || 0) / 100)), tot = ws.reduce((a, b) => a + b, 0);
+      let r = Math.random() * tot, k = 0;
+      while (k < items.length - 1 && r > ws[k]) { r -= ws[k]; k++; }
+      pick = items[k];
+      const have = await db.get('SELECT qty FROM inventory WHERE user_id = ? AND item = ?', [cur.id, pick.name]);
+      if (have && Number(have.qty) >= 9999) pick = null;       // 가득 찬 아이템이면 골드로 대신 줍니다
+    }
+    if (pick) {
+      await db.run('INSERT INTO inventory (user_id, item, qty) VALUES (?, ?, 1) ON CONFLICT(user_id, item) DO UPDATE SET qty = MIN(9999, qty + 1)', [cur.id, pick.name]);
+      await logAcquire(cur.id, 'item', pick.name, 1, '적월문 조사', now);
+      return send(res, 200, { kind: 'item', item: pick.name, qty: 1, until: now + SURVEY_CD });
+    }
+    const gold = G.rnd(30, 120);
+    await grantGold(cur.id, gold);
+    await logAcquire(cur.id, 'gold', '골드', gold, '적월문 조사', now);
+    send(res, 200, { kind: 'gold', qty: gold, until: now + SURVEY_CD });
+  } catch (e) {
+    await db.run('UPDATE users SET survey_at = ? WHERE id = ? AND survey_at = ?', [Number(cur.survey_at) || 0, cur.id, now]);   // 실패하면 쿨다운을 되돌립니다
+    throw e;
+  }
+});
 route('GET', '/api/gifts', async (req, res, ctx) => {
   const rows = await db.all(`SELECT g.id, g.kind, g.item, g.qty, g.ts, g.seen, u.hunter_name AS hn FROM gifts g LEFT JOIN users u ON u.id = g.from_id
     WHERE g.to_id = ? ORDER BY g.id DESC LIMIT 20`, [ctx.user.id]);
