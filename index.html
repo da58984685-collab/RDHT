@@ -249,6 +249,16 @@ main.landing{display:flex;align-items:center;justify-content:center;max-width:no
 .nt-ok{width:100%;padding:12px 16px;font-size:1rem}
 .use-btn{flex:none;min-height:32px;padding:0 12px;font:700 .78rem/1 "Noto Sans KR",sans-serif;color:#fff;background:linear-gradient(135deg,#a8202c,#5a0f16);border:1px solid var(--red2);border-radius:8px;cursor:pointer}
 .use-btn:disabled{opacity:.5;cursor:not-allowed}
+.inv-act{display:flex;gap:6px;flex:none;align-items:flex-start}
+.gift-btn{flex:none;min-height:32px;padding:0 12px;font:700 .78rem/1 "Noto Sans KR",sans-serif;color:var(--text);background:var(--field);border:1px solid var(--line);border-radius:8px;cursor:pointer}
+.gift-btn:hover{border-color:var(--red2)}
+.gift-gold{display:block;margin:0 0 10px;min-height:36px}
+.gift-h{margin:14px 0 6px;font-size:.84rem;color:var(--sub)}
+.gift-new{margin-left:6px;padding:1px 6px;font-size:.66rem;color:#fff;background:var(--red);border-radius:999px}
+.gfsel{width:100%;padding:10px 12px;font:inherit;color:var(--text);background:var(--field);border:1px solid var(--line);border-radius:9px}
+.gfsel:focus{outline:2px solid var(--red2);outline-offset:1px}
+.gfwhat{margin:0 0 6px;font-size:.92rem;font-weight:700;color:var(--text);overflow-wrap:anywhere}
+.gff label{display:block;margin:12px 0 4px;font-size:.8rem;color:var(--sub)}
 .inv-fx{display:block;margin-top:3px;color:#ff8a93}
 .app-note{margin:0 0 10px;padding:8px 10px;border:1px solid var(--line);border-radius:10px;font-size:.82rem;color:var(--text)}
 .statfx{margin:12px 0 0;font-size:.76rem;line-height:1.6;color:var(--deep)}
@@ -970,6 +980,24 @@ input[type=checkbox]:focus-visible{outline:2px solid var(--deep);outline-offset:
     </div>
   </div>
 </div>
+<div class="modal" id="gfmodal" hidden style="z-index:11">
+  <div class="dialog small" role="dialog" aria-modal="true" aria-labelledby="gftitle">
+    <button type="button" class="x" id="gfclose" aria-label="닫기"><svg class="ic"><use href="#i-x"/></svg></button>
+    <div class="dhead">
+      <p class="eyebrow">GIFT</p>
+      <h1 id="gftitle">선물하기</h1>
+    </div>
+    <form id="gfform" class="gff" novalidate>
+      <p class="gfwhat" id="gfwhat"></p>
+      <label for="gfto">받는 친구</label>
+      <select id="gfto" class="gfsel"></select>
+      <label for="gfqty" id="gfqlbl">수량</label>
+      <input id="gfqty" type="number" inputmode="numeric" min="1" step="1" value="1">
+      <p class="gwnote" id="gfnote" role="status"></p>
+      <div class="gwrow"><button type="submit" class="hud-btn" id="gfsend">보내기</button><button type="button" class="hud-btn" id="gfcancel">취소</button></div>
+    </form>
+  </div>
+</div>
 <div class="modal" id="mmodal" hidden>
   <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="mtitle">
     <button type="button" class="x" id="mclose" aria-label="닫기"><svg class="ic"><use href="#i-x"/></svg></button>
@@ -1351,7 +1379,7 @@ var STAT_DEF=[["hp","체력","i-hp"],["str","근력","i-str"],["agi","민첩","i
 var HUNT_DIFF={F:"쉬움",E:"쉬움",D:"쉬움",C:"보통",B:"보통",A:"어려움",S:"매우 어려움"};
 var curRegion="city",alerts=[],pollTimer=null,skew=0,polling=false,paused=false;
 var sysInit=false,srvUnread=0;
-var SI={remaining:3,resetAt:0,need:10,max:3},pendingList=[],unreadNotices=0,unreadMsgs=0,seenIds={},alertSig="";
+var SI={remaining:3,resetAt:0,need:10,max:3},pendingList=[],unreadNotices=0,giftUnread=0,unreadMsgs=0,seenIds={},alertSig="";
 var power={lv:1,exp:0};
 function nowS(){return Date.now()+skew}
 function pad(n){return (n<10?"0":"")+n}
@@ -1880,7 +1908,7 @@ var globe=(function(){
 var gold=0,devApp=null,inventory=[],invSig="",invNote="";
 var APPS=[["gw","게이트웨이브","i-eye"],["msg","메신저","i-chat"],["com","커뮤니티","i-board"],["ach","업적","i-medal"],["sys","시스템 알림","i-bell"],["shop","상점","i-shop"],["inv","인벤토리","i-bag"]];
 function devClock(){var d=new Date(),c=$("phclk");if(c)c.textContent=pad(d.getHours())+":"+pad(d.getMinutes())}
-function badgeOf(id){return id==="sys"?unreadNotices:id==="msg"?unreadMsgs+friendReqs:id==="com"?Math.max(0,Math.min(99,cmLatest-cmSeen)):0}
+function badgeOf(id){return id==="inv"?giftUnread:id==="sys"?unreadNotices:id==="msg"?unreadMsgs+friendReqs:id==="com"?Math.max(0,Math.min(99,cmLatest-cmSeen)):0}
 function loadNotices(){
   var scr=$("phscr");
   api("GET","/api/notices").then(function(r){
@@ -2031,6 +2059,8 @@ function renderDevice(){
   else if(devApp==="shop"){addGoldTag(scr);empty("불러오는 중…");loadShop()}
   else if(devApp==="inv"){
     addGoldTag(scr);
+    var gg=document.createElement("button");gg.type="button";gg.className="gift-btn gift-gold";gg.textContent="골드 선물하기";
+    gg.addEventListener("click",function(){openGift("gold","",0,gg)});scr.appendChild(gg);
     if(invNote){var nt=document.createElement("p");nt.className="app-note";nt.setAttribute("role","status");nt.textContent=invNote;scr.appendChild(nt)}
     if(!inventory.length)empty("보유한 아이템이 없습니다.");
     else{
@@ -2041,6 +2071,9 @@ function renderDevice(){
         var sm=document.createElement("small");sm.textContent="x"+it.qty;tx.appendChild(sm);
         if(it.eff){var fx=document.createElement("small");fx.className="inv-fx";fx.textContent="사용 효과 · "+fxText(it.eff);tx.appendChild(fx)}
         li.appendChild(tx);
+        var ac=document.createElement("div");ac.className="inv-act";
+        var gb=document.createElement("button");gb.type="button";gb.className="gift-btn";gb.textContent="선물";
+        gb.addEventListener("click",function(){openGift("item",it.item,it.qty,gb)});ac.appendChild(gb);li.appendChild(ac);
         if(it.eff){
           var ub=document.createElement("button");ub.type="button";ub.className="use-btn";ub.textContent="사용";
           ub.addEventListener("click",function(){
@@ -2051,12 +2084,13 @@ function renderDevice(){
               if(x.ok){var n2=scr.querySelector(".app-note");if(!n2){n2=document.createElement("p");n2.className="app-note";n2.setAttribute("role","status");scr.insertBefore(n2,scr.querySelector(".app-list"))}n2.textContent=invNote}
             });
           });
-          li.appendChild(ub);
+          ac.insertBefore(ub,gb);
         }
         iu.appendChild(li);
       });
       scr.appendChild(iu);
     }
+    loadGifts(scr);
   }
   else if(devApp==="sys"){empty("불러오는 중…");loadNotices()}
   else if(devApp==="ach"){empty("불러오는 중…");loadAch()}
@@ -2111,7 +2145,7 @@ function applyState(st,first){
   var rsg=JSON.stringify(st.rec||null);if(rsg!==recSig){recSig=rsg;curRec=st.rec||null;renderRec()}
   var isg=JSON.stringify(st.inventory||[]);
   if(isg!==invSig){invSig=isg;inventory=st.inventory||[];if(devApp==="inv")renderDevice()}
-  SI=st.s;pendingList=st.pending||[];var su=st.unreadNotices||0;if(sysInit&&su>srvUnread)sysPing();sysInit=true;srvUnread=su;unreadNotices=su;unreadMsgs=st.unreadMsgs||0;friendReqs=st.friendReqs||0;cmUpdate(st.board||0);
+  SI=st.s;pendingList=st.pending||[];var su=st.unreadNotices||0;if(sysInit&&su>srvUnread)sysPing();sysInit=true;srvUnread=su;unreadNotices=su;giftUnread=st.giftUnread||0;unreadMsgs=st.unreadMsgs||0;friendReqs=st.friendReqs||0;cmUpdate(st.board||0);
   if(st.user&&!privBusy){var pcb=$("gpriv");if(pcb)pcb.checked=!!st.user.private}
   if(st.user){inqUnread=st.user.inqUnread|0;isAdminChar=!!st.user.adminChar;updInq();blockedBits=st.user.blocked|0;corruptUntil=st.user.corruptUntil||0;taintedNow=!!st.user.tainted;dyingUntil=st.user.dyingUntil||0;statFx=st.user.fx||null;updFx();updDying()}
   if(!paused||first){
@@ -2726,6 +2760,63 @@ cmmodal.addEventListener("keydown",function(e){
   if(e.shiftKey&&document.activeElement===f){e.preventDefault();l.focus()}
   else if(!e.shiftKey&&document.activeElement===l){e.preventDefault();f.focus()}
 });
+// ── 선물하기 (친구에게 아이템·골드) ──
+var gfmodal=$("gfmodal"),gfKind="item",gfItem="",gfMax=0,gfOpener=null;
+function gfErr(r){var e=r.error;return e==="not_friend"?"친구에게만 선물할 수 있습니다.":e==="no_gold"?"골드가 부족합니다.":e==="no_item"?"아이템이 부족합니다.":e==="max_qty"?"상대가 더 받을 수 없는 수량입니다.":e==="max_gold"?"상대가 더 받을 수 없는 금액입니다.":e==="rate_limited"?"선물을 너무 자주 보냈습니다. 잠시 후 다시 시도해주세요.":e==="corrupted"?"오염이 폭주해 지금은 선물할 수 없습니다.":e==="bad_qty"?"수량을 확인해주세요.":e==="not_found"?"받는 사람을 찾을 수 없습니다.":"선물하지 못했습니다."}
+function openGift(kind,item,max,opener){
+  gfKind=kind;gfItem=item;gfMax=kind==="gold"?gold:max;gfOpener=opener||null;
+  $("gfwhat").textContent=kind==="gold"?"골드 (보유 "+gold.toLocaleString("ko-KR")+" G)":item+" (보유 "+max+"개)";
+  $("gfqlbl").textContent=kind==="gold"?"보낼 골드":"수량";
+  var q=$("gfqty");q.value=1;q.max=String(gfMax);$("gfnote").textContent="";
+  var sel=$("gfto");sel.innerHTML="";$("gfsend").disabled=true;
+  gfmodal.hidden=false;document.body.style.overflow="hidden";$("gfclose").focus();
+  api("GET","/api/friends").then(function(r){
+    var fl=r.friends||[];
+    if(!fl.length){var o=document.createElement("option");o.textContent="친구가 없습니다";o.value="";sel.appendChild(o);$("gfnote").textContent="선물은 친구에게만 보낼 수 있습니다. 메신저에서 친구를 추가해주세요.";return}
+    fl.forEach(function(f){var o=document.createElement("option");o.value=f.code;o.textContent=f.hn+" ("+f.rank+"급)";sel.appendChild(o)});
+    $("gfsend").disabled=false;
+  }).catch(function(){$("gfnote").textContent="친구 목록을 불러오지 못했습니다."});
+}
+function closeGift(){gfmodal.hidden=true;document.body.style.overflow=(!rmodal.hidden||!mmodal.hidden||!$("gwmodal").hidden||!$("cmodal").hidden)?"hidden":"";if(gfOpener&&gfOpener.focus&&document.body.contains(gfOpener))gfOpener.focus()}
+$("gfclose").addEventListener("click",closeGift);$("gfcancel").addEventListener("click",closeGift);
+gfmodal.addEventListener("mousedown",function(e){if(e.target===gfmodal)closeGift()});
+$("gfform").addEventListener("submit",function(e){
+  e.preventDefault();var n=$("gfnote"),code=$("gfto").value,q=Number($("gfqty").value);
+  if(!code){n.textContent="받는 친구를 선택해주세요.";return}
+  if(!Number.isInteger(q)||q<1){n.textContent="수량을 1 이상의 정수로 입력해주세요.";return}
+  if(q>gfMax){n.textContent=gfKind==="gold"?"보유한 골드보다 많이 보낼 수 없습니다.":"보유한 수량보다 많이 보낼 수 없습니다.";return}
+  var btn=$("gfsend");btn.disabled=true;n.textContent="";
+  api("POST","/api/gifts/send",{to:code,kind:gfKind,item:gfItem,qty:q}).then(function(r){
+    btn.disabled=false;
+    if(r.error){n.textContent=gfErr(r);return}
+    invNote=r.to+"님에게 "+(r.kind==="gold"?q.toLocaleString("ko-KR")+" G":r.item+" ×"+q)+" 선물을 보냈습니다.";
+    if(r.kind==="gold")gold=Math.max(0,gold-q);
+    gfOpener=null;closeGift();pollState(false);if(devApp==="inv")renderDevice();
+  }).catch(function(){btn.disabled=false;n.textContent="선물하지 못했습니다."});
+});
+document.addEventListener("keydown",function(e){if(e.key==="Escape"&&!gfmodal.hidden&&hmodal.hidden)closeGift()});
+gfmodal.addEventListener("keydown",function(e){
+  if(e.key!=="Tab")return;
+  var list=Array.prototype.filter.call(gfmodal.querySelectorAll("button,input,select"),function(el){return el.offsetParent!==null&&!el.disabled});
+  if(!list.length)return;var f=list[0],l=list[list.length-1];
+  if(e.shiftKey&&document.activeElement===f){e.preventDefault();l.focus()}
+  else if(!e.shiftKey&&document.activeElement===l){e.preventDefault();f.focus()}
+});
+function loadGifts(scr){
+  api("GET","/api/gifts").then(function(r){
+    if(devApp!=="inv"||r.error||!r.gifts||!r.gifts.length)return;
+    var h=document.createElement("p");h.className="gift-h";h.textContent="받은 선물";scr.appendChild(h);
+    var ul=document.createElement("ul");ul.className="app-list";
+    r.gifts.forEach(function(g){
+      var li=document.createElement("li");
+      li.appendChild(document.createTextNode(g.from+"님 · "+(g.kind==="gold"?g.qty.toLocaleString("ko-KR")+" G":g.item+" ×"+g.qty)));
+      if(g.isNew){var nw=document.createElement("span");nw.className="gift-new";nw.textContent="NEW";li.appendChild(nw)}
+      var sm=document.createElement("small");sm.textContent=cmAgo(g.ts);li.appendChild(sm);ul.appendChild(li);
+    });
+    scr.appendChild(ul);
+    if(giftUnread){giftUnread=0;api("POST","/api/gifts/seen",{})}
+  }).catch(function(){});
+}
 // ── 게이트웨이브 (헌터 전용 게시판: 글 올리기·삭제, 댓글) ──
 var gwmodal=$("gwmodal"),gwOpener=null,gwLast=0,gwPost=0;
 function gwPane(n){["gwlist","gwwrite","gwview"].forEach(function(id){$(id).hidden=id!==n});gwmodal.scrollTop=0}
@@ -2837,7 +2928,7 @@ gwmodal.addEventListener("keydown",function(e){
 function leaveGame(note){
   bgmStop();globe.set(false);
   clearInterval(pollTimer);clearInterval(mTimer);
-  [rmodal,hmodal,mmodal,$("cmodal"),$("gwmodal"),ntmodal,qmodal].forEach(function(m){m.hidden=true});cmReset();document.body.style.overflow="";
+  [rmodal,hmodal,mmodal,$("cmodal"),$("gwmodal"),$("gfmodal"),ntmodal,qmodal].forEach(function(m){m.hidden=true});cmReset();document.body.style.overflow="";
   $("game").hidden=true;forceFront=false;showFront();
   if(note){var hm=$("hmsg");if(hm){hm.textContent=note;hm.className="hmsg"}}
 }
