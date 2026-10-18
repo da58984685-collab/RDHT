@@ -789,8 +789,9 @@ route('GET', '/api/gw/post', async (req, res, ctx) => {
   const p = await db.get('SELECT p.id, p.user_id, p.title, p.body, p.ts, u.hunter_name AS hn, u.rank AS rk FROM gw_posts p LEFT JOIN users u ON u.id = p.user_id WHERE p.id = ?', [id]);
   if (!p) return fail(res, 404, 'not_found');
   const cs = await db.all('SELECT c.id, c.user_id, c.body, c.ts, u.hunter_name AS hn, u.rank AS rk FROM gw_comments c LEFT JOIN users u ON u.id = c.user_id WHERE c.post_id = ? ORDER BY c.id ASC LIMIT 300', [id]);
-  send(res, 200, { post: { id: p.id, title: p.title, body: p.body, hn: p.hn || '(탈퇴한 헌터)', rank: p.rk || '', mine: p.user_id === ctx.user.id, ts: p.ts },
-    comments: cs.map(c => ({ id: c.id, text: c.body, hn: c.hn || '(탈퇴한 헌터)', rank: c.rk || '', mine: c.user_id === ctx.user.id, ts: c.ts })) });
+  const mod = !!ctx.user.admin_char;     // 관리자 전용 캐릭터는 모든 글과 댓글을 지울 수 있음
+  send(res, 200, { post: { id: p.id, title: p.title, body: p.body, hn: p.hn || '(탈퇴한 헌터)', rank: p.rk || '', mine: p.user_id === ctx.user.id, canDel: mod || p.user_id === ctx.user.id, ts: p.ts },
+    comments: cs.map(c => ({ id: c.id, text: c.body, hn: c.hn || '(탈퇴한 헌터)', rank: c.rk || '', mine: c.user_id === ctx.user.id, canDel: mod || c.user_id === ctx.user.id, ts: c.ts })) });
 });
 route('POST', '/api/gw/post', async (req, res, ctx) => {
   if (await limited('gwp:' + ctx.user.id, 10, G.HOUR)) return fail(res, 429, 'rate_limited');
@@ -802,9 +803,16 @@ route('POST', '/api/gw/post', async (req, res, ctx) => {
 });
 route('POST', '/api/gw/post/delete', async (req, res, ctx) => {
   const id = Number(ctx.body.id) || 0;
-  const p = await db.get('SELECT id FROM gw_posts WHERE id = ? AND user_id = ?', [id, ctx.user.id]);
-  if (!p) return fail(res, 404, 'not_found');           // 본인 글만 지울 수 있음
+  const p = ctx.user.admin_char ? await db.get('SELECT id FROM gw_posts WHERE id = ?', [id]) : await db.get('SELECT id FROM gw_posts WHERE id = ? AND user_id = ?', [id, ctx.user.id]);
+  if (!p) return fail(res, 404, 'not_found');           // 본인 글만 지울 수 있음 (관리자 전용 캐릭터는 모두 가능)
   await db.batch([['DELETE FROM gw_comments WHERE post_id = ?', [id]], ['DELETE FROM gw_posts WHERE id = ?', [id]]]);
+  send(res, 200, { ok: true });
+});
+route('POST', '/api/gw/comment/delete', async (req, res, ctx) => {
+  const id = Number(ctx.body.id) || 0;
+  const c = ctx.user.admin_char ? await db.get('SELECT id FROM gw_comments WHERE id = ?', [id]) : await db.get('SELECT id FROM gw_comments WHERE id = ? AND user_id = ?', [id, ctx.user.id]);
+  if (!c) return fail(res, 404, 'not_found');
+  await db.run('DELETE FROM gw_comments WHERE id = ?', [id]);
   send(res, 200, { ok: true });
 });
 route('POST', '/api/gw/comment', async (req, res, ctx) => {
