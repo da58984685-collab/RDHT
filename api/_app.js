@@ -795,10 +795,10 @@ route('GET', '/api/gw/post', async (req, res, ctx) => {
   const id = Number(new URL(req.url, 'http://x').searchParams.get('id')) || 0;
   const p = await db.get('SELECT p.id, p.user_id, p.title, p.body, p.ts, u.hunter_name AS hn, u.rank AS rk FROM gw_posts p LEFT JOIN users u ON u.id = p.user_id WHERE p.id = ?', [id]);
   if (!p) return fail(res, 404, 'not_found');
-  const cs = await db.all('SELECT c.id, c.user_id, c.body, c.ts, u.hunter_name AS hn, u.rank AS rk FROM gw_comments c LEFT JOIN users u ON u.id = c.user_id WHERE c.post_id = ? ORDER BY c.id ASC LIMIT 300', [id]);
+  const cs = await db.all('SELECT c.id, c.user_id, c.body, c.ts, c.parent_id, c.reply_to, u.hunter_name AS hn, u.rank AS rk FROM gw_comments c LEFT JOIN users u ON u.id = c.user_id WHERE c.post_id = ? ORDER BY c.id ASC LIMIT 300', [id]);
   const mod = !!ctx.user.admin_char;     // 관리자 전용 캐릭터는 모든 글과 댓글을 지울 수 있음
   send(res, 200, { post: { id: p.id, title: p.title, body: p.body, hn: p.hn || '(탈퇴한 헌터)', rank: p.rk || '', mine: p.user_id === ctx.user.id, canDel: mod || p.user_id === ctx.user.id, ts: p.ts },
-    comments: cs.map(c => ({ id: c.id, text: c.body, hn: c.hn || '(탈퇴한 헌터)', rank: c.rk || '', mine: c.user_id === ctx.user.id, canDel: mod || c.user_id === ctx.user.id, ts: c.ts })) });
+    comments: cs.map(c => ({ id: c.id, parent: Number(c.parent_id) || 0, toHn: c.reply_to ? ((cs.find(x => x.id === Number(c.reply_to)) || {}).hn || '(삭제된 댓글)') : '', text: c.body, hn: c.hn || '(탈퇴한 헌터)', rank: c.rk || '', mine: c.user_id === ctx.user.id, canDel: mod || c.user_id === ctx.user.id, ts: c.ts })) });
 });
 route('POST', '/api/gw/post', async (req, res, ctx) => {
   if (await limited('gwp:' + ctx.user.id, 10, G.HOUR)) return fail(res, 429, 'rate_limited');
@@ -819,7 +819,7 @@ route('POST', '/api/gw/comment/delete', async (req, res, ctx) => {
   const id = Number(ctx.body.id) || 0;
   const c = ctx.user.admin_char ? await db.get('SELECT id FROM gw_comments WHERE id = ?', [id]) : await db.get('SELECT id FROM gw_comments WHERE id = ? AND user_id = ?', [id, ctx.user.id]);
   if (!c) return fail(res, 404, 'not_found');
-  await db.run('DELETE FROM gw_comments WHERE id = ?', [id]);
+  await db.batch([['DELETE FROM gw_comments WHERE parent_id = ?', [id]], ['DELETE FROM gw_comments WHERE id = ?', [id]]]);      // 댓글을 지우면 그 아래 대댓글도 함께 지워집니다
   send(res, 200, { ok: true });
 });
 route('POST', '/api/gw/comment', async (req, res, ctx) => {
@@ -827,7 +827,15 @@ route('POST', '/api/gw/comment', async (req, res, ctx) => {
   const id = Number(ctx.body.id) || 0, text = String(ctx.body.text == null ? '' : ctx.body.text).trim();
   if (!text || cp(text) > GW_CMT_MAX) return fail(res, 400, 'bad_text');
   if (!(await db.get('SELECT id FROM gw_posts WHERE id = ?', [id]))) return fail(res, 404, 'not_found');
-  const r = await db.run('INSERT INTO gw_comments (post_id, user_id, body, ts) VALUES (?, ?, ?, ?)', [id, ctx.user.id, text, Date.now()]);
+  // 대댓글: parent 는 같은 글의 댓글이어야 합니다. 대댓글에 다시 답하면 맨 위 댓글 아래에 붙고, 누구에게 답했는지만 남깁니다(1단계).
+  let parent = 0, replyTo = 0;
+  const pid = Number(ctx.body.parent) || 0;
+  if (pid) {
+    const t = await db.get('SELECT id, post_id, parent_id FROM gw_comments WHERE id = ?', [pid]);
+    if (!t || Number(t.post_id) !== id) return fail(res, 404, 'no_parent');
+    parent = Number(t.parent_id) || t.id; replyTo = t.id;
+  }
+  const r = await db.run('INSERT INTO gw_comments (post_id, user_id, body, ts, parent_id, reply_to) VALUES (?, ?, ?, ?, ?, ?)', [id, ctx.user.id, text, Date.now(), parent, replyTo]);
   send(res, 201, { id: r.lastId });
 });
 
