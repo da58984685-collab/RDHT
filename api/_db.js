@@ -128,6 +128,17 @@ CREATE TABLE IF NOT EXISTS gw_comments (
   ts      INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS gw_comments_post ON gw_comments(post_id, id);
+CREATE TABLE IF NOT EXISTS gifts (
+  id      INTEGER PRIMARY KEY AUTOINCREMENT,
+  from_id INTEGER NOT NULL,
+  to_id   INTEGER NOT NULL,
+  kind    TEXT NOT NULL,
+  item    TEXT NOT NULL DEFAULT '',
+  qty     INTEGER NOT NULL,
+  ts      INTEGER NOT NULL,
+  seen    INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS gifts_to ON gifts(to_id, id);
 CREATE TABLE IF NOT EXISTS notice_claims (
   user_id   INTEGER NOT NULL,
   notice_id INTEGER NOT NULL,
