@@ -342,7 +342,7 @@ function renderDetail(){
       f("e_hn","헌터 네임",p.hunterName,0,0,"text")+
       '<label class="fld"><span>헌터 등급</span><select id="e_rank">'+opt(RANKS,p.rank)+"</select></label>"+
       f("e_lv","전투력(레벨)",p.lv,1,999)+f("e_exp","EXP (0~"+(powNeedOf(p.lv)-1)+")",p.exp,0,powNeedOf(p.lv)-1)+
-      f("e_gold","보유 골드 (G)",p.gold||0,0,99999999)+f("e_hp","체력",st.hp,0,9999)+f("e_str","근력",st.str,0,9999)+f("e_agi","민첩",st.agi,0,9999)+f("e_luck","행운",st.luck,0,9999)+f("e_fame","명성 (레벨·등급 상승 시 자동 증가)",st.fame||0,0,999999)+'<label class="fld"><span>오염도 (%, 0~100)</span><input id="e_taint" type="number" min="0" max="100" step="0.1" value="'+esc(st.taint||0)+'" autocomplete="off"></label>'+
+      f("e_gold","보유 골드 (G)",p.gold||0,0,99999999)+f("e_hp","체력",st.hp,0,9999)+f("e_str","근력",st.str,0,100)+f("e_agi","민첩",st.agi,0,100)+f("e_luck","행운",st.luck,0,100)+f("e_fame","명성 (레벨·등급 상승 시 자동 증가)",st.fame||0,0,1000)+'<label class="fld"><span>오염도 (%, 0~100)</span><input id="e_taint" type="number" min="0" max="100" step="0.1" value="'+esc(st.taint||0)+'" autocomplete="off"></label>'+
       '<label class="fld wide"><span>성격 (최대 1000자)</span><textarea id="e_pers" rows="3" maxlength="1000">'+esc(p.personality)+"</textarea></label>"+
       '<label class="fld wide"><span>특징 (한 줄에 하나, 최대 5개 · 각 50자)</span><textarea id="e_traits" rows="3">'+esc((p.traits||[]).join("\n"))+"</textarea></label>"+
       "</form>"+
