@@ -194,7 +194,8 @@ body{overflow-wrap:break-word}
     <div class="tw"><table><thead><tr><th>아이템</th><th>설명</th><th>가격 (G)</th><th>사용 효과 (스탯 변동)</th><th></th></tr></thead><tbody id="slist"></tbody></table></div>
   </section>
   <section class="card" id="inq">
-    <h3 style="margin-bottom:8px">문의함 <span class="muted" style="font-weight:400;font-size:.85rem">(헌터가 관리자에게 보낸 메신저 · 관리자 전용 캐릭터는 게임 메신저에서 읽기만 가능)</span></h3>
+    <h3 style="margin-bottom:8px">문의함 <span class="muted" style="font-weight:400;font-size:.85rem">(헌터가 관리자에게 보낸 메신저 · 관리자 전용 캐릭터는 게임 메신저에서 읽기만 가능)</span>
+      <span style="float:right;font-weight:400;font-size:.85rem"><label style="cursor:pointer"><input type="checkbox" id="inqsnd" checked> 알림음</label> <button class="btn ghost sm" id="inqtest" type="button">소리 듣기</button></span></h3>
     <div id="inqlist"></div>
     <div id="inqchat" hidden>
       <div class="row" style="margin:10px 0 6px"><button class="btn ghost sm" id="inqback" type="button">← 목록</button><b id="inqname"></b></div>
@@ -708,6 +709,46 @@ $("inqsend").addEventListener("click",function(){
   });
 });
 $("inqtext").addEventListener("keydown",function(e){if(e.key==="Enter"){e.preventDefault();$("inqsend").click()}});
+
+/* ───── 문의 알림음 (띵-동) ───── */
+var inqAC=null,inqSeen=null;
+function inqAudio(){
+  try{
+    var AC=window.AudioContext||window.webkitAudioContext;if(!AC)return null;
+    if(!inqAC)inqAC=new AC();
+    if(inqAC.state==="suspended")inqAC.resume();
+    return inqAC;
+  }catch(e){return null}
+}
+function inqChime(){
+  var ac=inqAudio();if(!ac)return;
+  function tone(f,t0,dur){
+    var o=ac.createOscillator(),o2=ac.createOscillator(),g=ac.createGain();
+    o.type="sine";o.frequency.value=f;o2.type="sine";o2.frequency.value=f*2;
+    var g2=ac.createGain();g2.gain.value=0.18;o2.connect(g2);g2.connect(g);o.connect(g);g.connect(ac.destination);
+    g.gain.setValueAtTime(0.0001,t0);g.gain.exponentialRampToValueAtTime(0.32,t0+0.02);g.gain.exponentialRampToValueAtTime(0.0001,t0+dur);
+    o.start(t0);o2.start(t0);o.stop(t0+dur+0.05);o2.stop(t0+dur+0.05);
+  }
+  var t=ac.currentTime+0.02;
+  tone(988,t,0.55);          // 띵 (높은 음)
+  tone(740,t+0.34,0.9);      // 동 (낮은 음)
+}
+try{if(localStorage.getItem("inqsnd")==="0")$("inqsnd").checked=false}catch(e){}
+$("inqsnd").addEventListener("change",function(){try{localStorage.setItem("inqsnd",$("inqsnd").checked?"1":"0")}catch(e){}if($("inqsnd").checked)inqAudio()});
+$("inqtest").addEventListener("click",inqChime);
+document.addEventListener("click",function(){if(inqAC&&inqAC.state==="suspended")inqAC.resume();else if(!inqAC)inqAudio()},{once:false});
+// 10초마다 새 문의(헌터가 보낸 새 메시지)가 있는지 확인하고, 새로 오면 알림음을 냅니다. (처음 불러올 때는 울리지 않음)
+function pollInq(){
+  if(document.hidden||$("app").classList.contains("hide"))return;
+  api("GET","/api/admin/inquiries").then(function(r){
+    if(!r||!r.threads)return;
+    var cur={},fresh=false;
+    r.threads.forEach(function(t){cur[t.code]=t.waiting?Number(t.ts)||0:0;if(inqSeen&&t.waiting&&(Number(t.ts)||0)>(inqSeen[t.code]||0))fresh=true});
+    if(inqSeen&&fresh&&$("inqsnd").checked)inqChime();
+    inqSeen=cur;
+  });
+}
+setInterval(pollInq,10000);pollInq();
 function loadAll(){loadOnline();loadMaint();loadInq();loadInv();loadOverview();loadS();loadRec();loadBoard();loadAchDefs();if(!document.activeElement||!/^(sn|sd|sp|ss|sam|sname|sdesc|sprice|sstat|samt)$/.test(document.activeElement.className||document.activeElement.id))loadShop();loadList();if(selCode&&!dirty)loadDetail();var d=new Date(),p=function(n){return String(n).padStart(2,"0")};$("last").textContent="갱신 "+p(d.getHours())+":"+p(d.getMinutes())+":"+p(d.getSeconds())}
 // 1분마다 데이터만 다시 불러옵니다. 선택한 헌터·탭·검색어·작성 중인 알림은 그대로 유지됩니다.
 setInterval(function(){if($("auto").checked&&!document.hidden&&!$("app").classList.contains("hide"))loadAll()},60000);
