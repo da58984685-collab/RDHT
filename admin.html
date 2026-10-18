@@ -135,6 +135,11 @@ body{overflow-wrap:break-word}
     <h1>赤月 <span>관리자</span></h1>
     <div><span class="muted" id="last" style="font-size:.82rem;margin-right:8px"></span><label class="muted" style="font-size:.82rem;margin-right:8px;cursor:pointer"><input type="checkbox" id="auto" checked style="width:auto;vertical-align:middle"> 1분마다 자동 새로고침</label><button class="btn ghost" id="refresh" type="button">새로고침</button> <button class="btn ghost" id="logout" type="button">로그아웃</button></div>
   </div>
+  <section class="card" id="mtcard" style="margin-bottom:12px">
+    <h2 style="margin-bottom:6px">점검 모드 <span id="mtst" class="muted" style="font-size:.85rem"></span></h2>
+    <p class="muted" style="margin:0 0 10px;font-size:.85rem">켜면 관리자 캐릭터를 뺀 모든 헌터의 접속(가입·로그인·게임)이 막히고, 헌터 화면에 '점검 중' 안내가 나옵니다. 데이터는 그대로 보존됩니다.</p>
+    <div style="display:flex;gap:8px;flex-wrap:wrap"><input id="mtmsg" maxlength="200" placeholder="헌터에게 보여 줄 안내 문구 (비워 두면 기본 문구)" style="flex:1;min-width:200px"><button type="button" class="btn" id="mtbtn">점검 시작</button></div>
+  </section>
   <div class="stats" id="stats"></div>
   <div class="cols">
     <section class="card">
@@ -236,6 +241,23 @@ $("logout").addEventListener("click",function(){api("POST","/api/admin/logout",{
 $("refresh").addEventListener("click",function(){loadAll()});
 $("sf").addEventListener("submit",function(e){e.preventDefault();loadList()});
 
+var maintOn=false;
+function loadMaint(){
+  api("GET","/api/admin/maintenance").then(function(r){
+    if(r._status===401||r.error)return;
+    maintOn=!!r.on;$("mtst").textContent=maintOn?"· 점검 중":"· 꺼짐";$("mtst").style.color=maintOn?"#ff8a94":"";
+    $("mtbtn").textContent=maintOn?"점검 끝내기":"점검 시작";
+    if(document.activeElement!==$("mtmsg"))$("mtmsg").value=r.message||"";
+  });
+}
+$("mtbtn").addEventListener("click",function(){
+  var next=!maintOn;
+  if(next&&!confirm("점검을 시작하면 관리자 캐릭터를 뺀 모든 헌터의 접속이 막힙니다. 계속할까요?"))return;
+  api("POST","/api/admin/maintenance",{on:next,message:$("mtmsg").value}).then(function(r){
+    if(r.error){alert("저장하지 못했습니다.");return}
+    loadMaint();
+  });
+});
 function loadOverview(){
   api("GET","/api/admin/overview").then(function(r){
     if(r._status===401){showApp(false);return}
@@ -677,7 +699,7 @@ $("inqsend").addEventListener("click",function(){
   });
 });
 $("inqtext").addEventListener("keydown",function(e){if(e.key==="Enter"){e.preventDefault();$("inqsend").click()}});
-function loadAll(){loadInq();loadInv();loadOverview();loadS();loadRec();loadBoard();loadAchDefs();if(!document.activeElement||!/^(sn|sd|sp|ss|sam|sname|sdesc|sprice|sstat|samt)$/.test(document.activeElement.className||document.activeElement.id))loadShop();loadList();if(selCode&&!dirty)loadDetail();var d=new Date(),p=function(n){return String(n).padStart(2,"0")};$("last").textContent="갱신 "+p(d.getHours())+":"+p(d.getMinutes())+":"+p(d.getSeconds())}
+function loadAll(){loadMaint();loadInq();loadInv();loadOverview();loadS();loadRec();loadBoard();loadAchDefs();if(!document.activeElement||!/^(sn|sd|sp|ss|sam|sname|sdesc|sprice|sstat|samt)$/.test(document.activeElement.className||document.activeElement.id))loadShop();loadList();if(selCode&&!dirty)loadDetail();var d=new Date(),p=function(n){return String(n).padStart(2,"0")};$("last").textContent="갱신 "+p(d.getHours())+":"+p(d.getMinutes())+":"+p(d.getSeconds())}
 // 1분마다 데이터만 다시 불러옵니다. 선택한 헌터·탭·검색어·작성 중인 알림은 그대로 유지됩니다.
 setInterval(function(){if($("auto").checked&&!document.hidden&&!$("app").classList.contains("hide"))loadAll()},60000);
 document.addEventListener("visibilitychange",function(){if(!document.hidden&&$("auto").checked&&!$("app").classList.contains("hide"))loadAll()});
