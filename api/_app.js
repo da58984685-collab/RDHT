@@ -410,15 +410,43 @@ async function loadAch() {
     await db.batch(G.ACH_SEED.map((a, i) => ['INSERT OR IGNORE INTO achievements (id, name, descr, kind, val, at) VALUES (?, ?, ?, ?, ?, ?)', [a.id, a.name, a.desc, a.kind, a.val, i + 1]]));
     await db.run("INSERT OR IGNORE INTO settings (key, value) VALUES ('ach_seeded', '1')");
   }
+  if (!(await db.get("SELECT 1 AS x FROM settings WHERE key = 'ach_seeded2'"))) {      // 두 번째 기본 업적 묶음: 이미 운영 중인 서버에도 한 번만 추가
+    const t0 = 1000;
+    await db.batch(G.ACH_SEED2.map((a, i) => ['INSERT OR IGNORE INTO achievements (id, name, descr, kind, val, at) VALUES (?, ?, ?, ?, ?, ?)', [a.id, a.name, a.desc, a.kind, a.val, t0 + i]]));
+    await db.run("INSERT OR IGNORE INTO settings (key, value) VALUES ('ach_seeded2', '1')");
+  }
   return db.all('SELECT id, name, descr, kind, val FROM achievements ORDER BY at, id');
 }
-async function achStats(u) {
-  const k = await db.get("SELECT COUNT(*) AS c FROM hunt_log WHERE user_id = ? AND result = 'success'", [u.id]);
-  const rs = await db.all("SELECT DISTINCT rank FROM hunt_log WHERE user_id = ? AND result = 'success'", [u.id]);
-  const st = await db.get('SELECT COUNT(*) AS c FROM s_attempts WHERE user_id = ?', [u.id]);
-  const sw = await db.get("SELECT COUNT(*) AS c FROM hunt_log WHERE user_id = ? AND result = 'success' AND rank = 'S'", [u.id]);
-  return { kills: k.c, maxRank: rs.reduce((m, r) => Math.max(m, G.RANK_IDX[r.rank] == null ? -1 : G.RANK_IDX[r.rank]), -1), sTry: st.c, sWin: sw.c, lv: u.lv };
+async function achStats(u, defs) {
+  const kinds = new Set((defs || []).map(d => d.kind));
+  const need = (...ks) => ks.some(k => kinds.has(k));
+  const [k, rs, st, sw] = await Promise.all([
+    db.get("SELECT COUNT(*) AS c FROM hunt_log WHERE user_id = ? AND result = 'success'", [u.id]),
+    db.all("SELECT DISTINCT rank FROM hunt_log WHERE user_id = ? AND result = 'success'", [u.id]),
+    db.get('SELECT COUNT(*) AS c FROM s_attempts WHERE user_id = ?', [u.id]),
+    db.get("SELECT COUNT(*) AS c FROM hunt_log WHERE user_id = ? AND result = 'success' AND rank = 'S'", [u.id])]);
+  const s = { kills: k.c, maxRank: rs.reduce((m, r) => Math.max(m, G.RANK_IDX[r.rank] == null ? -1 : G.RANK_IDX[r.rank]), -1), sTry: st.c, sWin: sw.c, lv: u.lv,
+    visitBy: {}, visits: 0, countries: 0, collected: {}, slain: {}, surveys: 0, crafts: 0, fails: 0, friends: 0, gifts: 0, gold: Number(u.gold) || 0,
+    rankIdx: G.RANK_IDX[u.rank] == null ? -1 : G.RANK_IDX[u.rank], stats: {} };
+  try { s.stats = JSON.parse(u.stats) || {}; } catch (_) { s.stats = {}; }
+  const jobs = [];
+  if (need('visit', 'visits', 'countries')) jobs.push(db.all('SELECT region, n FROM visit_counts WHERE user_id = ?', [u.id]).then(rows => {
+    const cs = new Set();
+    rows.forEach(r => { const n = Number(r.n) || 0; s.visitBy[r.region] = n; s.visits += n; if (n > 0) cs.add(G.countryOf(r.region)); });
+    s.countries = cs.size;
+  }));
+  if (need('collect')) jobs.push(db.all("SELECT name, SUM(qty) AS q FROM acquire_log WHERE user_id = ? AND kind = 'item' GROUP BY name", [u.id]).then(rows => { rows.forEach(r => { s.collected[r.name] = Number(r.q) || 0; }); }));
+  if (need('slay')) jobs.push(db.all("SELECT mon, COUNT(*) AS c FROM hunt_log WHERE user_id = ? AND result = 'success' GROUP BY mon", [u.id]).then(rows => { rows.forEach(r => { s.slain[r.mon] = Number(r.c) || 0; }); }));
+  if (need('surveys')) jobs.push(db.get("SELECT COUNT(*) AS c FROM acquire_log WHERE user_id = ? AND source = '적월문 조사'", [u.id]).then(r => { s.surveys = r.c; }));
+  if (need('crafts')) jobs.push(db.get("SELECT COUNT(*) AS c FROM acquire_log WHERE user_id = ? AND source = '조합'", [u.id]).then(r => { s.crafts = r.c; }));
+  if (need('fails')) jobs.push(db.get("SELECT COUNT(*) AS c FROM hunt_log WHERE user_id = ? AND result = 'fail'", [u.id]).then(r => { s.fails = r.c; }));
+  if (need('friends')) jobs.push(db.get('SELECT COUNT(*) AS c FROM friends WHERE user_id = ?', [u.id]).then(r => { s.friends = r.c; }));
+  if (need('gifts')) jobs.push(db.get('SELECT COUNT(*) AS c FROM gifts WHERE from_id = ?', [u.id]).then(r => { s.gifts = r.c; }));
+  await Promise.all(jobs);
+  return s;
 }
+const splitVal = v => { const i = String(v).lastIndexOf(':'); return i < 0 ? [String(v), NaN] : [String(v).slice(0, i), Number(String(v).slice(i + 1))]; };
+const visitsOf = (s, key) => (G.COUNTRY_BY_ID[key] ? G.COUNTRY_BY_ID[key].regions.reduce((a, r) => a + (s.visitBy[r.id] || 0), 0) : (s.visitBy[key] || 0));
 const achMet = (a, s) => {
   const n = Number(a.val);
   switch (a.kind) {
@@ -428,12 +456,28 @@ const achMet = (a, s) => {
     case 'sTry': return s.sTry >= n;
     case 'sWin': return s.sWin >= n;
     case 'lv': return s.lv >= n;
+    case 'visits': return s.visits >= n;
+    case 'countries': return s.countries >= n;
+    case 'surveys': return s.surveys >= n;
+    case 'crafts': return s.crafts >= n;
+    case 'fails': return s.fails >= n;
+    case 'friends': return s.friends >= n;
+    case 'gifts': return s.gifts >= n;
+    case 'gold': return s.gold >= n;
+    case 'fame': return (Number(s.stats.fame) || 0) >= n;
+    case 'taint': return (Number(s.stats.taint) || 0) >= n;
+    case 'hrank': return s.rankIdx >= (G.RANK_IDX[a.val] == null ? 99 : G.RANK_IDX[a.val]);
+    case 'visit': { const [k, c] = splitVal(a.val); return c > 0 && visitsOf(s, k) >= c; }
+    case 'collect': { const [k, c] = splitVal(a.val); return c > 0 && (s.collected[k] || 0) >= c; }
+    case 'slay': { const [k, c] = splitVal(a.val); return c > 0 && (s.slain[k] || 0) >= c; }
+    case 'stat': { const [k, c] = splitVal(a.val); return c > 0 && (Number(s.stats[k]) || 0) >= c; }
     default: return false;            // manual: 관리자 부여만
   }
 };
 // 유저의 업적 상태: [{...정의, met(조건 달성), granted(관리자 부여), done}]
 async function achOf(u) {
-  const [defs, s, gr] = await Promise.all([loadAch(), achStats(u), db.all('SELECT ach_id FROM ach_grants WHERE user_id = ?', [u.id])]);
+  const defs = await loadAch();
+  const [s, gr] = await Promise.all([achStats(u, defs), db.all('SELECT ach_id FROM ach_grants WHERE user_id = ?', [u.id])]);
   const gs = new Set(gr.map(g => g.ach_id));
   return defs.map(a => { const met = achMet(a, s), granted = gs.has(a.id); return Object.assign({}, a, { met, granted, done: met || granted }); });
 }
@@ -1026,6 +1070,7 @@ route('POST', '/api/move', async (req, res, ctx) => {
   if (ctx.user.block_flags & 2) return fail(res, 403, 'blocked', { what: 'move' });
   if (corruptLock(ctx.user, Date.now())) return fail(res, 409, 'corrupted', { until: ctx.user.corrupt_until });
   await db.run('UPDATE users SET region = ? WHERE id = ?', [id, ctx.user.id]);
+  if (id !== ctx.user.region) await db.run('INSERT INTO visit_counts (user_id, region, n) VALUES (?, ?, 1) ON CONFLICT(user_id, region) DO UPDATE SET n = n + 1', [ctx.user.id, id]);   // 방문 횟수 (업적)
   send(res, 200, { region: id, country: G.countryOf(id) });
 });
 
@@ -1607,6 +1652,37 @@ route('POST', '/api/stats/invest', async (req, res, ctx) => {
   fail(res, 409, 'busy');
 });
 
+// ── 헌터 등급 승급 ──
+// F~D급은 전투력(레벨)만 오르면 됩니다. C급부터는 처치 기록 등 조건이 더해집니다. (조건표: G.PROMO)
+async function promoInfo(u) {
+  const rule = G.PROMO[u.rank];
+  if (!rule) return { rank: u.rank, next: '', conds: [], can: false, max: true };
+  const conds = [{ t: '전투력 Lv.' + rule.lv + ' 이상', have: u.lv, need: rule.lv, ok: u.lv >= rule.lv }];
+  const rk = n => G.RANK_IDX[n];
+  const killsFrom = async min => {
+    const rs = Object.keys(G.RANK_IDX).filter(r => rk(r) >= rk(min));
+    return Number((await db.get(`SELECT COUNT(*) AS c FROM hunt_log WHERE user_id = ? AND result = 'success' AND rank IN (${rs.map(() => '?').join(',')})`, [u.id].concat(rs))).c) || 0;
+  };
+  if (rule.kills) { const h = await killsFrom(rule.kills.min); conds.push({ t: rule.kills.min + '급 이상 몬스터 ' + rule.kills.n + '마리 처치', have: Math.min(h, rule.kills.n), need: rule.kills.n, ok: h >= rule.kills.n }); }
+  if (rule.killsA) { const h = await killsFrom('A'); conds.push({ t: 'A급 이상 몬스터 ' + rule.killsA + '마리 처치', have: Math.min(h, rule.killsA), need: rule.killsA, ok: h >= rule.killsA }); }
+  if (rule.sTry) { const h = Number((await db.get('SELECT COUNT(*) AS c FROM s_attempts WHERE user_id = ?', [u.id])).c) || 0; conds.push({ t: 'S급 몬스터 토벌 도전 ' + rule.sTry + '회', have: Math.min(h, rule.sTry), need: rule.sTry, ok: h >= rule.sTry }); }
+  return { rank: u.rank, next: rule.to, conds, can: conds.every(c => c.ok), max: false, fame: G.FAME_PER_RANK };
+}
+route('GET', '/api/promote', async (req, res, ctx) => {
+  const u = await db.get('SELECT * FROM users WHERE id = ?', [ctx.user.id]);
+  send(res, 200, await promoInfo(u));
+});
+route('POST', '/api/promote', async (req, res, ctx) => {
+  const u = await db.get('SELECT * FROM users WHERE id = ?', [ctx.user.id]);
+  const info = await promoInfo(u);
+  if (info.max) return fail(res, 400, 'max_rank');
+  if (!info.can) return fail(res, 400, 'not_ready', { conds: info.conds });
+  const w = await db.run('UPDATE users SET rank = ? WHERE id = ? AND rank = ?', [info.next, u.id, u.rank]);
+  if (w.changes !== 1) return fail(res, 409, 'busy');
+  const fame = await grantFame(u.id, G.FAME_PER_RANK);
+  send(res, 200, { ok: true, from: u.rank, rank: info.next, fame, next: await promoInfo(Object.assign({}, u, { rank: info.next })) });
+});
+
 // 비공개 유저 설정 (켜면 헌터 커뮤니티에서 언급되지 않음)
 // 캐릭터 이미지 변경 (가입 때와 같은 규격: JPEG 데이터 주소, 빈 값이면 삭제)
 const IMG_RE = /^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/;
@@ -1830,7 +1906,7 @@ route('POST', '/api/achievements/pin', async (req, res, ctx) => {
 // 관리자: 업적 정의 추가·수정·삭제 (모든 헌터에게 즉시 적용)
 route('GET', '/api/admin/achievements', async (req, res) => {
   const list = await loadAch();
-  send(res, 200, { kinds: G.ACH_KINDS, list: list.map(a => ({ id: a.id, name: a.name, desc: a.descr, kind: a.kind, val: a.val })) });
+  send(res, 200, { kinds: G.ACH_KINDS, places: G.COUNTRIES.flatMap(c => [[c.id, c.name + ' (나라 전체)']].concat(c.regions.map(r => [r.id, c.name + ' · ' + r.name]))), list: list.map(a => ({ id: a.id, name: a.name, desc: a.descr, kind: a.kind, val: a.val })) });
 }, { auth: false, admin: true });
 
 route('POST', '/api/admin/achievements/save', async (req, res, ctx) => {
@@ -1840,11 +1916,18 @@ route('POST', '/api/admin/achievements/save', async (req, res, ctx) => {
   if (!name || cp(name) > 20) return fail(res, 400, 'bad_name');
   if (cp(desc) > 60) return fail(res, 400, 'bad_desc');
   if (!G.ACH_KINDS.includes(kind)) return fail(res, 400, 'bad_kind');
-  if (['kills', 'sTry', 'sWin', 'lv'].includes(kind)) {
+  if (G.ACH_NUM.includes(kind)) {
     const n = Number(val);
     if (!Number.isInteger(n) || n < 1 || n > 99999) return fail(res, 400, 'bad_val');
     val = String(n);
-  } else if (kind === 'rank') { if (G.RANK_IDX[val] == null) return fail(res, 400, 'bad_val'); }
+  } else if (kind === 'rank' || kind === 'hrank') { if (G.RANK_IDX[val] == null) return fail(res, 400, 'bad_val'); }
+  else if (G.ACH_COMPOUND.includes(kind)) {
+    const [k, c] = splitVal(val);
+    if (!Number.isInteger(c) || c < 1 || c > 99999 || !k.trim() || cp(k) > 30 || k.includes(':')) return fail(res, 400, 'bad_val');
+    if (kind === 'visit' && !G.REGION_BY_ID[k] && !G.COUNTRY_BY_ID[k]) return fail(res, 400, 'bad_val');
+    if (kind === 'stat' && !['str', 'agi', 'luck'].includes(k)) return fail(res, 400, 'bad_val');
+    val = k.trim() + ':' + c;
+  }
   else val = '';
   const id = str(ctx.body.id);
   if (id) {
@@ -1984,6 +2067,7 @@ route('POST', '/api/admin/player/delete', async (req, res, ctx) => {
     ['DELETE FROM acquire_log WHERE user_id = ?', [id]],
     ['DELETE FROM inventory WHERE user_id = ?', [id]],
     ['DELETE FROM survey_marks WHERE user_id = ?', [id]],
+    ['DELETE FROM visit_counts WHERE user_id = ?', [id]],
     ['DELETE FROM invite_rewards WHERE user_id = ?', [id]],
     ['DELETE FROM notice_del WHERE user_id = ?', [id]],
     ['DELETE FROM ach_grants WHERE user_id = ?', [id]],
