@@ -3204,7 +3204,7 @@ function drawPromo(){
   if(r.max){var li0=document.createElement("li");li0.className="ok";li0.textContent="가장 높은 등급입니다.";ul.appendChild(li0)}
   (r.conds||[]).forEach(function(c){
     var li=document.createElement("li");if(c.ok)li.className="ok";
-    var t=document.createElement("span");t.textContent=c.t;var n=document.createElement("b");n.textContent=c.have+" / "+c.need;
+    var t=document.createElement("span");t.textContent=c.t;var n=document.createElement("b");n.textContent=c.atMost?"현재 "+c.have+"%":c.have+" / "+c.need;
     li.appendChild(t);li.appendChild(n);ul.appendChild(li);
   });
   $("pmgo").disabled=pmBusy||!r.can;$("pmgo").hidden=!!r.max;
