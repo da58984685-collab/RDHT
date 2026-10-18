@@ -1316,7 +1316,7 @@ route('GET', '/api/admin/players', async (req, res) => {
   const url = new URL(req.url, 'http://x');
   const q = String(url.searchParams.get('q') || '').trim().slice(0, 40);
   const like = '%' + q.replace(/[%_]/g, '') + '%';
-  const rows = await db.all(`SELECT u.code, u.invite_code AS inv, u.hunter_name AS hn, u.name, u.rank, u.lv, u.exp, u.region, u.created_at,
+  const rows = await db.all(`SELECT u.code, u.invite_code AS inv, u.hunter_name AS hn, u.name, u.rank, u.lv, u.exp, u.region, u.created_at, u.last_seen,
       (SELECT COUNT(*) FROM kills k WHERE k.user_id = u.id) AS kills,
       (SELECT MAX(at) FROM hunt_log h WHERE h.user_id = u.id) AS last_hunt,
       (SELECT m.region FROM hunt_log h JOIN monsters m ON m.id = h.monster_id WHERE h.user_id = u.id ORDER BY h.id DESC LIMIT 1) AS last_region
@@ -1324,7 +1324,7 @@ route('GET', '/api/admin/players', async (req, res) => {
     ORDER BY (u.hunter_name = ?) DESC, u.created_at DESC LIMIT 300`, [q, like, like, like.toUpperCase(), q]);
   const rn = id => id ? G.placeLong(id) : '';
   send(res, 200, { players: rows.map(r => ({ code: r.code, hunterName: r.hn, name: r.name, rank: r.rank, lv: r.lv, exp: r.exp,
-    region: rn(r.region), lastRegion: rn(r.last_region), created: r.created_at, invite: r.inv || '', kills: r.kills, lastHunt: r.last_hunt || 0 })) });
+    region: rn(r.region), lastRegion: rn(r.last_region), created: r.created_at, lastSeen: Number(r.last_seen) || 0, invite: r.inv || '', kills: r.kills, lastHunt: r.last_hunt || 0 })), now: Date.now() });
 }, { auth: false, admin: true });
 
 route('GET', '/api/admin/player', async (req, res) => {
@@ -1342,7 +1342,7 @@ route('GET', '/api/admin/player', async (req, res) => {
   const ach = await achOf(u);
   send(res, 200, {
     achievements: ach.map(a => ({ id: a.id, name: a.name, desc: a.descr, kind: a.kind, met: a.met, granted: a.granted, done: a.done })),
-    player: Object.assign(publicUser(u), { inviteReward: await inviteRewardOf(u.id), invite: u.invite_code || '', created: u.created_at, region: G.placeLong(u.region), friends: fr.c }),
+    player: Object.assign(publicUser(u), { inviteReward: await inviteRewardOf(u.id), invite: u.invite_code || '', created: u.created_at, lastSeen: Number(u.last_seen) || 0, region: G.placeLong(u.region), friends: fr.c }),
     items: inv, acquired: acq, hunts, counts: cnt, pendingS: pend.map(p => ({ mon: p.name, at: p.resolve_at })),
     activity: { corruptMonster: !!(await db.get('SELECT 1 AS x FROM monsters WHERE corrupt_of = ? AND spawned_at > ?', [u.id, Date.now() - CORRUPT_MS])), adminChar: !!u.admin_char, blocked: u.block_flags | 0, corruptUntil: corruptLock(u, Date.now()) ? u.corrupt_until : 0, dyingUntil: u.dying_until > Date.now() ? u.dying_until : 0,
       taint: Number(JSON.parse(u.stats).taint) || 0, now: Date.now() },
