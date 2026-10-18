@@ -800,6 +800,23 @@ route('GET', '/api/gw/post', async (req, res, ctx) => {
   send(res, 200, { post: { id: p.id, title: p.title, body: p.body, hn: p.hn || '(탈퇴한 헌터)', rank: p.rk || '', mine: p.user_id === ctx.user.id, canDel: mod || p.user_id === ctx.user.id, ts: p.ts },
     comments: cs.map(c => ({ id: c.id, parent: Number(c.parent_id) || 0, toHn: c.reply_to ? ((cs.find(x => x.id === Number(c.reply_to)) || {}).hn || '(삭제된 댓글)') : '', text: c.body, hn: c.hn || '(탈퇴한 헌터)', rank: c.rk || '', mine: c.user_id === ctx.user.id, canDel: mod || c.user_id === ctx.user.id, ts: c.ts })) });
 });
+// 게이트웨이브 알림 확인: 마지막으로 확인한 글/댓글 번호(p, c) 이후에 생긴 일을 종류별로 셉니다. (번호를 안 보내면 현재 번호만 알려줌)
+route('GET', '/api/gw/notify', async (req, res, ctx) => {
+  if (await limited('gwn:' + ctx.user.id, 40, 60000)) return fail(res, 429, 'rate_limited');
+  const q = new URL(req.url, 'http://x').searchParams, me = ctx.user.id;
+  const [mp, mc] = await Promise.all([db.get('SELECT MAX(id) AS m FROM gw_posts'), db.get('SELECT MAX(id) AS m FROM gw_comments')]);
+  const out = { maxPost: Number(mp && mp.m) || 0, maxCmt: Number(mc && mc.m) || 0, posts: 0, comments: 0, replies: 0 };
+  if (q.get('p') === null || q.get('c') === null) return send(res, 200, out);
+  const ap = Math.max(0, Number(q.get('p')) || 0), ac = Math.max(0, Number(q.get('c')) || 0);
+  if (out.maxPost > ap) out.posts = Number((await db.get('SELECT COUNT(*) AS n FROM gw_posts WHERE id > ? AND user_id != ?', [ap, me])).n) || 0;
+  if (out.maxCmt > ac) {
+    // 나에게 달린 답글: 내 댓글에 답한 다른 사람의 글 / 내 글에 달린 댓글(위 답글은 제외)
+    out.replies = Number((await db.get('SELECT COUNT(*) AS n FROM gw_comments c WHERE c.id > ? AND c.user_id != ? AND c.reply_to > 0 AND c.reply_to IN (SELECT id FROM gw_comments WHERE user_id = ?)', [ac, me, me])).n) || 0;
+    out.comments = Number((await db.get(`SELECT COUNT(*) AS n FROM gw_comments c JOIN gw_posts p ON p.id = c.post_id WHERE c.id > ? AND c.user_id != ? AND p.user_id = ?
+      AND NOT (c.reply_to > 0 AND c.reply_to IN (SELECT id FROM gw_comments WHERE user_id = ?))`, [ac, me, me, me])).n) || 0;
+  }
+  send(res, 200, out);
+});
 route('POST', '/api/gw/post', async (req, res, ctx) => {
   if (await limited('gwp:' + ctx.user.id, 10, G.HOUR)) return fail(res, 429, 'rate_limited');
   const title = String(ctx.body.title == null ? '' : ctx.body.title).trim(), text = String(ctx.body.text == null ? '' : ctx.body.text).trim();
