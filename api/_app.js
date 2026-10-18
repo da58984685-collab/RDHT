@@ -543,6 +543,7 @@ async function buildState(u, now) {
     pending: pending.map(p => ({ id: p.id, mon: p.name, at: p.resolve_at })),
     results: results.map(r => ({ id: r.id, mon: r.name, success: !!r.success, exp: r.exp_gain, gold: r.gold_gain, taint: r.taint_gain, levelUp: !!r.level_up, hpLoss: r.hp_loss })),
     unreadNotices: un.c,
+    giftUnread: (await db.get('SELECT COUNT(*) AS c FROM gifts WHERE to_id = ? AND seen = 0', [u.id])).c,
     unreadMsgs: um.c,
     board: (await db.get('SELECT COALESCE(MAX(id), 0) AS m FROM board_posts')).m,
     friendReqs: frq.c,
@@ -822,6 +823,55 @@ route('POST', '/api/gw/comment', async (req, res, ctx) => {
   if (!(await db.get('SELECT id FROM gw_posts WHERE id = ?', [id]))) return fail(res, 404, 'not_found');
   const r = await db.run('INSERT INTO gw_comments (post_id, user_id, body, ts) VALUES (?, ?, ?, ?)', [id, ctx.user.id, text, Date.now()]);
   send(res, 201, { id: r.lastId });
+});
+
+// ── 선물하기: 친구에게 아이템이나 골드를 보냅니다 (받은 사람은 인벤토리에서 확인) ──
+const GIFT_GOLD_MAX = 99999999;
+route('POST', '/api/gifts/send', async (req, res, ctx) => {
+  const u = ctx.user, now = Date.now();
+  if (await limited('gift:' + u.id, 20, G.HOUR)) return fail(res, 429, 'rate_limited');
+  if (corruptLock(u, now)) return fail(res, 409, 'corrupted', { until: u.corrupt_until });
+  const kind = ctx.body.kind, qty = Number(ctx.body.qty);
+  if (kind !== 'item' && kind !== 'gold') return fail(res, 400, 'bad_kind');
+  if (!Number.isInteger(qty) || qty < 1 || qty > (kind === 'gold' ? 9999999 : 9999)) return fail(res, 400, 'bad_qty');
+  const f = await userByCode(normCode(ctx.body.to));
+  if (!f) return fail(res, 404, 'not_found');
+  if (f.id === u.id) return fail(res, 400, 'self');
+  if (!(await isFriend(u.id, f.id))) return fail(res, 403, 'not_friend');      // 친구에게만 선물할 수 있음
+  if (kind === 'gold') {
+    if ((Number(f.gold) || 0) + qty > GIFT_GOLD_MAX) return fail(res, 409, 'max_gold');
+    const dec = await db.run('UPDATE users SET gold = gold - ? WHERE id = ? AND gold >= ?', [qty, u.id, qty]);
+    if (dec.changes !== 1) return fail(res, 409, 'no_gold');
+    let add;
+    try { add = await db.run('UPDATE users SET gold = gold + ? WHERE id = ?', [qty, f.id]); }
+    catch (e) { await db.run('UPDATE users SET gold = gold + ? WHERE id = ?', [qty, u.id]); throw e; }
+    if (add.changes !== 1) { await db.run('UPDATE users SET gold = gold + ? WHERE id = ?', [qty, u.id]); return fail(res, 404, 'not_found'); }
+    await db.run('INSERT INTO gifts (from_id, to_id, kind, item, qty, ts) VALUES (?, ?, ?, ?, ?, ?)', [u.id, f.id, 'gold', '', qty, now]);
+    await logAcquire(f.id, 'gold', '골드', qty, '선물 (' + u.hunter_name + ')', now);
+    return send(res, 200, { ok: true, kind, to: f.hunter_name, qty });
+  }
+  const item = String(ctx.body.item == null ? '' : ctx.body.item);
+  if (!item || cp(item) > 30) return fail(res, 400, 'bad_item');
+  const have = await db.get('SELECT qty FROM inventory WHERE user_id = ? AND item = ?', [f.id, item]);
+  if ((have ? Number(have.qty) : 0) + qty > 9999) return fail(res, 409, 'max_qty');
+  const dec = await db.run('UPDATE inventory SET qty = qty - ? WHERE user_id = ? AND item = ? AND qty >= ?', [qty, u.id, item, qty]);
+  if (dec.changes !== 1) return fail(res, 404, 'no_item');
+  const restore = () => db.run('INSERT INTO inventory (user_id, item, qty) VALUES (?, ?, ?) ON CONFLICT(user_id, item) DO UPDATE SET qty = MIN(9999, qty + excluded.qty)', [u.id, item, qty]);
+  try { await db.run('INSERT INTO inventory (user_id, item, qty) VALUES (?, ?, ?) ON CONFLICT(user_id, item) DO UPDATE SET qty = MIN(9999, qty + excluded.qty)', [f.id, item, qty]); }
+  catch (e) { await restore(); throw e; }
+  await db.run('DELETE FROM inventory WHERE user_id = ? AND item = ? AND qty <= 0', [u.id, item]);
+  await db.run('INSERT INTO gifts (from_id, to_id, kind, item, qty, ts) VALUES (?, ?, ?, ?, ?, ?)', [u.id, f.id, 'item', item, qty, now]);
+  await logAcquire(f.id, 'item', item, qty, '선물 (' + u.hunter_name + ')', now);
+  send(res, 200, { ok: true, kind, to: f.hunter_name, item, qty });
+});
+route('GET', '/api/gifts', async (req, res, ctx) => {
+  const rows = await db.all(`SELECT g.id, g.kind, g.item, g.qty, g.ts, g.seen, u.hunter_name AS hn FROM gifts g LEFT JOIN users u ON u.id = g.from_id
+    WHERE g.to_id = ? ORDER BY g.id DESC LIMIT 20`, [ctx.user.id]);
+  send(res, 200, { gifts: rows.map(r => ({ id: r.id, kind: r.kind, item: r.item, qty: r.qty, from: r.hn || '(탈퇴한 헌터)', ts: r.ts, isNew: !r.seen })) });
+});
+route('POST', '/api/gifts/seen', async (req, res, ctx) => {
+  await db.run('UPDATE gifts SET seen = 1 WHERE to_id = ? AND seen = 0', [ctx.user.id]);
+  send(res, 200, { ok: true });
 });
 
 // 세계 지도(나라와 세부 지역)
@@ -1790,6 +1840,7 @@ route('POST', '/api/admin/player/delete', async (req, res, ctx) => {
     ['DELETE FROM inquiries WHERE user_id = ?', [id]],
     ['DELETE FROM gw_comments WHERE user_id = ? OR post_id IN (SELECT id FROM gw_posts WHERE user_id = ?)', [id, id]],
     ['DELETE FROM gw_posts WHERE user_id = ?', [id]],
+    ['DELETE FROM gifts WHERE from_id = ? OR to_id = ?', [id, id]],
     ['DELETE FROM hunt_log WHERE user_id = ?', [id]],
     ['DELETE FROM acquire_log WHERE user_id = ?', [id]],
     ['DELETE FROM inventory WHERE user_id = ?', [id]],
