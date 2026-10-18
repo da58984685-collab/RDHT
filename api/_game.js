@@ -45,7 +45,7 @@ const COUNTRIES = [
   { id: 'GT', name: '적월문', lat: 35, lon: 155, gate: true, regions: [
     R('gt-hill', '푸른 언덕', '바람이 부는 풀밭 언덕', 'i-grass', 'E', [60, 120]), R('gt-ridge', '바위 골짜기', '깎아지른 바위벽 사이의 골짜기', 'i-rock', 'D', [140, 70]),
     R('gt-peak', '구름 봉우리', '구름을 두른 먼 산', 'i-mtn', 'C', [100, 45]), R('gt-wood', '외딴 숲길', '홀로 선 나무들의 길', 'i-tree', 'D', [50, 60]),
-    R('gt-field', '폐허의 도시', '무너진 건물이 늘어선 거리', 'i-city', 'B', [140, 140]), R('gt-lake', '푸른 바다', '파도가 닿는 해안 절벽', 'i-wave', 'C', [95, 150])] },
+    R('gt-field', '최초의 게이트', '무너진 건물이 늘어선 거리', 'i-city', 'B', [140, 140]), R('gt-lake', '푸른 바다', '파도가 닿는 해안 절벽', 'i-wave', 'C', [95, 150])] },
 ];
 const COUNTRY_BY_ID = Object.fromEntries(COUNTRIES.map(c => [c.id, c]));
 const REGIONS = COUNTRIES.flatMap(c => c.regions.map(r => Object.assign({}, r, { country: c.id })));
