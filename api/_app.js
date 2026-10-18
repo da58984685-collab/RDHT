@@ -594,6 +594,7 @@ const routes = {};
 const route = (method, p, fn, opts) => { routes[method + ' ' + p] = Object.assign({ fn, auth: true }, opts || {}); };
 
 route('POST', '/api/signup', async (req, res, ctx) => {
+  { const mt = await maintState(); if (mt.on) return fail(res, 503, 'maintenance', { message: mt.msg }); }
   if (await limited('signup:' + ctx.ip, 10, G.HOUR)) return fail(res, 429, 'rate_limited');
   const b = ctx.body;
   const name = String(b.name || '').trim();
@@ -734,6 +735,7 @@ route('POST', '/api/login', async (req, res, ctx) => {
   const u = await userByCode(code);
   const hash = await hashPw(pw, u ? u.pw_salt : 'x'.repeat(32));
   if (!u || !safeEq(hash, u.pw_hash)) return bad();
+  { const mt = await maintState(); if (mt.on && !u.admin_char) return fail(res, 503, 'maintenance', { message: mt.msg }); }
   const token = crypto.randomBytes(32).toString('base64url');
   await db.run('INSERT INTO sessions (token_hash, user_id, expires_at) VALUES (?, ?, ?)', [sha256(token), u.id, Date.now() + SESSION_MS]);
   await db.run('UPDATE users SET intro_state = 2 WHERE id = ? AND intro_state = 1', [u.id]);   // 가입 후 첫 로그인
@@ -876,7 +878,7 @@ route('POST', '/api/gifts/seen', async (req, res, ctx) => {
 
 // 세계 지도(나라와 세부 지역)
 route('GET', '/api/world', async (req, res) => {
-  send(res, 200, { countries: G.COUNTRIES.map(c => ({ id: c.id, name: c.name, lat: c.lat, lon: c.lon,
+  send(res, 200, { countries: G.COUNTRIES.map(c => ({ id: c.id, name: c.name, lat: c.lat, lon: c.lon, gate: !!c.gate,
     regions: c.regions.map(r => ({ id: r.id, name: r.name, sub: r.sub, icon: r.icon, danger: r.danger, pos: r.pos })) })) });
 });
 
@@ -895,6 +897,9 @@ route('POST', '/api/move', async (req, res, ctx) => {
   let id = ctx.body.region;
   if (typeof id === 'string' && G.COUNTRY_BY_ID[id]) id = G.COUNTRY_BY_ID[id].regions[0].id;      // 나라를 고르면 그 나라의 첫 지역으로 이동
   if (typeof id !== 'string' || !G.REGION_BY_ID[id]) return fail(res, 400, 'bad_region');
+  // 게이트 구역(적월문): 밖에서 들어올 때는 어느 지역을 골라도 안쪽 지역 중 무작위 한 곳으로 이동합니다.
+  const dest = G.COUNTRY_BY_ID[G.countryOf(id)];
+  if (dest.gate && G.countryOf(ctx.user.region) !== dest.id) id = dest.regions[G.rnd(0, dest.regions.length - 1)].id;
   if (ctx.user.block_flags & 2) return fail(res, 403, 'blocked', { what: 'move' });
   if (corruptLock(ctx.user, Date.now())) return fail(res, 409, 'corrupted', { until: ctx.user.corrupt_until });
   await db.run('UPDATE users SET region = ? WHERE id = ?', [id, ctx.user.id]);
@@ -1888,6 +1893,38 @@ route('GET', '/api/healthz', async (req, res) => {
 }, { auth: false });
 
 // ───────────── 진입점 ─────────────
+// ── 점검 모드: 켜면 관리자 캐릭터 외 모든 헌터의 접속(가입·로그인·게임 요청)을 막습니다 ──
+// 설정은 settings 표(maint_on, maint_msg)에 저장되고, 서버 인스턴스마다 3초 동안만 기억해 둡니다.
+let maintCache = { at: 0, on: false, msg: '' };
+async function maintState() {
+  const now = Date.now();
+  if (now - maintCache.at < 3000) return maintCache;
+  const rows = await db.all("SELECT key, value FROM settings WHERE key IN ('maint_on', 'maint_msg')");
+  const m = {};
+  rows.forEach(r => { m[r.key] = r.value; });
+  // 한 번도 설정한 적이 없으면(새로 배포한 직후) 점검 중으로 시작합니다. 관리자 페이지에서 '점검 끝내기'를 누르면 열립니다.
+  maintCache = { at: now, on: m.maint_on === undefined ? true : m.maint_on === '1', msg: m.maint_msg || '' };
+  return maintCache;
+}
+route('GET', '/api/maintenance', async (req, res) => {
+  const m = await maintState();
+  send(res, 200, { on: m.on, message: m.on ? m.msg : '' });
+}, { auth: false });
+route('GET', '/api/admin/maintenance', async (req, res) => {
+  const m = await maintState();
+  send(res, 200, { on: m.on, message: m.msg });
+}, { auth: false, admin: true });
+route('POST', '/api/admin/maintenance', async (req, res, ctx) => {
+  const on = ctx.body.on === true;
+  const message = String(ctx.body.message == null ? '' : ctx.body.message).trim().slice(0, 200);
+  await db.batch([
+    ["INSERT INTO settings (key, value) VALUES ('maint_on', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value", [on ? '1' : '0']],
+    ["INSERT INTO settings (key, value) VALUES ('maint_msg', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value", [message]],
+  ]);
+  maintCache = { at: Date.now(), on, msg: message };
+  send(res, 200, { on, message });
+}, { auth: false, admin: true });
+
 async function handle(req, res) {
   try {
     // vercel.json 의 rewrite 가 원래 주소를 __p 로 넘겨 줍니다. (예: /api/admin/overview → /api/index?__p=admin/overview)
@@ -1909,6 +1946,8 @@ async function handle(req, res) {
     if (r.auth) {
       ctx.user = await authUser(req);
       if (!ctx.user) return fail(res, 401, 'unauthorized');
+      const mt = await maintState();
+      if (mt.on && !ctx.user.admin_char) return fail(res, 503, 'maintenance', { message: mt.msg });
     }
     if (r.admin && !(await authAdmin(req))) return fail(res, 401, 'unauthorized');
     if (req.method === 'POST') ctx.body = await readJson(req, r.limit || 20000);
