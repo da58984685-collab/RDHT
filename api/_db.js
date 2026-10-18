@@ -185,6 +185,12 @@ CREATE TABLE IF NOT EXISTS shop_items (
   descr TEXT NOT NULL DEFAULT '',
   at    INTEGER NOT NULL
 );
+CREATE TABLE IF NOT EXISTS visit_counts (
+  user_id INTEGER NOT NULL,
+  region  TEXT NOT NULL,
+  n       INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (user_id, region)
+);
 CREATE TABLE IF NOT EXISTS achievements (
   id    TEXT PRIMARY KEY,
   name  TEXT NOT NULL,
