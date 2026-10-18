@@ -560,6 +560,10 @@ async function authUser(req) {
   const row = await db.get(
     'SELECT u.* FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token_hash = ? AND s.expires_at > ?',
     [sha256(t), Date.now()]);
+  if (row) {      // 접속 시각 기록 (요청마다 쓰지 않도록 20초에 한 번만 갱신)
+    const now = Date.now();
+    if ((Number(row.last_seen) || 0) < now - 20000) { row.last_seen = now; await db.run('UPDATE users SET last_seen = ? WHERE id = ?', [now, row.id]); }
+  }
   return row || null;
 }
 function cookieHeader(value, maxAgeSec) {
@@ -1205,6 +1209,14 @@ route('GET', '/api/admin/overview', async (req, res) => {
     db.get('SELECT COUNT(*) AS c FROM notices'),
   ]);
   send(res, 200, { users: users.c, ranks, kills: kills.c, hunts, pendingS: pend.c, notices: notices.c, now: Date.now() });
+}, { auth: false, admin: true });
+
+// 동시 접속자 수: 최근 2분 안에 요청을 보낸 헌터 (탭이 백그라운드여도 1분에 한 번은 요청이 가므로 2분 기준)
+route('GET', '/api/admin/online', async (req, res) => {
+  const now = Date.now();
+  const r = await db.get('SELECT SUM(CASE WHEN last_seen > ? THEN 1 ELSE 0 END) AS a, SUM(CASE WHEN last_seen > ? THEN 1 ELSE 0 END) AS b, SUM(CASE WHEN last_seen > ? THEN 1 ELSE 0 END) AS c FROM users',
+    [now - 30000, now - 120000, now - 600000]);
+  send(res, 200, { now30: Number(r.a) || 0, now2m: Number(r.b) || 0, now10m: Number(r.c) || 0, at: now });
 }, { auth: false, admin: true });
 
 route('GET', '/api/admin/players', async (req, res) => {
