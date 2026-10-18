@@ -1119,6 +1119,7 @@ input[type=checkbox]:focus-visible{outline:2px solid var(--deep);outline-offset:
     <div class="dhead">
       <p class="eyebrow">MESSENGER</p>
       <h1 id="mtitle">메신저</h1>
+      <button type="button" class="cmsnd" id="msgsnd" aria-pressed="true" style="margin-top:10px">메신저 알림음 켜짐</button>
       <button type="button" class="hud-btn" id="mqbtn" hidden style="margin-top:10px">문의함 (관리자 전용)</button>
     </div>
     <div id="mlistv" class="mgrid">
@@ -2292,7 +2293,7 @@ function applyState(st,first){
   var rsg=JSON.stringify(st.rec||null);if(rsg!==recSig){recSig=rsg;curRec=st.rec||null;renderRec()}
   var isg=JSON.stringify(st.inventory||[]);
   if(isg!==invSig){invSig=isg;inventory=st.inventory||[];if(devApp==="inv")renderDevice();else if(devApp==="craft")drawCraft()}
-  SI=st.s;pendingList=st.pending||[];var su=st.unreadNotices||0;if(sysInit&&su>srvUnread)sysPing();sysInit=true;srvUnread=su;unreadNotices=su;giftUnread=st.giftUnread||0;unreadMsgs=st.unreadMsgs||0;friendReqs=st.friendReqs||0;cmUpdate(st.board||0);
+  SI=st.s;pendingList=st.pending||[];var mu=st.unreadMsgs||0;if(msgInit&&mu>msgSrv&&!(!mmodal.hidden&&mFriend))msgPing();msgInit=true;msgSrv=mu;var su=st.unreadNotices||0;if(sysInit&&su>srvUnread)sysPing();sysInit=true;srvUnread=su;unreadNotices=su;giftUnread=st.giftUnread||0;unreadMsgs=st.unreadMsgs||0;friendReqs=st.friendReqs||0;cmUpdate(st.board||0);
   if(st.user&&!privBusy){var pcb=$("gpriv");if(pcb)pcb.checked=!!st.user.private}
   if(st.user){inqUnread=st.user.inqUnread|0;isAdminChar=!!st.user.adminChar;updInq();blockedBits=st.user.blocked|0;corruptUntil=st.user.corruptUntil||0;taintedNow=!!st.user.tainted;dyingUntil=st.user.dyingUntil||0;statFx=st.user.fx||null;updFx();updDying()}
   if(!paused||first){
@@ -2790,22 +2791,50 @@ function renderReqs(){
     a[1].forEach(function(x){ul.appendChild(reqItem(x,a[2]))});
   });
 }
-function appendMsgs(list){
+/* 메신저 알림음: '뽁-뽁' 두 번 튀어 오르는 짧은 물방울 소리 (사인파 높이 미끄러짐).
+   커뮤니티(높은 두 음)·시스템(낮은 세 음)·게이트웨이브(톡-톡-띠링)와 다르고, 다른 알림음이 울리는 중이면 끝난 뒤에 냅니다. */
+var msgInit=false,msgSrv=0,msgSound=true;
+try{msgSound=localStorage.getItem("hx_msgsnd")!=="off"}catch(e){}
+function msgPing(force){
+  if(!msgSound)return;var c=cmAudio();if(!c||c.state!=="running")return;
+  var wait=sndUntil-Date.now();
+  if(wait>0&&!force){setTimeout(function(){msgPing(true)},wait+120);return}
+  sndUntil=Date.now()+650;
+  try{
+    var t=c.currentTime;
+    [[0,520,980,.13],[.17,620,1180,.16]].forEach(function(n){
+      var o=c.createOscillator(),g=c.createGain();o.type="sine";
+      o.frequency.setValueAtTime(n[1],t+n[0]);o.frequency.exponentialRampToValueAtTime(n[2],t+n[0]+n[3]);
+      g.gain.setValueAtTime(0,t+n[0]);g.gain.linearRampToValueAtTime(.2,t+n[0]+.012);g.gain.exponentialRampToValueAtTime(.0008,t+n[0]+n[3]+.12);
+      o.connect(g);g.connect(c.destination);o.start(t+n[0]);o.stop(t+n[0]+n[3]+.16);
+    });
+  }catch(e){}
+}
+function msgSndUi(){var b=$("msgsnd");b.setAttribute("aria-pressed",msgSound?"true":"false");b.textContent=msgSound?"메신저 알림음 켜짐":"메신저 알림음 꺼짐"}
+msgSndUi();
+$("msgsnd").addEventListener("click",function(){
+  msgSound=!msgSound;try{localStorage.setItem("hx_msgsnd",msgSound?"on":"off")}catch(e){}
+  msgSndUi();if(msgSound){cmAudio();setTimeout(function(){msgPing(true)},60)}
+});
+function appendMsgs(list,notify){
   var ul=$("mmsgs"),stick=ul.scrollHeight-ul.scrollTop-ul.clientHeight<40||!ul.children.length;
+  var fresh=false;
   list.forEach(function(m){
     mLast=Math.max(mLast,m.id);
     if(ul.querySelector('[data-id="'+m.id+'"]'))return;   // 보낸 직후 응답과 새로고침이 겹쳐도 한 번만 표시
+    if(!m.me)fresh=true;
     var li=document.createElement("li");li.setAttribute("data-id",m.id);if(m.me)li.className="me";
     li.appendChild(document.createTextNode(m.t));
     var sm=document.createElement("small");sm.textContent=fmtTime(m.ts);li.appendChild(sm);ul.appendChild(li);
   });
   if(stick)ul.scrollTop=ul.scrollHeight;
+  if(notify&&fresh)msgPing();
 }
 function pollChat(){
   if(!mFriend)return;
   var code=mFriend.code;
   api("GET","/api/messages?with="+encodeURIComponent(code)+"&after="+mLast).then(function(r){
-    if(mFriend&&mFriend.code===code&&r.messages&&r.messages.length)appendMsgs(r.messages);
+    if(mFriend&&mFriend.code===code&&r.messages&&r.messages.length)appendMsgs(r.messages,true);
   });
 }
 function openChat(f){
