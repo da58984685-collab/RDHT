@@ -1,8 +1,8 @@
 'use strict';
 // 데이터베이스 연결.
-//  - TURSO_DATABASE_URL 이 있으면 Turso(libSQL) 원격 데이터베이스를 사용합니다. (Vercel 배포용)
+//  - DATABASE_URL 이 있으면 PostgreSQL(Neon, Supabase 등)을 사용합니다. (Vercel 배포용)
 //  - 없으면 내 컴퓨터의 파일(data/hunter.db)을 사용합니다. (개발·테스트용, Node 22.13 이상)
-// 두 방식 모두 같은 SQL(SQLite)을 쓰고, 아래 get / all / run / batch 로만 접근합니다.
+// 앱의 SQL 은 SQLite 문법으로 쓰며, Postgres 에서는 _pgsql.js 가 실행 직전에 변환합니다. 접근은 아래 get / all / run / batch 로만 합니다.
 
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS users (
@@ -290,34 +290,68 @@ const MIGRATIONS = [
   'ALTER TABLE s_attempts ADD COLUMN gold_gain INTEGER NOT NULL DEFAULT 0',
 ];
 
-function remote() {
-  const { createClient } = require('@libsql/client');
-  // 서버리스에서는 웹소켓(libsql://) 대신 HTTPS 로 접속하는 편이 안정적입니다. 환경변수 값의 앞뒤 공백도 제거합니다.
-  const url = String(process.env.TURSO_DATABASE_URL || '').trim().replace(/^libsql:\/\//, 'https://');
-  const authToken = String(process.env.TURSO_AUTH_TOKEN || '').trim().replace(/^Bearer\s+/i, '');
-  const client = createClient({ url, authToken });
-  const toRows = r => r.rows.map(row => {
-    const o = {};
-    r.columns.forEach((c, i) => { o[c] = row[i]; });
-    return o;
+function postgres() {
+  const { Pool, types } = require('pg');
+  // BIGINT(시각 등)와 NUMERIC 은 기본적으로 문자열로 오므로 숫자로 바꿉니다.
+  types.setTypeParser(20, v => Number(v));
+  types.setTypeParser(1700, v => Number(v));
+  const { makeTranslator, toPgSchema } = require('./_pgsql');
+  const tr = makeTranslator(SCHEMA);
+  // 환경변수 값의 앞뒤 공백/따옴표 제거. sslmode 는 직접 처리합니다. (Neon, Supabase 모두 SSL 필요)
+  let url = String(process.env.DATABASE_URL || process.env.POSTGRES_URL || '').trim().replace(/^['"]|['"]$/g, '');
+  const noSsl = /sslmode=disable/.test(url) || /@(localhost|127\.0\.0\.1)(:|\/|$)/.test(url) || /[?&]host=\//.test(url);
+  url = url.replace(/([?&])(sslmode|supa)=[^&]*/g, '$1').replace(/[?&]$/, '').replace(/\?&/, '?');
+  const pool = new Pool({
+    connectionString: url,
+    ssl: noSsl ? false : { rejectUnauthorized: false },
+    max: Number(process.env.PG_POOL_MAX || 3),
+    idleTimeoutMillis: 10000,
+    connectionTimeoutMillis: 10000,
   });
+  pool.on('error', () => {});
+  const q = (c, sql, args) => c.query(tr.translate(sql), args || []);
+  const SCHEMA_V = require('node:crypto').createHash('md5').update(SCHEMA + MIGRATIONS.join('\n')).digest('hex').slice(0, 12);
   return {
-    kind: 'turso',
+    kind: 'postgres',
     init: async () => {
-      await client.batch(SCHEMA.split(';').map(x => x.trim()).filter(Boolean).map(sql => ({ sql, args: [] })), 'write');
-      // 예전에 만들어진 monsters 표에는 owner_id(개인 몬스터 주인) 칸을 추가합니다.
-      try { await client.execute('ALTER TABLE monsters ADD COLUMN owner_id INTEGER'); } catch (_) {}
-      for (const q of MIGRATIONS) { try { await client.execute(q); } catch (_) {} }
-      await client.execute('CREATE INDEX IF NOT EXISTS monsters_owner ON monsters(owner_id, spawned_at)');
+      const c = await pool.connect();
+      try {
+        // 여러 서버가 동시에 처음 켜져도 한 곳만 표를 만들도록 잠급니다.
+        await c.query('SELECT pg_advisory_lock(727001)');
+        try {
+          const has = await c.query("SELECT to_regclass('public.settings') AS t");
+          if (has.rows[0].t) {
+            const v = await c.query("SELECT value FROM settings WHERE key = 'pg_schema_v'");
+            if (v.rows[0] && v.rows[0].value === SCHEMA_V) return;
+          }
+          for (const st of toPgSchema(SCHEMA).split(';').map(x => x.trim()).filter(Boolean)) await c.query(st);
+          for (const m of MIGRATIONS) {
+            if (/json_set|hp100_v1/.test(m)) continue; // SQLite 전용 옛 데이터 보정 (새 데이터베이스에는 필요 없음)
+            const sql = toPgSchema(m).replace(/ADD COLUMN (?!IF NOT EXISTS)/, 'ADD COLUMN IF NOT EXISTS ');
+            try { await c.query(tr.translate(sql)); } catch (_) {}
+          }
+          await c.query('ALTER TABLE monsters ADD COLUMN IF NOT EXISTS owner_id BIGINT');
+          await c.query('CREATE INDEX IF NOT EXISTS monsters_owner ON monsters(owner_id, spawned_at)');
+          await c.query("INSERT INTO settings (key, value) VALUES ('pg_schema_v', $1) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value", [SCHEMA_V]);
+        } finally { try { await c.query('SELECT pg_advisory_unlock(727001)'); } catch (_) {} }
+      } finally { c.release(); }
     },
-    async get(sql, args = []) { return toRows(await client.execute({ sql, args }))[0]; },
-    async all(sql, args = []) { return toRows(await client.execute({ sql, args })); },
-    async run(sql, args = []) {
-      const r = await client.execute({ sql, args });
-      return { changes: Number(r.rowsAffected || 0), lastId: r.lastInsertRowid == null ? 0 : Number(r.lastInsertRowid) };
+    async get(sql, args) { return (await q(pool, sql, args)).rows[0]; },
+    async all(sql, args) { return (await q(pool, sql, args)).rows; },
+    async run(sql, args) {
+      const r = await q(pool, sql, args);
+      return { changes: Number(r.rowCount || 0), lastId: r.rows && r.rows[0] && r.rows[0].id != null ? Number(r.rows[0].id) : 0 };
     },
     // 여러 문장을 한꺼번에(전부 성공하거나 전부 취소) 실행합니다.
-    async batch(list) { await client.batch(list.map(([sql, args]) => ({ sql, args: args || [] })), 'write'); },
+    async batch(list) {
+      const c = await pool.connect();
+      try {
+        await c.query('BEGIN');
+        for (const [sql, args] of list) await q(c, sql, args);
+        await c.query('COMMIT');
+      } catch (e) { try { await c.query('ROLLBACK'); } catch (_) {} throw e; }
+      finally { c.release(); }
+    },
   };
 }
 
@@ -356,8 +390,8 @@ function local() {
 let impl = null;
 function get() {
   if (impl) return impl;
-  if (process.env.TURSO_DATABASE_URL) impl = remote();
-  else if (process.env.VERCEL) throw Object.assign(new Error('환경변수 TURSO_DATABASE_URL 이 설정되지 않았습니다. Vercel > Settings > Environment Variables 를 확인한 뒤 재배포하세요.'), { config: true });
+  if (process.env.DATABASE_URL || process.env.POSTGRES_URL) impl = postgres();
+  else if (process.env.VERCEL) throw Object.assign(new Error('환경변수 DATABASE_URL 이 설정되지 않았습니다. Vercel > Settings > Environment Variables 를 확인한 뒤 재배포하세요.'), { config: true });
   else impl = local();
   return impl;
 }
