@@ -99,7 +99,7 @@ async function tickSpawns() {
       const rank = t.ranks[G.rnd(0, t.ranks.length - 1)];
       const names = G.MON[rank];
       list.push(['INSERT INTO monsters (region, name, rank, spawned_at) VALUES (?, ?, ?, ?)',
-        [G.COUNTRIES[G.rnd(0, G.COUNTRIES.length - 1)].id, names[G.rnd(0, names.length - 1)], rank, next]]);
+        [G.SPAWN_COUNTRIES[G.rnd(0, G.SPAWN_COUNTRIES.length - 1)].id, names[G.rnd(0, names.length - 1)], rank, next]]);
       next += t.gap();
     }
     // 동시에 다른 요청이 같은 시간대를 처리하지 않도록, 다음 시각을 먼저 '차지'한 쪽만 몬스터를 만듭니다.
@@ -111,7 +111,7 @@ async function tickSpawns() {
 // F~A급 몬스터는 헌터마다 따로 출몰합니다. 그 헌터가 접속해 요청할 때 밀린 만큼 따라잡아 만듭니다.
 async function tickPersonal(uid, now) {
   const me = await db.get('SELECT region FROM users WHERE id = ?', [uid]);
-  const myRegions = G.REGIONS;      // F~A급은 헌터가 어디 있든 모든 나라의 모든 세부 지역에서 같은 확률로 출몰
+  const myRegions = G.SPAWN_REGIONS;      // F~A급은 헌터가 어디 있든 모든 나라의 모든 세부 지역에서 같은 확률로 출몰
   const rows = await db.all('SELECT tier, next_at FROM user_spawn WHERE user_id = ?', [uid]);
   const have = new Map(rows.map(r => [r.tier, r.next_at]));
   for (const t of G.TIERS) {
@@ -299,7 +299,7 @@ async function corruptCheck(userId) {
   const now = Date.now();
   const claim = await db.run('UPDATE users SET corrupt_flag = 1, corrupt_until = ? WHERE id = ? AND corrupt_flag = 0', [now + CORRUPT_MS, u.id]);
   if (claim.changes !== 1) return;
-  const region = G.REGIONS[Math.floor(Math.random() * G.REGIONS.length)].id;
+  const region = G.SPAWN_REGIONS[Math.floor(Math.random() * G.SPAWN_REGIONS.length)].id;
   await db.run('INSERT INTO monsters (region, name, rank, spawned_at, corrupt_of) VALUES (?, ?, ?, ?, ?)', [region, u.hunter_name, u.rank, now, u.id]);
 }
 let lastCorrupt = 0;
@@ -337,7 +337,7 @@ async function purgeMonsters(force) {
 // ── 헌터 커뮤니티: 5분마다 새 글이 올라옵니다 (요청이 올 때 밀린 만큼 따라잡음) ──
 const BOARD_GAP = 5 * G.MIN;
 async function boardCtx(now) {
-  const mons = {}, regions = G.REGIONS.map(r => G.placeLong(r.id));
+  const mons = {}, regions = G.SPAWN_REGIONS.map(r => G.placeLong(r.id));
   ['F', 'E', 'D', 'C', 'B', 'A'].forEach(k => { mons[k] = G.MON[k]; });
   const sOn = (await db.all(`SELECT name, region FROM monsters WHERE rank = 'S' AND owner_id IS NULL AND corrupt_of IS NULL AND spawned_at > ?
       AND id NOT IN (SELECT monster_id FROM s_close)`, [now - G.ACTIVE_MS_S])).map(m => ({ name: m.name, place: G.placeName(m.region) }));
@@ -549,7 +549,7 @@ async function buildState(u, now) {
     friendReqs: frq.c,
     sWin: swin.map(x => ({ id: x.id, mon: x.name, part: !!x.part, exp: x.exp || 0, gold: x.gold || 0, taint: x.taint || 0 })),
     rec: await getRec(),
-    inventory: inv.map(r => ({ item: r.item, qty: r.qty, eff: r.eff_stat ? { stat: r.eff_stat, amt: r.eff_amt } : null })),
+    inventory: inv.map(r => ({ item: r.item, qty: r.qty, eff: r.eff_stat ? { stat: r.eff_stat, amt: r.eff_amt } : (G.CRAFT_DEFS[r.item] ? { stat: G.CRAFT_DEFS[r.item].stat, amt: G.CRAFT_DEFS[r.item].amt } : null) })),
   };
 }
 
@@ -870,50 +870,98 @@ route('POST', '/api/gifts/send', async (req, res, ctx) => {
   await logAcquire(f.id, 'item', item, qty, '선물 (' + u.hunter_name + ')', now);
   send(res, 200, { ok: true, kind, to: f.hunter_name, item, qty });
 });
-// ── 적월문 조사: 안쪽 지역의 '!' 를 눌러 아이템을 찾습니다. 한 번 마치면 3시간 동안 다시 조사할 수 없습니다. ──
+// ── 적월문 조사: 안쪽 지역 풍경의 '!' (지역마다 3~5개) 를 눌러 재료를 찾습니다. '!' 하나를 조사하면 그 '!' 는 3시간 동안 사라집니다. ──
 const SURVEY_CD = 3 * G.HOUR;
 route('GET', '/api/survey', async (req, res, ctx) => {
-  const u = await db.get('SELECT survey_at FROM users WHERE id = ?', [ctx.user.id]);
-  const until = (Number(u.survey_at) || 0) + SURVEY_CD, now = Date.now();
-  send(res, 200, { ready: until <= now, until, now });
+  const rows = await db.all('SELECT region, idx, at FROM survey_marks WHERE user_id = ?', [ctx.user.id]);
+  const now = Date.now(), marks = {};
+  for (const rg of Object.keys(G.SV_MARKS)) marks[rg] = Array.from({ length: G.SV_MARKS[rg] }, () => 0);
+  for (const r of rows) {
+    if (marks[r.region] && r.idx >= 0 && r.idx < marks[r.region].length && Number(r.at) + SURVEY_CD > now) marks[r.region][r.idx] = Number(r.at) + SURVEY_CD;
+  }
+  send(res, 200, { now, marks });
 });
+function pickMaterial(region) {
+  const ws = G.MATERIALS.map(m => (m.at[region] || 0) * m.w + (m.at[region] === undefined ? (m.name === '적월석 가루' ? 0.6 : 0.15) : 0));
+  const tot = ws.reduce((a, b) => a + b, 0);
+  let r = Math.random() * tot, k = 0;
+  while (k < ws.length - 1 && r > ws[k]) { r -= ws[k]; k++; }
+  return G.MATERIALS[k];
+}
 route('POST', '/api/survey', async (req, res, ctx) => {
-  if (await limited('survey:' + ctx.user.id, 12, 60000)) return fail(res, 429, 'rate_limited');
+  if (await limited('survey:' + ctx.user.id, 30, 60000)) return fail(res, 429, 'rate_limited');
   const now = Date.now();
   const cur = await db.get('SELECT * FROM users WHERE id = ?', [ctx.user.id]);
   if (G.countryOf(cur.region) !== 'GT') return fail(res, 409, 'not_here');                 // 적월문 안쪽에서만 조사할 수 있음
   if (corruptLock(cur, now)) return fail(res, 409, 'corrupted', { until: cur.corrupt_until });
+  const region = cur.region, idx = Number(ctx.body.idx);
+  if (!Number.isInteger(idx) || idx < 0 || idx >= (G.SV_MARKS[region] || 0)) return fail(res, 400, 'bad_mark');
   // 쿨다운 확인과 시작 시각 기록을 한 문장으로 처리해, 동시에 눌러도 한 번만 성공합니다.
-  const mark = await db.run('UPDATE users SET survey_at = ? WHERE id = ? AND survey_at <= ?', [now, cur.id, now - SURVEY_CD]);
+  const prev = await db.get('SELECT at FROM survey_marks WHERE user_id = ? AND region = ? AND idx = ?', [cur.id, region, idx]);
+  const prevAt = prev ? Number(prev.at) : 0;
+  if (!prev) await db.run('INSERT INTO survey_marks (user_id, region, idx, at) VALUES (?, ?, ?, 0) ON CONFLICT(user_id, region, idx) DO NOTHING', [cur.id, region, idx]);
+  const mark = await db.run('UPDATE survey_marks SET at = ? WHERE user_id = ? AND region = ? AND idx = ? AND at <= ?', [now, cur.id, region, idx, now - SURVEY_CD]);
   if (mark.changes !== 1) {
-    const f = await db.get('SELECT survey_at FROM users WHERE id = ?', [cur.id]);
-    return fail(res, 429, 'cooldown', { until: (Number(f.survey_at) || 0) + SURVEY_CD, now });
+    const f = await db.get('SELECT at FROM survey_marks WHERE user_id = ? AND region = ? AND idx = ?', [cur.id, region, idx]);
+    return fail(res, 429, 'cooldown', { until: (f ? Number(f.at) : 0) + SURVEY_CD, now });
   }
   try {
-    // 상점에 등록된 아이템 중 하나를 찾습니다 (값이 싼 아이템일수록 더 자주 나옴). 아이템이 없으면 골드를 찾습니다.
-    const items = await db.all('SELECT name, price FROM shop_items');
-    let pick = null;
-    if (items.length) {
-      const ws = items.map(i => 1 / (1 + (Number(i.price) || 0) / 100)), tot = ws.reduce((a, b) => a + b, 0);
-      let r = Math.random() * tot, k = 0;
-      while (k < items.length - 1 && r > ws[k]) { r -= ws[k]; k++; }
-      pick = items[k];
-      const have = await db.get('SELECT qty FROM inventory WHERE user_id = ? AND item = ?', [cur.id, pick.name]);
+    // 대부분 이 지역의 재료를 찾고, 가끔 상점 아이템이나 골드를 찾습니다.
+    let pick = null, qty = 1;
+    const roll = Math.random();
+    if (roll < 0.88) {
+      pick = pickMaterial(region).name;
+      qty = G.rnd(1, 100) <= 25 ? 2 : 1;
+    } else if (roll < 0.94) {
+      const items = await db.all('SELECT name FROM shop_items');
+      if (items.length) pick = items[G.rnd(0, items.length - 1)].name;
+    }
+    if (pick) {
+      const have = await db.get('SELECT qty FROM inventory WHERE user_id = ? AND item = ?', [cur.id, pick]);
       if (have && Number(have.qty) >= 9999) pick = null;       // 가득 찬 아이템이면 골드로 대신 줍니다
     }
     if (pick) {
-      await db.run('INSERT INTO inventory (user_id, item, qty) VALUES (?, ?, 1) ON CONFLICT(user_id, item) DO UPDATE SET qty = MIN(9999, qty + 1)', [cur.id, pick.name]);
-      await logAcquire(cur.id, 'item', pick.name, 1, '적월문 조사', now);
-      return send(res, 200, { kind: 'item', item: pick.name, qty: 1, until: now + SURVEY_CD });
+      await db.run('INSERT INTO inventory (user_id, item, qty) VALUES (?, ?, ?) ON CONFLICT(user_id, item) DO UPDATE SET qty = MIN(9999, qty + excluded.qty)', [cur.id, pick, qty]);
+      await logAcquire(cur.id, 'item', pick, qty, '적월문 조사', now);
+      return send(res, 200, { kind: 'item', item: pick, qty, until: now + SURVEY_CD, idx });
     }
     const gold = G.rnd(30, 120);
     await grantGold(cur.id, gold);
     await logAcquire(cur.id, 'gold', '골드', gold, '적월문 조사', now);
-    send(res, 200, { kind: 'gold', qty: gold, until: now + SURVEY_CD });
+    send(res, 200, { kind: 'gold', qty: gold, until: now + SURVEY_CD, idx });
   } catch (e) {
-    await db.run('UPDATE users SET survey_at = ? WHERE id = ? AND survey_at = ?', [Number(cur.survey_at) || 0, cur.id, now]);   // 실패하면 쿨다운을 되돌립니다
+    await db.run('UPDATE survey_marks SET at = ? WHERE user_id = ? AND region = ? AND idx = ? AND at = ?', [prevAt, cur.id, region, idx, now]);   // 실패하면 쿨다운을 되돌립니다
     throw e;
   }
+});
+// ── 조합: 재료를 모아 완성 아이템을 만듭니다 ──
+route('GET', '/api/craft', async (req, res, ctx) => {
+  send(res, 200, {
+    materials: G.MATERIALS.map(m => ({ name: m.name, desc: m.desc })),
+    recipes: G.RECIPES.map(r => ({ id: r.id, name: r.name, desc: r.desc, mats: Object.keys(r.mats).map(k => ({ item: k, qty: r.mats[k] })), eff: { stat: r.stat, amt: r.amt } })),
+  });
+});
+route('POST', '/api/craft', async (req, res, ctx) => {
+  if (await limited('craft:' + ctx.user.id, 60, 60000)) return fail(res, 429, 'rate_limited');
+  const rc = G.RECIPES.find(r => r.id === String(ctx.body.id || ''));
+  if (!rc) return fail(res, 404, 'no_recipe');
+  const cur = await db.get('SELECT * FROM users WHERE id = ?', [ctx.user.id]);
+  if (corruptLock(cur, Date.now())) return fail(res, 409, 'corrupted', { until: cur.corrupt_until });
+  const have = await db.get('SELECT qty FROM inventory WHERE user_id = ? AND item = ?', [cur.id, rc.name]);
+  if (have && Number(have.qty) >= 9999) return fail(res, 409, 'max_qty');
+  const taken = [];
+  const restore = async () => { for (const t of taken) await db.run('INSERT INTO inventory (user_id, item, qty) VALUES (?, ?, ?) ON CONFLICT(user_id, item) DO UPDATE SET qty = MIN(9999, qty + excluded.qty)', [cur.id, t[0], t[1]]); };
+  try {
+    for (const [item, need] of Object.entries(rc.mats)) {
+      const d = await db.run('UPDATE inventory SET qty = qty - ? WHERE user_id = ? AND item = ? AND qty >= ?', [need, cur.id, item, need]);
+      if (d.changes !== 1) { await restore(); return fail(res, 400, 'no_mats', { item }); }
+      taken.push([item, need]);
+    }
+    await db.run('INSERT INTO inventory (user_id, item, qty) VALUES (?, ?, 1) ON CONFLICT(user_id, item) DO UPDATE SET qty = MIN(9999, qty + 1)', [cur.id, rc.name]);
+  } catch (e) { await restore(); throw e; }
+  await db.run('DELETE FROM inventory WHERE user_id = ? AND qty <= 0', [cur.id]);
+  await logAcquire(cur.id, 'item', rc.name, 1, '조합', Date.now());
+  send(res, 200, { ok: true, item: rc.name });
 });
 route('GET', '/api/gifts', async (req, res, ctx) => {
   const rows = await db.all(`SELECT g.id, g.kind, g.item, g.qty, g.ts, g.seen, u.hunter_name AS hn FROM gifts g LEFT JOIN users u ON u.id = g.from_id
@@ -1557,7 +1605,8 @@ route('POST', '/api/me/private', async (req, res, ctx) => {
 route('POST', '/api/inventory/use', async (req, res, ctx) => {
   if (await limited('use:' + ctx.user.id, 120, 60000)) return fail(res, 429, 'rate_limited');
   const name = String(ctx.body.item == null ? '' : ctx.body.item);
-  const it = await db.get('SELECT eff_stat, eff_amt FROM shop_items WHERE name = ?', [name]);
+  let it = await db.get('SELECT eff_stat, eff_amt FROM shop_items WHERE name = ?', [name]);
+  if ((!it || !it.eff_stat) && G.CRAFT_DEFS[name]) it = { eff_stat: G.CRAFT_DEFS[name].stat, eff_amt: G.CRAFT_DEFS[name].amt };
   if (!it || !it.eff_stat) return fail(res, 400, 'no_effect');
   const dec = await db.run('UPDATE inventory SET qty = qty - 1 WHERE user_id = ? AND item = ? AND qty > 0', [ctx.user.id, name]);
   if (dec.changes !== 1) return fail(res, 404, 'no_item');
@@ -1660,8 +1709,8 @@ route('POST', '/api/admin/s/spawn', async (req, res, ctx) => {
   const name = String(ctx.body.name || '');
   if (!G.MON.S.includes(name)) return fail(res, 400, 'bad_name');
   let region = String(ctx.body.region || '');
-  if (region && !G.COUNTRY_BY_ID[region]) return fail(res, 400, 'bad_region');      // S급은 나라 단위로만 출현
-  if (!region) region = G.COUNTRIES[G.rnd(0, G.COUNTRIES.length - 1)].id;
+  if (region && (!G.COUNTRY_BY_ID[region] || G.COUNTRY_BY_ID[region].gate)) return fail(res, 400, 'bad_region');      // S급은 나라 단위로만 출현
+  if (!region) region = G.SPAWN_COUNTRIES[G.rnd(0, G.SPAWN_COUNTRIES.length - 1)].id;
   const now = Date.now();
   const live = await db.get("SELECT COUNT(*) AS c FROM monsters WHERE rank = 'S' AND owner_id IS NULL AND corrupt_of IS NULL AND spawned_at > ?", [now - G.ACTIVE_MS_S]);
   if (live.c >= 20) return fail(res, 400, 'too_many');
@@ -1906,6 +1955,7 @@ route('POST', '/api/admin/player/delete', async (req, res, ctx) => {
     ['DELETE FROM hunt_log WHERE user_id = ?', [id]],
     ['DELETE FROM acquire_log WHERE user_id = ?', [id]],
     ['DELETE FROM inventory WHERE user_id = ?', [id]],
+    ['DELETE FROM survey_marks WHERE user_id = ?', [id]],
     ['DELETE FROM invite_rewards WHERE user_id = ?', [id]],
     ['DELETE FROM notice_del WHERE user_id = ?', [id]],
     ['DELETE FROM ach_grants WHERE user_id = ?', [id]],
