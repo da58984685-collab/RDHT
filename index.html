@@ -1665,7 +1665,7 @@ function renderStats(st){
   var sp=Math.max(0,Math.floor(Number(st.sp)||0)),spb=$("gsp");
   if(spb){spb.hidden=false;spb.className="sprow"+(sp>0?" has":"");spb.innerHTML="";var t1=document.createElement("span");t1.textContent="스탯포인트";var t2=document.createElement("b");t2.textContent=String(sp);spb.appendChild(t1);spb.appendChild(t2)}
   STAT_DEF.forEach(function(d){
-    var v=st[d[0]]||0,max=d[0]==="taint"?100:d[0]==="fame"?Math.max(100,Math.ceil((v+1)/100)*100):d[0]==="hp"?Math.max(100,v):Math.max(30,v);
+    var v=st[d[0]]||0,max=d[0]==="taint"?100:d[0]==="fame"?Math.max(1000,v):d[0]==="hp"?Math.max(100,v):Math.max(100,v);
     var li=document.createElement("li");li.className="st";li.dataset.k=d[0];
     li.appendChild(svgUse(d[2]));
     var l=document.createElement("span");l.textContent=d[1];
@@ -1677,7 +1677,7 @@ function renderStats(st){
     bar.appendChild(f);li.appendChild(bar);
     var n=document.createElement("span");n.className="st-v";n.textContent=d[0]==="taint"?(Math.round(v*10)/10)+"%":String(Math.round(v));li.appendChild(n);
     if(STAT_INV[d[0]]){
-      var ib=document.createElement("button");ib.type="button";ib.className="st-inv";ib.textContent="+";ib.hidden=!(sp>0);
+      var ib=document.createElement("button");ib.type="button";ib.className="st-inv";ib.textContent="+";ib.hidden=!(sp>0&&v<100);
       ib.setAttribute("aria-label",d[1]+"에 스탯포인트 1 투자");
       ib.addEventListener("click",function(){investStat(d[0],ib)});li.appendChild(ib);
     }
@@ -1691,6 +1691,7 @@ function investStat(k,btn){
   if(invBusy)return;invBusy=true;btn.disabled=true;
   api("POST","/api/stats/invest",{stat:k,amt:1}).then(function(r){
     invBusy=false;btn.disabled=false;
+    if(r._status===400&&r.error==="max_stat"){var mb=$("gsp");if(mb)mb.title="최대치(100)입니다"}
     if(r._status===200&&r.stats){statSig=($("ghn").textContent||"")+"|"+JSON.stringify(r.stats);if(r.fx)statFx=r.fx;renderStats(r.stats)}
   });
 }
