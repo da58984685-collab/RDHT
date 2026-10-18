@@ -49,6 +49,9 @@ const COUNTRIES = [
 ];
 const COUNTRY_BY_ID = Object.fromEntries(COUNTRIES.map(c => [c.id, c]));
 const REGIONS = COUNTRIES.flatMap(c => c.regions.map(r => Object.assign({}, r, { country: c.id })));
+// 적월문(gate)은 몬스터가 나타나지 않는 안전 지역입니다
+const SPAWN_COUNTRIES = COUNTRIES.filter(c => !c.gate);
+const SPAWN_REGIONS = REGIONS.filter(r => !COUNTRY_BY_ID[r.country].gate);
 const REGION_BY_ID = Object.fromEntries(REGIONS.map(r => [r.id, r]));
 const countryOf = id => (REGION_BY_ID[id] ? REGION_BY_ID[id].country : COUNTRY_BY_ID[id] ? id : 'KR');
 // 나라 또는 세부 지역의 이름 (S급은 나라, F~A급은 세부 지역에서 출몰)
@@ -200,8 +203,55 @@ function addExp(lv, exp, gain) {
   return { lv, exp, up };
 }
 
+// ── 적월문 조사 재료 · 조합법 ──
+// 재료: [이름, 설명, 흔함(가중치), {지역: 가중치}]  (지역 가중치가 없으면 모든 지역에서 아주 드물게 나옴)
+const SV_MARKS = { 'gt-hill': 4, 'gt-ridge': 3, 'gt-peak': 5, 'gt-wood': 4, 'gt-field': 5, 'gt-lake': 3 };   // 지역마다 보이는 '!' 개수 (3~5개)
+const MATERIALS = [
+  { name: '약초', desc: '쓴 향이 나는 풀. 상처에 바르면 좋다.', w: 10, at: { 'gt-hill': 5, 'gt-wood': 4, 'gt-peak': 1 } },
+  { name: '나뭇가지', desc: '마른 나뭇가지. 어디에나 쓸모가 있다.', w: 10, at: { 'gt-wood': 5, 'gt-hill': 3, 'gt-field': 2 } },
+  { name: '빈 공병', desc: '깨끗이 비워진 유리병. 물약을 담을 수 있다.', w: 9, at: { 'gt-field': 5, 'gt-lake': 3, 'gt-ridge': 2 } },
+  { name: '몬스터의 체액', desc: '끈적하고 냄새가 지독한 체액.', w: 9, at: { 'gt-field': 3, 'gt-wood': 3, 'gt-ridge': 3, 'gt-hill': 2, 'gt-lake': 2, 'gt-peak': 2 } },
+  { name: '들꽃', desc: '언덕에 핀 작은 꽃. 은은한 향이 난다.', w: 8, at: { 'gt-hill': 6, 'gt-peak': 1 } },
+  { name: '야생 열매', desc: '새콤달콤한 붉은 열매.', w: 8, at: { 'gt-wood': 5, 'gt-hill': 3 } },
+  { name: '맑은 샘물', desc: '차갑고 깨끗한 물.', w: 7, at: { 'gt-peak': 4, 'gt-hill': 3, 'gt-ridge': 2 } },
+  { name: '이끼', desc: '바위에 낀 촉촉한 이끼.', w: 8, at: { 'gt-ridge': 5, 'gt-wood': 3 } },
+  { name: '독버섯', desc: '화려한 갓을 가진 위험한 버섯.', w: 6, at: { 'gt-wood': 5, 'gt-ridge': 1 } },
+  { name: '부싯돌', desc: '두 번 부딪치면 불꽃이 튄다.', w: 7, at: { 'gt-ridge': 4, 'gt-peak': 3 } },
+  { name: '철광석 조각', desc: '검붉은 쇳덩이 조각.', w: 6, at: { 'gt-ridge': 4, 'gt-field': 3 } },
+  { name: '새의 깃털', desc: '가볍고 부드러운 깃털.', w: 8, at: { 'gt-peak': 5, 'gt-hill': 3 } },
+  { name: '짐승의 뼈', desc: '단단하게 굳은 오래된 뼈.', w: 7, at: { 'gt-field': 4, 'gt-wood': 3, 'gt-ridge': 1 } },
+  { name: '낡은 천조각', desc: '누군가 입던 옷의 조각.', w: 8, at: { 'gt-field': 5, 'gt-wood': 1 } },
+  { name: '녹슨 못', desc: '삭아서 부러지기 직전의 못.', w: 7, at: { 'gt-field': 5 } },
+  { name: '소금', desc: '하얗게 굳은 바다 소금.', w: 8, at: { 'gt-lake': 6 } },
+  { name: '조개껍데기', desc: '결이 고운 하얀 조개껍데기.', w: 7, at: { 'gt-lake': 5 } },
+  { name: '해초', desc: '짭짤한 냄새가 나는 해초.', w: 8, at: { 'gt-lake': 5 } },
+  { name: '구름 이슬', desc: '봉우리 구름에서 맺힌 맑은 이슬.', w: 4, at: { 'gt-peak': 5 } },
+  { name: '수정 파편', desc: '희미하게 빛나는 투명한 조각.', w: 3, at: { 'gt-peak': 3, 'gt-ridge': 3 } },
+  { name: '네잎 클로버', desc: '찾기 어려운 행운의 풀.', w: 2, at: { 'gt-hill': 4 } },
+  { name: '진주', desc: '은은한 빛을 내는 둥근 진주.', w: 2, at: { 'gt-lake': 4 } },
+  { name: '적월석 가루', desc: '붉게 빛나는 돌의 가루. 어디서든 아주 드물게 발견된다.', w: 1, at: {} },
+  { name: '오래된 열쇠', desc: '무엇을 여는지 알 수 없는 낡은 열쇠.', w: 2, at: { 'gt-field': 3 } },
+];
+// 조합법: 재료를 모두 모으면 완성 아이템 1개를 만듭니다. (완성 아이템은 '사용'하면 효과가 나타남)
+const RECIPES = [
+  { id: 'r_fruit', name: '열매 주스', desc: '새콤한 열매를 짜 병에 담은 주스.', mats: { '야생 열매': 3, '빈 공병': 1 }, stat: 'hp', amt: 10 },
+  { id: 'r_heal1', name: '하급 회복약', desc: '약초를 우려낸 기본적인 회복약.', mats: { '약초': 2, '맑은 샘물': 1, '빈 공병': 1 }, stat: 'hp', amt: 20 },
+  { id: 'r_soup', name: '해초 스프', desc: '해초와 소금으로 끓인 따뜻한 스프.', mats: { '해초': 2, '소금': 1, '조개껍데기': 1, '맑은 샘물': 1 }, stat: 'hp', amt: 30 },
+  { id: 'r_heal2', name: '상급 회복약', desc: '들꽃을 더해 효능을 높인 회복약.', mats: { '약초': 3, '들꽃': 2, '맑은 샘물': 1, '빈 공병': 1 }, stat: 'hp', amt: 50 },
+  { id: 'r_pure1', name: '정화의 물약', desc: '이끼와 소금으로 몸의 탁기를 씻어낸다.', mats: { '맑은 샘물': 1, '소금': 2, '이끼': 1, '빈 공병': 1 }, stat: 'taint', amt: -10 },
+  { id: 'r_pure2', name: '강력 정화약', desc: '구름 이슬과 수정으로 만든 강한 정화약.', mats: { '구름 이슬': 2, '수정 파편': 1, '진주': 1, '빈 공병': 1 }, stat: 'taint', amt: -25 },
+  { id: 'r_str', name: '힘의 영약', desc: '뼈와 체액을 달여 만든 걸쭉한 영약.', mats: { '짐승의 뼈': 2, '몬스터의 체액': 2, '독버섯': 1, '빈 공병': 1 }, stat: 'str', amt: 2 },
+  { id: 'r_agi', name: '민첩의 영약', desc: '깃털처럼 가벼워지는 영약.', mats: { '새의 깃털': 3, '야생 열매': 2, '맑은 샘물': 1, '빈 공병': 1 }, stat: 'agi', amt: 2 },
+  { id: 'r_luck1', name: '행운의 부적', desc: '네잎 클로버를 천에 싸 묶은 부적.', mats: { '네잎 클로버': 1, '새의 깃털': 1, '낡은 천조각': 1, '나뭇가지': 1 }, stat: 'luck', amt: 3 },
+  { id: 'r_luck2', name: '진주 목걸이', desc: '진주를 조개껍데기와 엮은 목걸이.', mats: { '진주': 1, '조개껍데기': 2, '낡은 천조각': 1 }, stat: 'luck', amt: 5 },
+  { id: 'r_crystal', name: '적월의 결정', desc: '적월석 가루를 굳혀 만든 붉은 결정.', mats: { '적월석 가루': 3, '수정 파편': 2, '철광석 조각': 1, '부싯돌': 1 }, stat: 'str', amt: 5 },
+];
+const CRAFT_DEFS = {};                       // 이름 -> {desc, stat, amt}  (완성 아이템)
+RECIPES.forEach(r => { CRAFT_DEFS[r.name] = { desc: r.desc, stat: r.stat, amt: r.amt }; });
+
 module.exports = {
-  rnd, chance01, REGIONS, REGION_BY_ID, COUNTRIES, COUNTRY_BY_ID, countryOf, placeName, placeLong, MON, TIERS, ACTIVE_MS, ACTIVE_MS_F, ACTIVE_MS_S, activeMsOf, FAME_PER_LV, FAME_PER_RANK, KILL_EXP, KILL_GOLD, KILL_TAINT, rollTaint, garble, RANK_IDX, ACH_KINDS, ACH_SEED, ACH_PIN_MAX, rollGold, HUNT_DIFF,
+  SV_MARKS, MATERIALS, RECIPES, CRAFT_DEFS,
+  rnd, chance01, SPAWN_COUNTRIES, SPAWN_REGIONS, REGIONS, REGION_BY_ID, COUNTRIES, COUNTRY_BY_ID, countryOf, placeName, placeLong, MON, TIERS, ACTIVE_MS, ACTIVE_MS_F, ACTIVE_MS_S, activeMsOf, FAME_PER_LV, FAME_PER_RANK, KILL_EXP, KILL_GOLD, KILL_TAINT, rollTaint, garble, RANK_IDX, ACH_KINDS, ACH_SEED, ACH_PIN_MAX, rollGold, HUNT_DIFF,
   RAID_NEED, RAID_ATTEMPTS, S_MAX, S_WINDOW_MS, S_WAIT_MS, powNeed, cdOf, huntChance,
   rollRank, rollStats, PROB_CAP, STR_WIN, guardChance, freeChance, HP_START, HP_MIN, HP_DYING_MS, HP_REVIVE, hpLoss, makeCode, addExp, MIN, HOUR,
 };
