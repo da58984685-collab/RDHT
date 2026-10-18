@@ -172,6 +172,13 @@ CREATE TABLE IF NOT EXISTS inventory (
   qty     INTEGER NOT NULL DEFAULT 1,
   PRIMARY KEY (user_id, item)
 );
+CREATE TABLE IF NOT EXISTS survey_marks (
+  user_id INTEGER NOT NULL,
+  region  TEXT NOT NULL,
+  idx     INTEGER NOT NULL,
+  at      INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (user_id, region, idx)
+);
 CREATE TABLE IF NOT EXISTS shop_items (
   id    INTEGER PRIMARY KEY AUTOINCREMENT,
   name  TEXT NOT NULL UNIQUE,
@@ -310,6 +317,8 @@ const MIGRATIONS = [
   'ALTER TABLE users ADD COLUMN board_rank TEXT',
   'UPDATE users SET board_rank = rank WHERE board_rank IS NULL',
   // S급은 나라 단위로만 출몰합니다. 예전에 세부 지역(도심 등)에서 나온 기록은 대한민국으로 옮깁니다.
+  "UPDATE monsters SET region = 'KR' WHERE region = 'GT'",
+  "UPDATE monsters SET region = 'city' WHERE region LIKE 'gt-%'",
   "UPDATE monsters SET region = 'KR' WHERE rank = 'S' AND region NOT IN ('KR','JP','CN','RU','US','IT','MG','BR','EG','AU','GT')",
   "UPDATE s_log SET region = 'KR' WHERE region NOT IN ('KR','JP','CN','RU','US','IT','MG','BR','EG','AU','GT')",
   "ALTER TABLE users ADD COLUMN invite_code TEXT NOT NULL DEFAULT ''",
