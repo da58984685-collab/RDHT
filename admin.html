@@ -540,22 +540,32 @@ $("rclear").addEventListener("click",function(){
   api("POST","/api/admin/rec/clear",{}).then(function(){recDirty=false;loadRec()});
 });
 // ── 업적 관리 ──
-var AK=[["always","항상 달성"],["kills","처치 수 (마리 이상)"],["rank","등급 이상 처치"],["sTry","S급 도전 (회 이상)"],["sWin","S급 처치 (마리 이상)"],["lv","전투력 레벨 (이상)"],["manual","관리자 부여 전용"]];
+var AK=[["always","항상 달성"],["kills","처치 수 (마리 이상)"],["rank","등급 이상 처치"],["sTry","S급 도전 (회 이상)"],["sWin","S급 처치 (마리 이상)"],["lv","전투력 레벨 (이상)"],["manual","관리자 부여 전용"],
+  ["visit","지역·나라 방문 (곳:횟수)"],["visits","이동 횟수 (전체)"],["countries","방문한 나라 수"],["collect","아이템 수집 (이름:개수)"],["slay","특정 몬스터 처치 (이름:마리)"],["surveys","적월문 조사 횟수"],["crafts","조합 횟수"],["fails","토벌 실패 횟수"],["friends","친구 수"],["gifts","보낸 선물 횟수"],["gold","보유 골드 (이상)"],["fame","명성 (이상)"],["taint","오염도 % (이상)"],["hrank","헌터 등급 (이상)"],["stat","스탯 (근력·민첩·행운:값)"]];
+var PLACES=[];
 var AKL={};AK.forEach(function(k){AKL[k[0]]=k[1]});
 function akOpts(sel){return AK.map(function(k){return'<option value="'+k[0]+'"'+(k[0]===sel?" selected":"")+'>'+k[1]+'</option>'}).join("")}
 function valInput(kind,val,cls){
   if(kind==="rank")return'<select class="'+cls+'">'+["F","E","D","C","B","A","S"].map(function(x){return'<option'+(x===val?" selected":"")+'>'+x+'</option>'}).join("")+'</select>';
+  if(kind==="hrank")return'<select class="'+cls+'">'+["E","D","C","B","A","S"].map(function(x){return'<option'+(x===val?" selected":"")+'>'+x+'</option>'}).join("")+'</select>';
+  if(kind==="visit"||kind==="collect"||kind==="slay"||kind==="stat"){
+    var i=String(val||"").lastIndexOf(":"),k=i<0?"":String(val).slice(0,i),c=i<0?"":String(val).slice(i+1),h='<span class="'+cls+'" data-cmp="1" style="display:inline-flex;gap:4px;flex-wrap:wrap">';
+    if(kind==="visit")h+='<select class="'+cls+'1" style="max-width:190px">'+PLACES.map(function(p){return'<option value="'+esc(p[0])+'"'+(p[0]===k?" selected":"")+'>'+esc(p[1])+'</option>'}).join("")+'</select>';
+    else if(kind==="stat")h+='<select class="'+cls+'1">'+[["str","근력"],["agi","민첩"],["luck","행운"]].map(function(p){return'<option value="'+p[0]+'"'+(p[0]===k?" selected":"")+'>'+p[1]+'</option>'}).join("")+'</select>';
+    else h+='<input class="'+cls+'1" maxlength="30" placeholder="'+(kind==="collect"?"아이템 이름":"몬스터 이름")+'" value="'+esc(k)+'" style="max-width:130px">';
+    return h+'<input class="'+cls+'2" type="number" min="1" max="99999" step="1" value="'+esc(c||1)+'" style="max-width:90px"></span>';
+  }
   if(kind==="always"||kind==="manual")return'<span class="muted '+cls+'" data-none="1">-</span>';
   return'<input class="'+cls+'" type="number" min="1" max="99999" step="1" value="'+esc(val||1)+'" style="max-width:100px">';
 }
-function valOf(root,cls){var e=root.querySelector("."+cls);return !e||e.getAttribute("data-none")?"":e.value}
+function valOf(root,cls){var e=root.querySelector("."+cls);if(!e||e.getAttribute("data-none"))return "";if(e.getAttribute("data-cmp"))return e.querySelector("."+cls+"1").value.trim()+":"+e.querySelector("."+cls+"2").value;return e.value}
 $("ak").innerHTML=akOpts("kills");
 function drawNewVal(){$("avw").innerHTML=valInput($("ak").value,"","av")}
 $("ak").addEventListener("change",drawNewVal);drawNewVal();
 var AERR={bad_name:"이름은 1~20자여야 합니다.",bad_desc:"설명은 60자 이하여야 합니다.",bad_kind:"조건 종류가 올바르지 않습니다.",bad_val:"조건 값이 올바르지 않습니다.",too_many:"업적은 최대 100개까지 만들 수 있습니다."};
 function loadAchDefs(){
   api("GET","/api/admin/achievements").then(function(r){
-    var l=r.list||[];
+    var l=r.list||[];PLACES=r.places||PLACES;
     $("alist").innerHTML=l.length?l.map(function(a){return'<tr data-id="'+esc(a.id)+'" style="cursor:default"><td><input class="an" maxlength="20" value="'+esc(a.name)+'"></td><td><input class="ad" maxlength="60" value="'+esc(a.desc)+'"></td><td><select class="ak">'+akOpts(a.kind)+'</select></td><td class="avc">'+valInput(a.kind,a.val,"av")+'</td><td><button class="btn ghost sm" data-aa="save" type="button">저장</button> <button class="btn dbtn sm" data-aa="del" type="button">삭제</button></td></tr>'}).join(""):'<tr><td colspan="5" class="muted" style="cursor:default">등록된 업적이 없습니다.</td></tr>';
   });
 }
