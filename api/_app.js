@@ -630,7 +630,7 @@ route('POST', '/api/signup', async (req, res, ctx) => {
         [code, name, gender, age, pers, JSON.stringify(traits), image, hn, rank, JSON.stringify(stats), salt, hash, Date.now(), inv, rank]);
       break;
     } catch (e) {
-      if (!/UNIQUE/i.test(String(e.message)) || ++tries > 10) throw e;
+      if (!(/UNIQUE|duplicate key/i.test(String(e.message)) || e.code === '23505') || ++tries > 10) throw e;
     }
   }
   // 동시 가입으로 정원을 넘겼다면 방금 만든 계정을 되돌립니다.
@@ -1769,14 +1769,14 @@ route('GET', '/api/healthz', async (req, res) => {
   } catch (e) {
     console.error('[healthz]', e);
     // 설정 점검용: 비밀 값은 포함하지 않고 원인 종류만 알려 줍니다.
-    const url = String(process.env.TURSO_DATABASE_URL || ''), tok = String(process.env.TURSO_AUTH_TOKEN || '');
+    const url = String(process.env.DATABASE_URL || process.env.POSTGRES_URL || ''), tok = '';
     const diag = {
       version: 3,
-      urlSet: !!url, urlStart: url.slice(0, 8), urlHost: url.replace(/^[a-z]+:\/\//i, '').split('/')[0].slice(0, 80), urlHasSpace: /\s/.test(url),
+      urlSet: !!url, urlStart: url.slice(0, 8), urlHost: url.replace(/^[a-z]+:\/\//i, '').split('/')[0].replace(/^.*@/, '').slice(0, 80), urlHasSpace: /\s/.test(url),
       tokenSet: !!tok, tokenLen: tok.length, tokenLooksJwt: /^eyJ[\w-]+\.[\w-]+\.[\w-]+$/.test(tok.trim()), tokenHasSpace: /\s/.test(tok.trim()),
       cause: String((e.cause && e.cause.message) || '').slice(0, 160),
     };
-    send(res, 500, { ok: false, diag, hint: e.config ? e.message : String(e.code || e.name || 'error') + ': ' + String(e.message || '').replace(/(authToken|token)[^ ]*/gi, '***').slice(0, 200) });
+    send(res, 500, { ok: false, diag, hint: e.config ? e.message : String(e.code || e.name || 'error') + ': ' + String(e.message || '').replace(/(authToken|token|postgres(ql)?:\/\/)[^ ]*/gi, '***').slice(0, 200) });
   }
 }, { auth: false });
 
