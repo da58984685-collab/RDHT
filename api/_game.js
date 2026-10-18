@@ -93,7 +93,13 @@ const KILL_GOLD = { F: [1, 5], E: [6, 15], D: [16, 35], C: [36, 70], B: [71, 120
 const rollGold = rank => { const r = KILL_GOLD[rank] || [0, 0]; return r[0] + Math.floor(Math.random() * (r[1] - r[0] + 1)); };
 // 업적 종류: always(항상) · kills(처치 수) · rank(해당 등급 이상 처치) · sTry(S급 도전 수) · sWin(S급 처치 수) · lv(전투력 레벨) · manual(관리자가 직접 부여)
 const RANK_IDX = { F: 0, E: 1, D: 2, C: 3, B: 4, A: 5, S: 6 };
-const ACH_KINDS = ['always', 'kills', 'rank', 'sTry', 'sWin', 'lv', 'manual'];
+// 새 종류: visit(지역/나라:횟수 방문) · visits(전체 이동 횟수) · countries(방문한 나라 수) · collect(아이템:수집 개수) · slay(몬스터 이름:처치 수)
+//          surveys(적월문 조사 횟수) · crafts(조합 횟수) · fails(토벌 실패 횟수) · friends(친구 수) · gifts(보낸 선물 횟수)
+//          gold(보유 골드) · fame(명성) · taint(오염도) · hrank(헌터 등급 이상) · stat(근력/민첩/행운:값)
+const ACH_KINDS = ['always', 'kills', 'rank', 'sTry', 'sWin', 'lv', 'manual',
+  'visit', 'visits', 'countries', 'collect', 'slay', 'surveys', 'crafts', 'fails', 'friends', 'gifts', 'gold', 'fame', 'taint', 'hrank', 'stat'];
+const ACH_COMPOUND = ['visit', 'collect', 'slay', 'stat'];       // 값이 '대상:숫자' 형태인 종류
+const ACH_NUM = ['kills', 'sTry', 'sWin', 'lv', 'visits', 'countries', 'surveys', 'crafts', 'fails', 'friends', 'gifts', 'gold', 'fame', 'taint'];
 // 처음 서버가 켜질 때 한 번만 넣는 기본 업적 (이후에는 관리자가 자유롭게 수정·삭제)
 const ACH_SEED = [
   { id: 'reg',  name: '헌터 등록',   desc: '게이트 앞에서 헌터로 등록했다.', kind: 'always', val: '' },
@@ -109,6 +115,59 @@ const ACH_SEED = [
   { id: 'lv10', name: '전투력 Lv.10', desc: '전투력 10레벨을 달성했다.',      kind: 'lv', val: '10' },
   { id: 'lv20', name: '전투력 Lv.20', desc: '전투력 20레벨을 달성했다.',      kind: 'lv', val: '20' },
 ];
+// 두 번째 기본 업적 묶음 (이미 운영 중인 서버에도 한 번만 추가됩니다. 이후에는 관리자가 자유롭게 수정·삭제)
+const ACH_SEED2 = [
+  { id: 'v-tokyo', name: '네온 아래의 단골', desc: '도쿄 번화가를 100번 방문했다.', kind: 'visit', val: 'jp-tokyo:100' },
+  { id: 'v-gate', name: '문지기의 벗', desc: '적월문에 20번 드나들었다.', kind: 'visit', val: 'GT:20' },
+  { id: 'v-first', name: '최초의 목격자', desc: '최초의 게이트를 15번 찾았다.', kind: 'visit', val: 'gt-field:15' },
+  { id: 'v-river', name: '한강의 밤 산책', desc: '한강변을 30번 방문했다.', kind: 'visit', val: 'river:30' },
+  { id: 'v-ny', name: '잠들지 않는 도시', desc: '뉴욕 맨해튼을 30번 방문했다.', kind: 'visit', val: 'us-ny:30' },
+  { id: 'v-pyr', name: '파라오의 손님', desc: '기자 피라미드를 10번 방문했다.', kind: 'visit', val: 'eg-pyramid:10' },
+  { id: 'vs50', name: '떠돌이 헌터', desc: '지역을 50번 옮겨 다녔다.', kind: 'visits', val: '50' },
+  { id: 'vs300', name: '역마살', desc: '지역을 300번 옮겨 다녔다.', kind: 'visits', val: '300' },
+  { id: 'cn8', name: '세계 일주', desc: '서로 다른 8개 나라를 방문했다.', kind: 'countries', val: '8' },
+  { id: 'cn11', name: '지도의 끝', desc: '모든 나라와 적월문을 방문했다.', kind: 'countries', val: '11' },
+  { id: 'c-herb', name: '약초꾼', desc: '약초를 20개 수집했다.', kind: 'collect', val: '약초:20' },
+  { id: 'c-bottle', name: '공병 수집가', desc: '빈 공병을 20개 수집했다.', kind: 'collect', val: '빈 공병:20' },
+  { id: 'c-fluid', name: '체액 채집가', desc: '몬스터의 체액을 20개 수집했다.', kind: 'collect', val: '몬스터의 체액:20' },
+  { id: 'c-twig', name: '땔감 장인', desc: '나뭇가지를 50개 수집했다.', kind: 'collect', val: '나뭇가지:50' },
+  { id: 'c-flower', name: '꽃을 아끼는 헌터', desc: '들꽃을 15송이 수집했다.', kind: 'collect', val: '들꽃:15' },
+  { id: 'c-water', name: '샘물 지킴이', desc: '맑은 샘물을 20개 수집했다.', kind: 'collect', val: '맑은 샘물:20' },
+  { id: 'sv30', name: '호기심 많은 탐험가', desc: '적월문에서 30번 조사했다.', kind: 'surveys', val: '30' },
+  { id: 'sv100', name: '느낌표 중독', desc: '적월문에서 100번 조사했다.', kind: 'surveys', val: '100' },
+  { id: 'cr5', name: '초보 연금술사', desc: '아이템을 5번 조합했다.', kind: 'crafts', val: '5' },
+  { id: 'cr30', name: '붉은 달의 연금술사', desc: '아이템을 30번 조합했다.', kind: 'crafts', val: '30' },
+  { id: 's-ghost', name: '허깨비 사냥꾼', desc: '허깨비를 30마리 처치했다.', kind: 'slay', val: '허깨비:30' },
+  { id: 's-rat', name: '쥐잡이 명인', desc: '오염된 쥐떼를 30번 처치했다.', kind: 'slay', val: '오염된 쥐떼:30' },
+  { id: 's-wolf', name: '늑대 무리의 적', desc: '그림자 늑대를 20마리 처치했다.', kind: 'slay', val: '그림자 늑대:20' },
+  { id: 'fl10', name: '넘어져도 일어나는 자', desc: '토벌에 10번 실패하고도 계속 나섰다.', kind: 'fails', val: '10' },
+  { id: 'fl50', name: '칠전팔기', desc: '토벌에 50번 실패했다. 그래도 멈추지 않는다.', kind: 'fails', val: '50' },
+  { id: 'fr3', name: '든든한 동료들', desc: '친구를 3명 만들었다.', kind: 'friends', val: '3' },
+  { id: 'gf5', name: '선물의 달인', desc: '친구에게 선물을 5번 보냈다.', kind: 'gifts', val: '5' },
+  { id: 'gd1k', name: '두둑한 주머니', desc: '골드를 1,000 G 이상 모았다.', kind: 'gold', val: '1000' },
+  { id: 'tt50', name: '붉은 달에 물든 자', desc: '오염도가 50% 이상이 되었다.', kind: 'taint', val: '50' },
+  { id: 'fm100', name: '이름이 알려진 헌터', desc: '명성 100을 달성했다.', kind: 'fame', val: '100' },
+  { id: 'fm500', name: '전설의 이름', desc: '명성 500을 달성했다.', kind: 'fame', val: '500' },
+  { id: 'hE', name: 'E급 헌터', desc: '헌터 등급이 E급 이상이 되었다.', kind: 'hrank', val: 'E' },
+  { id: 'hD', name: 'D급 헌터', desc: '헌터 등급이 D급 이상이 되었다.', kind: 'hrank', val: 'D' },
+  { id: 'hC', name: 'C급 헌터', desc: '헌터 등급이 C급 이상이 되었다.', kind: 'hrank', val: 'C' },
+  { id: 'hB', name: 'B급 헌터', desc: '헌터 등급이 B급 이상이 되었다.', kind: 'hrank', val: 'B' },
+  { id: 'hA', name: 'A급 헌터', desc: '헌터 등급이 A급 이상이 되었다.', kind: 'hrank', val: 'A' },
+  { id: 'hS', name: 'S급 헌터', desc: '헌터 등급이 S급에 올랐다.', kind: 'hrank', val: 'S' },
+  { id: 'st-str', name: '괴력', desc: '근력이 50이 되었다.', kind: 'stat', val: 'str:50' },
+  { id: 'st-agi', name: '바람의 발걸음', desc: '민첩이 50이 되었다.', kind: 'stat', val: 'agi:50' },
+  { id: 'st-luck', name: '행운아', desc: '행운이 50이 되었다.', kind: 'stat', val: 'luck:50' },
+];
+// 헌터 등급 승급: F~D급은 전투력(레벨)만 오르면 됩니다. C급부터는 처치 기록 조건이 더해집니다.
+//  kills: { min: 해당 등급 이상 몬스터, n: 처치 수 }, sTry: S급 토벌 도전 횟수
+const PROMO = {
+  F: { to: 'E', lv: 5 },
+  E: { to: 'D', lv: 8 },
+  D: { to: 'C', lv: 12 },
+  C: { to: 'B', lv: 18, kills: { min: 'C', n: 10 } },
+  B: { to: 'A', lv: 24, kills: { min: 'B', n: 20 }, killsA: 3 },
+  A: { to: 'S', lv: 30, kills: { min: 'A', n: 15 }, sTry: 1 },
+};
 const ACH_PIN_MAX = 3;
 // 등급별 오염도(%) 상승 범위 [최소, 최대] (0.1% 단위)
 const KILL_TAINT = { F: [9, 11], E: [11, 13], D: [13, 16], C: [16, 20], B: [20, 25], A: [25, 30], S: [30, 40] };   // F급은 평균 10%: 토벌 10회에 오염도 100% (정화 필요)
@@ -252,7 +311,7 @@ RECIPES.forEach(r => { CRAFT_DEFS[r.name] = { desc: r.desc, stat: r.stat, amt: r
 
 module.exports = {
   SV_MARKS, MATERIALS, RECIPES, CRAFT_DEFS,
-  STAT_MAX, FAME_MAX, rnd, chance01, SPAWN_COUNTRIES, SPAWN_REGIONS, REGIONS, REGION_BY_ID, COUNTRIES, COUNTRY_BY_ID, countryOf, placeName, placeLong, MON, TIERS, ACTIVE_MS, ACTIVE_MS_F, ACTIVE_MS_S, activeMsOf, FAME_PER_LV, FAME_PER_RANK, KILL_EXP, KILL_GOLD, KILL_TAINT, rollTaint, garble, RANK_IDX, ACH_KINDS, ACH_SEED, ACH_PIN_MAX, rollGold, HUNT_DIFF,
+  STAT_MAX, FAME_MAX, rnd, chance01, SPAWN_COUNTRIES, SPAWN_REGIONS, REGIONS, REGION_BY_ID, COUNTRIES, COUNTRY_BY_ID, countryOf, placeName, placeLong, MON, TIERS, ACTIVE_MS, ACTIVE_MS_F, ACTIVE_MS_S, activeMsOf, FAME_PER_LV, FAME_PER_RANK, KILL_EXP, KILL_GOLD, KILL_TAINT, rollTaint, garble, RANK_IDX, ACH_KINDS, ACH_COMPOUND, ACH_NUM, ACH_SEED, ACH_SEED2, PROMO, ACH_PIN_MAX, rollGold, HUNT_DIFF,
   RAID_NEED, RAID_ATTEMPTS, S_MAX, S_WINDOW_MS, S_WAIT_MS, powNeed, cdOf, huntChance,
   rollRank, rollStats, PROB_CAP, STR_WIN, guardChance, freeChance, HP_START, HP_MIN, HP_DYING_MS, HP_REVIVE, hpLoss, makeCode, addExp, MIN, HOUR,
 };
