@@ -113,6 +113,21 @@ CREATE TABLE IF NOT EXISTS inquiries (
   ts         INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS inquiries_user ON inquiries(user_id, id);
+CREATE TABLE IF NOT EXISTS gw_posts (
+  id      INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  title   TEXT NOT NULL,
+  body    TEXT NOT NULL,
+  ts      INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS gw_comments (
+  id      INTEGER PRIMARY KEY AUTOINCREMENT,
+  post_id INTEGER NOT NULL,
+  user_id INTEGER NOT NULL,
+  body    TEXT NOT NULL,
+  ts      INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS gw_comments_post ON gw_comments(post_id, id);
 CREATE TABLE IF NOT EXISTS notice_claims (
   user_id   INTEGER NOT NULL,
   notice_id INTEGER NOT NULL,
