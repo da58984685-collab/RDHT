@@ -280,6 +280,8 @@ const MIGRATIONS = [
   'ALTER TABLE users ADD COLUMN last_seen INTEGER NOT NULL DEFAULT 0',
   // 적월문 조사: 마지막으로 조사를 마친 시각 (3시간 안에는 다시 조사할 수 없음)
   'ALTER TABLE users ADD COLUMN survey_at INTEGER NOT NULL DEFAULT 0',
+  'ALTER TABLE gw_comments ADD COLUMN parent_id INTEGER NOT NULL DEFAULT 0',
+  'ALTER TABLE gw_comments ADD COLUMN reply_to INTEGER NOT NULL DEFAULT 0',
   // 관리자 전용 캐릭터(문의함 열람 가능) / 문의 답변 읽음 표시
   'ALTER TABLE users ADD COLUMN admin_char INTEGER NOT NULL DEFAULT 0',
   'ALTER TABLE users ADD COLUMN inq_read INTEGER NOT NULL DEFAULT 0',
