@@ -175,7 +175,8 @@ async function grantFame(userId, n) {
     const u = await db.get('SELECT stats FROM users WHERE id = ?', [userId]);
     if (!u) return null;
     const st = JSON.parse(u.stats);
-    st.fame = Math.min(999999, (Number(st.fame) || 0) + n);
+    const cf = Number(st.fame) || 0;
+    st.fame = Math.max(cf, Math.min(G.FAME_MAX, cf + n));   // 명성 최대 1000
     const w = await db.run('UPDATE users SET stats = ? WHERE id = ? AND stats = ?', [JSON.stringify(st), userId, u.stats]);
     if (w.changes === 1) return st.fame;
   }
@@ -1388,8 +1389,9 @@ route('POST', '/api/admin/player/update', async (req, res, ctx) => {
   const stats = Object.assign({}, JSON.parse(u.stats));
   for (const k of ['hp', 'str', 'agi', 'luck']) {
     const v = Number(b.stats && b.stats[k]);
-    if (!Number.isInteger(v) || v < 0 || v > 9999) return fail(res, 400, 'bad_stat', { field: k });
-    stats[k] = v;
+    const cap = k === 'hp' ? 9999 : G.STAT_MAX;      // 근력·민첩·행운 최대 100
+    if (!Number.isInteger(v) || v < 0 || (v > cap && v !== Number(stats[k]))) return fail(res, 400, 'bad_stat', { field: k, max: cap });
+    stats[k] = Math.min(v, cap);
   }
   if (b.stats && b.stats.taint !== undefined) {
     const t = Number(b.stats.taint);
@@ -1412,7 +1414,7 @@ route('POST', '/api/admin/player/update', async (req, res, ctx) => {
   const fameEdited = b.stats && b.stats.fame !== undefined && Number(b.stats.fame) !== fame;
   if (fameEdited) {
     fame = Number(b.stats.fame);
-    if (!Number.isInteger(fame) || fame < 0 || fame > 999999) return fail(res, 400, 'bad_stat', { field: 'fame' });
+    if (!Number.isInteger(fame) || fame < 0 || fame > G.FAME_MAX) return fail(res, 400, 'bad_stat', { field: 'fame' });
   }
   let gold = u.gold;
   if (b.gold !== undefined) { gold = Number(b.gold); if (!Number.isInteger(gold) || gold < 0 || gold > 99999999) return fail(res, 400, 'bad_gold'); }
@@ -1421,7 +1423,7 @@ route('POST', '/api/admin/player/update', async (req, res, ctx) => {
     if (lv > u.lv) fame += (lv - u.lv) * G.FAME_PER_LV;
     if (G.RANK_IDX[rank] > G.RANK_IDX[u.rank]) fame += (G.RANK_IDX[rank] - G.RANK_IDX[u.rank]) * G.FAME_PER_RANK;
   }
-  stats.fame = Math.min(999999, fame);
+  stats.fame = Math.min(G.FAME_MAX, fame);
   if (lv > u.lv) stats.sp = (stats.sp === undefined || stats.sp === null ? Math.max(0, u.lv - 1) : spOf(stats, u.lv)) + (lv - u.lv);   // 관리자가 전투력을 올려도 레벨당 스탯포인트 1
   if (Number(stats.hp) > G.HP_MIN) await db.run('UPDATE users SET dying_until = 0 WHERE id = ?', [u.id]);
   await db.run(`UPDATE users SET hunter_name = ?, stats = ?, lv = ?, exp = ?, name = ?, gender = ?, age = ?, personality = ?, traits = ?, rank = ?, gold = ? WHERE id = ?`,
@@ -1581,7 +1583,7 @@ async function applyItemEffect(userId, stat, amt, now) {
       if (after > G.HP_MIN) dying = 0;                                                       // 5보다 높아지면 빈사 상태에서 벗어남
       else if (!dying) dying = now + G.HP_DYING_MS;
     } else if (stat === 'taint') after = Math.max(0, Math.min(100, Math.round((before + amt) * 10) / 10));
-    else after = Math.max(0, Math.min(9999, before + amt));
+    else after = Math.max(0, Math.min(Math.max(G.STAT_MAX, before), before + amt));   // 근력·민첩·행운은 100까지(원래 더 높았다면 그 값 유지)
     st[stat] = after;
     const w = await db.run('UPDATE users SET stats = ?, dying_until = ? WHERE id = ? AND stats = ? AND dying_until = ?', [JSON.stringify(st), dying, userId, u.stats, u.dying_until]);
     if (w.changes === 1) return { before, after, dying: dying > now ? dying : 0 };
@@ -1597,6 +1599,7 @@ route('POST', '/api/stats/invest', async (req, res, ctx) => {
     const u = await db.get('SELECT lv, stats FROM users WHERE id = ?', [ctx.user.id]);
     const st = JSON.parse(u.stats), sp = spOf(st, u.lv);
     if (sp < amt) return fail(res, 400, 'no_points', { sp });
+    if ((Number(st[stat]) || 0) + amt > G.STAT_MAX) return fail(res, 400, 'max_stat', { max: G.STAT_MAX });
     st.sp = sp - amt; st[stat] = (Number(st[stat]) || 0) + amt;
     const w = await db.run('UPDATE users SET stats = ? WHERE id = ? AND stats = ?', [JSON.stringify(st), ctx.user.id, u.stats]);
     if (w.changes === 1) return send(res, 200, { ok: true, stats: st, fx: fxOf(st) });
