@@ -966,6 +966,17 @@ input[type=checkbox]:focus-visible{outline:2px solid var(--deep);outline-offset:
 .gwcs{list-style:none;margin:0 0 10px;padding:0;display:grid;gap:8px}
 .gwcs li{padding:9px 12px;font-size:.88rem;line-height:1.55;overflow-wrap:anywhere;white-space:pre-wrap;background:#1c1416;border:1px solid var(--line);border-radius:10px}
 .gwcs li.me{border-color:var(--red);background:#2a1014}
+.gwbtns{display:flex;gap:8px}
+.gwsh{margin:12px 0 4px;font-size:1.05rem;color:var(--text)}
+.gwsl{list-style:none;margin:12px 0;padding:0;display:grid;gap:8px}
+.gwsl li{border:1px solid var(--line);background:var(--field)}
+.gwsl label{display:flex;align-items:flex-start;gap:12px;padding:12px 14px;cursor:pointer}
+.gwsl input{flex:none;width:20px;height:20px;margin:2px 0 0;accent-color:var(--red2)}
+.gwsl span{display:grid;gap:2px}
+.gwsl b{font-weight:500;font-size:.92rem}
+.gwsl small{color:var(--sub);font-size:.78rem}
+.gwnote2{margin:8px 0 0;min-height:1.2em;font-size:.8rem;color:var(--sub)}
+.gwtoast{position:fixed;left:50%;top:18px;transform:translateX(-50%);z-index:9999;max-width:calc(100vw - 32px);padding:10px 18px;font-size:.88rem;color:#fff;background:linear-gradient(180deg,#3a0a11,#140d0f);border:1px solid var(--red2);box-shadow:0 0 22px rgba(212,32,46,.5);pointer-events:none}
 .gwcs .gwm{margin-bottom:3px}
 .gwcs li.re{margin-left:20px;border-left:3px solid var(--deep);background:#181012}
 .gwcs .gwto{color:var(--deep);font-weight:700;margin-right:4px}
@@ -996,6 +1007,7 @@ input[type=checkbox]:focus-visible{outline:2px solid var(--deep);outline-offset:
     <ul class="cml" id="cml" aria-live="polite"></ul>
   </div>
 </div>
+<div class="gwtoast" id="gwtoast" role="status" aria-live="polite" hidden></div>
 <div class="modal" id="gwmodal" hidden>
   <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="gwtitle">
     <button type="button" class="x" id="gwclose" aria-label="닫기"><svg class="ic"><use href="#i-x"/></svg></button>
@@ -1006,10 +1018,22 @@ input[type=checkbox]:focus-visible{outline:2px solid var(--deep);outline-offset:
     <div id="gwlist">
       <div class="gwtop">
         <p class="cmn">헌터들끼리만 이용하는 게시판입니다.</p>
-        <button type="button" class="hud-btn" id="gwnew">글쓰기</button>
+        <div class="gwbtns"><button type="button" class="hud-btn" id="gwset-open">알림 설정</button><button type="button" class="hud-btn" id="gwnew">글쓰기</button></div>
       </div>
       <ul class="gwl" id="gwul" aria-live="polite"></ul>
       <div class="gwrow"><button type="button" class="hud-btn" id="gwmore" hidden>더 보기</button></div>
+    </div>
+    <div id="gwset" class="gwf" hidden>
+      <div class="gwtop"><button type="button" class="hud-btn" id="gwsback">← 목록</button></div>
+      <h2 class="gwsh">알림 설정</h2>
+      <p class="cmn">게이트웨이브 알림은 아래 항목마다 켜고 끌 수 있습니다. 세 알림은 같은 소리가 납니다.</p>
+      <ul class="gwsl">
+        <li><label><input type="checkbox" id="gwn-post"><span><b>새 글이 올라올 때</b><small>다른 헌터가 새 글을 올리면 알려줍니다.</small></span></label></li>
+        <li><label><input type="checkbox" id="gwn-cmt"><span><b>내 글에 댓글이 달릴 때</b><small>내가 쓴 글에 다른 헌터가 댓글을 달면 알려줍니다.</small></span></label></li>
+        <li><label><input type="checkbox" id="gwn-rep"><span><b>나에게 답글이 달릴 때</b><small>내 댓글에 다른 헌터가 답글을 달면 알려줍니다.</small></span></label></li>
+      </ul>
+      <div class="gwrow"><button type="button" class="hud-btn" id="gwn-test">알림음 들어보기</button></div>
+      <p class="gwnote2" id="gwsnote"></p>
     </div>
     <div id="gwwrite" class="gwf" hidden>
       <div class="gwtop"><button type="button" class="hud-btn" id="gwwback">← 목록</button></div>
@@ -3000,15 +3024,17 @@ var cmLatest=0,cmSeen=0,cmInit=false,cmSound=true,cmCtx=null,cmOpener=null,cmmod
 try{cmSound=localStorage.getItem("hx_cmsnd")!=="off"}catch(e){}
 function cmKey(){return "hx_cmseen_"+myCode}
 function cmSave(){try{localStorage.setItem(cmKey(),String(cmSeen))}catch(e){}}
-function cmReset(){cmInit=false;cmLatest=0;cmSeen=0}
+function cmReset(){cmInit=false;cmLatest=0;cmSeen=0;gwCur=null;gwSet=null}
 function cmAudio(){
   try{var AC=window.AudioContext||window.webkitAudioContext;if(!AC)return null;
     if(!cmCtx)cmCtx=new AC();if(cmCtx.state==="suspended")cmCtx.resume();return cmCtx}catch(e){return null}
 }
 document.addEventListener("pointerdown",function(){if(!$("game").hidden)cmAudio()},{passive:true});
 document.addEventListener("keydown",function(){if(!$("game").hidden)cmAudio()},{passive:true});
+var sndUntil=0;      // 어떤 알림음이든 재생 중이면 이 시각까지는 다른 알림음이 겹쳐 울리지 않도록 기록
 function cmPing(){
   if(!cmSound)return;var c=cmAudio();if(!c||c.state!=="running")return;
+  sndUntil=Date.now()+1100;
   try{
     var t=c.currentTime;
     [[880,0,.42],[1320,.2,.78]].forEach(function(n){
@@ -3021,6 +3047,7 @@ function cmPing(){
 // 시스템 알림음: 커뮤니티(높은 두 음, 사인파)와 구별되는 낮고 짧은 세 음 하강 (약 0.8초, 삼각파)
 function sysPing(){
   if(!cmSound)return;var c=cmAudio();if(!c||c.state!=="running")return;
+  sndUntil=Date.now()+1000;
   try{
     var t=c.currentTime;
     [[587,0,.2],[440,.17,.2],[294,.34,.46]].forEach(function(n){
@@ -3356,7 +3383,68 @@ function loadGifts(scr){
 }
 // ── 게이트웨이브 (헌터 전용 게시판: 글 올리기·삭제, 댓글) ──
 var gwmodal=$("gwmodal"),gwOpener=null,gwLast=0,gwPost=0;
-function gwPane(n){["gwlist","gwwrite","gwview"].forEach(function(id){$(id).hidden=id!==n});gwmodal.scrollTop=0}
+function gwPane(n){["gwlist","gwwrite","gwview","gwset"].forEach(function(id){$(id).hidden=id!==n});gwmodal.scrollTop=0}
+/* ───── 게이트웨이브 알림: 새 글 / 내 글에 댓글 / 나에게 답글 (항목별 켜기·끄기, 세 알림은 같은 소리) ───── */
+var gwSet=null,gwCur=null,gwnTimer=null,gwToastT=0;
+function gwsKey(){return "hx_gwn_"+myCode}
+function gwcKey(){return "hx_gwc_"+myCode}
+function gwSettings(){
+  if(gwSet)return gwSet;
+  gwSet={post:true,cmt:true,rep:true};
+  try{var v=JSON.parse(localStorage.getItem(gwsKey())||"null");if(v){gwSet.post=v.post!==false;gwSet.cmt=v.cmt!==false;gwSet.rep=v.rep!==false}}catch(e){}
+  return gwSet;
+}
+function gwSaveSet(){try{localStorage.setItem(gwsKey(),JSON.stringify(gwSet))}catch(e){}}
+function gwAny(){var t=gwSettings();return t.post||t.cmt||t.rep}
+// 소리: 기존 커뮤니티(높은 두 음)·시스템(낮은 세 음 하강)과 다른 '톡-톡-띠링' (같은 높이 두 번 + 높은 한 음, 사각파 섞은 짧은 소리)
+// 다른 알림음이 울리는 중이면 끝난 뒤에 이어서 냅니다.
+function gwPing(force){
+  var c=cmAudio();if(!c||c.state!=="running")return;
+  var wait=sndUntil-Date.now();
+  if(wait>0&&!force){setTimeout(function(){gwPing(true)},wait+120);return}
+  sndUntil=Date.now()+850;
+  try{
+    var t=c.currentTime;
+    [[698,0,.11,"square",.07],[698,.14,.11,"square",.07],[1047,.3,.45,"sine",.17]].forEach(function(n){
+      var o=c.createOscillator(),g=c.createGain();o.type=n[3];o.frequency.value=n[0];
+      g.gain.setValueAtTime(0,t+n[1]);g.gain.linearRampToValueAtTime(n[4],t+n[1]+.01);g.gain.exponentialRampToValueAtTime(.0008,t+n[1]+n[2]);
+      o.connect(g);g.connect(c.destination);o.start(t+n[1]);o.stop(t+n[1]+n[2]+.05);
+    });
+  }catch(e){}
+}
+function gwToast(text){
+  var el=$("gwtoast");el.textContent=text;el.hidden=false;clearTimeout(gwToastT);gwToastT=setTimeout(function(){el.hidden=true},3800);
+}
+function gwnPoll(){
+  if($("game").hidden||!gwAny())return;
+  if(!gwCur){try{var v=(localStorage.getItem(gwcKey())||"").split(",");if(v.length===2&&+v[0]>=0&&+v[1]>=0&&v[0]!==""&&v[1]!=="")gwCur=[+v[0],+v[1]]}catch(e){}}
+  api("GET","/api/gw/notify"+(gwCur?"?p="+gwCur[0]+"&c="+gwCur[1]:"")).then(function(r){
+    if(r.error||typeof r.maxPost!=="number")return;
+    var first=!gwCur,t=gwSettings(),parts=[];
+    gwCur=[r.maxPost,r.maxCmt];try{localStorage.setItem(gwcKey(),gwCur.join(","))}catch(e){}
+    if(first)return;                                  // 처음 켠 때는 지금까지의 것을 알리지 않고 기준만 잡습니다
+    if(t.post&&r.posts)parts.push("새 글 "+r.posts+"건");
+    if(t.cmt&&r.comments)parts.push("내 글에 댓글 "+r.comments+"건");
+    if(t.rep&&r.replies)parts.push("나에게 답글 "+r.replies+"건");
+    if(parts.length){gwPing();gwToast("게이트웨이브 · "+parts.join(" · "))}
+  }).catch(function(){});
+}
+function gwnStart(){clearInterval(gwnTimer);gwnTimer=setInterval(gwnPoll,15000);setTimeout(gwnPoll,2500)}
+function gwShowSet(){
+  var t=gwSettings();$("gwn-post").checked=t.post;$("gwn-cmt").checked=t.cmt;$("gwn-rep").checked=t.rep;$("gwsnote").textContent="";gwPane("gwset");
+}
+$("gwset-open").addEventListener("click",gwShowSet);
+$("gwsback").addEventListener("click",function(){gwPane("gwlist")});
+[["gwn-post","post"],["gwn-cmt","cmt"],["gwn-rep","rep"]].forEach(function(x){
+  $(x[0]).addEventListener("change",function(){
+    var t=gwSettings(),was=gwAny();t[x[1]]=this.checked;gwSaveSet();
+    if(!was&&gwAny()){gwCur=null;try{localStorage.removeItem(gwcKey())}catch(e){}}     // 모두 꺼져 있다가 켜면 그동안 쌓인 알림은 울리지 않음
+    $("gwsnote").textContent=this.checked?"알림을 켰습니다.":"알림을 껐습니다.";
+  });
+});
+$("gwn-test").addEventListener("click",function(){cmAudio();setTimeout(function(){gwPing(true)},60);$("gwsnote").textContent="이 소리가 새 글·댓글·답글 알림에 모두 사용됩니다. (소리가 안 나면 기기 음량과 음소거를 확인해 주세요.)"});
+gwnStart();
+
 function gwErr(r){return r.error==="rate_limited"?"잠시 후 다시 시도해주세요.":r.error==="bad_title"?"제목을 1~40자로 입력해주세요.":r.error==="bad_text"?"내용을 확인해주세요.":r.error==="not_found"?"글을 찾을 수 없습니다.":"처리하지 못했습니다."}
 function gwMeta(p,at){
   var m=document.createDocumentFragment();
