@@ -772,6 +772,50 @@ route('GET', '/api/board', async (req, res) => {
   send(res, 200, { posts, latest: posts.length ? posts[0].id : 0 });
 });
 
+// ── 게이트웨이브: 헌터들끼리 쓰는 게시판 (글 올리기·삭제, 댓글 달기) ──
+const GW_TITLE_MAX = 40, GW_BODY_MAX = 1000, GW_CMT_MAX = 200;
+route('GET', '/api/gw', async (req, res, ctx) => {
+  const before = Math.max(0, Number(new URL(req.url, 'http://x').searchParams.get('before')) || 0);
+  const rows = await db.all(`SELECT p.id, p.user_id, p.title, p.body, p.ts, u.hunter_name AS hn, u.rank AS rk,
+      (SELECT COUNT(*) FROM gw_comments c WHERE c.post_id = p.id) AS cc
+    FROM gw_posts p LEFT JOIN users u ON u.id = p.user_id
+    WHERE (? = 0 OR p.id < ?) ORDER BY p.id DESC LIMIT 21`, [before, before]);
+  const more = rows.length > 20;
+  send(res, 200, { more, posts: rows.slice(0, 20).map(r => ({ id: r.id, title: r.title, preview: Array.from(r.body.replace(/\s+/g, ' ')).slice(0, 80).join(''),
+    hn: r.hn || '(탈퇴한 헌터)', rank: r.rk || '', mine: r.user_id === ctx.user.id, cc: Number(r.cc) || 0, ts: r.ts })) });
+});
+route('GET', '/api/gw/post', async (req, res, ctx) => {
+  const id = Number(new URL(req.url, 'http://x').searchParams.get('id')) || 0;
+  const p = await db.get('SELECT p.id, p.user_id, p.title, p.body, p.ts, u.hunter_name AS hn, u.rank AS rk FROM gw_posts p LEFT JOIN users u ON u.id = p.user_id WHERE p.id = ?', [id]);
+  if (!p) return fail(res, 404, 'not_found');
+  const cs = await db.all('SELECT c.id, c.user_id, c.body, c.ts, u.hunter_name AS hn, u.rank AS rk FROM gw_comments c LEFT JOIN users u ON u.id = c.user_id WHERE c.post_id = ? ORDER BY c.id ASC LIMIT 300', [id]);
+  send(res, 200, { post: { id: p.id, title: p.title, body: p.body, hn: p.hn || '(탈퇴한 헌터)', rank: p.rk || '', mine: p.user_id === ctx.user.id, ts: p.ts },
+    comments: cs.map(c => ({ id: c.id, text: c.body, hn: c.hn || '(탈퇴한 헌터)', rank: c.rk || '', mine: c.user_id === ctx.user.id, ts: c.ts })) });
+});
+route('POST', '/api/gw/post', async (req, res, ctx) => {
+  if (await limited('gwp:' + ctx.user.id, 10, G.HOUR)) return fail(res, 429, 'rate_limited');
+  const title = String(ctx.body.title == null ? '' : ctx.body.title).trim(), text = String(ctx.body.text == null ? '' : ctx.body.text).trim();
+  if (!title || cp(title) > GW_TITLE_MAX) return fail(res, 400, 'bad_title');
+  if (!text || cp(text) > GW_BODY_MAX) return fail(res, 400, 'bad_text');
+  const r = await db.run('INSERT INTO gw_posts (user_id, title, body, ts) VALUES (?, ?, ?, ?)', [ctx.user.id, title, text, Date.now()]);
+  send(res, 201, { id: r.lastId });
+});
+route('POST', '/api/gw/post/delete', async (req, res, ctx) => {
+  const id = Number(ctx.body.id) || 0;
+  const p = await db.get('SELECT id FROM gw_posts WHERE id = ? AND user_id = ?', [id, ctx.user.id]);
+  if (!p) return fail(res, 404, 'not_found');           // 본인 글만 지울 수 있음
+  await db.batch([['DELETE FROM gw_comments WHERE post_id = ?', [id]], ['DELETE FROM gw_posts WHERE id = ?', [id]]]);
+  send(res, 200, { ok: true });
+});
+route('POST', '/api/gw/comment', async (req, res, ctx) => {
+  if (await limited('gwc:' + ctx.user.id, 30, 60000)) return fail(res, 429, 'rate_limited');
+  const id = Number(ctx.body.id) || 0, text = String(ctx.body.text == null ? '' : ctx.body.text).trim();
+  if (!text || cp(text) > GW_CMT_MAX) return fail(res, 400, 'bad_text');
+  if (!(await db.get('SELECT id FROM gw_posts WHERE id = ?', [id]))) return fail(res, 404, 'not_found');
+  const r = await db.run('INSERT INTO gw_comments (post_id, user_id, body, ts) VALUES (?, ?, ?, ?)', [id, ctx.user.id, text, Date.now()]);
+  send(res, 201, { id: r.lastId });
+});
+
 // 세계 지도(나라와 세부 지역)
 route('GET', '/api/world', async (req, res) => {
   send(res, 200, { countries: G.COUNTRIES.map(c => ({ id: c.id, name: c.name, lat: c.lat, lon: c.lon,
@@ -1736,6 +1780,8 @@ route('POST', '/api/admin/player/delete', async (req, res, ctx) => {
     ['DELETE FROM friend_requests WHERE from_id = ? OR to_id = ?', [id, id]],
     ['DELETE FROM messages WHERE from_id = ? OR to_id = ?', [id, id]],
     ['DELETE FROM inquiries WHERE user_id = ?', [id]],
+    ['DELETE FROM gw_comments WHERE user_id = ? OR post_id IN (SELECT id FROM gw_posts WHERE user_id = ?)', [id, id]],
+    ['DELETE FROM gw_posts WHERE user_id = ?', [id]],
     ['DELETE FROM hunt_log WHERE user_id = ?', [id]],
     ['DELETE FROM acquire_log WHERE user_id = ?', [id]],
     ['DELETE FROM inventory WHERE user_id = ?', [id]],
