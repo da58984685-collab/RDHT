@@ -119,7 +119,8 @@ body{overflow-wrap:break-word}
 </style>
 </head>
 <body>
-<section id="login">
+<p id="chk" style="text-align:center;margin:30vh 0 0;color:var(--sub,#999)">로그인 상태 확인 중…</p>
+<section id="login" class="hide">
   <form class="card" id="lf" autocomplete="off">
     <h1>赤月</h1>
     <small>관리자 전용</small>
@@ -223,13 +224,16 @@ function api(m,u,b){
     .then(function(r){return r.json().catch(function(){return{}}).then(function(j){j._status=r.status;return j})})
     .catch(function(){return{error:"network",_status:0}});
 }
+var srvNow=0;
+// 마지막 접속: 2분 안에 요청이 있었으면 '접속 중' (동시 접속자 집계와 같은 기준)
+function seen(t,now){if(!t)return'<span class="muted">기록 없음</span>';return (now||Date.now())-t<120000?'<span class="chip ok">접속 중</span>':esc(dt(t))}
 function dt(t){if(!t)return"-";var d=new Date(t),p=function(n){return String(n).padStart(2,"0")};return d.getFullYear()+"-"+p(d.getMonth()+1)+"-"+p(d.getDate())+" "+p(d.getHours())+":"+p(d.getMinutes())}
 var RES={success:["토벌 성공","ok"],fail:["토벌 실패","bad"],pending:["S급 결과 대기","wait"]};
 var selCode=null,tab="info",cache=null,dirty=false;
 function powNeedOf(lv){return Math.max(10,Math.round(30*Math.pow(lv,1.6)*(lv<30?0.1+0.3*Math.pow(lv/30,1.5):1)))}
 function okLeave(){return !dirty||confirm("저장하지 않은 변경 내용이 사라집니다. 계속할까요?")}
 
-function showApp(on){$("login").classList.toggle("hide",on);$("app").classList.toggle("hide",!on)}
+function showApp(on){$("chk").classList.add("hide");$("login").classList.toggle("hide",on);$("app").classList.toggle("hide",!on)}
 
 $("lf").addEventListener("submit",function(e){
   e.preventDefault();$("lerr").textContent="";
@@ -281,13 +285,13 @@ function loadOverview(){
 function loadList(){
   api("GET","/api/admin/players?q="+encodeURIComponent($("q").value)).then(function(r){
     if(r._status===401){showApp(false);return}
-    var ps=r.players||[];
+    var ps=r.players||[];srvNow=r.now||Date.now();
     var qv=$("q").value.trim();
     $("found").innerHTML=qv?(ps.length?'<div class="found">'+ps.slice(0,5).map(function(p){
       return'<div class="fc" data-c="'+esc(p.code)+'"><h4>'+esc(p.hunterName)+'</h4><dl><dt>고유 코드</dt><dd>'+esc(p.code)+'</dd><dt>등급</dt><dd><span class="rk '+esc(p.rank)+'">'+esc(p.rank)+'</span></dd><dt>레벨</dt><dd>Lv.'+p.lv+'</dd><dt>토벌 지역</dt><dd>'+esc(p.region)+(p.lastRegion?' <span class="muted">(최근 토벌: '+esc(p.lastRegion)+')</span>':'')+'</dd></dl></div>';
     }).join("")+(ps.length>5?'<div class="muted" style="font-size:.82rem">외 '+(ps.length-5)+'명 — 아래 목록에서 확인하세요.</div>':"")+"</div>":'<div class="empty">"'+esc(qv)+'" 헌터를 찾지 못했습니다.</div>'):"";
     $("plist").innerHTML=ps.length?ps.map(function(p){
-      return'<tr data-c="'+esc(p.code)+'"'+(p.code===selCode?' class="sel"':"")+"><td>"+esc(p.hunterName)+'<div class="muted" style="font-size:.78rem">'+esc(p.code)+'</div>'+(p.invite?'<div class="muted" style="font-size:.78rem">초대 '+esc(p.invite)+"</div>":"")+'</td><td><span class="rk '+esc(p.rank)+'">'+esc(p.rank)+"</span></td><td>"+p.lv+"</td><td>"+p.kills+"</td><td>"+esc(p.region)+"</td></tr>";
+      return'<tr data-c="'+esc(p.code)+'"'+(p.code===selCode?' class="sel"':"")+"><td>"+esc(p.hunterName)+'<div class="muted" style="font-size:.78rem">'+esc(p.code)+'</div><div style="font-size:.78rem">마지막 접속 '+seen(p.lastSeen,srvNow)+'</div>'+(p.invite?'<div class="muted" style="font-size:.78rem">초대 '+esc(p.invite)+"</div>":"")+'</td><td><span class="rk '+esc(p.rank)+'">'+esc(p.rank)+"</span></td><td>"+p.lv+"</td><td>"+p.kills+"</td><td>"+esc(p.region)+"</td></tr>";
     }).join(""):'<tr><td colspan="5" class="empty">헌터가 없습니다.</td></tr>';
   });
 }
@@ -325,7 +329,7 @@ function renderDetail(){
   var opt=function(list,cur){return list.map(function(x){return'<option value="'+esc(x[0])+'"'+(x[0]===cur?" selected":"")+">"+esc(x[1])+"</option>"}).join("")};
   var RANKS=["F","E","D","C","B","A","S"].map(function(x){return[x,x]});
   if(tab==="info"){
-    h+='<dl class="kv"><dt>현재 지역</dt><dd>'+esc(p.region)+"</dd><dt>친구 수</dt><dd>"+p.friends+"명</dd><dt>가입일</dt><dd>"+dt(p.created)+"</dd></dl>";
+    h+='<dl class="kv"><dt>현재 지역</dt><dd>'+esc(p.region)+"</dd><dt>친구 수</dt><dd>"+p.friends+"명</dd><dt>가입일</dt><dd>"+dt(p.created)+"</dd><dt>마지막 접속</dt><dd>"+seen(p.lastSeen,Date.now())+"</dd></dl>";
     var f=function(id,label,val,min,max,type){return'<label class="fld"><span>'+label+'</span><input id="'+id+'" type="'+(type||"number")+'" value="'+esc(val)+'"'+(type==="text"?' maxlength="30"':' min="'+min+'" max="'+max+'" step="1"')+' autocomplete="off"></label>'};
     h+='<h3 style="font-size:.95rem;margin:12px 0 8px">헌터 정보 수정 <span class="muted" style="font-weight:400;font-size:.8rem">(저장 버튼을 눌러야 서버에 반영됩니다)</span></h3>'+
       '<form id="editf" class="egrid">'+
@@ -758,7 +762,7 @@ function boot(fromLogin,tries){
   api("GET","/api/admin/overview").then(function(r){
     if(typeof r.users==="number"){$("lerr").textContent="";showApp(true);loadAll();return}
     // 서버가 잠깐 깨어나는 중(콜드 스타트·DB 연결 지연)이면 몇 번 더 시도합니다. 로그인 화면으로 곧바로 돌아가지 않도록 합니다.
-    if((r._status===0||r._status>=500)&&tries<3){$("lerr").textContent="서버에 연결하는 중… ("+(tries+1)+"/3)";setTimeout(function(){boot(fromLogin,tries+1)},1500);return}
+    if((r._status===0||r._status>=500)&&tries<3){$(fromLogin?"lerr":"chk").textContent="서버에 연결하는 중… ("+(tries+1)+"/3)";setTimeout(function(){boot(fromLogin,tries+1)},1500);return}
     showApp(false);
     if(r._status===401)$("lerr").textContent=fromLogin?"로그인은 되었지만 브라우저가 로그인 정보(쿠키)를 저장하지 않았습니다. 시크릿 모드·쿠키 차단·확장 프로그램을 확인해 주세요.":"";
     else if(r._status===0)$("lerr").textContent="네트워크 오류입니다. 새로고침(F5)을 다시 눌러 주세요.";
