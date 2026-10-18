@@ -220,7 +220,9 @@ body{overflow-wrap:break-word}
 var $=function(i){return document.getElementById(i)};
 function esc(s){return String(s==null?"":s).replace(/[&<>"']/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]})}
 function api(m,u,b){
-  return fetch(u,{method:m,credentials:"same-origin",headers:b?{"Content-Type":"application/json"}:{},body:b?JSON.stringify(b):undefined})
+  var ac=window.AbortController?new AbortController():null,tm=ac?setTimeout(function(){ac.abort()},25000):0;     // 서버가 응답하지 않으면 25초 뒤 끊고 오류로 처리 (화면이 영원히 멈추지 않도록)
+  return fetch(u,{method:m,credentials:"same-origin",headers:b?{"Content-Type":"application/json"}:{},body:b?JSON.stringify(b):undefined,signal:ac?ac.signal:undefined})
+    .then(function(r){clearTimeout(tm);return r})
     .then(function(r){return r.json().catch(function(){return{}}).then(function(j){j._status=r.status;return j})})
     .catch(function(){return{error:"network",_status:0}});
 }
