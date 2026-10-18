@@ -3181,7 +3181,13 @@ function openGate(){
 }
 window.addEventListener("resize",function(){if(!gtmodal.hidden)drawScene()});
 function closeGate(){if(gtBusy)return;gtmodal.hidden=true;document.body.style.overflow=(!rmodal.hidden||!mmodal.hidden||!$("gwmodal").hidden||!$("cmodal").hidden||!$("gfmodal").hidden)?"hidden":"";if(gtOpener&&gtOpener.focus&&document.body.contains(gtOpener))gtOpener.focus()}
-$("gtclose").addEventListener("click",closeGate);$("gtcancel").addEventListener("click",closeGate);
+var gtExitClose=false;
+function gtXClose(){      // 적월문 안에서 X(또는 Esc)를 누르면 퇴장으로 처리하고, 나온 뒤 팝업을 닫습니다
+  if(gtBusy)return;
+  if(COUNTRY_BY_ID.GT&&curCountry==="GT"){gtExitClose=true;$("gtres").hidden=true;$("gtexit").click();return}
+  closeGate();
+}
+$("gtclose").addEventListener("click",gtXClose);$("gtcancel").addEventListener("click",closeGate);
 gtmodal.addEventListener("mousedown",function(e){if(e.target===gtmodal)closeGate()});
 $("gtenter").addEventListener("click",function(){
   if(gtBusy)return;gtBusy=true;$("gtnote").textContent="적월문으로 들어가는 중…";
@@ -3194,11 +3200,13 @@ $("gtenter").addEventListener("click",function(){
 $("gtexit").addEventListener("click",function(){
   if(gtBusy)return;gtBusy=true;
   gtLoad("문 밖으로 나가는 중…",api("POST","/api/move",{region:"city"})).then(function(r){
-    gtBusy=false;if(r.error){$("gtnote").textContent=gtErr(r);return}
+    gtBusy=false;var cl=gtExitClose;gtExitClose=false;
+    if(r.error){$("gtnote").textContent=gtErr(r);return}
     moveTo("city",true);markRegions();gtRender();$("gtnote").textContent="문 밖으로 나왔어요.";
-  }).catch(function(){gtBusy=false});
+    if(cl)closeGate();
+  }).catch(function(){gtBusy=false;gtExitClose=false});
 });
-document.addEventListener("keydown",function(e){if(e.key==="Escape"&&!gtmodal.hidden&&hmodal.hidden)closeGate()});
+document.addEventListener("keydown",function(e){if(e.key==="Escape"&&!gtmodal.hidden&&hmodal.hidden)gtXClose()});
 gtmodal.addEventListener("keydown",function(e){
   if(e.key!=="Tab")return;
   var list=Array.prototype.filter.call(gtmodal.querySelectorAll("button"),function(el){return el.offsetParent!==null&&!el.disabled});
@@ -3237,7 +3245,7 @@ function svPlace(){
     b.addEventListener("click",function(){svGo(i)});
     st.appendChild(b);
   });
-  $("gtsvnote").textContent=ready?"조사할 수 있는 '!' "+ready+"개"+(next?" · 재등장까지 "+svLeft(next-now):""):"조사를 모두 마쳤습니다 · 재등장까지 "+svLeft(next-now);
+  $("gtsvnote").textContent=ready?"조사할 수 있는 구역 "+ready+"개"+(next?" · 재등장까지 "+svLeft(next-now):""):"조사를 모두 마쳤습니다 · 재등장까지 "+svLeft(next-now);
 }
 function svLoad(){
   api("GET","/api/survey").then(function(r){if(r.error||!r.marks)return;svData=r.marks;svPlace()});
