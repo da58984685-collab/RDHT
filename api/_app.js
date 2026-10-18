@@ -288,11 +288,13 @@ async function resolveDue() {
 
 // ── 오염도 100: 1시간 활동 불가 + 같은 이름·등급의 몬스터 출몰 (1시간, 누구나 반드시 토벌 성공) ──
 const CORRUPT_MS = G.HOUR;
+// 폭주 잠금: 잠금 시간이 남아 있어도 오염도가 100 아래로 내려가면 풀립니다.
+const corruptLock = (row, now) => row.corrupt_until > now && (Number(JSON.parse(row.stats).taint) || 0) >= 100;
 async function corruptCheck(userId) {
-  const u = await db.get('SELECT id, hunter_name, rank, stats, corrupt_flag FROM users WHERE id = ?', [userId]);
+  const u = await db.get('SELECT id, hunter_name, rank, stats, corrupt_flag, corrupt_until FROM users WHERE id = ?', [userId]);
   if (!u) return;
   const t = Number(JSON.parse(u.stats).taint) || 0;
-  if (t < 100) { if (u.corrupt_flag) await db.run('UPDATE users SET corrupt_flag = 0 WHERE id = ? AND corrupt_flag = 1', [u.id]); return; }
+  if (t < 100) { if (u.corrupt_flag || u.corrupt_until > 0) await db.run('UPDATE users SET corrupt_flag = 0, corrupt_until = 0 WHERE id = ? AND (corrupt_flag = 1 OR corrupt_until > 0)', [u.id]); return; }
   if (u.corrupt_flag) return;
   const now = Date.now();
   const claim = await db.run('UPDATE users SET corrupt_flag = 1, corrupt_until = ? WHERE id = ? AND corrupt_flag = 0', [now + CORRUPT_MS, u.id]);
@@ -530,7 +532,7 @@ async function buildState(u, now) {
   const pm = new Map(parts.map(r => [r.monster_id, r.c]));
   return {
     now,
-    user: { pinned: pinnedList(u, await loadAch()), lv: u.lv, exp: u.exp, gold: u.gold, region: u.region, country: G.countryOf(u.region), hunterName: u.hunter_name, private: !!u.is_private, stats: statsOf(u), dyingUntil: u.dying_until > now ? u.dying_until : 0, blocked: u.block_flags | 0, adminChar: !!u.admin_char, inqUnread: (await db.get('SELECT COUNT(*) AS c FROM inquiries WHERE user_id = ? AND from_admin = 1 AND id > ?', [u.id, u.inq_read])).c, corruptUntil: u.corrupt_until > now ? u.corrupt_until : 0, tainted: (JSON.parse(u.stats).taint || 0) >= 100, fx: fxOf(JSON.parse(u.stats)) },
+    user: { pinned: pinnedList(u, await loadAch()), lv: u.lv, exp: u.exp, gold: u.gold, region: u.region, country: G.countryOf(u.region), hunterName: u.hunter_name, private: !!u.is_private, stats: statsOf(u), dyingUntil: u.dying_until > now ? u.dying_until : 0, blocked: u.block_flags | 0, adminChar: !!u.admin_char, inqUnread: (await db.get('SELECT COUNT(*) AS c FROM inquiries WHERE user_id = ? AND from_admin = 1 AND id > ?', [u.id, u.inq_read])).c, corruptUntil: corruptLock(u, now) ? u.corrupt_until : 0, tainted: (JSON.parse(u.stats).taint || 0) >= 100, fx: fxOf(JSON.parse(u.stats)) },
     monsters: mons.map(m => ({
       id: m.id, region: m.region, rname: G.placeName(m.region), mon: m.name, r: m.rank, ts: m.spawned_at,
       done: killed.has(m.id), cd: cdm.get(m.id) || 0,
@@ -792,7 +794,7 @@ route('POST', '/api/move', async (req, res, ctx) => {
   if (typeof id === 'string' && G.COUNTRY_BY_ID[id]) id = G.COUNTRY_BY_ID[id].regions[0].id;      // 나라를 고르면 그 나라의 첫 지역으로 이동
   if (typeof id !== 'string' || !G.REGION_BY_ID[id]) return fail(res, 400, 'bad_region');
   if (ctx.user.block_flags & 2) return fail(res, 403, 'blocked', { what: 'move' });
-  if (ctx.user.corrupt_until > Date.now()) return fail(res, 409, 'corrupted', { until: ctx.user.corrupt_until });
+  if (corruptLock(ctx.user, Date.now())) return fail(res, 409, 'corrupted', { until: ctx.user.corrupt_until });
   await db.run('UPDATE users SET region = ? WHERE id = ?', [id, ctx.user.id]);
   send(res, 200, { region: id, country: G.countryOf(id) });
 });
@@ -807,7 +809,7 @@ route('POST', '/api/hunt', async (req, res, ctx) => {
   if (!m) return fail(res, 410, 'expired');
   if ((m.owner_id != null && m.owner_id !== cur.id) || (m.owner_id == null && m.rank !== 'S' && m.corrupt_of == null)) return fail(res, 404, 'no_monster');
   const cm = m.corrupt_of != null;
-  if (cur.corrupt_until > now) return fail(res, 409, 'corrupted', { until: cur.corrupt_until });   // 오염도 100: 1시간 활동 불가
+  if (corruptLock(cur, now)) return fail(res, 409, 'corrupted', { until: cur.corrupt_until });   // 오염도 100: 1시간 활동 불가
   if ((Number(JSON.parse(cur.stats).taint) || 0) >= 100) return fail(res, 409, 'tainted');          // 오염도를 줄여야 토벌 가능
   if (await db.get('SELECT 1 AS x FROM kills WHERE user_id = ? AND monster_id = ?', [cur.id, m.id])) return fail(res, 409, 'already_done');
   if (now - m.spawned_at >= (cm ? CORRUPT_MS : G.activeMsOf(m.rank))) return fail(res, 410, 'expired');
@@ -1130,7 +1132,7 @@ route('GET', '/api/admin/player', async (req, res) => {
     achievements: ach.map(a => ({ id: a.id, name: a.name, desc: a.descr, kind: a.kind, met: a.met, granted: a.granted, done: a.done })),
     player: Object.assign(publicUser(u), { inviteReward: await inviteRewardOf(u.id), invite: u.invite_code || '', created: u.created_at, region: G.placeLong(u.region), friends: fr.c }),
     items: inv, acquired: acq, hunts, counts: cnt, pendingS: pend.map(p => ({ mon: p.name, at: p.resolve_at })),
-    activity: { corruptMonster: !!(await db.get('SELECT 1 AS x FROM monsters WHERE corrupt_of = ? AND spawned_at > ?', [u.id, Date.now() - CORRUPT_MS])), adminChar: !!u.admin_char, blocked: u.block_flags | 0, corruptUntil: u.corrupt_until > Date.now() ? u.corrupt_until : 0, dyingUntil: u.dying_until > Date.now() ? u.dying_until : 0,
+    activity: { corruptMonster: !!(await db.get('SELECT 1 AS x FROM monsters WHERE corrupt_of = ? AND spawned_at > ?', [u.id, Date.now() - CORRUPT_MS])), adminChar: !!u.admin_char, blocked: u.block_flags | 0, corruptUntil: corruptLock(u, Date.now()) ? u.corrupt_until : 0, dyingUntil: u.dying_until > Date.now() ? u.dying_until : 0,
       taint: Number(JSON.parse(u.stats).taint) || 0, now: Date.now() },
   });
 }, { auth: false, admin: true });
@@ -1309,7 +1311,7 @@ route('GET', '/api/shop', async (req, res, ctx) => {
 route('POST', '/api/shop/buy', async (req, res, ctx) => {
   if (await limited('buy:' + ctx.user.id, 60, G.HOUR)) return fail(res, 429, 'rate_limited');
   if (ctx.user.block_flags & 4) return fail(res, 403, 'blocked', { what: 'shop' });
-  if (ctx.user.corrupt_until > Date.now()) return fail(res, 409, 'corrupted', { until: ctx.user.corrupt_until });
+  if (corruptLock(ctx.user, Date.now())) return fail(res, 409, 'corrupted', { until: ctx.user.corrupt_until });
   const it = await db.get('SELECT id, name, price FROM shop_items WHERE id = ?', [Number(ctx.body.id) || 0]);
   if (!it) return fail(res, 404, 'no_item');
   const cur = await db.get('SELECT qty FROM inventory WHERE user_id = ? AND item = ?', [ctx.user.id, it.name]);
