@@ -169,6 +169,19 @@ main.landing{display:flex;align-items:center;justify-content:center;max-width:no
 .chn{margin:0;font:800 1.45rem/1.25 "Nanum Myeongjo",serif;color:#fff;overflow-wrap:anywhere}
 .cnm{margin:2px 0 10px;font-size:.88rem;color:var(--sub)}
 .crank{display:flex;align-items:center;gap:10px;color:var(--sub);font-size:.85rem}
+.pbtn{position:relative;min-height:28px;padding:0 10px;font:500 .78rem/1 "Noto Sans KR",sans-serif;color:var(--text);background:var(--field);border:1px solid var(--line);cursor:pointer}
+.pbtn:hover{border-color:var(--red2)}
+.pbtn.rdy{border-color:var(--red2);color:#fff;box-shadow:0 0 10px rgba(255,59,74,.45)}
+.pbtn.rdy::after{content:"";position:absolute;right:-4px;top:-4px;width:8px;height:8px;border-radius:50%;background:var(--red2);box-shadow:0 0 6px var(--red2)}
+.pm-rk{display:flex;align-items:center;justify-content:center;gap:14px;margin:4px 0 14px;font:700 1.5rem/1 "Share Tech Mono","Noto Sans KR",monospace;color:var(--text)}
+.pm-rk i{font-style:normal;color:var(--red2);font-size:1.1rem}
+.pm-l{list-style:none;margin:0 0 6px;padding:0;display:grid;gap:6px}
+.pm-l li{display:flex;align-items:center;gap:10px;padding:9px 12px;font-size:.88rem;color:var(--sub);background:#161012;border:1px solid var(--line)}
+.pm-l li b{margin-left:auto;font:400 .8rem/1 "Share Tech Mono","Noto Sans KR",monospace;color:var(--sub)}
+.pm-l li.ok{color:var(--text);border-color:var(--red)}
+.pm-l li.ok b{color:var(--red2)}
+.pm-l li::before{content:"✕";color:var(--sub);font-size:.8rem}
+.pm-l li.ok::before{content:"✓";color:var(--red2)}
 #gchar .lbl{margin:16px 0 4px}
 .bgm{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
 .bgm-note{flex:1 1 100%;margin:0;font-size:.78rem;color:var(--sub)}
@@ -727,7 +740,7 @@ input[type=checkbox]:focus-visible{outline:2px solid var(--deep);outline-offset:
             <div class="cinfo">
               <p class="chn" id="ghn"></p>
               <p class="cnm" id="gnm"></p>
-              <div class="crank"><span>헌터 등급</span><b class="rk" id="grank"></b></div>
+              <div class="crank"><span>헌터 등급</span><b class="rk" id="grank"></b><button type="button" class="pbtn" id="gpromo" aria-label="헌터 등급 승급">승급</button></div>
             </div>
           </div>
           <div class="imgrow"><button type="button" class="hud-btn" id="gimgbtn">이미지 변경</button><button type="button" class="hud-btn" id="gimgrm">이미지 삭제</button><input type="file" id="gimgfile" accept="image/*" hidden></div>
@@ -1111,6 +1124,21 @@ input[type=checkbox]:focus-visible{outline:2px solid var(--deep);outline-offset:
       <p class="gwnote" id="gfnote" role="status"></p>
       <div class="gwrow"><button type="submit" class="hud-btn" id="gfsend">보내기</button><button type="button" class="hud-btn" id="gfcancel">취소</button></div>
     </form>
+  </div>
+</div>
+<div class="modal" id="pmodal" hidden style="z-index:11">
+  <div class="dialog small" role="dialog" aria-modal="true" aria-labelledby="pmtitle">
+    <button type="button" class="x" id="pmclose" aria-label="닫기"><svg class="ic"><use href="#i-x"/></svg></button>
+    <div class="dhead">
+      <p class="eyebrow">PROMOTION</p>
+      <h1 id="pmtitle">헌터 등급 승급</h1>
+    </div>
+    <div class="gff">
+      <div class="pm-rk" id="pmrk"></div>
+      <ul class="pm-l" id="pml"></ul>
+      <p class="gwnote" id="pmnote" role="status"></p>
+      <div class="gwrow"><button type="button" class="hud-btn" id="pmgo" disabled>승급하기</button><button type="button" class="hud-btn" id="pmcancel">닫기</button></div>
+    </div>
   </div>
 </div>
 <div class="modal" id="mmodal" hidden>
@@ -2285,7 +2313,10 @@ function applyState(st,first){
     var sg=st.user.hunterName+"|"+JSON.stringify(st.user.stats);
     if(sg!==statSig){if(statSig){$("ghn").textContent=st.user.hunterName||"";renderStats(st.user.stats)}statSig=sg}
   }
+  if(st.user&&st.user.rank){var rk0=$("grank");if(rk0.textContent!==st.user.rank){rk0.textContent=st.user.rank;rk0.dataset.r=st.user.rank;refreshPromo()}}   // 운영자가 등급을 바꾸면 바로 반영
+  if(first||++promoTick%12===0)refreshPromo();      // 처치 기록 조건도 있어서 1분에 한 번 확인
   if(st.user&&(st.user.lv!==power.lv||st.user.exp!==power.exp)){
+    if(st.user.lv!==power.lv&&!first)refreshPromo();
     var up=st.user.lv>power.lv;power={lv:st.user.lv,exp:st.user.exp};renderPower(up);
   }
   if(st.user&&st.user.gold!==undefined&&st.user.gold!==gold){gold=st.user.gold;if(devApp==='shop'||devApp==='inv')setGoldTag()}
@@ -3156,6 +3187,53 @@ function openGift(kind,item,max,opener){
     $("gfsend").disabled=false;
   }).catch(function(){$("gfnote").textContent="친구 목록을 불러오지 못했습니다."});
 }
+/* ───── 헌터 등급 승급 ───── */
+var promoTick=0,pmodal=$("pmodal"),pmInfo=null,pmBusy=false,pmOpener=null;
+function refreshPromo(){
+  api("GET","/api/promote").then(function(r){
+    if(r._status!==200)return;pmInfo=r;$("gpromo").classList.toggle("rdy",!!r.can);
+    if(!pmodal.hidden)drawPromo();
+  });
+}
+function drawPromo(){
+  var r=pmInfo;if(!r)return;
+  var rk=$("pmrk");rk.innerHTML="";
+  var a=document.createElement("span");a.textContent=r.rank+"급";rk.appendChild(a);
+  if(!r.max){var ar=document.createElement("i");ar.textContent="▶";rk.appendChild(ar);var b=document.createElement("span");b.textContent=r.next+"급";rk.appendChild(b)}
+  var ul=$("pml");ul.innerHTML="";
+  if(r.max){var li0=document.createElement("li");li0.className="ok";li0.textContent="가장 높은 등급입니다.";ul.appendChild(li0)}
+  (r.conds||[]).forEach(function(c){
+    var li=document.createElement("li");if(c.ok)li.className="ok";
+    var t=document.createElement("span");t.textContent=c.t;var n=document.createElement("b");n.textContent=c.have+" / "+c.need;
+    li.appendChild(t);li.appendChild(n);ul.appendChild(li);
+  });
+  $("pmgo").disabled=pmBusy||!r.can;$("pmgo").hidden=!!r.max;
+  if(!pmBusy&&!$("pmnote").dataset.keep)$("pmnote").textContent=r.max?"":(r.can?"조건을 모두 채웠습니다. 승급할 수 있어요.":"아직 조건을 채우지 못했습니다.");
+}
+function openPromo(){
+  pmOpener=document.activeElement;$("pmnote").textContent="";delete $("pmnote").dataset.keep;
+  pmodal.hidden=false;document.body.style.overflow="hidden";$("pmclose").focus();
+  drawPromo();refreshPromo();
+}
+function closePromo(){pmodal.hidden=true;document.body.style.overflow=(!rmodal.hidden||!mmodal.hidden||!$("gwmodal").hidden||!$("cmodal").hidden)?"hidden":"";if(pmOpener&&pmOpener.focus)pmOpener.focus()}
+$("gpromo").addEventListener("click",openPromo);
+$("pmclose").addEventListener("click",closePromo);$("pmcancel").addEventListener("click",closePromo);
+pmodal.addEventListener("mousedown",function(e){if(e.target===pmodal)closePromo()});
+document.addEventListener("keydown",function(e){if(e.key==="Escape"&&!pmodal.hidden)closePromo()});
+$("pmgo").addEventListener("click",function(){
+  if(pmBusy||!pmInfo||!pmInfo.can)return;pmBusy=true;$("pmgo").disabled=true;
+  api("POST","/api/promote",{}).then(function(r){
+    pmBusy=false;
+    if(r.ok){
+      var rk=$("grank");rk.textContent=r.rank;rk.dataset.r=r.rank;
+      $("pmnote").dataset.keep="1";$("pmnote").textContent=r.from+"급에서 "+r.rank+"급으로 승급했습니다! 명성이 올랐습니다.";
+      pmInfo=r.next;$("gpromo").classList.toggle("rdy",!!(r.next&&r.next.can));drawPromo();pollState(false);
+    }else{
+      delete $("pmnote").dataset.keep;$("pmnote").textContent=r.error==="not_ready"?"아직 조건을 채우지 못했습니다.":r.error==="max_rank"?"이미 가장 높은 등급입니다.":"승급하지 못했습니다. 잠시 뒤 다시 시도해 주세요.";
+      refreshPromo();
+    }
+  });
+});
 function closeGift(){gfmodal.hidden=true;document.body.style.overflow=(!rmodal.hidden||!mmodal.hidden||!$("gwmodal").hidden||!$("cmodal").hidden)?"hidden":"";if(gfOpener&&gfOpener.focus&&document.body.contains(gfOpener))gfOpener.focus()}
 $("gfclose").addEventListener("click",closeGift);$("gfcancel").addEventListener("click",closeGift);
 gfmodal.addEventListener("mousedown",function(e){if(e.target===gfmodal)closeGift()});
