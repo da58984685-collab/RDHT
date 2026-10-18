@@ -158,15 +158,15 @@ const ACH_SEED2 = [
   { id: 'st-agi', name: '바람의 발걸음', desc: '민첩이 50이 되었다.', kind: 'stat', val: 'agi:50' },
   { id: 'st-luck', name: '행운아', desc: '행운이 50이 되었다.', kind: 'stat', val: 'luck:50' },
 ];
-// 헌터 등급 승급: F~D급은 전투력(레벨)만 오르면 됩니다. C급부터는 처치 기록 조건이 더해집니다.
-//  kills: { min: 해당 등급 이상 몬스터, n: 처치 수 }, sTry: S급 토벌 도전 횟수
+// 헌터 등급 승급: F→E, E→D 는 전투력(레벨)만 오르면 됩니다. D→C 부터는 처치 기록 등 조건이 더해지고, 위로 갈수록 어려워집니다.
+//  kills: [{ min: 해당 등급 이상 몬스터, n: 처치 수 }], sTry: S급 토벌 도전 횟수, taintMax: 오염도(%) 이하여야 함
 const PROMO = {
   F: { to: 'E', lv: 5 },
   E: { to: 'D', lv: 8 },
-  D: { to: 'C', lv: 12 },
-  C: { to: 'B', lv: 18, kills: { min: 'C', n: 10 } },
-  B: { to: 'A', lv: 24, kills: { min: 'B', n: 20 }, killsA: 3 },
-  A: { to: 'S', lv: 30, kills: { min: 'A', n: 15 }, sTry: 1 },
+  D: { to: 'C', lv: 15, kills: [{ min: 'D', n: 20 }] },
+  C: { to: 'B', lv: 22, kills: [{ min: 'C', n: 35 }, { min: 'B', n: 8 }] },
+  B: { to: 'A', lv: 28, kills: [{ min: 'B', n: 50 }, { min: 'A', n: 10 }] },
+  A: { to: 'S', lv: 33, kills: [{ min: 'A', n: 40 }], sTry: 3, taintMax: 40 },
 };
 const ACH_PIN_MAX = 3;
 // 등급별 오염도(%) 상승 범위 [최소, 최대] (0.1% 단위)
