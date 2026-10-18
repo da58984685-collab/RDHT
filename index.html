@@ -1198,9 +1198,20 @@ function api(method,url,body){
   if(maintOn&&!maintBypass&&url.indexOf("/api/maintenance")!==0)return Promise.resolve({error:"maintenance",_status:503});
   var opt={method:method,credentials:"same-origin",headers:{}};
   if(method!=="GET"){opt.headers["Content-Type"]="application/json";opt.body=JSON.stringify(body||{})}
+  var ac=window.AbortController?new AbortController():null,tm=ac?setTimeout(function(){ac.abort()},25000):0;   // 서버가 응답하지 않아도 화면이 영원히 '불러오는 중'에 멈추지 않도록 25초 뒤 끊습니다
+  if(ac)opt.signal=ac.signal;
   return fetch(url,opt).then(function(r){
+    clearTimeout(tm);
     return r.json().catch(function(){return {}}).then(function(j){j._status=r.status;if(j.error==="maintenance"){maintBypass=false;showMaint(j.message)}return j});
-  },function(){return {error:"network",_status:0}});
+  },function(){clearTimeout(tm);return {error:"network",_status:0}});
+}
+// 기기 앱 목록을 불러오지 못했을 때: 멈춰 있는 '불러오는 중…' 대신 안내와 다시 시도 버튼을 보여줍니다
+function appFail(scr,retry){
+  var old=scr.querySelector(".app-empty,.app-list");if(old)old.remove();
+  var p=document.createElement("p");p.className="app-empty";p.appendChild(document.createTextNode("불러오지 못했습니다. 잠시 후 다시 시도해 주세요."));
+  var b=document.createElement("button");b.type="button";b.className="gift-btn";b.style.display="block";b.style.margin="10px auto 0";b.textContent="다시 시도";
+  b.addEventListener("click",function(){var o=scr.querySelector(".app-empty");if(o)o.textContent="불러오는 중…";retry()});
+  p.appendChild(b);scr.appendChild(p);
 }
 var traitsBox=$("traits"),msg=$("msg"),gBtns=document.querySelectorAll(".genders button");
 var traitInputs=[],counters=[];
@@ -2010,6 +2021,7 @@ function loadNotices(){
   var scr=$("phscr");
   api("GET","/api/notices").then(function(r){
     if(devApp!=="sys")return;
+    if(r.error||!r.notices){appFail(scr,loadNotices);return}
     var box=scr.querySelector(".app-empty,.app-list");if(box)box.remove();
     var list=r.notices||[],seen=r.seen||0;
     function empty(){var p=document.createElement("p");p.className="app-empty";p.textContent="수신된 시스템 알림이 없습니다.";scr.appendChild(p)}
@@ -2081,6 +2093,7 @@ function loadAch(){
   var scr=$("phscr");
   api("GET","/api/achievements").then(function(r){
     if(devApp!=="ach")return;
+    if(r.error||!r.list){appFail(scr,loadAch);return}
     var old=scr.querySelector(".app-empty,.app-list");if(old)old.remove();
     var ul=document.createElement("ul");ul.className="app-list";
     (r.list||[]).forEach(function(a){
@@ -2110,6 +2123,7 @@ function loadShop(){
   var scr=$("phscr");
   api("GET","/api/shop").then(function(r){
     if(devApp!=="shop")return;
+    if(r.error||!r.items){appFail(scr,loadShop);return}
     var box=scr.querySelector(".app-empty,.app-list");if(box)box.remove();
     var list=r.items||[];if(r.gold!==undefined){gold=r.gold;setGoldTag()}
     if(!list.length){var p=document.createElement("p");p.className="app-empty";p.textContent="판매 중인 물품이 없습니다.";scr.appendChild(p);return}
@@ -3272,7 +3286,9 @@ var craftData=null,craftNote="";
 function loadCraft(){
   var scr=$("phscr");
   api("GET","/api/craft").then(function(r){
-    if(devApp!=="craft"||!r.recipes)return;craftData=r;drawCraft();
+    if(devApp!=="craft")return;
+    if(!r.recipes){appFail(scr,loadCraft);return}
+    craftData=r;drawCraft();
   });
 }
 function drawCraft(){
@@ -3447,8 +3463,18 @@ function leaveGame(note){
 }
 $("logout").addEventListener("click",function(){api("POST","/api/logout",{}).then(function(){leaveGame()})});
 $("pausebtn").addEventListener("click",function(){paused=!paused;this.textContent=paused?"알림 재개":"알림 멈춤";this.setAttribute("aria-pressed",paused?"true":"false");if(!paused)pollState()});
-function startSession(){
-  return loadWorld().then(function(){return api("GET","/api/me")}).then(function(r){if(r._status===200&&r.user)enterGame(r);return r});
+function startSession(tries){
+  tries=tries||0;
+  return loadWorld().then(function(){return api("GET","/api/me")}).then(function(r){
+    // 서버가 막 깨어나는 중(응답 없음·5xx)이면 몇 번 더 시도합니다. 한 번 실패했다고 로그인 상태를 포기하지 않도록 합니다.
+    if((r._status===0||r._status>=500)&&r._status!==503&&tries<3){
+      var hm=$("hmsg");if(hm){hm.textContent="서버에 연결하는 중… ("+(tries+1)+"/3)";hm.className="hmsg"}
+      return new Promise(function(ok){setTimeout(ok,1500)}).then(function(){return startSession(tries+1)});
+    }
+    if(r._status===200&&r.user){var h2=$("hmsg");if(h2&&/서버에 연결하는 중/.test(h2.textContent))h2.textContent="";enterGame(r)}
+    else if(r._status===0||r._status>=500){var h3=$("hmsg");if(h3&&r._status!==503){h3.textContent="서버가 응답하지 않습니다. 잠시 후 새로고침(F5) 해주세요.";h3.className="hmsg"}}
+    return r;
+  });
 }
 function setFx(off){
   document.body.classList.toggle("fx-off",off);
