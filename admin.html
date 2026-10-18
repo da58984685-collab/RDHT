@@ -140,6 +140,7 @@ body{overflow-wrap:break-word}
     <p class="muted" style="margin:0 0 10px;font-size:.85rem">켜면 관리자 캐릭터를 뺀 모든 헌터의 접속(가입·로그인·게임)이 막히고, 헌터 화면에 '점검 중' 안내가 나옵니다. 데이터는 그대로 보존됩니다.</p>
     <div style="display:flex;gap:8px;flex-wrap:wrap"><input id="mtmsg" maxlength="200" placeholder="헌터에게 보여 줄 안내 문구 (비워 두면 기본 문구)" style="flex:1;min-width:200px"><button type="button" class="btn" id="mtbtn">점검 시작</button></div>
   </section>
+  <div class="stats" id="onl"></div>
   <div class="stats" id="stats"></div>
   <div class="cols">
     <section class="card">
@@ -241,6 +242,14 @@ $("logout").addEventListener("click",function(){api("POST","/api/admin/logout",{
 $("refresh").addEventListener("click",function(){loadAll()});
 $("sf").addEventListener("submit",function(e){e.preventDefault();loadList()});
 
+function loadOnline(){
+  api("GET","/api/admin/online").then(function(r){
+    if(r._status===401||r.error)return;
+    var cells=[["동시 접속자 (2분 내)",r.now2m],["30초 내 활동",r.now30],["10분 내 접속",r.now10m]];
+    $("onl").innerHTML=cells.map(function(c){return'<div class="stat"><b>'+esc(c[1])+"</b><span>"+esc(c[0])+"</span></div>"}).join("");
+  });
+}
+setInterval(function(){if(!document.hidden&&!$("app").classList.contains("hide"))loadOnline()},15000);
 var maintOn=false;
 function loadMaint(){
   api("GET","/api/admin/maintenance").then(function(r){
@@ -699,7 +708,7 @@ $("inqsend").addEventListener("click",function(){
   });
 });
 $("inqtext").addEventListener("keydown",function(e){if(e.key==="Enter"){e.preventDefault();$("inqsend").click()}});
-function loadAll(){loadMaint();loadInq();loadInv();loadOverview();loadS();loadRec();loadBoard();loadAchDefs();if(!document.activeElement||!/^(sn|sd|sp|ss|sam|sname|sdesc|sprice|sstat|samt)$/.test(document.activeElement.className||document.activeElement.id))loadShop();loadList();if(selCode&&!dirty)loadDetail();var d=new Date(),p=function(n){return String(n).padStart(2,"0")};$("last").textContent="갱신 "+p(d.getHours())+":"+p(d.getMinutes())+":"+p(d.getSeconds())}
+function loadAll(){loadOnline();loadMaint();loadInq();loadInv();loadOverview();loadS();loadRec();loadBoard();loadAchDefs();if(!document.activeElement||!/^(sn|sd|sp|ss|sam|sname|sdesc|sprice|sstat|samt)$/.test(document.activeElement.className||document.activeElement.id))loadShop();loadList();if(selCode&&!dirty)loadDetail();var d=new Date(),p=function(n){return String(n).padStart(2,"0")};$("last").textContent="갱신 "+p(d.getHours())+":"+p(d.getMinutes())+":"+p(d.getSeconds())}
 // 1분마다 데이터만 다시 불러옵니다. 선택한 헌터·탭·검색어·작성 중인 알림은 그대로 유지됩니다.
 setInterval(function(){if($("auto").checked&&!document.hidden&&!$("app").classList.contains("hide"))loadAll()},60000);
 document.addEventListener("visibilitychange",function(){if(!document.hidden&&$("auto").checked&&!$("app").classList.contains("hide"))loadAll()});
