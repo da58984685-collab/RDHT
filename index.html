@@ -967,6 +967,13 @@ input[type=checkbox]:focus-visible{outline:2px solid var(--deep);outline-offset:
 .gwcs li{padding:9px 12px;font-size:.88rem;line-height:1.55;overflow-wrap:anywhere;white-space:pre-wrap;background:#1c1416;border:1px solid var(--line);border-radius:10px}
 .gwcs li.me{border-color:var(--red);background:#2a1014}
 .gwcs .gwm{margin-bottom:3px}
+.gwcs li.re{margin-left:20px;border-left:3px solid var(--deep);background:#181012}
+.gwcs .gwto{color:var(--deep);font-weight:700;margin-right:4px}
+.gwcb{display:flex;gap:6px;justify-content:flex-end;margin-top:6px}
+.gwcb .gwcx{margin:0}
+.gwrp{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:0 0 6px;padding:6px 10px;font-size:.82rem;color:var(--deep);border:1px solid var(--line);border-radius:8px}
+.gwrp[hidden]{display:none}
+.gwrp button{padding:2px 8px;font:500 .74rem/1.2 "Noto Sans KR",sans-serif;color:var(--sub);background:transparent;border:1px solid var(--line);border-radius:6px;cursor:pointer}
 .gwch{margin:6px 0 8px;font-size:.82rem;color:var(--deep)}
 .gwdel[data-arm="1"]{border-color:var(--red);color:#ff8a93}
 .gwcs li{position:relative}
@@ -1023,6 +1030,7 @@ input[type=checkbox]:focus-visible{outline:2px solid var(--deep);outline-offset:
       <p class="gwbody" id="gwvbody"></p>
       <p class="gwch" id="gwch"></p>
       <ul class="gwcs" id="gwcs" aria-live="polite"></ul>
+      <p class="gwrp" id="gwrp" hidden><span id="gwrpt"></span><button type="button" id="gwrpx">답글 취소</button></p>
       <form id="gwcform" class="msend" novalidate>
         <label for="gwct" class="sr">댓글</label>
         <input id="gwct" type="text" autocomplete="off" maxlength="200" placeholder="댓글을 입력하세요 (200자 이내)">
@@ -3375,6 +3383,12 @@ function gwLoad(reset){
     $("gwmore").hidden=!r.more;
   }).catch(function(){});
 }
+var gwReplyTo=null;
+function gwReply(c){      // c 가 있으면 그 댓글에 답글을 씁니다 (null 이면 일반 댓글)
+  gwReplyTo=c||null;var bar=$("gwrp");bar.hidden=!c;
+  if(c){$("gwrpt").textContent=c.hn+"님에게 답글 쓰는 중";$("gwct").placeholder="답글을 입력하세요 (200자 이내)";$("gwct").focus()}
+  else $("gwct").placeholder="댓글을 입력하세요 (200자 이내)";
+}
 function gwOpenPost(id,keepScroll){
   gwPost=id;gwPane("gwview");$("gwvnote").textContent="";
   api("GET","/api/gw/post?id="+id).then(function(r){
@@ -3383,23 +3397,32 @@ function gwOpenPost(id,keepScroll){
     $("gwvtitle").textContent=p.title;$("gwvbody").textContent=p.body;
     var d=$("gwdel");d.hidden=!p.canDel;d.dataset.arm="0";d.textContent="삭제";
     $("gwch").textContent="댓글 "+r.comments.length;
-    var ul=$("gwcs");ul.innerHTML="";
-    r.comments.forEach(function(c){
-      var li=document.createElement("li");if(c.mine)li.className="me";
+    var ul=$("gwcs");ul.innerHTML="";gwReply(null);
+    function addC(c,isRe){
+      var li=document.createElement("li");li.className=(c.mine?"me":"")+(isRe?" re":"");
       var m=document.createElement("p");m.className="gwm";m.appendChild(gwMeta(c,c.ts));
-      var t=document.createElement("span");t.textContent=c.text;
+      var t=document.createElement("span");
+      if(isRe&&c.toHn){var to=document.createElement("b");to.className="gwto";to.textContent="@"+c.toHn;t.appendChild(to)}
+      t.appendChild(document.createTextNode(c.text));
       li.appendChild(m);li.appendChild(t);
+      var bar=document.createElement("div");bar.className="gwcb";
+      var rb=document.createElement("button");rb.type="button";rb.className="gwcx";rb.textContent="답글";rb.setAttribute("aria-label",c.hn+"님의 댓글에 답글 쓰기");
+      rb.addEventListener("click",function(){gwReply(c)});bar.appendChild(rb);
       if(c.canDel){var x=document.createElement("button");x.type="button";x.className="gwcx";x.textContent="삭제";x.setAttribute("aria-label","댓글 삭제");
         x.addEventListener("click",function(){
-          if(x.dataset.arm!=="1"){x.dataset.arm="1";x.textContent="한 번 더";setTimeout(function(){if(x.dataset.arm==="1"){x.dataset.arm="0";x.textContent="삭제"}},4000);return}
+          if(x.dataset.arm!=="1"){x.dataset.arm="1";x.textContent=isRe?"한 번 더":"한 번 더 (답글도 삭제)";setTimeout(function(){if(x.dataset.arm==="1"){x.dataset.arm="0";x.textContent="삭제"}},4000);return}
           x.disabled=true;
           api("POST","/api/gw/comment/delete",{id:c.id}).then(function(r){
             if(r.error){x.disabled=false;$("gwvnote").textContent=gwErr(r);return}
             gwOpenPost(gwPost);
           }).catch(function(){x.disabled=false;$("gwvnote").textContent="삭제하지 못했습니다."});
         });
-        li.appendChild(x)}
-      ul.appendChild(li);
+        bar.appendChild(x)}
+      li.appendChild(bar);ul.appendChild(li);
+    }
+    r.comments.filter(function(c){return !c.parent}).forEach(function(c){
+      addC(c,false);
+      r.comments.filter(function(d){return d.parent===c.id}).forEach(function(d){addC(d,true)});
     });
     if(keepScroll)gwmodal.scrollTop=gwmodal.scrollHeight;
   }).catch(function(){$("gwvnote").textContent="불러오지 못했습니다."});
@@ -3427,6 +3450,7 @@ $("gwform").addEventListener("submit",function(e){
     gwOpenPost(r.id);
   }).catch(function(){btn.disabled=false;n.textContent="올리지 못했습니다."});
 });
+$("gwrpx").addEventListener("click",function(){gwReply(null)});
 $("gwdel").addEventListener("click",function(){
   var d=this;
   if(d.dataset.arm!=="1"){d.dataset.arm="1";d.textContent="한 번 더 누르면 삭제됩니다";setTimeout(function(){if(d.dataset.arm==="1"){d.dataset.arm="0";d.textContent="삭제"}},4000);return}
@@ -3440,7 +3464,7 @@ $("gwdel").addEventListener("click",function(){
 $("gwcform").addEventListener("submit",function(e){
   e.preventDefault();var i=$("gwct"),t=i.value.trim();if(!t)return;
   var btn=this.querySelector("button");btn.disabled=true;
-  api("POST","/api/gw/comment",{id:gwPost,text:t}).then(function(r){
+  api("POST","/api/gw/comment",{id:gwPost,text:t,parent:gwReplyTo?gwReplyTo.id:0}).then(function(r){
     btn.disabled=false;
     if(r.error){$("gwvnote").textContent=gwErr(r);return}
     i.value="";gwOpenPost(gwPost,true);
