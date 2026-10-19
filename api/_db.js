@@ -311,6 +311,8 @@ const MIGRATIONS = [
   'ALTER TABLE messages ADD COLUMN taint REAL NOT NULL DEFAULT 0',
   // 비공개 유저: 켜 두면 헌터 커뮤니티에서 언급되지 않습니다
   'ALTER TABLE users ADD COLUMN is_private INTEGER NOT NULL DEFAULT 0',
+  "ALTER TABLE users ADD COLUMN bio TEXT NOT NULL DEFAULT ''",
+  'ALTER TABLE users ADD COLUMN ach_seen INTEGER NOT NULL DEFAULT 0',
   // 새로 가입한 헌터의 첫 로그인을 커뮤니티에서 한 번 언급하기 위한 상태 (0 해당 없음, 1 로그인 대기, 2 언급 대기, 3 언급 끝)
   'ALTER TABLE users ADD COLUMN intro_state INTEGER NOT NULL DEFAULT 0',
   // 초대 코드 첫 보상(한 번 정하면 수정 불가) / 아이템 사용 효과
