@@ -568,11 +568,20 @@ async function buildState(u, now) {
   const inv = await db.all('SELECT i.item, i.qty, s.eff_stat, s.eff_amt FROM inventory i LEFT JOIN shop_items s ON s.name = i.item WHERE i.user_id = ? AND i.qty > 0 ORDER BY i.item', [u.id]);
   const closedOk = new Set((await db.all('SELECT monster_id FROM s_close WHERE ok = 1 AND monster_id >= ?', [minId])).map(r => r.monster_id));
   // S급 토벌 성공 안내(모든 헌터에게): 확인을 누르면 참여자에게만 보상이 지급됩니다
-  const swin = await db.all(`SELECT c.monster_id AS id, m.name, r.exp, r.gold, r.taint, CASE WHEN r.user_id IS NULL THEN 0 ELSE 1 END AS part
+  // 최소화해 둔 지 1시간이 지난 S급 토벌 보상은 자동으로 수령시킵니다
+  const sAuto = [];
+  const overdue = await db.all('SELECT monster_id FROM s_min WHERE user_id = ? AND at <= ?', [u.id, now - SWIN_HOLD_MS]);
+  for (const o of overdue) {
+    const out = await claimSWin(u, o.monster_id, now);
+    if (out && !out.already) sAuto.push({ mon: out.mon, reward: out.reward });
+    else await db.run('DELETE FROM s_min WHERE user_id = ? AND monster_id = ?', [u.id, o.monster_id]);
+  }
+  const swin = await db.all(`SELECT c.monster_id AS id, m.name, r.exp, r.gold, r.taint, CASE WHEN r.user_id IS NULL THEN 0 ELSE 1 END AS part, mn.at AS min_at
       FROM s_close c JOIN monsters m ON m.id = c.monster_id
       LEFT JOIN s_rewards r ON r.monster_id = c.monster_id AND r.user_id = ?
+      LEFT JOIN s_min mn ON mn.monster_id = c.monster_id AND mn.user_id = ?
       WHERE c.ok = 1 AND c.at >= ? AND NOT EXISTS (SELECT 1 FROM s_ack k WHERE k.user_id = ? AND k.monster_id = c.monster_id)
-      ORDER BY c.at LIMIT 5`, [u.id, u.created_at, u.id]);
+      ORDER BY c.at LIMIT 5`, [u.id, u.id, u.created_at, u.id]);
   const killed = new Set([...kills.map(r => r.monster_id), ...closedOk]);
   const cdm = new Map(cds.map(r => [r.monster_id, r.until]));
   const pm = new Map(parts.map(r => [r.monster_id, r.c]));
@@ -593,7 +602,8 @@ async function buildState(u, now) {
     unreadMsgs: um.c,
     board: (await db.get('SELECT COALESCE(MAX(id), 0) AS m FROM board_posts')).m,
     friendReqs: frq.c,
-    sWin: swin.map(x => ({ id: x.id, mon: x.name, part: !!x.part, exp: x.exp || 0, gold: x.gold || 0, taint: x.taint || 0 })),
+    sWin: swin.map(x => ({ id: x.id, mon: x.name, part: !!x.part, exp: x.exp || 0, gold: x.gold || 0, taint: x.taint || 0, minAt: Number(x.min_at) || 0 })),
+    sAuto, sHoldMs: SWIN_HOLD_MS,
     rec: await getRec(),
     inventory: inv.map(r => ({ item: r.item, qty: r.qty, mat: MAT_NAMES.has(r.item), eff: r.eff_stat ? { stat: r.eff_stat, amt: r.eff_amt } : (G.CRAFT_DEFS[r.item] ? { stat: G.CRAFT_DEFS[r.item].stat, amt: G.CRAFT_DEFS[r.item].amt } : null) })),
   };
@@ -1844,11 +1854,12 @@ route('POST', '/api/admin/s/spawn', async (req, res, ctx) => {
 }, { auth: false, admin: true });
 
 // 성공 팝업의 '확인' → 참여한 헌터에게만 보상 지급
-route('POST', '/api/swin/claim', async (req, res, ctx) => {
-  const u = ctx.user, id = Number(ctx.body.id) || 0, now = Date.now();
+// (최소화한 뒤 1시간 안에 받지 않으면 buildState 가 같은 함수로 자동 수령시킵니다)
+const SWIN_HOLD_MS = 60 * 60000;
+async function claimSWin(u, id, now) {
   const c = await db.get('SELECT m.name FROM s_close s JOIN monsters m ON m.id = s.monster_id WHERE s.monster_id = ? AND s.ok = 1', [id]);
-  if (!c) return fail(res, 404, 'no_win');
-  if (await db.get('SELECT 1 AS x FROM s_ack WHERE user_id = ? AND monster_id = ?', [u.id, id])) return send(res, 200, { ok: true, already: true });
+  if (!c) return null;
+  if (await db.get('SELECT 1 AS x FROM s_ack WHERE user_id = ? AND monster_id = ?', [u.id, id])) return { already: true, reward: null, mon: c.name };
   let reward = null, up = false;
   const r = await db.get('SELECT exp, gold, taint FROM s_rewards WHERE user_id = ? AND monster_id = ?', [u.id, id]);
   if (r) {
@@ -1862,7 +1873,22 @@ route('POST', '/api/swin/claim', async (req, res, ctx) => {
     }
   }
   await db.run('INSERT OR IGNORE INTO s_ack (user_id, monster_id, at) VALUES (?, ?, ?)', [u.id, id, now]);
-  send(res, 200, { ok: true, reward });
+  await db.run('DELETE FROM s_min WHERE user_id = ? AND monster_id = ?', [u.id, id]);
+  return { reward, mon: c.name };
+}
+route('POST', '/api/swin/claim', async (req, res, ctx) => {
+  const out = await claimSWin(ctx.user, Number(ctx.body.id) || 0, Date.now());
+  if (!out) return fail(res, 404, 'no_win');
+  send(res, 200, out.already ? { ok: true, already: true } : { ok: true, reward: out.reward });
+});
+// 최소화: 보상을 받지 않은 채로 창만 접어 둡니다. 처음 접은 시각부터 1시간이 지나면 자동으로 수령됩니다.
+route('POST', '/api/swin/minimize', async (req, res, ctx) => {
+  const id = Number(ctx.body.id) || 0, now = Date.now();
+  if (!(await db.get('SELECT 1 AS x FROM s_close WHERE monster_id = ? AND ok = 1', [id]))) return fail(res, 404, 'no_win');
+  if (await db.get('SELECT 1 AS x FROM s_ack WHERE user_id = ? AND monster_id = ?', [ctx.user.id, id])) return send(res, 200, { ok: true, already: true });
+  await db.run('INSERT OR IGNORE INTO s_min (user_id, monster_id, at) VALUES (?, ?, ?)', [ctx.user.id, id, now]);
+  const r = await db.get('SELECT at FROM s_min WHERE user_id = ? AND monster_id = ?', [ctx.user.id, id]);
+  send(res, 200, { ok: true, minAt: r ? Number(r.at) : now, holdMs: SWIN_HOLD_MS });
 });
 
 route('POST', '/api/admin/s/decide', async (req, res, ctx) => {
@@ -2088,6 +2114,7 @@ route('POST', '/api/admin/player/delete', async (req, res, ctx) => {
     ['DELETE FROM acquire_log WHERE user_id = ?', [id]],
     ['DELETE FROM inventory WHERE user_id = ?', [id]],
     ['DELETE FROM survey_marks WHERE user_id = ?', [id]],
+    ['DELETE FROM s_min WHERE user_id = ?', [id]],
     ['DELETE FROM visit_counts WHERE user_id = ?', [id]],
     ['DELETE FROM invite_rewards WHERE user_id = ?', [id]],
     ['DELETE FROM notice_del WHERE user_id = ?', [id]],
