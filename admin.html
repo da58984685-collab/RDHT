@@ -455,7 +455,7 @@ function saveAct(){
   m.className="muted";m.textContent="저장 중...";
   api("POST","/api/admin/player/activity",{code:selCode,allow:allow}).then(function(r){
     if(r._status===401){showApp(false);return}
-    if(r.ok){loadDetail();setTimeout(function(){var mm=$("act_msg");if(mm){mm.className="ok";mm.textContent="저장했습니다. 게임에는 다음 갱신(5초 이내)부터 반영됩니다."}},400)}
+    if(r.ok){loadDetail();setTimeout(function(){var mm=$("act_msg");if(mm){mm.className="ok";mm.textContent="저장했습니다. 게임에는 다음 갱신(10초 이내)부터 반영됩니다."}},400)}
     else{m.className="bad";m.textContent="저장하지 못했습니다."}
   });
 }
@@ -467,7 +467,7 @@ function saveEdit(){
     lv:Number(v("e_lv")),exp:Number(v("e_exp")),gold:Number(v("e_gold")),
     stats:{hp:Number(v("e_hp")),str:Number(v("e_str")),agi:Number(v("e_agi")),luck:Number(v("e_luck")),taint:Number(v("e_taint")),fame:Number(v("e_fame"))}}).then(function(r){
     if(r._status===401){showApp(false);return}
-    if(r.ok){dirty=false;loadAll();setTimeout(function(){var mm=$("e_msg");if(mm){mm.className="ok";mm.textContent="저장했습니다. 게임에는 다음 갱신(5초 이내)부터 반영됩니다."}},400)}
+    if(r.ok){dirty=false;loadAll();setTimeout(function(){var mm=$("e_msg");if(mm){mm.className="ok";mm.textContent="저장했습니다. 게임에는 다음 갱신(10초 이내)부터 반영됩니다."}},400)}
     else{m.className="bad";m.textContent=(EMSG[r.error]||"저장하지 못했습니다.")+(r.error==="bad_exp"&&r.max!=null?" (최대 "+r.max+")":"")}
   });
 }
@@ -548,7 +548,7 @@ function loadRec(){
 }
 $("rsave").addEventListener("click",function(){
   api("POST","/api/admin/rec/save",{text:$("rtext").value}).then(function(r){
-    if(r.ok){recDirty=false;$("rmsg").textContent="저장했습니다. 게임에는 5초 이내에 반영됩니다.";loadRec()}
+    if(r.ok){recDirty=false;$("rmsg").textContent="저장했습니다. 게임에는 10초 이내에 반영됩니다.";loadRec()}
     else $("rmsg").textContent=r.error==="empty"?"문장을 입력하세요.":r.error==="bad_text"?"100자 이하로 입력하세요.":"저장하지 못했습니다.";
   });
 });
@@ -638,7 +638,7 @@ $("sbox").addEventListener("click",function(e){
     var row=t.closest("tr"),ok=sd==="1",nm=row.getAttribute("data-n");
     if(!confirm(ok?"'"+nm+"' 토벌을 성공으로 결정할까요?\n모든 헌터에게 'SS급 토벌 성공' 팝업이 뜨고, 확인을 누르면 참여한 헌터에게만 보상이 지급됩니다.":"'"+nm+"' 토벌을 실패(도주)로 결정할까요?\n대기 중인 도전은 실패로 공개되고 몬스터는 사라집니다."))return;
     api("POST","/api/admin/s/decide",{id:Number(row.getAttribute("data-mid")),success:ok}).then(function(r){
-      $("smsg2").textContent=r.ok?(ok?"토벌 성공으로 결정했습니다. 모든 헌터에게 5초 이내에 팝업이 표시됩니다.":"실패(도주)로 결정했습니다."):(r.error==="already_decided"?"이미 결정된 SS급입니다.":"처리하지 못했습니다.");loadS()});
+      $("smsg2").textContent=r.ok?(ok?"토벌 성공으로 결정했습니다. 모든 헌터에게 10초 이내에 팝업이 표시됩니다.":"실패(도주)로 결정했습니다."):(r.error==="already_decided"?"이미 결정된 SS급입니다.":"처리하지 못했습니다.");loadS()});
     return;
   }
   if(t.id==="srecall-all"){
@@ -649,7 +649,7 @@ $("sbox").addEventListener("click",function(e){
   var name=t.closest("tr").getAttribute("data-n");
   if(a==="spawn"){
     api("POST","/api/admin/s/spawn",{name:name,region:$("sregion").value}).then(function(r){
-      $("smsg2").textContent=r.ok?"'"+name+"' 이(가) 출현했습니다. 모든 헌터에게 5초 이내에 표시됩니다.":(r.error==="too_many"?"동시에 20마리까지만 출현시킬 수 있습니다.":"출현시키지 못했습니다.");loadS()});
+      $("smsg2").textContent=r.ok?"'"+name+"' 이(가) 출현했습니다. 모든 헌터에게 10초 이내에 표시됩니다.":(r.error==="too_many"?"동시에 20마리까지만 출현시킬 수 있습니다.":"출현시키지 못했습니다.");loadS()});
   }else if(a==="recall"){
     if(!confirm("'"+name+"' 을(를) 회수할까요?\n서버 전체에서 사라지고, 대기 중이던 도전은 취소되어 도전권이 반환됩니다."))return;
     api("POST","/api/admin/s/recall",{name:name}).then(sDone);
