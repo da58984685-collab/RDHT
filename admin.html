@@ -141,6 +141,12 @@ body{overflow-wrap:break-word}
     <p class="muted" style="margin:0 0 10px;font-size:.85rem">켜면 관리자 캐릭터를 뺀 모든 헌터의 접속(가입·로그인·게임)이 막히고, 헌터 화면에 '점검 중' 안내가 나옵니다. 데이터는 그대로 보존됩니다.</p>
     <div style="display:flex;gap:8px;flex-wrap:wrap"><input id="mtmsg" maxlength="200" placeholder="헌터에게 보여 줄 안내 문구 (비워 두면 기본 문구)" style="flex:1;min-width:200px"><button type="button" class="btn" id="mtbtn">점검 시작</button></div>
   </section>
+  <section class="card" id="gacard" style="margin-bottom:12px">
+    <h2 style="margin-bottom:6px">골드 일괄 지급</h2>
+    <p class="muted" style="margin:0 0 10px;font-size:.85rem">가입한 모든 유저(관리자 캐릭터 포함)에게 같은 골드를 한 번에 지급합니다. 보유 골드는 최대 99,999,999 G까지만 쌓이고, 획득 내역에 '관리자 일괄 지급'으로 남습니다.</p>
+    <div style="display:flex;gap:8px;flex-wrap:wrap"><input id="gaamt" type="number" min="1" max="9999999" step="1" placeholder="1인당 지급 골드 (1~9,999,999)" style="flex:1;min-width:200px"><button type="button" class="btn" id="gabtn">전체 지급</button></div>
+    <p id="gamsg" class="muted" style="margin:8px 0 0;font-size:.85rem" role="status"></p>
+  </section>
   <div class="stats" id="onl"></div>
   <div class="stats" id="stats"></div>
   <div class="cols">
@@ -266,6 +272,17 @@ function loadMaint(){
     if(document.activeElement!==$("mtmsg"))$("mtmsg").value=r.message||"";
   });
 }
+$("gabtn").addEventListener("click",function(){
+  var a=Number($("gaamt").value);
+  if(!Number.isInteger(a)||a<1||a>9999999){$("gamsg").textContent="골드는 1~9,999,999 사이 정수여야 합니다.";return}
+  if(!confirm("모든 유저에게 "+a.toLocaleString("ko-KR")+" G를 지급할까요? 되돌릴 수 없습니다."))return;
+  $("gabtn").disabled=true;
+  api("POST","/api/admin/gold/all",{amount:a}).then(function(r){
+    $("gabtn").disabled=false;
+    if(r.ok){$("gamsg").textContent=r.users.toLocaleString("ko-KR")+"명에게 "+r.amount.toLocaleString("ko-KR")+" G를 지급했습니다.";$("gaamt").value=""}
+    else $("gamsg").textContent=r.error==="rate_limited"?"잠시 후 다시 시도해 주세요.":"지급하지 못했습니다.";
+  }).catch(function(){$("gabtn").disabled=false;$("gamsg").textContent="지급하지 못했습니다."});
+});
 $("mtbtn").addEventListener("click",function(){
   var next=!maintOn;
   if(next&&!confirm("점검을 시작하면 관리자 캐릭터를 뺀 모든 헌터의 접속이 막힙니다. 계속할까요?"))return;
@@ -592,7 +609,7 @@ $("alist").addEventListener("click",function(e){
   });
 });
 // ── S급 토벌 현황 ──
-var SR=[["","랜덤 나라"],["KR","대한민국"],["JP","일본"],["CN","중국"],["RU","러시아"],["US","미국"],["IT","이탈리아"],["MG","마다가스카르"],["BR","브라질"],["EG","이집트"],["AU","호주"]];
+var SR=[["","랜덤 나라"],["KR","대한민국"],["JP","일본"],["CN","중국"],["RU","러시아"],["US","미국"],["IT","이탈리아"],["MG","마다가스카르"],["BR","브라질"],["EG","이집트"],["AU","호주"],["IN","인도"],["FR","프랑스"]];
 $("sregion").innerHTML=SR.map(function(r){return'<option value="'+r[0]+'">'+r[1]+'</option>'}).join("");
 var S_ST={active:["출현 중","ok"],waiting:["결과 대기","wait"],killed:["토벌됨","ok"],fled:["도주","bad"],recalled:["회수","wait"]};
 function mmss(ms){var m=Math.max(0,Math.floor(ms/60000));return m>=60?Math.floor(m/60)+"시간 "+(m%60)+"분":m+"분"}
