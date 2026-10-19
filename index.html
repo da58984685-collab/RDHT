@@ -1576,7 +1576,7 @@ function svgUse(id){
   s.setAttribute("class","ic");s.setAttribute("aria-hidden","true");u.setAttribute("href","#"+id);s.appendChild(u);return s;
 }
 function activeMs(r){return r==="F"?300000:r==="S"?86400000:1800000}
-function isActive(a){return !a.done&&nowS()-a.ts<(a.c?3600000:activeMs(a.r))}
+function isActive(a){return !a.done&&nowS()-a.ts<(a.c?1800000:activeMs(a.r))}
 function regionById(id){for(var i=0;i<REGIONS.length;i++)if(REGIONS[i].id===id)return REGIONS[i]}
 
 // ── 캐릭터 창: BGM · 할 일 · 오늘의 추천 ──
