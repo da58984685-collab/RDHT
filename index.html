@@ -416,6 +416,12 @@ label[for="name"]::after,label[for="age"]::after,label[for="hname"]::after,#gl::
 .rd-cap b{color:#fff;font-weight:400}
 .phone{width:100%;max-width:300px;margin:0 auto;padding:10px 10px 14px;background:linear-gradient(180deg,#121212,#050505);border:2px solid #4a4a4a;border-radius:18px;box-shadow:0 0 18px rgba(0,0,0,.6)}
 .ph-top{display:flex;justify-content:space-between;align-items:center;padding:2px 8px 8px;font:400 .72rem/1 "Share Tech Mono",monospace;letter-spacing:.14em;color:#9a9a9a}
+.ph-nav{display:flex;justify-content:space-around;align-items:center;margin-top:8px;padding:2px 0 0}
+.ph-nav .nv{width:56px;height:34px;display:flex;align-items:center;justify-content:center;color:#cfcfcf;background:none;border:0;border-radius:17px;cursor:default}
+.ph-nav .nv svg{width:18px;height:18px;fill:currentColor}
+.ph-nav .nv-rec,.ph-nav .nv-home{opacity:.75}
+.ph-nav .nv-back{cursor:pointer}.ph-nav .nv-back:hover,.ph-nav .nv-back:focus-visible{background:rgba(255,255,255,.12)}
+.big-p .ph-nav{margin:0;padding:6px 0 8px;background:#0b0708;border-top:1px solid var(--line)}
 .ph-scr{min-height:250px;max-height:420px;overflow-y:auto;padding:10px;background:#0b0708;border:1px solid var(--line);border-radius:8px;display:flex;flex-direction:column}
 .apps{flex:1;display:grid;grid-template-columns:1fr 1fr;gap:10px;align-content:center}
 .app{position:relative;min-height:84px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:8px 4px;color:var(--text);background:#161012;border:1px solid var(--line);border-radius:10px;font:500 .8rem/1.25 "Noto Sans KR",sans-serif;cursor:pointer;text-align:center}
@@ -680,6 +686,21 @@ input[type=checkbox]:focus-visible{outline:2px solid var(--deep);outline-offset:
 .qst-r{display:flex;align-items:center;gap:8px;font-size:.78rem;color:var(--sub)}.qst-r span{flex:1}
 .qst-li.done{border-color:rgba(240,185,58,.5)}
 .qst-li.got{opacity:.55}
+.btl{position:fixed;inset:0;z-index:600;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(0,0,0,.85)}
+.btl[hidden]{display:none}
+.btl-p{width:min(560px,100%);max-height:94vh;overflow-y:auto;padding:18px;background:#0b0708;border:1px solid var(--red2);border-radius:10px;box-shadow:0 0 40px rgba(0,0,0,.8)}
+.btl-p h2{margin:0 0 12px;text-align:center;font:700 1.1rem/1.3 "Nanum Myeongjo",serif}
+.btl-m{margin-bottom:10px}.btl-n{display:flex;align-items:center;gap:8px;font-weight:700}.btl-n b{padding:1px 8px;border:1px solid var(--red2);border-radius:4px;font-size:.8rem}
+.btl-bar{height:12px;margin:5px 0 3px;background:var(--field);border:1px solid var(--line);border-radius:6px;overflow:hidden}.btl-bar i{display:block;height:100%;width:100%;background:linear-gradient(90deg,#a8202c,#ff6672);transition:width .3s}
+.btl-bar.pl i{background:#fff}
+.btl-m small{color:var(--sub)}.btl-int{margin:4px 0 0;font-size:.85rem;color:#f0b93a;font-weight:700}.btl-int.heavy{color:#ff6672}
+.btl-log{height:150px;overflow-y:auto;margin:10px 0;padding:8px 10px;background:#120b0d;border:1px solid var(--line);border-radius:6px;font-size:.84rem;line-height:1.55}
+.btl-log p{margin:0}.btl-log p.rd{color:var(--sub);margin-top:4px}
+.btl-acts{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.btl-acts button{min-height:44px;color:var(--text);background:var(--field);border:1px solid var(--line);border-radius:6px;font:inherit;font-weight:700;cursor:pointer}
+.btl-acts button:hover:not(:disabled){border-color:var(--red2)}.btl-acts button:disabled{opacity:.45;cursor:default}
+.btl-res{margin:10px 0;font-size:.95rem;line-height:1.55;text-align:center}.btl-res.win{color:#f0b93a}.btl-res.lose{color:#ff8a94}
+#btlok{display:block;width:100%;margin-top:6px}
 .bigapp{position:fixed;inset:0;z-index:500;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(0,0,0,.8)}
 .bigapp[hidden]{display:none}
 .big-p{width:min(780px,100%);height:min(88vh,880px);display:flex;flex-direction:column;background:#0b0708;border:1px solid var(--red2);border-radius:10px;box-shadow:0 0 40px rgba(0,0,0,.8);overflow:hidden}
@@ -869,7 +890,7 @@ input[type=checkbox]:focus-visible{outline:2px solid var(--deep);outline-offset:
       </section>
       <section id="gdev">
         <h2><svg class="ic"><use href="#i-phone"/></svg>기기</h2>
-        <div class="body"><div class="phone"><div class="ph-top"><span>HUNTER-OS</span><span id="phclk"></span></div><div class="ph-scr" id="phscr"></div></div></div>
+        <div class="body"><div class="phone"><div class="ph-top"><span>HUNTER-OS</span><span id="phclk"></span></div><div class="ph-scr" id="phscr"></div><div class="ph-nav" role="navigation" aria-label="기기 하단 버튼"><button type="button" class="nv nv-rec" aria-label="최근 앱 (작동하지 않음)" aria-disabled="true" tabindex="-1"><svg viewBox="0 0 16 14" aria-hidden="true"><path d="M2 1h2v12H2zM7 1h2v12H7zM12 1h2v12h-2z"/></svg></button><button type="button" class="nv nv-home" aria-label="홈 (작동하지 않음)" aria-disabled="true" tabindex="-1"><svg viewBox="0 0 16 16" aria-hidden="true"><rect x="2" y="2" width="12" height="12" rx="4" fill="none" stroke="currentColor" stroke-width="2"/></svg></button><button type="button" class="nv nv-back" aria-label="뒤로가기"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M10 2 4 8l6 6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="square"/></svg></button></div></div></div>
       </section>
     </div>
   </div>
@@ -1312,7 +1333,17 @@ input[type=checkbox]:focus-visible{outline:2px solid var(--deep);outline-offset:
     </section>
   </div>
 </div>
-<div class="bigapp" id="bigapp" hidden role="dialog" aria-modal="true" aria-label="기기 앱"><div class="big-p"><div class="ph-scr" id="bigbody"></div></div></div>
+<div class="btl" id="btl" hidden role="dialog" aria-modal="true" aria-labelledby="btltitle"><div class="btl-p">
+  <p class="eyebrow">TURN BATTLE</p><h2 id="btltitle">전투</h2>
+  <div class="btl-m"><div class="btl-n"><span id="btlmn"></span><b id="btlmr"></b></div><div class="btl-bar"><i id="btlmb"></i></div><small id="btlmt"></small><p class="btl-int" id="btlint"></p></div>
+  <div class="btl-m"><div class="btl-n"><span>나</span></div><div class="btl-bar pl"><i id="btlpb"></i></div><small id="btlpt"></small></div>
+  <div class="btl-log" id="btllog" role="log" aria-live="polite"></div>
+  <div class="btl-acts" id="btlacts">
+    <button type="button" data-a="attack">공격</button><button type="button" data-a="heavy" id="btlheavy">강타</button><button type="button" data-a="guard">방어</button><button type="button" data-a="flee">도주</button>
+  </div>
+  <p class="btl-res" id="btlres" hidden></p><button type="button" class="primary" id="btlok" hidden>확인</button>
+</div></div>
+<div class="bigapp" id="bigapp" hidden role="dialog" aria-modal="true" aria-label="기기 앱"><div class="big-p"><div class="ph-scr" id="bigbody"></div><div class="ph-nav" role="navigation" aria-label="기기 하단 버튼"><button type="button" class="nv nv-rec" aria-label="최근 앱 (작동하지 않음)" aria-disabled="true" tabindex="-1"><svg viewBox="0 0 16 14" aria-hidden="true"><path d="M2 1h2v12H2zM7 1h2v12H7zM12 1h2v12h-2z"/></svg></button><button type="button" class="nv nv-home" aria-label="홈 (작동하지 않음)" aria-disabled="true" tabindex="-1"><svg viewBox="0 0 16 16" aria-hidden="true"><rect x="2" y="2" width="12" height="12" rx="4" fill="none" stroke="currentColor" stroke-width="2"/></svg></button><button type="button" class="nv nv-back" aria-label="뒤로가기"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M10 2 4 8l6 6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="square"/></svg></button></div></div></div>
 <script>
 (function(){
 var MAX=50,N=5,gender="",image="",code="",pwHash="",pwSalt="",hname="",rank="",stats=null,dirty=false;
@@ -1982,7 +2013,11 @@ function huntAlert(a){
       if(r.error){
         if(r.error==="cooldown")a.cd=r.until;
         if(r.error==="already_done"||r.error==="expired")pollState();
+        if(r.error==="in_battle"&&r.battle){hmodal.hidden=true;document.body.style.overflow="";btlOpen(r.battle);mm.textContent="진행 중인 전투를 이어갑니다.";return}
         var t=huntErr(a,r);showHunt("fail","토벌 실패",t,"");mm.textContent=t;
+      }else if(r.result==="battle"){
+        hmodal.hidden=true;document.body.style.overflow="";btlOpen(r.battle);
+        mm.textContent=a.mon+"과(와)의 전투가 시작되었습니다.";
       }else if(r.result==="pending"){
         SI=Object.assign({},SI,r.s);pendingList.push({mon:a.mon,at:r.resolveAt});updatePendNote();
         showHunt("wait","토벌 결과 대기","","남은 도전 횟수 "+SI.remaining+"/"+SI.max);
@@ -2008,6 +2043,67 @@ function huntAlert(a){
     });
   }
 }
+
+
+/* ───── 턴제 전투 (헌터 등급과 같거나 높은 몬스터) ───── */
+var btlV=null,btlBusy=false,btlActive=false,BTL_INT={atk:"몬스터가 공격을 준비한다.",heavy:"몬스터가 강공을 준비한다! 방어하면 피해를 크게 줄일 수 있다."};
+function btlLogDraw(log){var box=$("btllog");box.innerHTML="";(log||[]).forEach(function(t){var p=document.createElement("p");if(t.indexOf("— ")===0)p.className="rd";p.textContent=t;box.appendChild(p)});box.scrollTop=box.scrollHeight}
+function btlRender(){
+  var v=btlV;if(!v)return;
+  $("btltitle").textContent=v.mon+" · "+v.rank+"급 · "+v.round+"라운드";
+  $("btlmn").textContent=v.mon;$("btlmr").textContent=v.rank+"급";
+  $("btlmb").style.width=Math.max(0,v.mhp/v.mmax*100)+"%";$("btlmt").textContent="체력 "+v.mhp+" / "+v.mmax;
+  $("btlpb").style.width=Math.max(0,v.php/v.pmax*100)+"%";$("btlpt").textContent="체력 "+v.php+" / "+v.pmax+(v.guarded?" · 방어 자세(다음 공격 강화)":"");
+  var it=$("btlint");it.textContent=BTL_INT[v.intent]||"";it.className="btl-int"+(v.intent==="heavy"?" heavy":"");
+  btlLogDraw(v.log);
+  var hv=$("btlheavy");hv.disabled=v.heavyCd>0||btlBusy;hv.textContent=v.heavyCd>0?"강타 ("+v.heavyCd+")":"강타";
+  Array.prototype.forEach.call($("btlacts").querySelectorAll("button"),function(b){if(b.id!=="btlheavy")b.disabled=btlBusy});
+}
+function btlOpen(v){
+  btlV=v;btlActive=true;btlBusy=false;$("btlres").hidden=true;$("btlok").hidden=true;$("btlacts").hidden=false;$("btlint").hidden=false;
+  $("btl").hidden=false;document.body.style.overflow="hidden";btlRender();
+}
+function btlEnd(r){
+  btlActive=false;btlBusy=false;
+  var v=r.battle;btlV=v;btlRender();
+  $("btlacts").hidden=true;$("btlint").hidden=true;
+  var res=$("btlres"),mm=$("mapmsg"),a=alerts.filter(function(x){return x.id===v.id})[0];
+  res.hidden=false;res.className="btl-res";
+  if(r.outcome==="win"&&r.result){
+    var x=r.result;if(a)a.done=true;power={lv:x.lv,exp:x.exp};renderPower(x.levelUp);if(x.gold!==undefined)gold+=x.gold;
+    var up=x.levelUp?" · 전투력 Lv."+power.lv+" 달성!":"";
+    var t="승리! "+v.mon+"을(를) 처치했습니다. 전투력 경험치 +"+x.gain+(x.gold?" · 골드 +"+x.gold+" G":"")+(x.taint?" · 오염도 +"+x.taint+"%":"")+up;
+    res.textContent=t;res.classList.add("win");mm.textContent=t;alertSig="";renderAlerts();
+  }else if(r.outcome==="lose"&&r.result){
+    var f=r.result;if(a)a.cd=f.free?0:f.until;
+    var hpT=f.prevented?"민첩 발동 · 체력이 깎이지 않았습니다":f.hpLoss?"체력 -"+f.hpLoss+" (남은 체력 "+f.hpNow+")":"";
+    if(f.dying){dyingUntil=f.dyingUntil;updDying()}
+    var nx=f.dying?"빈사 상태 · "+mmss(f.dyingUntil-nowS())+" 동안 토벌할 수 없습니다":f.free?"행운 발동 · 시간 제한 없이 바로 재도전할 수 있습니다":mmss(f.until-nowS())+" 후 다시 도전할 수 있습니다";
+    var t2="패배… "+v.mon+"에게 쓰러졌습니다."+(hpT?" "+hpT+".":"")+" "+nx;
+    res.textContent=t2;res.classList.add("lose");mm.textContent=t2;
+  }else{
+    var t3=r.error==="already_done"?"이미 처치된 몬스터입니다.":"전투에서 빠져나왔습니다. 아무 손해도 없습니다.";
+    res.textContent=t3;mm.textContent=t3;
+  }
+  $("btlok").hidden=false;$("btlok").focus();pollState(false);
+}
+$("btlacts").addEventListener("click",function(e){
+  var b=e.target.closest("button[data-a]");if(!b||btlBusy||!btlActive)return;
+  btlBusy=true;btlRender();
+  api("POST","/api/battle/act",{action:b.dataset.a}).then(function(r){
+    if(r._status===401){leaveGame("로그인이 만료되었어요. 다시 로그인해주세요.");return}
+    if(r.error){
+      btlBusy=false;
+      if(r.error==="no_battle"||r.error==="expired"){btlActive=false;$("btl").hidden=true;document.body.style.overflow="";$("mapmsg").textContent="전투가 끝났거나 취소되었습니다.";pollState(false);return}
+      if(r.battle){btlV=r.battle}
+      $("mapmsg").textContent=r.error==="heavy_cd"?"강타는 아직 쓸 수 없습니다.":r.error==="corrupted"?"오염이 폭주해 전투를 이어갈 수 없습니다.":"처리하지 못했습니다. 다시 시도해주세요.";
+      btlRender();return;
+    }
+    if(r.done){btlEnd(r);return}
+    btlBusy=false;btlV=r.battle;btlRender();
+  }).catch(function(){btlBusy=false;btlRender()});
+});
+$("btlok").addEventListener("click",function(){$("btl").hidden=true;document.body.style.overflow=(!rmodal.hidden||!mmodal.hidden||!$("cmodal").hidden)?"hidden":"";if(!rmodal.hidden){fillR()}});
 
 /* ───── 레이더 / 기기 ───── */
 function drawRadar(){
@@ -2351,6 +2447,7 @@ function loadShop(){
     scr.appendChild(ul);
   });
 }
+function devBack(){if(bigOpen){closeBig();return}if(!devApp)return;devApp=devApp==="craft"?"inv":null;renderDevice()}
 function renderDevice(){
   var scr=$("phscr");if(!scr)return;devClock();scr.innerHTML="";
   if(!devApp){
@@ -2367,8 +2464,7 @@ function renderDevice(){
   }
   var app=APPS.filter(function(a){return a[0]===devApp})[0]||["craft","조합"];
   var h=document.createElement("div");h.className="app-h";
-  var back=document.createElement("button");back.type="button";back.textContent=bigOpen?"← 닫기":devApp==="craft"?"← 인벤토리":"← 홈";back.addEventListener("click",function(){if(bigOpen){closeBig();return}devApp=devApp==="craft"?"inv":null;renderDevice()});
-  h.appendChild(back);var tt=document.createElement("span");tt.textContent=app[1];h.appendChild(tt);scr.appendChild(h);
+  var tt=document.createElement("span");tt.textContent=app[1];h.appendChild(tt);scr.appendChild(h);
   function empty(txt){var p=document.createElement("p");p.className="app-empty";p.textContent=txt;scr.appendChild(p)}
   if(devApp==="com")empty("아직 올라온 게시글이 없습니다.");
   else if(devApp==="shop"){addGoldTag(scr);empty("불러오는 중…");loadShop()}
@@ -2497,6 +2593,7 @@ function applyState(st,first){
     renderAlerts();
   }
   updatePendNote();
+  if(st.battle&&!btlActive&&$("btl").hidden){btlOpen(st.battle)}
   if(st.sHoldMs)swHold=st.sHoldMs;
   if(st.sAuto&&st.sAuto.length){var ar=st.sAuto.map(function(a){return a.mon+" 보상(경험치 +"+a.reward.exp+" · 골드 +"+a.reward.gold+" G · 오염도 +"+a.reward.taint+"%)"}).filter(function(x,i){return st.sAuto[i].reward});
     if(ar.length){sAutoMsg="1시간이 지나 S급 토벌 보상을 자동으로 수령했습니다 · "+ar.join(", ");$("mapmsg").textContent=sAutoMsg}}
@@ -3670,6 +3767,7 @@ function closeBig(){
   devApp=null;renderDevice();
 }
 document.addEventListener("keydown",function(e){if(e.key==="Escape"&&bigOpen)closeBig()});
+Array.prototype.forEach.call(document.querySelectorAll(".ph-nav .nv-back"),function(b){b.addEventListener("click",devBack)});
 $("bigapp").addEventListener("mousedown",function(e){if(e.target===this)closeBig()});
 
 /* ───── 그림자 거래소 ───── */
