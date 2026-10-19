@@ -1141,7 +1141,8 @@ route('GET', '/api/exchange', async (req, res, ctx) => {
   const rows = await db.all('SELECT id, seller_id, item, qty, price, ends FROM exchange WHERE ends > ? ORDER BY id DESC LIMIT 80', [now]);
   const inv = await db.all('SELECT item, qty FROM inventory WHERE user_id = ? AND qty > 0 ORDER BY item', [uid]);
   const me = await db.get('SELECT gold FROM users WHERE id = ?', [uid]);
-  send(res, 200, { gold: me.gold, fee: EXC.fee, maxListings: EXC.maxListings, buyTaint: EXC.buyTaint, hours: EXC.ms / 3600000,
+  const tu = await db.get('SELECT stats FROM users WHERE id = ?', [uid]);
+  send(res, 200, { gold: me.gold, taint: Number(JSON.parse(tu.stats).taint) || 0, fee: EXC.fee, maxListings: EXC.maxListings, buyTaint: EXC.buyTaint, hours: EXC.ms / 3600000,
     market: rows.filter(r => r.seller_id !== uid).map(r => ({ id: r.id, item: r.item, qty: r.qty, price: r.price, endsIn: r.ends - now })),
     mine: rows.filter(r => r.seller_id === uid).map(r => ({ id: r.id, item: r.item, qty: r.qty, price: r.price, endsIn: r.ends - now })),
     sellable: inv.map(r => ({ item: r.item, qty: Number(r.qty) })) });
@@ -1278,18 +1279,28 @@ async function resolveRumor(r, side, now) {
   const votes = await db.all('SELECT user_id, vote FROM rumor_votes WHERE rumor_id = ?', [r.id]);
   const RW = G.RUMOR_REWARD;
   const pay = async (uid, rw) => {
-    if (rw.gold > 0) { await grantGold(uid, rw.gold); await logAcquire(uid, 'gold', '골드', rw.gold, '괴담 소문', now); }
-    if (rw.gold < 0) await db.run('UPDATE users SET gold = gold - MIN(gold, ?) WHERE id = ?', [-rw.gold, uid]);
+    let delta = 0;
+    if (rw.gold > 0) { await grantGold(uid, rw.gold); await logAcquire(uid, 'gold', '골드', rw.gold, '괴담 소문', now); delta = rw.gold; }
+    if (rw.gold < 0) {
+      const cur = await db.get('SELECT gold FROM users WHERE id = ?', [uid]);
+      delta = -Math.min(Number(cur ? cur.gold : 0), -rw.gold);
+      if (delta < 0) await db.run('UPDATE users SET gold = gold - MIN(gold, ?) WHERE id = ?', [-delta, uid]);
+    }
     if (rw.exp > 0) { await grantExp(uid, rw.exp); await logAcquire(uid, 'exp', '경험치', rw.exp, '괴담 소문', now); }
+    await db.run(`INSERT INTO rumor_stats (user_id, gained, lost, last_delta, last_at) VALUES (?, ?, ?, ?, ?)
+      ON CONFLICT(user_id) DO UPDATE SET gained = gained + excluded.gained, lost = lost + excluded.lost, last_delta = excluded.last_delta, last_at = excluded.last_at`,
+      [uid, delta > 0 ? delta : 0, delta < 0 ? -delta : 0, delta, now]);
   };
   if (status === 'true') {
     await db.run('INSERT INTO monsters (region, name, rank, spawned_at, rumor_id) VALUES (?, ?, ?, ?, ?)', [r.region, r.mon_name, r.rank, now, r.id]);
     await db.run('INSERT INTO board_posts (who, title, body, tag, at) VALUES (?, ?, ?, ?, ?)', ['익명의 시민', '[괴담] 소문이 사실이었다', G.placeName(r.region) + '에 "' + r.mon_name + '"이(가) 실제로 나타났습니다. 조심하세요.', '괴담', now]);
-    for (const v of votes) if (v.vote === 1) await pay(v.user_id, RW.believeTrue);
+    for (const v of votes) await pay(v.user_id, v.vote === 1 ? RW.believeTrue : { gold: 0, exp: 0 });
   } else if (status === 'false') {
     for (const v of votes) await pay(v.user_id, v.vote === 1 ? RW.believeFalse : RW.doubtFalse);
+  } else if (status === 'buried') {
+    for (const v of votes) await pay(v.user_id, { gold: 0, exp: 0 });
   } else if (status === 'debunked') {
-    for (const v of votes) if (v.vote === 0) await pay(v.user_id, RW.doubtFalse);
+    for (const v of votes) await pay(v.user_id, v.vote === 0 ? RW.doubtFalse : { gold: 0, exp: 0 });
   }
   return status;
 }
@@ -1304,7 +1315,8 @@ route('GET', '/api/rumors', async (req, res, ctx) => {
   const cnt = new Map((await db.all('SELECT rumor_id, vote, COUNT(*) AS c FROM rumor_votes WHERE rumor_id IN (SELECT id FROM rumors WHERE status = \'open\' OR resolved > ?) GROUP BY rumor_id, vote', [now - 24 * 3600000])).map(x => [x.rumor_id + ':' + x.vote, Number(x.c)]));
   const mine = await rumorMine(ctx.user.id);
   const HOAX = i => (G.RUMOR_TPL[i] || {}).hoax || '';
-  send(res, 200, { need: G.RUMOR_NEED, rumors: rows.map(r => {
+  const rs = await db.get('SELECT gained, lost, last_delta, last_at FROM rumor_stats WHERE user_id = ?', [ctx.user.id]);
+  send(res, 200, { need: G.RUMOR_NEED, stats: { gained: rs ? Number(rs.gained) : 0, lost: rs ? Number(rs.lost) : 0, last: rs ? Number(rs.last_delta) : null }, rumors: rows.map(r => {
     const open = r.status === 'open', my = mine.has(r.id) ? mine.get(r.id) : null;
     const o = { id: r.id, title: r.title, body: r.body, place: rumorPlace(r), status: r.status, believers: cnt.get(r.id + ':1') || 0, doubters: cnt.get(r.id + ':0') || 0, my, endsIn: open ? Math.max(0, r.ends - now) : 0 };
     if (!open) {
@@ -2761,6 +2773,7 @@ route('POST', '/api/admin/player/delete', async (req, res, ctx) => {
     ['DELETE FROM exchange WHERE seller_id = ?', [id]],
     ['DELETE FROM equip_inv WHERE user_id = ?', [id]],
     ['DELETE FROM rumor_votes WHERE user_id = ?', [id]],
+    ['DELETE FROM rumor_stats WHERE user_id = ?', [id]],
     ['DELETE FROM daily_quests WHERE user_id = ?', [id]],
     ['DELETE FROM gate_run WHERE user_id = ?', [id]],
     ['DELETE FROM rescues WHERE target_id = ? OR rescuer_id = ?', [id, id]],
