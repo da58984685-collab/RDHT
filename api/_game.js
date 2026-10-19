@@ -458,7 +458,31 @@ const RECIPES = [
 const CRAFT_DEFS = {};                       // 이름 -> {desc, stat, amt}  (완성 아이템)
 RECIPES.forEach(r => { CRAFT_DEFS[r.name] = { desc: r.desc, stat: r.stat, amt: r.amt }; });
 
+
+// ── 턴제 전투: 헌터 등급과 같거나 높은 등급의 몬스터(S급·오염 몬스터 제외)와는 라운드마다 행동을 골라 싸웁니다. ──
+const BT = {
+  idleMs: 10 * MIN,                      // 이 시간 동안 행동이 없으면 전투가 취소됩니다 (불이익 없음)
+  maxRound: 40,
+  heavy: { mul: 1.8, hit: 0.7, cd: 2 },  // 내 강타
+  guardTaken: 0.35, guardBonus: 0.3,     // 방어: 이번 라운드 받는 피해 ×0.35, 다음 공격 +30%
+  mHeavy: 1.7, mHeavyChance: 0.25,       // 몬스터 강공(예고됨)
+};
+const BT_REF = { F: 2, E: 7, D: 14, C: 22, B: 32, A: 44, S: 60 };      // 등급마다 '보통 헌터'의 전투력 레벨 (근력은 레벨의 0.8배로 가정)
+const btMon = rank => {
+  const L = BT_REF[rank] || 2, atkRef = 6 + 1.2 * L + 0.8 * (L * 0.8);
+  return { hp: Math.round(atkRef * 4), atk: Math.max(3, Math.round((40 + 5 * L) * 0.22)) };
+};
+const btPlayer = (lv, st) => ({
+  max: 40 + (Number(lv) || 1) * 5,
+  atk: 6 + (Number(lv) || 1) * 1.2 + (Number(st.str) || 0) * 0.8,
+  dodge: Math.min(0.35, (Number(st.agi) || 0) * 0.003),
+  crit: Math.min(0.5, 0.05 + (Number(st.luck) || 0) * 0.005),
+  flee: Math.min(0.9, 0.45 + (Number(st.agi) || 0) * 0.004),
+});
+const isTurnBased = (monRank, hunterRank) => monRank !== 'S' && RANK_IDX[monRank] !== undefined && RANK_IDX[monRank] >= (RANK_IDX[hunterRank] || 0);
+
 module.exports = {
+  BT, btMon, btPlayer, isTurnBased,
   SV_MARKS, MATERIALS, GATE_MATS, GATE_ZONES, EQ_GRADE, EQ_SLOTS, EQUIPS, PACTS, PACT_BACKLASH, PACT_BACKLASH_TAINT, RUMOR_NEED, RUMOR_OPEN_MS, RUMOR_GAP_MS, RUMOR_MAX_OPEN, RUMOR_TPL, RUMOR_REWARD, RECIPES, CRAFT_DEFS,
   STAT_MAX, FAME_MAX, rnd, chance01, SPAWN_COUNTRIES, SPAWN_REGIONS, REGIONS, REGION_BY_ID, COUNTRIES, COUNTRY_BY_ID, countryOf, placeName, placeLong, MON, TIERS, ACTIVE_MS, ACTIVE_MS_F, ACTIVE_MS_S, activeMsOf, FAME_PER_LV, FAME_PER_RANK, KILL_EXP, KILL_GOLD, KILL_TAINT, rollTaint, garble, RANK_IDX, ACH_KINDS, ACH_COMPOUND, ACH_NUM, ACH_SEED, ACH_SEED2, PROMO, ACH_PIN_MAX, rollGold, HUNT_DIFF,
   RAID_NEED, RAID_ATTEMPTS, S_MAX, S_WINDOW_MS, S_WAIT_MS, powNeed, cdOf, huntChance,
