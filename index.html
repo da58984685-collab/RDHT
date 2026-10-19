@@ -670,6 +670,37 @@ input[type=checkbox]:checked::after{transform:rotate(-45deg) scale(1)}
 input[type=checkbox]:focus-visible{outline:2px solid var(--deep);outline-offset:2px}
 .privrow{display:flex;align-items:center;gap:10px;margin:12px 0 0;padding:8px 10px;background:var(--field);border:1px solid var(--line);border-radius:10px;font-size:.88rem;cursor:pointer}
 .privrow:hover{border-color:var(--red2)}
+.mfl .cft{display:inline-block;margin-left:6px;padding:0 6px;font:800 .62rem/1.6 "Noto Sans KR",sans-serif;color:#fff;background:#b0141f;border-radius:8px;vertical-align:middle}
+.fp-warn{width:100%;box-sizing:border-box;margin:12px 0 0;padding:10px 12px;text-align:left;font-size:.84rem;line-height:1.5;color:#ffd9dd;background:rgba(176,20,31,.18);border:1px solid var(--red2);border-radius:10px}
+.fp-warn button{display:block;width:100%;margin-top:8px;min-height:38px;font:700 .86rem/1 "Noto Sans KR",sans-serif;color:#fff;background:linear-gradient(135deg,#a8202c,#5a0f16);border:1px solid var(--red2);border-radius:9px;cursor:pointer}
+.fp-warn button:disabled{opacity:.5;cursor:default}
+.qst-li{display:flex;flex-direction:column;gap:6px}
+.qst-t{font-weight:700;font-size:.9rem}
+.qst-bar{height:8px;background:var(--field);border:1px solid var(--line);border-radius:6px;overflow:hidden}.qst-bar i{display:block;height:100%;background:linear-gradient(90deg,#a8202c,#ff6672)}
+.qst-r{display:flex;align-items:center;gap:8px;font-size:.78rem;color:var(--sub)}.qst-r span{flex:1}
+.qst-li.done{border-color:rgba(240,185,58,.5)}
+.qst-li.got{opacity:.55}
+.pct-r{display:flex;align-items:center;gap:8px;font-size:.78rem;color:var(--sub)}.pct-r span{flex:1}
+.rum-v{display:flex;gap:8px}.rum-v button{flex:1}
+.rum-res{font-size:.8rem;color:#f0b93a}.rum-res.bad{color:var(--sub)}
+.pct-li.done{opacity:.55}
+
+.gt-ex{position:absolute;inset:0;z-index:4;display:flex;flex-direction:column;gap:8px;padding:12px;overflow-y:auto;background:rgba(10,4,6,.93)}
+.gt-ex[hidden]{display:none}
+.gt-exopen{position:absolute;left:8px;top:8px;z-index:3;min-height:32px;padding:0 12px;font-size:.8rem;background:rgba(10,4,6,.75)}
+.gt-ex h3{margin:0;font-size:1rem;color:#ff8a94;display:flex;align-items:center;gap:8px}.gt-ex h3 button{margin-left:auto}
+.ex-fl{display:grid;grid-template-columns:repeat(10,1fr);gap:3px}
+.ex-fl i.boss{border-color:#f0b93a;color:#f0b93a}.ex-fl i.boss.on{color:#fff}
+.ex-from{display:flex;align-items:center;gap:6px;font-size:.8rem;color:var(--sub)}.ex-from select{background:var(--field);color:var(--text);border:1px solid var(--line);padding:4px 6px}
+.ex-odds{color:var(--sub);font-size:.76rem;line-height:1.5}
+.ex-fl i{display:flex;align-items:center;justify-content:center;height:24px;font:700 .68rem/1 "Share Tech Mono",monospace;font-style:normal;color:var(--sub);background:var(--field);border:1px solid var(--line)}
+.ex-fl i.on{color:#fff;background:linear-gradient(135deg,#a8202c,#5a0f16);border-color:var(--red2)}
+.ex-fl i.best{box-shadow:inset 0 -3px 0 #f0b93a}
+.ex-fl i.cur{outline:2px solid #fff;outline-offset:1px}
+.gt-ex p{margin:0;font-size:.84rem;line-height:1.5;color:#f3e9e7}
+.gt-ex .ex-loot{color:var(--sub);font-size:.8rem}
+.gt-ex .ex-log{min-height:2.6em;color:#ffd9dd}
+.gt-ex .gwrow{margin-top:auto}
 .bioBox{margin:12px 0 0}.bioBox textarea{width:100%;min-height:64px;resize:vertical;padding:8px 10px;background:var(--field);color:var(--text);border:1px solid var(--line);border-radius:10px;font:inherit;font-size:.88rem;line-height:1.45}
 .bioBox textarea:focus{outline:none;border-color:var(--red2)}
 .bioBox .bio-r{display:flex;align-items:center;gap:8px;margin-top:6px}.bioBox .bio-r small{flex:1;color:var(--sub);font-size:.76rem}
@@ -1116,8 +1147,14 @@ input[type=checkbox]:focus-visible{outline:2px solid var(--deep);outline-offset:
       <div class="gwrow"><button type="button" class="hud-btn" id="gtenter">입장</button><button type="button" class="hud-btn" id="gtcancel">닫기</button></div>
     </div>
     <div id="gtin" class="gt-in" hidden>
-      <div class="gt-stage" id="gtstage"><canvas class="scene" id="scene" width="192" height="108" role="img" aria-label="현재 지역 풍경"></canvas>
-        <div class="gt-res" id="gtres" hidden role="status"><b id="gtresh">발견!</b><p id="gtresp"></p><button type="button" class="hud-btn" id="gtresok">확인</button></div></div>
+      <div class="gt-stage" id="gtstage"><button type="button" class="hud-btn gt-exopen" id="gtexopen">심층 탐험</button><canvas class="scene" id="scene" width="192" height="108" role="img" aria-label="현재 지역 풍경"></canvas>
+        <div class="gt-res" id="gtres" hidden role="status"><b id="gtresh">발견!</b><p id="gtresp"></p><button type="button" class="hud-btn" id="gtresok">확인</button></div>
+        <div class="gt-ex" id="gtex" hidden role="dialog" aria-label="심층 탐험">
+          <h3>심층 탐험 <button type="button" class="hud-btn" id="gtexclose">닫기</button></h3>
+          <div class="ex-fl" id="gtexfl" aria-label="층 진행"></div>
+          <p id="gtexst"></p><p class="ex-odds" id="gtexodds"></p><label class="ex-from" id="gtexfromw" hidden>시작 층 <select id="gtexfrom"></select></label><p class="ex-loot" id="gtexloot"></p><p class="ex-log" id="gtexlog" role="status"></p>
+          <div class="gwrow"><button type="button" class="hud-btn" id="gtexgo">탐험 시작</button><button type="button" class="hud-btn" id="gtexback" hidden>복귀하기</button></div>
+        </div></div>
       <div class="gt-side">
         <p class="gt-nm" id="gtnm"></p>
         <p class="gt-svnote" id="gtsvnote"></p>
@@ -1972,7 +2009,7 @@ function drawRadar(){
     var u=document.createElementNS(NS,"use");u.setAttribute("href","#"+rg.icon);u.setAttribute("class","rd-ic"+(hot?" hot":""));
     u.setAttribute("x",p[0]-7);u.setAttribute("y",p[1]-7);u.setAttribute("width",14);u.setAttribute("height",14);g.appendChild(u);
     if(hot){var d=document.createElementNS(NS,"circle");d.setAttribute("class","rd-dot");d.setAttribute("cx",p[0]+7);d.setAttribute("cy",p[1]-7);d.setAttribute("r",2.4);g.appendChild(d)}
-    var t=document.createElementNS(NS,"text");t.setAttribute("class","rd-lbl"+(hot?" hot":""));t.setAttribute("x",p[0]+10);t.setAttribute("y",p[1]+3);t.textContent=rg.name;g.appendChild(t);
+    var t=document.createElementNS(NS,"text");t.setAttribute("class","rd-lbl"+(hot?" hot":""));if(p[0]>=150){t.setAttribute("x",p[0]-10);t.setAttribute("text-anchor","end")}else t.setAttribute("x",p[0]+10);t.setAttribute("y",p[1]+3);t.textContent=rg.name;g.appendChild(t);
   });
   // S급은 나라 단위로 출몰하므로, 이 나라에 출몰 중이면 레이더 아래쪽에 크게 표시합니다
   var sA=alerts.filter(function(a){return a.r==="S"&&!a.c&&isActive(a)&&a.region===curCountry})[0];
@@ -2153,10 +2190,10 @@ var globe=(function(){
   document.addEventListener("visibilitychange",function(){if(!document.hidden)run()});
   return {set:set,isOn:function(){return on},redraw:function(){if(on&&rm)draw()}};
 })();
-var achNew=0,gold=0,devApp=null,inventory=[],invSig="",invNote="";
-var APPS=[["gw","게이트웨이브","i-eye"],["msg","메신저","i-chat"],["com","커뮤니티","i-board"],["ach","업적","i-medal"],["sys","시스템 알림","i-bell"],["shop","상점","i-shop"],["inv","인벤토리","i-bag"]];
+var achNew=0,questReady=0,rescueReq=0,rumorNew=0,gold=0,devApp=null,inventory=[],invSig="",invNote="";
+var APPS=[["gw","게이트웨이브","i-eye"],["msg","메신저","i-chat"],["com","커뮤니티","i-board"],["ach","업적","i-medal"],["qst","의뢰","i-star"],["eqp","장비","i-str"],["pct","계약","i-taint"],["rum","괴담","i-psi"],["sys","시스템 알림","i-bell"],["shop","상점","i-shop"],["inv","인벤토리","i-bag"]];
 function devClock(){var d=new Date(),c=$("phclk");if(c)c.textContent=pad(d.getHours())+":"+pad(d.getMinutes())}
-function badgeOf(id){return id==="inv"?giftUnread:id==="sys"?unreadNotices:id==="msg"?unreadMsgs+friendReqs:id==="com"?Math.max(0,Math.min(99,cmLatest-cmSeen)):id==="ach"?achNew:0}
+function badgeOf(id){return id==="inv"?giftUnread:id==="sys"?unreadNotices:id==="msg"?unreadMsgs+friendReqs+rescueReq:id==="qst"?questReady:id==="rum"?rumorNew:id==="com"?Math.max(0,Math.min(99,cmLatest-cmSeen)):id==="ach"?achNew:0}
 function loadNotices(){
   var scr=$("phscr");
   api("GET","/api/notices").then(function(r){
@@ -2373,6 +2410,10 @@ function renderDevice(){
   else if(devApp==="craft"){addGoldTag(scr);empty("불러오는 중…");loadCraft()}
   else if(devApp==="sys"){empty("불러오는 중…");loadNotices()}
   else if(devApp==="ach"){empty("불러오는 중…");loadAch()}
+  else if(devApp==="qst"){empty("불러오는 중…");loadQuests()}
+  else if(devApp==="eqp"){empty("불러오는 중…");loadEquip()}
+  else if(devApp==="pct"){empty("불러오는 중…");loadPact()}
+  else if(devApp==="rum"){empty("불러오는 중…");loadRumors()}
 }
 function markRegions(){
   drawRadar();
@@ -2425,6 +2466,9 @@ function applyState(st,first){
   if(st.user&&st.user.gold!==undefined&&st.user.gold!==gold){gold=st.user.gold;if(devApp==='shop'||devApp==='inv')setGoldTag()}
   if(st.user&&typeof st.user.bio==="string"&&!bioDirty&&st.user.bio!==bioSaved){bioSaved=st.user.bio;$("gbio").value=st.user.bio}
   if(st.achNew!==undefined&&st.achNew!==achNew){achNew=st.achNew;if(!devApp&&$("phscr"))renderDevice()}
+  if((st.questReady!==undefined&&st.questReady!==questReady)||(st.rescueReq!==undefined&&st.rescueReq!==rescueReq)){questReady=st.questReady|0;rescueReq=st.rescueReq|0;if(!devApp&&$("phscr"))renderDevice()}
+  if(st.rumorNew!==undefined&&st.rumorNew!==rumorNew){rumorNew=st.rumorNew|0;if(!devApp&&$("phscr"))renderDevice()}
+  if(st.rescued&&st.rescued.length){sAutoMsg=st.rescued.map(function(x){return x.hn+"(이)가 정화 아이템으로 구해 주었습니다. 오염 폭주가 풀렸습니다 (오염도 40%)"}).join(" · ");$("mapmsg").textContent=sAutoMsg}
   if(st.user&&st.user.pinned){var psg=JSON.stringify(st.user.pinned);if(psg!==JSON.stringify(pinned)){pinned=st.user.pinned;renderPins()}}
   var rsg=JSON.stringify(st.rec||null);if(rsg!==recSig){recSig=rsg;curRec=st.rec||null;renderRec()}
   var isg=JSON.stringify(st.inventory||[]);
@@ -2707,7 +2751,7 @@ function setPins(a){try{localStorage.setItem(pinKey(),JSON.stringify(a))}catch(e
 function sortedFriends(){var pins=getPins();return mFriends.slice().sort(function(a,b){var pa=pins.indexOf(a.code)>=0?0:1,pb=pins.indexOf(b.code)>=0?0:1;return pa-pb||(a.hn<b.hn?-1:a.hn>b.hn?1:0)})}
 function renderFriends(force){
   var list=sortedFriends(),pins=getPins();
-  var sig=JSON.stringify([list.map(function(f){return [f.code,f.hn,f.rank,f.unread,pins.indexOf(f.code)>=0]}),pCur]);
+  var sig=JSON.stringify([list.map(function(f){return [f.code,f.hn,f.rank,f.unread,pins.indexOf(f.code)>=0,!!f.corrupt]}),pCur]);
   if(!force&&sig===fSig)return;fSig=sig;
   var ul=$("mfl");ul.innerHTML="";
   if(!list.length){var p=document.createElement("li");p.className="mempty";p.textContent="아직 친구가 없습니다. 오른쪽에서 고유 코드로 요청을 보내 보세요.";ul.appendChild(p);return}
@@ -2715,7 +2759,7 @@ function renderFriends(force){
     var li=document.createElement("li"),b=document.createElement("button");b.type="button";
     var r=document.createElement("span");r.className="al-r";r.textContent=f.rank;r.style.cssText="flex:none;display:flex;align-items:center;justify-content:center;border:1px solid var(--red2)";
     var w=document.createElement("span"),n=document.createElement("span"),c=document.createElement("small");
-    n.textContent=f.hn;c.textContent=f.code;w.appendChild(n);w.appendChild(c);
+    n.textContent=f.hn;if(f.corrupt){var ct=document.createElement("span");ct.className="cft";ct.textContent="구조 요청";n.appendChild(ct)}c.textContent=f.code;w.appendChild(n);w.appendChild(c);
     b.appendChild(r);b.appendChild(w);b.setAttribute("aria-label",f.hn+" 프로필 보기"+(f.unread?" (읽지 않은 메시지 "+f.unread+"건)":"")+", 길게 누르면 미리 보기");
     if(f.unread){var bd=document.createElement("span");bd.className="mbadge";bd.textContent=String(f.unread);b.appendChild(bd)}
     if(pins.indexOf(f.code)>=0)b.classList.add("pin");
@@ -2858,7 +2902,22 @@ function pBuild(f,d){
     d.pins.forEach(function(n){var sp=document.createElement("span");sp.textContent=n;pw.appendChild(sp)});
     pr.appendChild(ps);pr.appendChild(pw);kv.appendChild(pr);
   }
-  pg.appendChild(im);pg.appendChild(h);pg.appendChild(c);pg.appendChild(bio);pg.appendChild(kv);
+  var warnEl=null;
+  if(d&&d.corrupt){
+    var wn=document.createElement("div");wn.className="fp-warn";
+    var wt=document.createElement("span");wt.textContent="오염 폭주 중인 친구입니다. 정화 아이템(정화의 물약 등) 1개로 구해 주면 폭주가 풀리고 보상을 받습니다.";
+    var rb2=document.createElement("button");rb2.type="button";
+    rb2.textContent=d.canRescue?"구조하기 (정화 아이템 1개 사용)":"구조하려면 정화 아이템이 필요합니다";rb2.disabled=!d.canRescue;
+    rb2.addEventListener("click",function(){
+      rb2.disabled=true;
+      api("POST","/api/friends/rescue",{code:f.code}).then(function(x){
+        if(x.ok){wt.textContent=f.hn+"을(를) 구했습니다! "+x.item+" 사용 · 골드 +"+x.gold+" · 경험치 +"+x.exp+" · 명성 +"+x.fame+(x.levelUp?" · 전투력 상승!":"");rb2.hidden=true;delete pCache[f.code];loadFriends();pollState(false)}
+        else{wt.textContent=x.error==="no_item"?"정화 아이템이 없습니다.":x.error==="pair_cooldown"?"같은 친구는 6시간에 한 번만 구할 수 있습니다.":x.error==="daily_limit"?"하루에 5번까지만 구조할 수 있습니다.":x.error==="not_corrupted"?"이미 폭주가 풀렸습니다.":x.error==="corrupted"?"오염 폭주 중에는 구조할 수 없습니다.":"구조하지 못했습니다. 잠시 후 다시 시도해주세요.";rb2.disabled=false}
+      });
+    });
+    wn.appendChild(wt);wn.appendChild(rb2);warnEl=wn;
+  }
+  pg.appendChild(im);pg.appendChild(h);pg.appendChild(c);pg.appendChild(bio);if(warnEl)pg.appendChild(warnEl);pg.appendChild(kv);
   return pg;
 }
 function showP(code,dir){
@@ -3451,7 +3510,7 @@ function gtRender(){
 }
 function openGate(){
   gtOpener=document.activeElement;$("gtnote").textContent="";gtRender();
-  gtmodal.hidden=false;document.body.style.overflow="hidden";gtRender();svLoad();$("gtclose").focus();
+  gtmodal.hidden=false;$("gtex").hidden=true;document.body.style.overflow="hidden";gtRender();svLoad();$("gtclose").focus();
 }
 window.addEventListener("resize",function(){if(!gtmodal.hidden)drawScene()});
 function closeGate(){if(gtBusy)return;gtmodal.hidden=true;document.body.style.overflow=(!rmodal.hidden||!mmodal.hidden||!$("gwmodal").hidden||!$("cmodal").hidden||!$("gfmodal").hidden)?"hidden":"";if(gtOpener&&gtOpener.focus&&document.body.contains(gtOpener))gtOpener.focus()}
@@ -3552,6 +3611,227 @@ function svGo(idx){
 }
 $("gtresok").addEventListener("click",function(){$("gtres").hidden=true;svPlace();$("gtclose").focus()});
 setInterval(function(){if(!gtmodal.hidden&&!$("gtin").hidden)svPlace()},30000);
+
+/* ───── 일일 계약 의뢰 (기기 앱 '의뢰') ───── */
+function loadQuests(){
+  var scr=$("phscr");
+  api("GET","/api/quests").then(function(r){
+    if(devApp!=="qst")return;
+    if(r.error||!r.quests){appFail(scr,loadQuests);return}
+    var old=scr.querySelector(".app-empty,.app-list,.app-note");while(old){old.remove();old=scr.querySelector(".app-empty,.app-list,.app-note")}
+    var nt=document.createElement("p");nt.className="app-note";var hh=Math.floor(r.resetIn/3600000),mm=Math.floor(r.resetIn%3600000/60000);
+    nt.textContent="오늘의 계약 의뢰 · 새 의뢰까지 "+hh+"시간 "+mm+"분 · 토벌·조사·탐험을 하면 자동으로 진행됩니다.";scr.appendChild(nt);
+    var ul=document.createElement("ul");ul.className="app-list";
+    r.quests.forEach(function(q){
+      var done=q.prog>=q.need,li=document.createElement("li");li.className="qst-li"+(q.claimed?" got":done?" done":"");
+      var t=document.createElement("div");t.className="qst-t";t.textContent=q.text;
+      var bar=document.createElement("div");bar.className="qst-bar";var fi=document.createElement("i");fi.style.width=Math.min(100,Math.round(q.prog/q.need*100))+"%";bar.appendChild(fi);
+      var row=document.createElement("div");row.className="qst-r";var sp=document.createElement("span");sp.textContent=q.prog+" / "+q.need+" · 보상 골드 "+q.gold+" G · 경험치 "+q.exp;row.appendChild(sp);
+      var bt=document.createElement("button");bt.type="button";bt.className="ach-btn";bt.textContent=q.claimed?"수령 완료":"보상 받기";bt.disabled=q.claimed||!done;
+      bt.addEventListener("click",function(){
+        bt.disabled=true;
+        api("POST","/api/quests/claim",{slot:q.slot}).then(function(x){
+          if(x.ok){questReady=Math.max(0,questReady-1);$("mapmsg").textContent="의뢰 보상을 받았습니다 · 골드 +"+x.gold+" G · 경험치 +"+x.exp+(x.levelUp?" · 전투력 상승!":"");pollState(false);loadQuests()}
+          else{bt.disabled=false;bt.textContent="받을 수 없음";setTimeout(function(){bt.textContent="보상 받기"},1400)}
+        });
+      });
+      row.appendChild(bt);li.appendChild(t);li.appendChild(bar);li.appendChild(row);ul.appendChild(li);
+    });
+    scr.appendChild(ul);
+  });
+}
+
+
+/* ───── 장비 (탑 재료로 조합) ───── */
+var eqNote="",eqData=null;
+function eqFx(d){return d.stat+" +"+d.val+(d.unit||"")}
+function loadEquip(){
+  var scr=$("phscr");
+  api("GET","/api/equip").then(function(r){
+    if(devApp!=="eqp")return;
+    if(r.error||!r.defs){appFail(scr,loadEquip);return}
+    eqData=r;drawEquip();
+  });
+}
+function drawEquip(){
+  var scr=$("phscr");if(devApp!=="eqp"||!eqData)return;var r=eqData;
+  var old=scr.querySelector(".app-empty,.app-list,.app-note,.app-sub");while(old){old.remove();old=scr.querySelector(".app-empty,.app-list,.app-note,.app-sub")}
+  var nt=document.createElement("p");nt.className="app-note";nt.setAttribute("role","status");
+  nt.textContent=(eqNote?eqNote+" · ":"")+"장비는 적월문 탑 재료로만 조합할 수 있습니다. 토벌을 한 번 할 때마다 착용한 장비의 내구도가 1 줄고, 0이 되면 효과가 사라집니다. 보유 골드 "+r.gold+" G";
+  scr.appendChild(nt);
+  var b=r.bonus,fx=[];if(b.str)fx.push("근력 +"+b.str);if(b.agi)fx.push("민첩 +"+b.agi);if(b.luck)fx.push("행운 +"+b.luck);if(b.hpGuard)fx.push("체력 피해 -"+b.hpGuard+"%");if(b.taintRes)fx.push("오염도 증가 -"+b.taintRes+"%");
+  function head(t){var h=document.createElement("p");h.className="app-sub";h.textContent=t;h.style.cssText="margin:10px 0 4px;font-weight:700;font-size:.85rem";scr.appendChild(h)}
+  head("내 장비 ("+r.mine.length+") · 현재 효과: "+(fx.length?fx.join(", "):"없음"));
+  var ul=document.createElement("ul");ul.className="app-list";
+  if(!r.mine.length){var li0=document.createElement("li");li0.textContent="아직 가진 장비가 없습니다. 아래에서 조합하세요.";ul.appendChild(li0)}
+  r.mine.forEach(function(m){
+    var li=document.createElement("li");li.className="qst-li"+(m.broken?" done":"");
+    var t=document.createElement("div");t.className="qst-t";t.textContent="["+m.grade+"] "+m.name+(m.equipped?" · 착용 중":"")+(m.broken?" · 파손":"");
+    var d=document.createElement("small");d.textContent=m.slotKo+" · "+eqFx(m)+" · 내구도 "+m.dur+"/"+m.maxDur;
+    var bar=document.createElement("div");bar.className="qst-bar";var fi=document.createElement("i");fi.style.width=Math.max(0,Math.round(m.dur/m.maxDur*100))+"%";bar.appendChild(fi);
+    var row=document.createElement("div");row.className="rum-v";
+    function btn(txt,fn){var x=document.createElement("button");x.type="button";x.className="ach-btn";x.textContent=txt;x.addEventListener("click",function(){x.disabled=true;fn()});row.appendChild(x)}
+    function act(url,body,okTxt){api("POST",url,body).then(function(x){eqNote=x.ok?okTxt(x):(x.error==="no_gold"?"골드가 부족합니다 ("+x.cost+" G 필요)":x.error==="full_dur"?"이미 내구도가 가득합니다":"처리하지 못했습니다");pollState(false);loadEquip()})}
+    btn(m.equipped?"해제":"착용",function(){act(m.equipped?"/api/equip/unwear":"/api/equip/wear",{uid:m.uid},function(){return m.name+(m.equipped?" 해제":" 착용")})});
+    if(m.dur<m.maxDur)btn("수리",function(){act("/api/equip/repair",{uid:m.uid},function(x){return m.name+" 수리 완료 (-"+x.cost+" G)"})});
+    btn("버리기",function(){if(!window.confirm(m.name+"을(를) 버릴까요? 되돌릴 수 없습니다."))return loadEquip();act("/api/equip/discard",{uid:m.uid},function(){return m.name+" 버림"})});
+    li.appendChild(t);li.appendChild(d);li.appendChild(bar);li.appendChild(row);ul.appendChild(li);
+  });
+  scr.appendChild(ul);
+  head("장비 조합법 (20)");
+  var ul2=document.createElement("ul");ul2.className="app-list";
+  r.defs.forEach(function(e){
+    var li=document.createElement("li");li.className="qst-li";
+    var t=document.createElement("div");t.className="qst-t";t.textContent="["+e.grade+"] "+e.name;
+    var d=document.createElement("small");d.textContent=e.slotKo+" · "+eqFx(e)+" · 내구도 "+e.maxDur+" · 수리 "+e.repair+" G · "+e.desc;
+    var ok=true,m=document.createElement("small");m.textContent="재료 · "+e.mats.map(function(x){if(x.have<x.qty)ok=false;return x.item+" "+x.have+"/"+x.qty}).join(", ");
+    var row=document.createElement("div");row.className="rum-v";var bt=document.createElement("button");bt.type="button";bt.className="ach-btn";bt.textContent="조합";bt.disabled=!ok;
+    bt.addEventListener("click",function(){bt.disabled=true;api("POST","/api/equip/craft",{id:e.id}).then(function(x){eqNote=x.ok?e.name+" 조합 완료!":x.error==="no_mats"?"재료가 부족합니다.":x.error==="full"?"장비는 최대 40개까지 가질 수 있습니다.":x.error==="corrupted"?"오염이 폭주해 조합할 수 없습니다.":"조합하지 못했습니다.";pollState(false);if(devApp==="inv")renderDevice();loadEquip()})});
+    row.appendChild(bt);li.appendChild(t);li.appendChild(d);li.appendChild(m);li.appendChild(row);ul2.appendChild(li);
+  });
+  scr.appendChild(ul2);
+}
+
+/* ───── 오염 거래(계약) ───── */
+function loadPact(){
+  var scr=$("phscr");
+  api("GET","/api/pact").then(function(r){
+    if(devApp!=="pct")return;
+    if(r.error||!r.pacts){appFail(scr,loadPact);return}
+    var old=scr.querySelector(".app-empty,.app-list,.app-note");while(old){old.remove();old=scr.querySelector(".app-empty,.app-list,.app-note")}
+    var nt=document.createElement("p");nt.className="app-note";var hh=Math.floor(r.resetIn/3600000),mm=Math.floor(r.resetIn%3600000/60000);
+    nt.textContent="오염 거래 · 오염도를 대가로 보상을 받습니다. 계약마다 하루 한 번(새 계약까지 "+hh+"시간 "+mm+"분). 서명할 때마다 "+Math.round(r.backlash*100)+"% 확률로 '계약의 반동'이 일어나 오염도가 "+r.backlashTaint+"% 더 오릅니다. 오염도가 100%가 되면 몬스터가 됩니다. 현재 오염도 "+r.taint+"%";
+    scr.appendChild(nt);
+    var ul=document.createElement("ul");ul.className="app-list";
+    r.pacts.forEach(function(p){
+      var li=document.createElement("li");li.className="qst-li pct-li"+(p.done?" done":"");
+      var t=document.createElement("div");t.className="qst-t";t.textContent=p.name;
+      var d=document.createElement("small");d.textContent=p.desc;
+      var row=document.createElement("div");row.className="pct-r";var sp=document.createElement("span");sp.textContent="대가 오염도 +"+p.taint+"% → "+p.reward;row.appendChild(sp);
+      var bt=document.createElement("button");bt.type="button";bt.className="ach-btn";bt.textContent=p.done?"오늘은 완료":"서명";bt.disabled=p.done;
+      var sure=false;
+      bt.addEventListener("click",function(){
+        bt.disabled=true;
+        api("POST","/api/pact/sign",{id:p.id,confirm:sure}).then(function(x){
+          if(x.ok){$("mapmsg").textContent="계약 '"+x.name+"' · "+x.reward+" · 오염도 +"+x.taint+"%"+(x.backlash?" (계약의 반동!)":"")+(x.corrupted?" · 오염 폭주!":"")+(x.levelUp?" · 전투력 상승!":"");pollState(false);if(devApp==="inv")renderDevice();loadPact()}
+          else if(x.error==="will_corrupt"){sure=true;bt.disabled=false;bt.textContent="폭주해도 서명";$("mapmsg").textContent="이 계약을 맺으면 오염도가 100%를 넘어 몬스터가 될 수 있습니다. 그래도 서명하려면 한 번 더 누르세요."}
+          else{bt.disabled=false;bt.textContent=x.error==="corrupted"?"폭주 중":x.error==="tainted"?"오염도 100%":x.error==="already_done"?"오늘은 완료":"할 수 없음";if(x.error==="already_done")loadPact()}
+        });
+      });
+      row.appendChild(bt);li.appendChild(t);li.appendChild(d);li.appendChild(row);ul.appendChild(li);
+    });
+    scr.appendChild(ul);
+  });
+}
+
+/* ───── 도시 괴담 소문 ───── */
+function loadRumors(){
+  var scr=$("phscr");
+  api("GET","/api/rumors").then(function(r){
+    if(devApp!=="rum")return;
+    if(r.error||!r.rumors){appFail(scr,loadRumors);return}
+    var old=scr.querySelector(".app-empty,.app-list,.app-note");while(old){old.remove();old=scr.querySelector(".app-empty,.app-list,.app-note")}
+    var nt=document.createElement("p");nt.className="app-note";
+    nt.textContent="도시 괴담 · 소문을 믿을지 의심할지 정해 주세요. 한쪽이 "+r.need+"명이 되면 진실이 가려집니다. 진짜 괴담이면 그 지역에 몬스터가 실제로 나타납니다 (믿은 사람은 보상). 헛소문을 믿으면 골드를 잃습니다.";
+    scr.appendChild(nt);
+    if(!r.rumors.length){var e=document.createElement("p");e.className="app-empty";e.textContent="아직 도는 소문이 없습니다.";scr.appendChild(e);return}
+    var ul=document.createElement("ul");ul.className="app-list";
+    r.rumors.forEach(function(q){
+      var open=q.status==="open",li=document.createElement("li");li.className="qst-li"+(open?"":" got");
+      var t=document.createElement("div");t.className="qst-t";t.textContent=q.title;
+      var pl=document.createElement("small");pl.textContent=q.place+" · "+q.body;
+      li.appendChild(t);li.appendChild(pl);
+      var cnt=document.createElement("small");cnt.textContent="믿는다 "+q.believers+"명 · 의심한다 "+q.doubters+"명"+(open?" · 남은 시간 "+Math.floor(q.endsIn/3600000)+"시간 "+Math.floor(q.endsIn%3600000/60000)+"분":"");li.appendChild(cnt);
+      if(open){
+        var vr=document.createElement("div");vr.className="rum-v";
+        [["believe","믿는다",1],["doubt","의심한다",0]].forEach(function(o){
+          var b=document.createElement("button");b.type="button";b.className="ach-btn";b.textContent=q.my===o[2]?o[1]+" ✓":o[1];b.disabled=q.my!==null;
+          b.addEventListener("click",function(){
+            vr.querySelectorAll("button").forEach(function(x){x.disabled=true});
+            api("POST","/api/rumors/vote",{id:q.id,vote:o[0]}).then(function(x){
+              if(x.ok){rumorNew=Math.max(0,rumorNew-1);$("mapmsg").textContent=x.status==="open"?"한 표를 던졌습니다.":"소문의 진실이 밝혀졌습니다!";pollState(false);loadRumors()}
+              else{$("mapmsg").textContent=x.error==="already_voted"?"이미 표를 던진 소문입니다.":x.error==="closed"?"이미 끝난 소문입니다.":"처리하지 못했습니다.";loadRumors()}
+            });
+          });
+          vr.appendChild(b);
+        });
+        li.appendChild(vr);
+      }else{
+        var v=document.createElement("div");v.className="rum-res"+(q.status==="faded"?" bad":"");
+        var rw=q.reward?(" · 내 결과: "+(q.reward.gold>0?"골드 +"+q.reward.gold+" G":q.reward.gold<0?"골드 "+q.reward.gold+" G":"")+(q.reward.exp?" · 경험치 +"+q.reward.exp:"")):"";
+        v.textContent=q.status==="true"?"사실이었습니다! "+q.mon+"이(가) 나타났습니다."+rw
+          :q.status==="false"?"헛소문이었습니다. "+q.hoax+rw
+          :q.status==="debunked"?"헛소문으로 가려졌습니다. "+q.hoax+rw
+          :q.status==="buried"?"진짜였지만 아무도 믿지 않아 묻혔습니다."
+          :"결론이 나지 않아 잊혀졌습니다. ("+(q.truth?"사실":"헛소문")+"이었습니다)";
+        li.appendChild(v);
+      }
+      ul.appendChild(li);
+    });
+    scr.appendChild(ul);
+  });
+}
+
+/* ───── 적월문 심층 탐험 (층 구조) ───── */
+var exRun=null,exBusy=false,exCdAt=0,exTick=0;
+function exLootText(l,g){var k=Object.keys(l||{});return "모은 것 · "+(k.length?k.map(function(n){return n+" ×"+l[n]}).join(", "):"재료 없음")+" · 골드 "+(g||0)+" G"}
+function pc(x){var v=x*100;return (v>=10?Math.round(v):Math.round(v*10)/10)+"%"}
+var TIER_KO={c:"일반",r:"희귀",e:"영웅",l:"전설"};
+function exRender(){
+  var r=exRun;if(!r)return;
+  var fl=$("gtexfl");fl.innerHTML="";
+  for(var i=1;i<=r.max;i++){var c=document.createElement("i");c.textContent=i;if(i%10===0)c.classList.add("boss");if(r.active&&i<=r.floor)c.classList.add("on");if(i===r.best)c.classList.add("best");if(r.active&&i===r.floor)c.classList.add("cur");fl.appendChild(c)}
+  var go=$("gtexgo"),bk=$("gtexback"),cd=Math.max(0,exCdAt-Date.now()),fw=$("gtexfromw"),od=$("gtexodds");
+  var zn=function(n){return (r.zones||[])[Math.min(4,Math.floor((n-1)/10))]||""};
+  if(r.active){
+    fw.hidden=true;
+    var nx=r.next;
+    $("gtexst").textContent="현재 "+r.floor+"층 / "+r.max+"층 ("+(r.floor>0?zn(r.floor):"입구")+") · 최고 기록 "+r.best+"층"+(nx?"":" · 최하층");
+    od.textContent=nx?"다음 "+nx.n+"층 ("+zn(nx.n)+(nx.boss?" · 수문장":"")+") · 위험 "+pc(nx.danger)+" · 희귀 재료 "+pc(nx.rare)+(nx.epic?" · 영웅 "+pc(nx.epic):"")+(nx.legend?" · 전설 "+pc(nx.legend):"")+(nx.boss?" · 영웅 재료 확정":" · 정화의 샘 "+pc(nx.spring)+" · 보물방 "+pc(nx.treasure)):"";
+    $("gtexloot").textContent=exLootText(r.loot,r.gold);
+    go.textContent=r.floor>=r.max?"최하층입니다":"더 깊이 내려가기";go.disabled=exBusy||r.floor>=r.max;bk.hidden=false;bk.disabled=exBusy;
+  }else{
+    var st=r.starts||[],sel=$("gtexfrom");
+    if(st.length){fw.hidden=false;var keep=sel.value||"0";sel.innerHTML="";var o0=document.createElement("option");o0.value="0";o0.textContent="입구 (1층부터)";sel.appendChild(o0);st.forEach(function(f){var o=document.createElement("option");o.value=f;o.textContent=f+"층 거점 ("+(f+1)+"층부터)";sel.appendChild(o)});if([].some.call(sel.options,function(o){return o.value===keep}))sel.value=keep}else fw.hidden=true;
+    $("gtexst").textContent="최고 기록 "+r.best+"층 · 50층까지 5개 구간(10층마다 수문장). 깊을수록 보상이 크지만 오염도가 쌓이고, 함정에 걸리면 모은 것을 잃습니다. 오염도가 100%가 되면 전부 잃습니다.";
+    od.textContent="";$("gtexloot").textContent="";
+    go.textContent=cd>0?"재탐험까지 "+mmss(cd):"탐험 시작";go.disabled=exBusy||cd>0;bk.hidden=true;
+  }
+}
+function exLoad(){
+  api("GET","/api/gate/run").then(function(r){if(r.error)return;exRun=r;exCdAt=Date.now()+(r.cd||0);exRender()});
+}
+function exSet(txt){$("gtexlog").textContent=txt}
+function exGot(o){var k=Object.keys(o||{});return k.length?k.map(function(n){return n+" ×"+o[n]}).join(", "):"없음"}
+function exAfter(){exBusy=false;pollState(false);if(devApp==="inv")renderDevice();exLoad()}
+$("gtexopen").addEventListener("click",function(){$("gtex").hidden=false;exSet("");exLoad();if(!exTick)exTick=setInterval(function(){if(!$("gtex").hidden&&exRun&&!exRun.active&&exCdAt>Date.now())exRender()},1000);$("gtexgo").focus()});
+$("gtexclose").addEventListener("click",function(){$("gtex").hidden=true;$("gtexopen").focus()});
+$("gtexgo").addEventListener("click",function(){
+  if(exBusy||!exRun)return;exBusy=true;exRender();
+  if(!exRun.active){
+    api("POST","/api/gate/start",{from:Number($("gtexfrom").value)||0}).then(function(r){
+      if(r.ok){exSet(r.from?r.from+"층 거점에서 시작합니다.":"탐험을 시작했습니다. 입구에서 한 층씩 내려갑니다.");exBusy=false;exRun=r;exCdAt=Date.now();exRender()}
+      else{exSet(r.error==="cooldown"?"아직 재탐험할 수 없습니다.":r.error==="tainted"?"오염도가 100%라 탐험할 수 없습니다.":r.error==="corrupted"?"오염 폭주 중에는 탐험할 수 없습니다.":r.error==="not_here"?"적월문 안쪽에서만 탐험할 수 있습니다.":"시작하지 못했습니다.");exBusy=false;exLoad()}
+    }).catch(function(){exBusy=false;exRender()});
+    return;
+  }
+  api("POST","/api/gate/descend",{}).then(function(r){
+    if(r.result==="ok"){
+      exSet(r.floor+"층 도착"+(r.event==="boss"?" · 수문장 격파!":r.event==="spring"?" · 정화의 샘 발견 (오염도 -"+r.spring+"%)":r.event==="treasure"?" · 보물방 발견!":"")+" · 발견: "+Object.keys(r.found).map(function(n){return n+" ×"+r.found[n]+(r.tiers[n]&&r.tiers[n]!=="c"?"("+TIER_KO[r.tiers[n]]+")":"")}).join(", ")+" · 골드 +"+r.gold+" G · 오염도 +"+r.taint+"%"+(r.bonus?" · 첫 도달 보너스! 골드 +"+r.bonus.gold+" · 명성 +"+r.bonus.fame:""));
+      exBusy=false;exRun=r;exCdAt=Date.now();exRender();pollState(false);
+    }else if(r.result==="trap"){exSet(r.floor+"층에서 "+({rock:"낙석",gas:"독안개",ambush:"습격",boss:"수문장과의 전투"}[r.kind]||"함정")+"에 당했습니다! 모은 것의 "+Math.round((r.keep||0.5)*100)+"%만 가지고 탈출했습니다 → "+exGot(r.kept)+" · 골드 "+r.gold+" G · 오염도 +"+r.taint+"%");exAfter()}
+    else if(r.result==="tainted"){exSet("오염도가 100%에 이르러 폭주했습니다! 모은 것을 전부 잃었습니다.");exAfter()}
+    else{exSet(r.error==="bottom"?"최하층입니다. 복귀하세요.":r.error==="not_active"?"진행 중인 탐험이 없습니다.":r.error==="corrupted"?"오염 폭주 중에는 탐험할 수 없습니다.":"처리하지 못했습니다. 잠시 후 다시 시도해주세요.");exBusy=false;exLoad()}
+  }).catch(function(){exBusy=false;exRender()});
+});
+$("gtexback").addEventListener("click",function(){
+  if(exBusy)return;exBusy=true;exRender();
+  api("POST","/api/gate/retreat",{}).then(function(r){
+    if(r.ok)exSet("복귀했습니다 · "+(r.floor||0)+"층 · 가져온 것: "+exGot(r.got)+" · 골드 +"+r.gold+" G"+(r.exp?" · 경험치 +"+r.exp:""));
+    else exSet("복귀하지 못했습니다.");
+    exAfter();
+  }).catch(function(){exBusy=false;exRender()});
+});
 
 /* ───── 조합: 인벤토리 앱의 '조합' 버튼 ───── */
 var craftData=null,craftNote="";
