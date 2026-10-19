@@ -680,6 +680,16 @@ input[type=checkbox]:focus-visible{outline:2px solid var(--deep);outline-offset:
 .qst-r{display:flex;align-items:center;gap:8px;font-size:.78rem;color:var(--sub)}.qst-r span{flex:1}
 .qst-li.done{border-color:rgba(240,185,58,.5)}
 .qst-li.got{opacity:.55}
+.bigapp{position:fixed;inset:0;z-index:500;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(0,0,0,.8)}
+.bigapp[hidden]{display:none}
+.big-p{width:min(780px,100%);height:min(88vh,880px);display:flex;flex-direction:column;background:#0b0708;border:1px solid var(--red2);border-radius:10px;box-shadow:0 0 40px rgba(0,0,0,.8);overflow:hidden}
+.big-p .ph-scr{flex:1;min-height:0;max-height:none;border:0;border-radius:0;padding:16px 18px;font-size:1rem}
+.big-p .app-list{font-size:.95rem;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:8px}
+.big-p .app-list li{padding:10px 12px}
+.big-p .app-h{font-size:1.05rem}
+.exc-f{display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:6px;margin:6px 0 10px}
+.exc-f select,.exc-f input{min-width:0;padding:7px 8px;color:var(--text);background:var(--field);border:1px solid var(--line);border-radius:6px;font:inherit;font-size:.88rem}
+@media (max-width:560px){.exc-f{grid-template-columns:1fr 1fr}.big-p .app-list{grid-template-columns:1fr}}
 .pct-r{display:flex;align-items:center;gap:8px;font-size:.78rem;color:var(--sub)}.pct-r span{flex:1}
 .rum-v{display:flex;gap:8px}.rum-v button{flex:1}
 .rum-res{font-size:.8rem;color:#f0b93a}.rum-res.bad{color:var(--sub)}
@@ -1302,6 +1312,7 @@ input[type=checkbox]:focus-visible{outline:2px solid var(--deep);outline-offset:
     </section>
   </div>
 </div>
+<div class="bigapp" id="bigapp" hidden role="dialog" aria-modal="true" aria-label="기기 앱"><div class="big-p"><div class="ph-scr" id="bigbody"></div></div></div>
 <script>
 (function(){
 var MAX=50,N=5,gender="",image="",code="",pwHash="",pwSalt="",hname="",rank="",stats=null,dirty=false;
@@ -2191,7 +2202,7 @@ var globe=(function(){
   return {set:set,isOn:function(){return on},redraw:function(){if(on&&rm)draw()}};
 })();
 var achNew=0,questReady=0,rescueReq=0,rumorNew=0,gold=0,devApp=null,inventory=[],invSig="",invNote="";
-var APPS=[["gw","게이트웨이브","i-eye"],["msg","메신저","i-chat"],["com","커뮤니티","i-board"],["ach","업적","i-medal"],["qst","의뢰","i-star"],["eqp","장비","i-str"],["pct","계약","i-taint"],["rum","괴담","i-psi"],["sys","시스템 알림","i-bell"],["shop","상점","i-shop"],["inv","인벤토리","i-bag"]];
+var APPS=[["gw","게이트웨이브","i-eye"],["msg","메신저","i-chat"],["com","커뮤니티","i-board"],["ach","업적","i-medal"],["qst","의뢰","i-star"],["eqp","장비","i-str"],["pct","계약","i-taint"],["exc","그림자 거래소","i-lock"],["rum","괴담","i-psi"],["sys","시스템 알림","i-bell"],["shop","상점","i-shop"],["inv","인벤토리","i-bag"]];
 function devClock(){var d=new Date(),c=$("phclk");if(c)c.textContent=pad(d.getHours())+":"+pad(d.getMinutes())}
 function badgeOf(id){return id==="inv"?giftUnread:id==="sys"?unreadNotices:id==="msg"?unreadMsgs+friendReqs+rescueReq:id==="qst"?questReady:id==="rum"?rumorNew:id==="com"?Math.max(0,Math.min(99,cmLatest-cmSeen)):id==="ach"?achNew:0}
 function loadNotices(){
@@ -2349,14 +2360,14 @@ function renderDevice(){
       var t=document.createElement("span");t.textContent=a[1];b.appendChild(t);
       var bc=badgeOf(a[0]);
       if(bc){var n=document.createElement("span");n.className="app-b";n.textContent=String(bc);n.setAttribute("aria-label","읽지 않은 항목 "+bc+"건");b.appendChild(n)}
-      b.addEventListener("click",function(){if(a[0]==="msg"){openMs();return}if(a[0]==="com"){openCm();return}if(a[0]==="gw"){openGw();return}devApp=a[0];invNote="";renderDevice()});
+      b.addEventListener("click",function(){if(a[0]==="msg"){openMs();return}if(a[0]==="com"){openCm();return}if(a[0]==="gw"){openGw();return}if(BIG[a[0]]){openBig(a[0]);return}devApp=a[0];invNote="";renderDevice()});
       g.appendChild(b);
     });
     scr.appendChild(g);return;
   }
   var app=APPS.filter(function(a){return a[0]===devApp})[0]||["craft","조합"];
   var h=document.createElement("div");h.className="app-h";
-  var back=document.createElement("button");back.type="button";back.textContent=devApp==="craft"?"← 인벤토리":"← 홈";back.addEventListener("click",function(){devApp=devApp==="craft"?"inv":null;renderDevice()});
+  var back=document.createElement("button");back.type="button";back.textContent=bigOpen?"← 닫기":devApp==="craft"?"← 인벤토리":"← 홈";back.addEventListener("click",function(){if(bigOpen){closeBig();return}devApp=devApp==="craft"?"inv":null;renderDevice()});
   h.appendChild(back);var tt=document.createElement("span");tt.textContent=app[1];h.appendChild(tt);scr.appendChild(h);
   function empty(txt){var p=document.createElement("p");p.className="app-empty";p.textContent=txt;scr.appendChild(p)}
   if(devApp==="com")empty("아직 올라온 게시글이 없습니다.");
@@ -2413,6 +2424,7 @@ function renderDevice(){
   else if(devApp==="qst"){empty("불러오는 중…");loadQuests()}
   else if(devApp==="eqp"){empty("불러오는 중…");loadEquip()}
   else if(devApp==="pct"){empty("불러오는 중…");loadPact()}
+  else if(devApp==="exc"){empty("불러오는 중…");loadExc()}
   else if(devApp==="rum"){empty("불러오는 중…");loadRumors()}
 }
 function markRegions(){
@@ -3641,6 +3653,68 @@ function loadQuests(){
   });
 }
 
+
+/* ───── 큰 팝업으로 여는 앱 (상점·의뢰·괴담·그림자 거래소) ───── */
+var BIG={shop:1,qst:1,rum:1,exc:1},bigOpen=false;
+function openBig(id){
+  if(bigOpen)return;
+  var home=$("phscr"),body=$("bigbody");if(!home||!body)return;
+  bigOpen=true;home.id="phscr_home";body.id="phscr";$("bigapp").hidden=false;document.body.style.overflow="hidden";
+  devApp=id;invNote="";renderDevice();
+  var x=$("phscr").querySelector(".app-h button");if(x)x.focus();
+}
+function closeBig(){
+  if(!bigOpen)return;
+  bigOpen=false;$("bigapp").hidden=true;document.body.style.overflow="";
+  var b=$("phscr");b.id="bigbody";b.innerHTML="";$("phscr_home").id="phscr";
+  devApp=null;renderDevice();
+}
+document.addEventListener("keydown",function(e){if(e.key==="Escape"&&bigOpen)closeBig()});
+$("bigapp").addEventListener("mousedown",function(e){if(e.target===this)closeBig()});
+
+/* ───── 그림자 거래소 ───── */
+var excNote="";
+function hm(ms){var h=Math.floor(ms/3600000),m=Math.floor(ms%3600000/60000);return h+"시간 "+m+"분"}
+function loadExc(){
+  var scr=$("phscr");
+  api("GET","/api/exchange").then(function(r){
+    if(devApp!=="exc")return;
+    if(r.error||!r.market){appFail(scr,loadExc);return}
+    var old=scr.querySelector(".app-empty,.app-list,.app-note,.app-sub,.exc-f,.gold-tag");while(old){old.remove();old=scr.querySelector(".app-empty,.app-list,.app-note,.app-sub,.exc-f,.gold-tag")}
+    var g=document.createElement("p");g.className="gold-tag";g.textContent="보유 "+r.gold+" G";scr.appendChild(g);
+    var nt=document.createElement("p");nt.className="app-note";nt.setAttribute("role","status");
+    nt.textContent=(excNote?excNote+" · ":"")+"헌터끼리 익명으로 아이템을 사고파는 암시장입니다. 판매자는 드러나지 않고, 팔리면 수수료 "+Math.round(r.fee*100)+"%를 뗀 골드를 받습니다. "+r.hours+"시간 안에 안 팔리면 아이템이 돌아옵니다. 구매할 때마다 그림자 거래의 흔적으로 오염도가 "+r.buyTaint+"% 오릅니다. (최대 "+r.maxListings+"개 등록)";
+    scr.appendChild(nt);
+    function head(t){var h=document.createElement("p");h.className="app-sub";h.textContent=t;h.style.cssText="margin:12px 0 4px;font-weight:700;font-size:.9rem";scr.appendChild(h)}
+    function done(x,okTxt){excNote=x.ok?okTxt:({no_gold:"골드가 부족합니다.",no_item:"아이템이 부족합니다.",no_listing:"이미 사라진 물건입니다.",sold:"그 사이 다른 사람이 샀습니다.",too_many:"더 이상 등록할 수 없습니다.",bad_price:"가격을 확인해 주세요 (1~9,999,999 G).",bad_qty:"수량을 확인해 주세요.",max_qty:"더 가질 수 없습니다 (최대 9999개).",corrupted:"오염 폭주 중에는 거래할 수 없습니다.",own:"내가 올린 물건입니다."})[x.error]||"처리하지 못했습니다.";pollState(false);loadExc()}
+    head("판매 등록");
+    var f=document.createElement("div");f.className="exc-f";
+    var sel=document.createElement("select");sel.setAttribute("aria-label","판매할 아이템");
+    if(!r.sellable.length){var o0=document.createElement("option");o0.textContent="판매할 아이템이 없습니다";sel.appendChild(o0);sel.disabled=true}
+    r.sellable.forEach(function(x){var o=document.createElement("option");o.value=x.item;o.textContent=x.item+" (보유 "+x.qty+")";sel.appendChild(o)});
+    var q=document.createElement("input");q.type="number";q.min="1";q.value="1";q.placeholder="수량";q.setAttribute("aria-label","수량");
+    var pr=document.createElement("input");pr.type="number";pr.min="1";pr.placeholder="총 가격(G)";pr.setAttribute("aria-label","총 가격");
+    var go=document.createElement("button");go.type="button";go.className="ach-btn";go.textContent="등록";go.disabled=!r.sellable.length;
+    go.addEventListener("click",function(){go.disabled=true;api("POST","/api/exchange/list",{item:sel.value,qty:Number(q.value),price:Number(pr.value)}).then(function(x){done(x,"판매 등록 완료")})});
+    f.appendChild(sel);f.appendChild(q);f.appendChild(pr);f.appendChild(go);scr.appendChild(f);
+    head("내가 올린 물건 ("+r.mine.length+")");
+    function listOf(arr,empty,mk){
+      var ul=document.createElement("ul");ul.className="app-list";
+      if(!arr.length){var li0=document.createElement("li");li0.textContent=empty;ul.appendChild(li0)}
+      arr.forEach(function(x){
+        var li=document.createElement("li");li.className="qst-li";
+        var t=document.createElement("div");t.className="qst-t";t.textContent=x.item+" ×"+x.qty;
+        var d=document.createElement("small");d.textContent=x.price+" G"+(x.qty>1?" (개당 약 "+Math.ceil(x.price/x.qty)+" G)":"")+" · 남은 시간 "+hm(x.endsIn);
+        var row=document.createElement("div");row.className="rum-v";mk(x,row);
+        li.appendChild(t);li.appendChild(d);li.appendChild(row);ul.appendChild(li);
+      });
+      scr.appendChild(ul);
+    }
+    listOf(r.mine,"올려 둔 물건이 없습니다.",function(x,row){var b=document.createElement("button");b.type="button";b.className="ach-btn";b.textContent="회수";b.addEventListener("click",function(){b.disabled=true;api("POST","/api/exchange/cancel",{id:x.id}).then(function(y){done(y,x.item+" 회수 완료")})});row.appendChild(b)});
+    head("시장 ("+r.market.length+")");
+    listOf(r.market,"지금 올라온 물건이 없습니다.",function(x,row){var b=document.createElement("button");b.type="button";b.className="ach-btn";b.textContent="구매 ("+x.price+" G)";b.disabled=x.price>r.gold;b.addEventListener("click",function(){b.disabled=true;api("POST","/api/exchange/buy",{id:x.id}).then(function(y){done(y,x.item+" ×"+x.qty+" 구매 완료 · 오염도 +"+(y.taint||0)+"%");if(y.ok&&devApp==="inv")renderDevice()})});row.appendChild(b)});
+  });
+}
 
 /* ───── 장비 (탑 재료로 조합) ───── */
 var eqNote="",eqData=null;
