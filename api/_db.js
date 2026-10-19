@@ -295,6 +295,16 @@ CREATE TABLE IF NOT EXISTS equip_inv (
   at       INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS equip_inv_user ON equip_inv(user_id);
+CREATE TABLE IF NOT EXISTS exchange (
+  id        INTEGER PRIMARY KEY AUTOINCREMENT,
+  seller_id INTEGER NOT NULL,
+  item      TEXT NOT NULL,
+  qty       INTEGER NOT NULL,
+  price     INTEGER NOT NULL,
+  at        INTEGER NOT NULL,
+  ends      INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS exchange_ends ON exchange(ends);
 CREATE TABLE IF NOT EXISTS pact_log (
   user_id INTEGER NOT NULL,
   day     TEXT NOT NULL,
