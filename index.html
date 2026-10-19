@@ -457,8 +457,10 @@ label[for="name"]::after,label[for="age"]::after,label[for="hname"]::after,#gl::
 #gstat{display:flex;flex-direction:column}
 #gstat .body{flex:1;display:flex;flex-direction:column}
 #gstat .stats{flex:1;display:flex;flex-direction:column;justify-content:space-between;gap:13px}
-.al[data-r="S"]{border-color:var(--red2);box-shadow:0 0 18px rgba(255,59,74,.55)}
-.al[data-r="S"] .al-r{background:linear-gradient(135deg,#ff5a66,#a30f1d);box-shadow:0 0 12px var(--red2);animation:blink 1.2s steps(2) infinite}
+.al[data-r="SS"]{border-color:var(--red2);box-shadow:0 0 18px rgba(255,59,74,.55)}
+.al[data-r="S"]{border-color:#f0b93a;box-shadow:0 0 12px rgba(240,185,58,.4)}
+.al[data-r="S"] .al-r{background:linear-gradient(135deg,#f0b93a,#a3300f);border-color:#f0b93a}
+.al[data-r="SS"] .al-r{font-size:.85rem;background:linear-gradient(135deg,#ff5a66,#a30f1d);box-shadow:0 0 12px var(--red2);animation:blink 1.2s steps(2) infinite}
 
 
 /* ── 친구 프로필 패널 (오른쪽에서 미끄러져 나옴) ── */
@@ -1629,9 +1631,9 @@ function loadWorld(){
 function countryOf(id){var r=regionById(id);return r?r.country:(COUNTRY_BY_ID[id]?id:"KR")}
 function placeName(id){return COUNTRY_BY_ID[id]?COUNTRY_BY_ID[id].name:(regionById(id)?regionById(id).name:id)}
 function placeLong(id){var r=regionById(id);return r?COUNTRY_BY_ID[r.country].name+" · "+r.name:placeName(id)}
-// S급은 나라 단위, 나머지는 세부 지역 단위로 같은 곳에 있어야 토벌할 수 있습니다
-function inPlace(a){return (a.r==="S"&&!a.c)?a.region===curCountry:a.region===curRegion}
-function countryHot(cid){return alerts.some(function(a){return isActive(a)&&((a.r==="S"&&!a.c)?a.region===cid:countryOf(a.region)===cid)})}
+// SS급은 나라 단위, 나머지는 세부 지역 단위로 같은 곳에 있어야 토벌할 수 있습니다
+function inPlace(a){return (a.r==="SS"&&!a.c)?a.region===curCountry:a.region===curRegion}
+function countryHot(cid){return alerts.some(function(a){return isActive(a)&&((a.r==="SS"&&!a.c)?a.region===cid:countryOf(a.region)===cid)})}
 var STAT_KO={hp:"체력",str:"근력",agi:"민첩",luck:"행운",taint:"오염도"};
 function fxText(e){return (STAT_KO[e.stat]||e.stat)+" "+(e.amt>0?"+":"")+e.amt}
 var STAT_TIP={hp:"토벌에 실패하면 줄어듭니다. 5 이하가 되면 빈사 상태입니다.",str:"몬스터 토벌 성공 확률",agi:"체력 하락 방지 확률",luck:"즉시 재토벌 가능 확률"};
@@ -1654,7 +1656,7 @@ function svgUse(id){
   var ns="http://www.w3.org/2000/svg",s=document.createElementNS(ns,"svg"),u=document.createElementNS(ns,"use");
   s.setAttribute("class","ic");s.setAttribute("aria-hidden","true");u.setAttribute("href","#"+id);s.appendChild(u);return s;
 }
-function activeMs(r){return r==="F"?300000:r==="S"?86400000:1800000}
+function activeMs(r){return r==="F"?300000:r==="SS"?86400000:1800000}
 function isActive(a){return !a.done&&nowS()-a.ts<(a.c?1800000:activeMs(a.r))}
 function regionById(id){for(var i=0;i<REGIONS.length;i++)if(REGIONS[i].id===id)return REGIONS[i]}
 
@@ -1858,7 +1860,7 @@ function closeHunt(){
 $("hok").addEventListener("click",function(){
   var id=hmodal.dataset.sw;
   if(!id){closeHunt();return}
-  var bt=this;bt.disabled=true;       // S급 토벌 성공 팝업: 확인 → 서버가 참여자에게만 보상 지급
+  var bt=this;bt.disabled=true;       // SS급 토벌 성공 팝업: 확인 → 서버가 참여자에게만 보상 지급
   api("POST","/api/swin/claim",{id:Number(id)}).then(function(r){
     bt.disabled=false;
     if(!r.ok){$("hextra").textContent="처리하지 못했습니다. 잠시 후 다시 시도해주세요.";return}
@@ -1866,7 +1868,7 @@ $("hok").addEventListener("click",function(){
     delete hmodal.dataset.sw;bt.textContent="확인";
     if(r.reward){
       var m=r.reward;
-      $("mapmsg").textContent="S급 토벌 보상을 받았습니다 · 경험치 +"+m.exp+" · 골드 +"+m.gold+" G · 오염도 +"+m.taint+"%"+(m.levelUp?" · 전투력 상승!":"");
+      $("mapmsg").textContent="SS급 토벌 보상을 받았습니다 · 경험치 +"+m.exp+" · 골드 +"+m.gold+" G · 오염도 +"+m.taint+"%"+(m.levelUp?" · 전투력 상승!":"");
     }
     closeHunt();pollState();
   });
@@ -1874,7 +1876,7 @@ $("hok").addEventListener("click",function(){
 var sAutoMsg="",swMin={},swHold=3600000,swList=[],swTimer=0,swChip=null;
 function swOpen(w){
   hmodal.dataset.sw=String(w.id);$("hok").textContent=w.part?"확인 (보상 받기)":"확인";
-  showHunt("ok","S급 토벌 성공",w.mon+" 토벌에 성공했습니다!",w.part?"보상 · 경험치 +"+w.exp+" · 골드 +"+w.gold+" G · 오염도 +"+w.taint+"% (확인을 누르면 지급됩니다)":"이번 토벌에 참여하지 않아 보상은 없습니다.");
+  showHunt("ok","SS급 토벌 성공",w.mon+" 토벌에 성공했습니다!",w.part?"보상 · 경험치 +"+w.exp+" · 골드 +"+w.gold+" G · 오염도 +"+w.taint+"% (확인을 누르면 지급됩니다)":"이번 토벌에 참여하지 않아 보상은 없습니다.");
   $("hok").focus();
 }
 function swChipDraw(){
@@ -1890,7 +1892,7 @@ function swChipDraw(){
   var left=Math.min.apply(null,q.map(function(w){return swMin[w.id]+swHold-nowS()}));
   if(left<=0){swChip.textContent="보상을 자동으로 수령하는 중…";swChip.hidden=false;if(!swChip.dataset.p){swChip.dataset.p="1";pollState();setTimeout(function(){delete swChip.dataset.p},4000)}}
   else{var sec=Math.ceil(left/1000),m=Math.floor(sec/60),r=sec%60;
-    swChip.textContent="S급 토벌 성공 · 보상 수령 대기 · 남은 시간 "+(m<10?"0":"")+m+":"+(r<10?"0":"")+r+(q.length>1?" (외 "+(q.length-1)+"건)":"")+" · 눌러서 열기";
+    swChip.textContent="SS급 토벌 성공 · 보상 수령 대기 · 남은 시간 "+(m<10?"0":"")+m+":"+(r<10?"0":"")+r+(q.length>1?" (외 "+(q.length-1)+"건)":"")+" · 눌러서 열기";
     swChip.hidden=false}
   if(!swTimer)swTimer=setInterval(swChipDraw,1000);
 }
@@ -1935,7 +1937,7 @@ function refreshBtn(bt){
   if(isCorrupt()){bt.disabled=true;bt.textContent="활동 불가 "+mmss(corruptUntil-now);return}
   if(taintedNow){bt.disabled=true;bt.textContent="오염도 100%";return}
   if(isDying()){bt.disabled=true;bt.textContent="빈사 "+mmss(dyingUntil-now);return}
-  if(a.r==="S"&&!a.c){
+  if(a.r==="SS"&&!a.c){
     if(SI.remaining>0){bt.disabled=false;bt.textContent="토벌 ("+SI.remaining+"/"+SI.max+")"}
     else{bt.disabled=true;bt.textContent="횟수 소진 · "+mmss(SI.resetAt-now)}
   }else if(a.cd&&a.cd>now){bt.disabled=true;bt.textContent="재토벌 "+mmss(a.cd-now)}
@@ -1948,7 +1950,7 @@ function updatePendNote(){
   var n=$("pendnote");if(!n)return;
   if(!pendingList.length){n.hidden=true;return}
   var first=Math.min.apply(null,pendingList.map(function(p){return p.at}));
-  n.hidden=false;n.textContent="S급 토벌 결과 대기 "+pendingList.length+"건 · 가장 빠른 공개 "+fmtTime(first);
+  n.hidden=false;n.textContent="SS급 토벌 결과 대기 "+pendingList.length+"건 · 가장 빠른 공개 "+fmtTime(first);
 }
 function showResults(list){
   if(!list.length||hBusy||!hmodal.hidden)return;
@@ -1957,8 +1959,8 @@ function showResults(list){
   var hpl=list.reduce(function(s,r){return s+(r.hpLoss>0?r.hpLoss:0)},0),hpg=list.some(function(r){return r.hpLoss<0});
   var hpx=hpl?" · 체력 -"+hpl:hpg?" · 민첩 발동(체력 유지)":"";
   var names=list.map(function(r){return r.mon}).filter(function(v,i,x){return x.indexOf(v)===i}).join(", ");
-  showHunt(ok?"ok":"fail",ok?"S급 토벌 결과":"S급 토벌 실패",ok?names+" · "+list.length+"건 중 "+ok+"건 성공":names+" 토벌에 실패했습니다.",gain?"전투력 경험치 +"+gain+(gg?" · 골드 +"+gg+" G":"")+(tt?" · 오염도 +"+tt+"%":"")+(up?" · 전투력 Lv."+power.lv+" 달성!":"")+hpx:(ok?"이미 처치한 몬스터라 추가 경험치는 없습니다.":"몬스터를 처치하지 못했습니다."+hpx));
-  $("mapmsg").textContent="S급 토벌 결과가 공개되었습니다.";
+  showHunt(ok?"ok":"fail",ok?"SS급 토벌 결과":"SS급 토벌 실패",ok?names+" · "+list.length+"건 중 "+ok+"건 성공":names+" 토벌에 실패했습니다.",gain?"전투력 경험치 +"+gain+(gg?" · 골드 +"+gg+" G":"")+(tt?" · 오염도 +"+tt+"%":"")+(up?" · 전투력 Lv."+power.lv+" 달성!":"")+hpx:(ok?"이미 처치한 몬스터라 추가 경험치는 없습니다.":"몬스터를 처치하지 못했습니다."+hpx));
+  $("mapmsg").textContent="SS급 토벌 결과가 공개되었습니다.";
   $("hok").focus();
   api("POST","/api/results/ack",{ids:list.map(function(r){return r.id})});
 }
@@ -1972,7 +1974,7 @@ function huntErr(a,r){
     case "tainted":taintedNow=true;updDying();return "오염도가 100%입니다. 오염도를 줄여야 토벌에 참여할 수 있습니다.";
     case "dying":dyingUntil=r.until;updDying();return "빈사 상태입니다. "+mmss(r.until-nowS())+" 후 체력 10으로 회복되어 다시 토벌할 수 있습니다.";
     case "cooldown":return a.mon+"은(는) "+mmss(r.until-nowS())+" 후 다시 토벌할 수 있습니다.";
-    case "s_limit":return "S급 토벌 가능 횟수를 모두 사용했습니다. "+mmss(r.resetAt-nowS())+" 후 초기화됩니다.";
+    case "s_limit":return "SS급 토벌 가능 횟수를 모두 사용했습니다. "+mmss(r.resetAt-nowS())+" 후 초기화됩니다.";
     case "rate_limited":return "요청이 너무 많아요. 잠시 후 다시 시도해주세요.";
     case "network":return "서버에 연결할 수 없어요. 잠시 후 다시 시도해주세요.";
     default:return "토벌을 진행하지 못했습니다.";
@@ -1984,12 +1986,12 @@ function huntAlert(a){
   if(a.done||hBusy)return;
   if(!isActive(a)){say(a.mon+"은(는) 이미 사라졌습니다.");return}
   if(!inPlace(a)){say(a.rname+"(으)로 이동해야 "+a.mon+"을(를) 토벌할 수 있습니다.");return}
-  var isS=a.r==="S"&&!a.c;
+  var isS=a.r==="SS"&&!a.c;
   if(blockedBits&1){say("운영자에 의해 토벌이 제한되었습니다.");return}
   if(isCorrupt()){say("오염이 폭주해 "+mmss(corruptUntil-now)+" 동안 활동할 수 없습니다.");return}
   if(taintedNow){say("오염도가 100%입니다. 오염도를 줄여야 토벌에 참여할 수 있습니다.");return}
   if(isDying()){say("빈사 상태입니다. "+mmss(dyingUntil-now)+" 후 체력 10으로 회복되어 다시 토벌할 수 있습니다.");return}
-  if(isS&&SI.remaining<1){say("S급 토벌 가능 횟수를 모두 사용했습니다. "+mmss(SI.resetAt-now)+" 후 초기화됩니다.");return}
+  if(isS&&SI.remaining<1){say("SS급 토벌 가능 횟수를 모두 사용했습니다. "+mmss(SI.resetAt-now)+" 후 초기화됩니다.");return}
   if(!isS&&a.cd&&a.cd>now){say(a.mon+"은(는) "+mmss(a.cd-now)+" 후 다시 토벌할 수 있습니다.");return}
   var diff=HUNT_DIFF[a.r]||"보통",dur=isS?4200:a.r==="A"?3200:2200;
   hBusy=true;
@@ -2110,7 +2112,7 @@ function drawRadar(){
   var g=$("rdpts");if(!g||!COUNTRY_BY_ID[curCountry])return;
   var NS="http://www.w3.org/2000/svg",hotN=0;g.innerHTML="";
   COUNTRY_BY_ID[curCountry].regions.forEach(function(rg){
-    var p=rg.pos,hot=alerts.some(function(a){return a.r!=="S"&&a.region===rg.id&&isActive(a)});
+    var p=rg.pos,hot=alerts.some(function(a){return a.r!=="SS"&&a.region===rg.id&&isActive(a)});
     if(hot)hotN++;
     if(rg.id===curRegion){var c=document.createElementNS(NS,"circle");c.setAttribute("class","rd-cur");c.setAttribute("cx",p[0]);c.setAttribute("cy",p[1]);c.setAttribute("r",11);g.appendChild(c)}
     var u=document.createElementNS(NS,"use");u.setAttribute("href","#"+rg.icon);u.setAttribute("class","rd-ic"+(hot?" hot":""));
@@ -2118,8 +2120,8 @@ function drawRadar(){
     if(hot){var d=document.createElementNS(NS,"circle");d.setAttribute("class","rd-dot");d.setAttribute("cx",p[0]+7);d.setAttribute("cy",p[1]-7);d.setAttribute("r",2.4);g.appendChild(d)}
     var t=document.createElementNS(NS,"text");t.setAttribute("class","rd-lbl"+(hot?" hot":""));if(p[0]>=150){t.setAttribute("x",p[0]-10);t.setAttribute("text-anchor","end")}else t.setAttribute("x",p[0]+10);t.setAttribute("y",p[1]+3);t.textContent=rg.name;g.appendChild(t);
   });
-  // S급은 나라 단위로 출몰하므로, 이 나라에 출몰 중이면 레이더 아래쪽에 크게 표시합니다
-  var sA=alerts.filter(function(a){return a.r==="S"&&!a.c&&isActive(a)&&a.region===curCountry})[0];
+  // SS급은 나라 단위로 출몰하므로, 이 나라에 출몰 중이면 레이더 아래쪽에 크게 표시합니다
+  var sA=alerts.filter(function(a){return a.r==="SS"&&!a.c&&isActive(a)&&a.region===curCountry})[0];
   if(sA){
     hotN++;
     var sc=document.createElementNS(NS,"circle");sc.setAttribute("class","rd-s");sc.setAttribute("cx",100);sc.setAttribute("cy",176);sc.setAttribute("r",9);g.appendChild(sc);
@@ -2165,7 +2167,7 @@ var globe=(function(){
     var y2=y*Math.cos(TILT)-z*Math.sin(TILT),z2=y*Math.sin(TILT)+z*Math.cos(TILT);
     return {x:C[0]+x*R,y:C[1]-y2*R,z:z2};
   }
-  function sOf(cid){return alerts.filter(function(a){return a.r==="S"&&!a.c&&isActive(a)&&a.region===cid})[0]}
+  function sOf(cid){return alerts.filter(function(a){return a.r==="SS"&&!a.c&&isActive(a)&&a.region===cid})[0]}
   function size(){
     W=wrap.clientWidth||340;R=W*0.385;C=[W/2,W/2+W*0.03];
     cv.width=Math.round(W*dpr);cv.height=Math.round(W*dpr);cx.setTransform(dpr,0,0,dpr,0,0);
@@ -2214,7 +2216,7 @@ var globe=(function(){
     if(hover&&hover.q&&hover.q.z>0.05){
       var sH=sOf(hover.id),n=GL.hunters[hover.id]||0;
       tip.style.left=hover.q.x+"px";tip.style.top=hover.q.y+"px";tn.textContent=hover.name;
-      tv.textContent="헌터 "+n+"명"+(hover.id===curCountry?" · 현재 위치":"")+(sH?" · S급 "+sH.mon+" 출몰 중":"")+(hover.id===curCountry?"":(tapSel?" · 한 번 더 누르면 이동":" · 눌러서 이동"));
+      tv.textContent="헌터 "+n+"명"+(hover.id===curCountry?" · 현재 위치":"")+(sH?" · SS급 "+sH.mon+" 출몰 중":"")+(hover.id===curCountry?"":(tapSel?" · 한 번 더 누르면 이동":" · 눌러서 이동"));
       tip.classList.add("is-on");
     }else tip.classList.remove("is-on");
   }
@@ -2355,7 +2357,7 @@ $("ntclaim").addEventListener("click",function(){
   var n=ntCur;if(!n||n.claimed)return;var cb=$("ntclaim");cb.disabled=true;cb.textContent="수령 중…";
   api("POST","/api/notices/claim",{id:n.id}).then(function(r){
     if(r.ok||r.error==="claimed"){n.claimed=true;cb.textContent="수령 완료";if(n._b&&n._read){n._b.disabled=false;n._b.title="삭제"}pollState(false)}
-    else{cb.disabled=false;cb.textContent="다시 시도"}
+    else{cb.disabled=false;cb.textContent=r.error==="full"?"장비 보관함이 가득 찼습니다":"다시 시도"}
   });
 });
 $("ntclose").addEventListener("click",closeNt);
@@ -2527,7 +2529,7 @@ function markRegions(){
   drawRadar();
   if(!devApp)renderDevice();else devClock();      // 앱 화면은 자동 갱신으로 다시 그리지 않음 (불러오는 중… 깜빡임 방지)
   document.querySelectorAll("#regions .rg").forEach(function(b){
-    var has=alerts.some(function(a){return a.r!=="S"&&a.region===b.dataset.id&&isActive(a)});
+    var has=alerts.some(function(a){return a.r!=="SS"&&a.region===b.dataset.id&&isActive(a)});
     b.querySelector(".rg-a").hidden=!has;
   });
   document.querySelectorAll("#ctabs .ct").forEach(function(b){b.classList.toggle("hot",countryHot(b.dataset.id))});
@@ -2546,9 +2548,9 @@ function alItem(a,withBtn){
   else if(withBtn&&isActive(a)){var bt=document.createElement("button");bt.type="button";bt.className="al-go";bt._a=a;bt.setAttribute("aria-label",a.mon+" 토벌");bt.addEventListener("click",function(){huntAlert(a)});refreshBtn(bt);li.appendChild(bt)}
   return li;
 }
-function isPinS(a){return (a.r==="S"||a.c)&&isActive(a)}
+function isPinS(a){return (a.r==="SS"||a.c)&&isActive(a)}
 function renderAlerts(){
-  // 토벌 가능한 S급 출몰 정보는 항상 맨 위에 고정 (그 안에서는 최신순)
+  // 토벌 가능한 SS급 출몰 정보는 항상 맨 위에 고정 (그 안에서는 최신순)
   alerts.sort(function(x,y){var px=isPinS(x)?1:0,py=isPinS(y)?1:0;return px!==py?py-px:(y.ts-x.ts)||(y.id-x.id)});
   var top=alerts.slice(0,6),sig=top.map(function(a){return a.id+":"+(a.done?1:0)+(isPinS(a)?"p":"")}).join(",");
   if(sig!==alertSig){
@@ -2596,7 +2598,7 @@ function applyState(st,first){
   if(st.battle&&!btlActive&&$("btl").hidden){btlOpen(st.battle)}
   if(st.sHoldMs)swHold=st.sHoldMs;
   if(st.sAuto&&st.sAuto.length){var ar=st.sAuto.map(function(a){return a.mon+" 보상(경험치 +"+a.reward.exp+" · 골드 +"+a.reward.gold+" G · 오염도 +"+a.reward.taint+"%)"}).filter(function(x,i){return st.sAuto[i].reward});
-    if(ar.length){sAutoMsg="1시간이 지나 S급 토벌 보상을 자동으로 수령했습니다 · "+ar.join(", ");$("mapmsg").textContent=sAutoMsg}}
+    if(ar.length){sAutoMsg="1시간이 지나 SS급 토벌 보상을 자동으로 수령했습니다 · "+ar.join(", ");$("mapmsg").textContent=sAutoMsg}}
   showSWin(st.sWin||[]);
   showResults(st.results||[]);
 }
@@ -2620,7 +2622,7 @@ function moveTo(id,silent){
   $("hudloc").textContent="현재 위치 · "+placeLong(id);
   if(!silent){
     api("POST","/api/move",{region:id}).then(function(r){if(r.error)$("mapmsg").textContent=r.error==="blocked"?"운영자에 의해 이동이 제한되었습니다.":r.error==="corrupted"?"오염이 폭주해 "+mmss(r.until-nowS())+" 동안 이동할 수 없습니다.":"이동하지 못했어요. 잠시 후 다시 시도해주세요."});
-    var hot=alerts.some(function(a){return isActive(a)&&((a.r==="S"&&!a.c)?a.region===curCountry:a.region===id)});
+    var hot=alerts.some(function(a){return isActive(a)&&((a.r==="SS"&&!a.c)?a.region===curCountry:a.region===id)});
     $("mapmsg").textContent=(before!==curCountry?COUNTRY_BY_ID[curCountry].name+" ":"")+rg.name+"(으)로 이동했어요."+(hot?" 이곳에서 몬스터가 출몰 중이에요!":"");
     markRegions();
   }
@@ -2826,7 +2828,7 @@ function drawScene(){
 
 /* ───── 지역 팝업 ───── */
 var rmodal=$("rmodal"),ropener=null,rRegion=null;
-function regionHot(id){return alerts.filter(function(a){return isActive(a)&&((a.r==="S"&&!a.c)?a.region===countryOf(id):a.region===id)})}
+function regionHot(id){return alerts.filter(function(a){return isActive(a)&&((a.r==="SS"&&!a.c)?a.region===countryOf(id):a.region===id)})}
 function fillR(){
   var ul=$("rlist");ul.innerHTML="";
   var list=regionHot(rRegion);
@@ -3423,7 +3425,7 @@ function cmLoad(open){
     list.forEach(function(p){
       var li=document.createElement("li");if(open&&p.id>mark)li.className="is-new";
       var m=document.createElement("p");m.className="cmm";
-      var tg=document.createElement("span");tg.className="cmt"+(p.tag==="S급"?" s":"");tg.textContent=p.tag;
+      var tg=document.createElement("span");tg.className="cmt"+(p.tag==="SS급"?" s":"");tg.textContent=p.tag;
       var w=document.createElement("span");w.className="cmw";w.textContent=p.who;
       var at=document.createElement("span");at.className="cmat";at.textContent=cmAgo(p.at);
       m.appendChild(tg);m.appendChild(w);m.appendChild(at);
@@ -4140,7 +4142,7 @@ gwnStart();
 function gwErr(r){return r.error==="rate_limited"?"잠시 후 다시 시도해주세요.":r.error==="bad_title"?"제목을 1~40자로 입력해주세요.":r.error==="bad_text"?"내용을 확인해주세요.":r.error==="not_found"?"글을 찾을 수 없습니다.":"처리하지 못했습니다."}
 function gwMeta(p,at){
   var m=document.createDocumentFragment();
-  if(p.rank){var t=document.createElement("span");t.className="gwr"+(p.rank==="S"?" s":"");t.textContent=p.rank+"급";m.appendChild(t)}
+  if(p.rank){var t=document.createElement("span");t.className="gwr"+((p.rank==="S"||p.rank==="SS")?" s":"");t.textContent=p.rank+"급";m.appendChild(t)}
   var w=document.createElement("span");w.className="gww";w.textContent=p.hn;m.appendChild(w);
   var a=document.createElement("span");a.className="gwat";a.textContent=cmAgo(at);m.appendChild(a);
   return m;
