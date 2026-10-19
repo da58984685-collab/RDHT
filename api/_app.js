@@ -79,6 +79,20 @@ async function limited(key, max, windowMs) {
 }
 
 // ───────────── 몬스터 출몰 / S급 결과 (요청 때마다, 그리고 Cron 이 따라잡기 처리) ─────────────
+// S급이 나올 나라 고르기: 지금 S급이 출몰 중인 나라는 피해서(모두 차 있으면 전체에서) 무작위로 고릅니다.
+// → 같은 나라에만 몰려서 나오는 일이 없도록 합니다.
+async function liveSCountries(now) {
+  const rows = await db.all(`SELECT region FROM monsters WHERE rank = 'S' AND owner_id IS NULL AND corrupt_of IS NULL AND spawned_at > ?
+    AND id NOT IN (SELECT monster_id FROM s_close)`, [now - G.ACTIVE_MS_S]);
+  return new Set(rows.map(r => r.region));
+}
+function pickSCountry(taken) {
+  const free = G.SPAWN_COUNTRIES.filter(c => !taken.has(c.id));
+  const pool = free.length ? free : G.SPAWN_COUNTRIES;
+  const id = pool[G.rnd(0, pool.length - 1)].id;
+  taken.add(id);
+  return id;
+}
 async function tickSpawns() {
   const now = Date.now();
   const rows = await db.all('SELECT tier, next_at FROM spawn_state');
@@ -94,12 +108,13 @@ async function tickSpawns() {
     const from = next;
     if (next < now - 24 * G.HOUR) next = now - 24 * G.HOUR;      // 오래 비어 있었다면 최근 24시간만 반영
     const list = [];
+    const taken = await liveSCountries(now);
     let guard = 0;
     while (next <= now && guard++ < 400) {
       const rank = t.ranks[G.rnd(0, t.ranks.length - 1)];
       const names = G.MON[rank];
       list.push(['INSERT INTO monsters (region, name, rank, spawned_at) VALUES (?, ?, ?, ?)',
-        [G.SPAWN_COUNTRIES[G.rnd(0, G.SPAWN_COUNTRIES.length - 1)].id, names[G.rnd(0, names.length - 1)], rank, next]]);
+        [pickSCountry(taken), names[G.rnd(0, names.length - 1)], rank, next]]);
       next += t.gap();
     }
     // 동시에 다른 요청이 같은 시간대를 처리하지 않도록, 다음 시각을 먼저 '차지'한 쪽만 몬스터를 만듭니다.
@@ -1846,8 +1861,8 @@ route('POST', '/api/admin/s/spawn', async (req, res, ctx) => {
   if (!G.MON.S.includes(name)) return fail(res, 400, 'bad_name');
   let region = String(ctx.body.region || '');
   if (region && (!G.COUNTRY_BY_ID[region] || G.COUNTRY_BY_ID[region].gate)) return fail(res, 400, 'bad_region');      // S급은 나라 단위로만 출현
-  if (!region) region = G.SPAWN_COUNTRIES[G.rnd(0, G.SPAWN_COUNTRIES.length - 1)].id;
   const now = Date.now();
+  if (!region) region = pickSCountry(await liveSCountries(now));
   const live = await db.get("SELECT COUNT(*) AS c FROM monsters WHERE rank = 'S' AND owner_id IS NULL AND corrupt_of IS NULL AND spawned_at > ?", [now - G.ACTIVE_MS_S]);
   if (live.c >= 20) return fail(res, 400, 'too_many');
   const r = await db.run("INSERT INTO monsters (region, name, rank, spawned_at) VALUES (?, ?, 'S', ?)", [region, name, now]);
