@@ -253,6 +253,12 @@ CREATE TABLE IF NOT EXISTS s_ack (
   at         INTEGER NOT NULL,
   PRIMARY KEY (user_id, monster_id)
 );
+CREATE TABLE IF NOT EXISTS s_min (
+  user_id    INTEGER NOT NULL,
+  monster_id INTEGER NOT NULL,
+  at         INTEGER NOT NULL,
+  PRIMARY KEY (user_id, monster_id)
+);
 CREATE TABLE IF NOT EXISTS s_log (
   monster_id INTEGER PRIMARY KEY,
   name       TEXT NOT NULL,
