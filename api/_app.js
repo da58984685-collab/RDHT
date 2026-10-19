@@ -1714,13 +1714,13 @@ route('POST', '/api/me/image', async (req, res, ctx) => {
   if (!validImage(image)) return fail(res, 400, 'bad_image');
   await db.run('UPDATE users SET image = ? WHERE id = ?', [image, ctx.user.id]);
   send(res, 200, { ok: true, image });
-});
+}, { limit: 1200000 });      // 이미지는 최대 약 700KB 라서 기본 요청 크기(20KB)보다 크게 허용
 route('POST', '/api/admin/player/image', async (req, res, ctx) => {
   const u = await adminTarget(ctx, res); if (!u) return;
   if (!validImage(ctx.body.image)) return fail(res, 400, 'bad_image');
   await db.run('UPDATE users SET image = ? WHERE id = ?', [ctx.body.image, u.id]);
   send(res, 200, { ok: true });
-}, { auth: false, admin: true });
+}, { auth: false, admin: true, limit: 1200000 });
 route('POST', '/api/me/private', async (req, res, ctx) => {
   const on = ctx.body.on === true ? 1 : 0;
   await db.run('UPDATE users SET is_private = ? WHERE id = ?', [on, ctx.user.id]);
