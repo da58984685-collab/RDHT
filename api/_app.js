@@ -534,6 +534,7 @@ async function sInfo(userId, now) {
 
 // 스탯이 만드는 확률 (모두 95% 이하)
 const fxOf = st => ({ win: Math.round(Math.min(G.PROB_CAP, (Number(st.str) || 0) * G.STR_WIN) * 100), guard: Math.round(G.guardChance(st.agi) * 100), free: Math.round(G.freeChance(st.luck) * 100) });
+const MAT_NAMES = new Set(G.MATERIALS.map(m => m.name));      // 인벤토리 '조합 아이템' 탭에 들어가는 재료 이름
 async function buildState(u, now) {
   await settleDying(u.id, now);
   u = (await userById(u.id)) || u;
@@ -594,7 +595,7 @@ async function buildState(u, now) {
     friendReqs: frq.c,
     sWin: swin.map(x => ({ id: x.id, mon: x.name, part: !!x.part, exp: x.exp || 0, gold: x.gold || 0, taint: x.taint || 0 })),
     rec: await getRec(),
-    inventory: inv.map(r => ({ item: r.item, qty: r.qty, eff: r.eff_stat ? { stat: r.eff_stat, amt: r.eff_amt } : (G.CRAFT_DEFS[r.item] ? { stat: G.CRAFT_DEFS[r.item].stat, amt: G.CRAFT_DEFS[r.item].amt } : null) })),
+    inventory: inv.map(r => ({ item: r.item, qty: r.qty, mat: MAT_NAMES.has(r.item), eff: r.eff_stat ? { stat: r.eff_stat, amt: r.eff_amt } : (G.CRAFT_DEFS[r.item] ? { stat: G.CRAFT_DEFS[r.item].stat, amt: G.CRAFT_DEFS[r.item].amt } : null) })),
   };
 }
 
@@ -1610,21 +1611,25 @@ route('POST', '/api/shop/buy', async (req, res, ctx) => {
   if (corruptLock(ctx.user, Date.now())) return fail(res, 409, 'corrupted', { until: ctx.user.corrupt_until });
   const it = await db.get('SELECT id, name, price FROM shop_items WHERE id = ?', [Number(ctx.body.id) || 0]);
   if (!it) return fail(res, 404, 'no_item');
+  const qty = ctx.body.qty === undefined ? 1 : Number(ctx.body.qty);          // 한 번에 여러 개 구매 (1~9999)
+  if (!Number.isInteger(qty) || qty < 1 || qty > 9999) return fail(res, 400, 'bad_qty');
   const cur = await db.get('SELECT qty FROM inventory WHERE user_id = ? AND item = ?', [ctx.user.id, it.name]);
-  if (cur && cur.qty >= 9999) return fail(res, 400, 'max_qty');
-  if (it.price > 0) {      // 잔액이 충분할 때만 원자적으로 차감
-    const pay = await db.run('UPDATE users SET gold = gold - ? WHERE id = ? AND gold >= ?', [it.price, ctx.user.id, it.price]);
+  const have = cur ? Number(cur.qty) : 0;
+  if (have + qty > 9999) return fail(res, 400, 'max_qty', { room: Math.max(0, 9999 - have) });
+  const total = it.price * qty;
+  if (total > 0) {      // 잔액이 충분할 때만 원자적으로 차감
+    const pay = await db.run('UPDATE users SET gold = gold - ? WHERE id = ? AND gold >= ?', [total, ctx.user.id, total]);
     if (pay.changes !== 1) return fail(res, 402, 'no_gold');
   }
   try {
-    await db.run('INSERT INTO inventory (user_id, item, qty) VALUES (?, ?, 1) ON CONFLICT(user_id, item) DO UPDATE SET qty = qty + 1', [ctx.user.id, it.name]);
+    await db.run('INSERT INTO inventory (user_id, item, qty) VALUES (?, ?, ?) ON CONFLICT(user_id, item) DO UPDATE SET qty = MIN(9999, qty + excluded.qty)', [ctx.user.id, it.name, qty]);
   } catch (e) {
-    if (it.price > 0) await grantGold(ctx.user.id, it.price);
+    if (total > 0) await grantGold(ctx.user.id, total);
     throw e;
   }
-  await logAcquire(ctx.user.id, 'item', it.name, 1, it.price > 0 ? '상점 (-' + it.price + ' G)' : '상점', Date.now());
+  await logAcquire(ctx.user.id, 'item', it.name, qty, total > 0 ? '상점 (-' + total + ' G)' : '상점', Date.now());
   const me = await db.get('SELECT gold FROM users WHERE id = ?', [ctx.user.id]);
-  send(res, 200, { ok: true, item: it.name, gold: me.gold });
+  send(res, 200, { ok: true, item: it.name, qty, spent: total, gold: me.gold });
 });
 
 // 아이템 사용: 상점에 등록된 아이템의 효과대로 스탯이 바뀝니다 (예: 회복 포션 = 체력 +10)
