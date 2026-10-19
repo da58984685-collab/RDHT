@@ -312,6 +312,24 @@ CREATE TABLE IF NOT EXISTS rumor_stats (
   last_delta INTEGER NOT NULL DEFAULT 0,
   last_at    INTEGER NOT NULL DEFAULT 0
 );
+CREATE TABLE IF NOT EXISTS battles (
+  user_id    INTEGER PRIMARY KEY,
+  monster_id INTEGER NOT NULL,
+  mname      TEXT NOT NULL,
+  mrank      TEXT NOT NULL,
+  mhp        INTEGER NOT NULL,
+  mmax       INTEGER NOT NULL,
+  php        INTEGER NOT NULL,
+  pmax       INTEGER NOT NULL,
+  round      INTEGER NOT NULL DEFAULT 1,
+  intent     TEXT NOT NULL DEFAULT 'atk',
+  cd_heavy   INTEGER NOT NULL DEFAULT 0,
+  buff       INTEGER NOT NULL DEFAULT 0,
+  log        TEXT NOT NULL DEFAULT '[]',
+  ver        INTEGER NOT NULL DEFAULT 0,
+  started    INTEGER NOT NULL,
+  upd        INTEGER NOT NULL
+);
 CREATE TABLE IF NOT EXISTS pact_log (
   user_id INTEGER NOT NULL,
   day     TEXT NOT NULL,
