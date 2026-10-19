@@ -3655,7 +3655,7 @@ function loadQuests(){
 
 
 /* ───── 큰 팝업으로 여는 앱 (상점·의뢰·괴담·그림자 거래소) ───── */
-var BIG={shop:1,qst:1,rum:1,exc:1,eqp:1},bigOpen=false;
+var BIG={shop:1,pct:1,rum:1,exc:1,eqp:1},bigOpen=false;
 function openBig(id){
   if(bigOpen)return;
   var home=$("phscr"),body=$("bigbody");if(!home||!body)return;
@@ -3681,10 +3681,10 @@ function loadExc(){
     if(devApp!=="exc")return;
     if(r.error||!r.market){appFail(scr,loadExc);return}
     var old=scr.querySelector(".app-empty,.app-list,.app-note,.app-sub,.exc-f,.gold-tag");while(old){old.remove();old=scr.querySelector(".app-empty,.app-list,.app-note,.app-sub,.exc-f,.gold-tag")}
-    var g=document.createElement("p");g.className="gold-tag";g.textContent="보유 "+r.gold+" G";scr.appendChild(g);
+    var g=document.createElement("p");g.className="gold-tag";g.textContent="보유 "+r.gold+" G · 현재 오염도 "+r.taint+"%";scr.appendChild(g);
     var nt=document.createElement("p");nt.className="app-note";nt.setAttribute("role","status");
-    nt.textContent=(excNote?excNote+" · ":"")+"헌터끼리 익명으로 아이템을 사고파는 암시장입니다. 판매자는 드러나지 않고, 팔리면 수수료 "+Math.round(r.fee*100)+"%를 뗀 골드를 받습니다. "+r.hours+"시간 안에 안 팔리면 아이템이 돌아옵니다. 구매할 때마다 그림자 거래의 흔적으로 오염도가 "+r.buyTaint+"% 오릅니다. (최대 "+r.maxListings+"개 등록)";
-    scr.appendChild(nt);
+    nt.textContent=excNote;
+    if(excNote)scr.appendChild(nt);
     function head(t){var h=document.createElement("p");h.className="app-sub";h.textContent=t;h.style.cssText="margin:12px 0 4px;font-weight:700;font-size:.9rem";scr.appendChild(h)}
     function done(x,okTxt){excNote=x.ok?okTxt:({no_gold:"골드가 부족합니다.",no_item:"아이템이 부족합니다.",no_listing:"이미 사라진 물건입니다.",sold:"그 사이 다른 사람이 샀습니다.",too_many:"더 이상 등록할 수 없습니다.",bad_price:"가격을 확인해 주세요 (1~9,999,999 G).",bad_qty:"수량을 확인해 주세요.",max_qty:"더 가질 수 없습니다 (최대 9999개).",corrupted:"오염 폭주 중에는 거래할 수 없습니다.",own:"내가 올린 물건입니다."})[x.error]||"처리하지 못했습니다.";pollState(false);loadExc()}
     head("판매 등록");
@@ -3697,7 +3697,7 @@ function loadExc(){
     var go=document.createElement("button");go.type="button";go.className="ach-btn";go.textContent="등록";go.disabled=!r.sellable.length;
     go.addEventListener("click",function(){go.disabled=true;api("POST","/api/exchange/list",{item:sel.value,qty:Number(q.value),price:Number(pr.value)}).then(function(x){done(x,"판매 등록 완료")})});
     f.appendChild(sel);f.appendChild(q);f.appendChild(pr);f.appendChild(go);scr.appendChild(f);
-    head("내가 올린 물건 ("+r.mine.length+")");
+    head("내가 올린 물건 ("+r.mine.length+"/"+r.maxListings+")");
     function listOf(arr,empty,mk){
       var ul=document.createElement("ul");ul.className="app-list";
       if(!arr.length){var li0=document.createElement("li");li0.textContent=empty;ul.appendChild(li0)}
@@ -3731,7 +3731,7 @@ function drawEquip(){
   var scr=$("phscr");if(devApp!=="eqp"||!eqData)return;var r=eqData;
   var old=scr.querySelector(".app-empty,.app-list,.app-note,.app-sub");while(old){old.remove();old=scr.querySelector(".app-empty,.app-list,.app-note,.app-sub")}
   var nt=document.createElement("p");nt.className="app-note";nt.setAttribute("role","status");
-  nt.textContent=(eqNote?eqNote+" · ":"")+"장비는 적월문 탑 재료로만 조합할 수 있습니다. 토벌을 한 번 할 때마다 착용한 장비의 내구도가 1 줄고, 0이 되면 효과가 사라집니다. 보유 골드 "+r.gold+" G";
+  nt.textContent=(eqNote?eqNote+" · ":"")+"장비는 적월문 탑 재료로만 조합할 수 있습니다. 보유 골드 "+r.gold+" G";
   scr.appendChild(nt);
   var b=r.bonus,fx=[];if(b.str)fx.push("근력 +"+b.str);if(b.agi)fx.push("민첩 +"+b.agi);if(b.luck)fx.push("행운 +"+b.luck);if(b.hpGuard)fx.push("체력 피해 -"+b.hpGuard+"%");if(b.taintRes)fx.push("오염도 증가 -"+b.taintRes+"%");
   function head(t){var h=document.createElement("p");h.className="app-sub";h.textContent=t;h.style.cssText="margin:10px 0 4px;font-weight:700;font-size:.85rem";scr.appendChild(h)}
@@ -3806,7 +3806,10 @@ function loadRumors(){
     if(r.error||!r.rumors){appFail(scr,loadRumors);return}
     var old=scr.querySelector(".app-empty,.app-list,.app-note");while(old){old.remove();old=scr.querySelector(".app-empty,.app-list,.app-note")}
     var nt=document.createElement("p");nt.className="app-note";
-    nt.textContent="도시 괴담 · 소문을 믿을지 의심할지 정해 주세요. 한쪽이 "+r.need+"명이 되면 진실이 가려집니다. 진짜 괴담이면 그 지역에 몬스터가 실제로 나타납니다 (믿은 사람은 보상). 헛소문을 믿으면 골드를 잃습니다.";
+    var st=r.stats||{gained:0,lost:0,last:null};
+    nt.textContent="도시 괴담 · 소문을 믿을지 의심할지 정해 주세요.\n"
+      +"최근 결과: "+(st.last===null?"아직 없음":st.last>0?"골드 +"+st.last+" G 획득":st.last<0?"골드 "+(-st.last)+" G 손실":"골드 변동 없음")+"\n"
+      +"총 획득 골드 "+st.gained+" G · 총 손실 골드 "+st.lost+" G";nt.style.whiteSpace="pre-line";
     scr.appendChild(nt);
     if(!r.rumors.length){var e=document.createElement("p");e.className="app-empty";e.textContent="아직 도는 소문이 없습니다.";scr.appendChild(e);return}
     var ul=document.createElement("ul");ul.className="app-list";
