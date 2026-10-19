@@ -124,8 +124,10 @@ async function tickSpawns() {
 }
 
 // F~A급 몬스터는 헌터마다 따로 출몰합니다. 그 헌터가 접속해 요청할 때 밀린 만큼 따라잡아 만듭니다.
+const spawnNext = new Map();       // 헌터별 '다음 출몰 시각' (이 시각 전에는 DB 를 읽지 않음). 다른 인스턴스가 앞당길 일이 없어 안전합니다.
 async function tickPersonal(uid, now) {
-  const me = await db.get('SELECT region FROM users WHERE id = ?', [uid]);
+  if (PERF) { const c = spawnNext.get(uid); if (c !== undefined && now < c) return; }
+  let minNext = Infinity, certain = true;
   const myRegions = G.SPAWN_REGIONS;      // F~A급은 헌터가 어디 있든 모든 나라의 모든 세부 지역에서 같은 확률로 출몰
   const rows = await db.all('SELECT tier, next_at FROM user_spawn WHERE user_id = ?', [uid]);
   const have = new Map(rows.map(r => [r.tier, r.next_at]));
@@ -137,7 +139,7 @@ async function tickPersonal(uid, now) {
       next = (t.k === 'f' || t.k === 'low') ? now : now + t.gap();
       await db.run('INSERT OR IGNORE INTO user_spawn (user_id, tier, next_at) VALUES (?, ?, ?)', [uid, t.k, next]);
     }
-    if (next > now) continue;
+    if (next > now) { minNext = Math.min(minNext, next); continue; }
     const from = next;
     if (next < now - G.ACTIVE_MS) next = now - G.ACTIVE_MS;      // 자리를 비운 동안 지나간 몬스터는 만들지 않음
     const list = [];
@@ -150,8 +152,10 @@ async function tickPersonal(uid, now) {
       next += t.gap();
     }
     const claim = await db.run('UPDATE user_spawn SET next_at = ? WHERE user_id = ? AND tier = ? AND next_at = ?', [next, uid, t.k, from]);
+    if (claim.changes === 1) minNext = Math.min(minNext, next); else certain = false;
     if (claim.changes === 1 && list.length) await db.batch(list);
   }
+  if (PERF && certain && minNext !== Infinity) spawnNext.set(uid, minNext);
 }
 
 async function grantExp(userId, gain) {
@@ -425,10 +429,32 @@ async function tickBoard() {
   } finally { boardBusy = false; }
 }
 
-async function catchUp() { await corruptTick(); await tickSpawns(); await resolveDue(); await purgeMonsters(); await tickBoard(); await tickRumors(); await sweepExchange(); }
+// ── 무료 DB(Neon) 한도를 아끼기 위한 서버 메모리 캐시 ──
+// Vercel 에서만 켜집니다(VERCEL 환경변수). 로컬 테스트에서는 PERF_CACHE=1 로 켤 수 있습니다.
+// 게임 규칙은 그대로이고, 같은 내용을 5초마다 DB 에서 다시 읽어 오던 것만 줄입니다.
+const PERF = !!(process.env.VERCEL || process.env.PERF_CACHE);
+const CATCHUP_MS = process.env.CATCHUP_MS !== undefined ? Number(process.env.CATCHUP_MS) : (PERF ? 5000 : 0);                  // 서버 전체 공통 '따라잡기'(출몰·결과 처리 등)는 인스턴스마다 5초에 한 번이면 충분합니다
+let lastCatchUp = 0, catchUpRun = null;
+async function catchUp() {
+  const t = Date.now();
+  if (CATCHUP_MS && t - lastCatchUp < CATCHUP_MS) return catchUpRun || undefined;
+  lastCatchUp = t;
+  catchUpRun = catchUpNow().finally(() => { catchUpRun = null; });
+  return catchUpRun;
+}
+async function catchUpNow() { await corruptTick(); await tickSpawns(); await resolveDue(); await purgeMonsters(); await tickBoard(); await tickRumors(); await sweepExchange(); }
 
 // ── 업적 (정의는 DB에 저장되어 모든 헌터에게 똑같이 적용됩니다) ──
-async function loadAch() {
+let achCache = { at: 0, defs: null }, achSeeded = false;
+const ACH_TTL = PERF ? 30000 : 0;                    // 업적 정의는 관리자가 바꿀 때만 달라지므로 30초 동안 기억합니다 (관리자 창은 항상 새로 읽음)
+async function loadAch(fresh) {
+  if (!fresh && achCache.defs && Date.now() - achCache.at < ACH_TTL) return achCache.defs;
+  const defs = await loadAchDb();
+  achCache = { at: Date.now(), defs };
+  return defs;
+}
+async function loadAchDb() {
+  if (achSeeded) return db.all('SELECT id, name, descr, kind, val FROM achievements ORDER BY at, id');
   if (!(await db.get("SELECT 1 AS x FROM settings WHERE key = 'ach_seeded'"))) {
     await db.batch(G.ACH_SEED.map((a, i) => ['INSERT OR IGNORE INTO achievements (id, name, descr, kind, val, at) VALUES (?, ?, ?, ?, ?, ?)', [a.id, a.name, a.desc, a.kind, a.val, i + 1]]));
     await db.run("INSERT OR IGNORE INTO settings (key, value) VALUES ('ach_seeded', '1')");
@@ -438,16 +464,17 @@ async function loadAch() {
     await db.batch(G.ACH_SEED2.map((a, i) => ['INSERT OR IGNORE INTO achievements (id, name, descr, kind, val, at) VALUES (?, ?, ?, ?, ?, ?)', [a.id, a.name, a.desc, a.kind, a.val, t0 + i]]));
     await db.run("INSERT OR IGNORE INTO settings (key, value) VALUES ('ach_seeded2', '1')");
   }
+  achSeeded = true;
   return db.all('SELECT id, name, descr, kind, val FROM achievements ORDER BY at, id');
 }
 async function achStats(u, defs) {
   const kinds = new Set((defs || []).map(d => d.kind));
   const need = (...ks) => ks.some(k => kinds.has(k));
   const [k, rs, st, sw] = await Promise.all([
-    db.get("SELECT COUNT(*) AS c FROM hunt_log WHERE user_id = ? AND result = 'success'", [u.id]),
+    db.get("SELECT COALESCE(SUM(n), 0) AS c FROM hunt_log WHERE user_id = ? AND result = 'success'", [u.id]),
     db.all("SELECT DISTINCT rank FROM hunt_log WHERE user_id = ? AND result = 'success'", [u.id]),
     db.get('SELECT COUNT(*) AS c FROM s_attempts WHERE user_id = ?', [u.id]),
-    db.get("SELECT COUNT(*) AS c FROM hunt_log WHERE user_id = ? AND result = 'success' AND rank = 'SS'", [u.id])]);
+    db.get("SELECT COALESCE(SUM(n), 0) AS c FROM hunt_log WHERE user_id = ? AND result = 'success' AND rank = 'SS'", [u.id])]);
   const s = { kills: k.c, maxRank: rs.reduce((m, r) => Math.max(m, G.RANK_IDX[r.rank] == null ? -1 : G.RANK_IDX[r.rank]), -1), sTry: st.c, sWin: sw.c, lv: u.lv,
     visitBy: {}, visits: 0, countries: 0, collected: {}, slain: {}, surveys: 0, crafts: 0, fails: 0, friends: 0, gifts: 0, gold: Number(u.gold) || 0,
     rankIdx: G.RANK_IDX[u.rank] == null ? -1 : G.RANK_IDX[u.rank], stats: {} };
@@ -459,10 +486,10 @@ async function achStats(u, defs) {
     s.countries = cs.size;
   }));
   if (need('collect')) jobs.push(db.all("SELECT name, SUM(qty) AS q FROM acquire_log WHERE user_id = ? AND kind = 'item' GROUP BY name", [u.id]).then(rows => { rows.forEach(r => { s.collected[r.name] = Number(r.q) || 0; }); }));
-  if (need('slay')) jobs.push(db.all("SELECT mon, COUNT(*) AS c FROM hunt_log WHERE user_id = ? AND result = 'success' GROUP BY mon", [u.id]).then(rows => { rows.forEach(r => { s.slain[r.mon] = Number(r.c) || 0; }); }));
-  if (need('surveys')) jobs.push(db.get("SELECT COUNT(*) AS c FROM acquire_log WHERE user_id = ? AND source = '적월문 조사'", [u.id]).then(r => { s.surveys = r.c; }));
-  if (need('crafts')) jobs.push(db.get("SELECT COUNT(*) AS c FROM acquire_log WHERE user_id = ? AND source = '조합'", [u.id]).then(r => { s.crafts = r.c; }));
-  if (need('fails')) jobs.push(db.get("SELECT COUNT(*) AS c FROM hunt_log WHERE user_id = ? AND result = 'fail'", [u.id]).then(r => { s.fails = r.c; }));
+  if (need('slay')) jobs.push(db.all("SELECT mon, SUM(n) AS c FROM hunt_log WHERE user_id = ? AND result = 'success' GROUP BY mon", [u.id]).then(rows => { rows.forEach(r => { s.slain[r.mon] = Number(r.c) || 0; }); }));
+  if (need('surveys')) jobs.push(db.get("SELECT COALESCE(SUM(n), 0) AS c FROM acquire_log WHERE user_id = ? AND source = '적월문 조사'", [u.id]).then(r => { s.surveys = r.c; }));
+  if (need('crafts')) jobs.push(db.get("SELECT COALESCE(SUM(n), 0) AS c FROM acquire_log WHERE user_id = ? AND source = '조합'", [u.id]).then(r => { s.crafts = r.c; }));
+  if (need('fails')) jobs.push(db.get("SELECT COALESCE(SUM(n), 0) AS c FROM hunt_log WHERE user_id = ? AND result = 'fail'", [u.id]).then(r => { s.fails = r.c; }));
   if (need('friends')) jobs.push(db.get('SELECT COUNT(*) AS c FROM friends WHERE user_id = ?', [u.id]).then(r => { s.friends = r.c; }));
   if (need('gifts')) jobs.push(db.get('SELECT COUNT(*) AS c FROM gifts WHERE from_id = ?', [u.id]).then(r => { s.gifts = r.c; }));
   await Promise.all(jobs);
@@ -560,7 +587,6 @@ const fxOf = st => ({ win: Math.round(Math.min(G.PROB_CAP, (Number(st.str) || 0)
 const MAT_NAMES = new Set(G.MATERIALS.concat(G.GATE_MATS).map(m => m.name));      // 인벤토리 '조합 아이템' 탭에 들어가는 재료 이름
 async function buildState(u, now) {
   await settleDying(u.id, now);
-  u = (await userById(u.id)) || u;
   await tickPersonal(u.id, now);
   await corruptCheck(u.id);
   u = (await userById(u.id)) || u;
@@ -683,16 +709,17 @@ const logAcquire = (uid, kind, name, qty, source, at) => db.run(
   'INSERT INTO acquire_log (user_id, kind, name, qty, source, at) VALUES (?, ?, ?, ?, ?, ?)', [uid, kind, name, qty, source, at]);
 // 캐릭터 이미지(최대 약 800KB)는 매 요청마다 읽으면 DB 전송량이 크게 늘어서, 일반 조회에서는 빼고 필요할 때만 따로 읽습니다.
 let _userCols = null;
-async function userSel(prefix) {
+async function userSel(prefix, withPw) {
   if (!_userCols) {
-    const r = await db.get('SELECT * FROM users LIMIT 1');
+    const r = await db.get('SELECT * FROM users ORDER BY COALESCE(LENGTH(image), 0) LIMIT 1');      // 사진이 가장 작은 헌터 한 명 (열 이름만 필요하므로 큰 사진을 읽지 않도록)
     if (!r) return (prefix || '') + '*';           // 아직 가입자가 없을 때
     _userCols = Object.keys(r).filter(k => k !== 'image');
   }
-  return _userCols.map(k => (prefix || '') + k).join(', ');
+  // 비밀번호 해시는 로그인할 때만 필요합니다 (요청마다 읽어 오지 않음)
+  return _userCols.filter(k => withPw || (k !== 'pw_salt' && k !== 'pw_hash')).map(k => (prefix || '') + k).join(', ');
 }
 const userById = async id => db.get('SELECT ' + (await userSel()) + ' FROM users WHERE id = ?', [id]);
-const userByCode = async code => db.get('SELECT ' + (await userSel()) + ' FROM users WHERE code = ?', [code]);
+const userByCode = async code => db.get('SELECT ' + (await userSel('', true)) + ' FROM users WHERE code = ?', [code]);
 const withImage = async u => { if (!u) return u; const r = await db.get('SELECT image FROM users WHERE id = ?', [u.id]); return Object.assign({}, u, { image: r ? r.image : '' }); };
 const isFriend = async (a, b) => !!(await db.get('SELECT 1 AS x FROM friends WHERE user_id = ? AND friend_id = ?', [a, b]));
 
@@ -863,8 +890,7 @@ route('GET', '/api/me', async (req, res, ctx) => {
 
 route('GET', '/api/state', async (req, res, ctx) => {
   await catchUp();
-  const u = await userById(ctx.user.id);
-  send(res, 200, await buildState(u, Date.now()));
+  send(res, 200, await buildState(ctx.user, Date.now()));
 });
 
 // 헌터 커뮤니티: 읽기 전용 (글쓰기·댓글 기능 없음)
@@ -2163,8 +2189,8 @@ route('GET', '/api/admin/overview', async (req, res) => {
   const [users, ranks, kills, hunts, pend, notices] = await Promise.all([
     db.get('SELECT COUNT(*) AS c FROM users'),
     db.all('SELECT rank, COUNT(*) AS c FROM users GROUP BY rank'),
-    db.get('SELECT COUNT(*) AS c FROM kills'),
-    db.all('SELECT result, COUNT(*) AS c FROM hunt_log GROUP BY result'),
+    db.get("SELECT COALESCE(SUM(n), 0) AS c FROM hunt_log WHERE result = 'success'"),
+    db.all('SELECT result, SUM(n) AS c FROM hunt_log GROUP BY result'),
     db.get('SELECT COUNT(*) AS c FROM s_attempts WHERE resolved = 0'),
     db.get('SELECT COUNT(*) AS c FROM notices'),
   ]);
@@ -2184,7 +2210,7 @@ route('GET', '/api/admin/players', async (req, res) => {
   const q = String(url.searchParams.get('q') || '').trim().slice(0, 40);
   const like = '%' + q.replace(/[%_]/g, '') + '%';
   const rows = await db.all(`SELECT u.code, u.invite_code AS inv, u.hunter_name AS hn, u.name, u.rank, u.lv, u.exp, u.region, u.created_at, u.last_seen,
-      (SELECT COUNT(*) FROM kills k WHERE k.user_id = u.id) AS kills,
+      (SELECT COALESCE(SUM(h2.n), 0) FROM hunt_log h2 WHERE h2.user_id = u.id AND h2.result = 'success') AS kills,
       (SELECT MAX(at) FROM hunt_log h WHERE h.user_id = u.id) AS last_hunt,
       (SELECT m.region FROM hunt_log h JOIN monsters m ON m.id = h.monster_id WHERE h.user_id = u.id ORDER BY h.id DESC LIMIT 1) AS last_region
     FROM users u WHERE (? = '' OR u.hunter_name LIKE ? OR u.name LIKE ? OR u.code LIKE ?)
@@ -2202,7 +2228,7 @@ route('GET', '/api/admin/player', async (req, res) => {
     db.all('SELECT item, qty FROM inventory WHERE user_id = ? ORDER BY item', [u.id]),
     db.all('SELECT id, kind, name, qty, source, at FROM acquire_log WHERE user_id = ? ORDER BY id DESC LIMIT 200', [u.id]),
     db.all('SELECT id, mon, rank, result, exp_gain, at FROM hunt_log WHERE user_id = ? ORDER BY id DESC LIMIT 200', [u.id]),
-    db.all('SELECT result, COUNT(*) AS c FROM hunt_log WHERE user_id = ? GROUP BY result', [u.id]),
+    db.all('SELECT result, SUM(n) AS c FROM hunt_log WHERE user_id = ? GROUP BY result', [u.id]),
     db.get('SELECT COUNT(*) AS c FROM friends WHERE user_id = ?', [u.id]),
     db.all(`SELECT m.name, a.resolve_at FROM s_attempts a JOIN monsters m ON m.id = a.monster_id WHERE a.user_id = ? AND a.resolved = 0`, [u.id]),
   ]);
@@ -2471,7 +2497,7 @@ async function promoInfo(u) {
   if (!rule) return { rank: u.rank, next: '', conds: [], can: false, max: true };
   const conds = [{ t: '전투력 Lv.' + rule.lv + ' 이상', have: u.lv, need: rule.lv, ok: u.lv >= rule.lv }];
   if (rule.kills) {
-    const rows = await db.all("SELECT rank, COUNT(*) AS c FROM hunt_log WHERE user_id = ? AND result = 'success' GROUP BY rank", [u.id]);
+    const rows = await db.all("SELECT rank, SUM(n) AS c FROM hunt_log WHERE user_id = ? AND result = 'success' GROUP BY rank", [u.id]);
     for (const k of rule.kills) {
       const h = rows.reduce((a, r) => a + (G.RANK_IDX[r.rank] >= G.RANK_IDX[k.min] ? Number(r.c) || 0 : 0), 0);
       conds.push({ t: k.min + '급 이상 몬스터 ' + k.n + '마리 처치', have: Math.min(h, k.n), need: k.n, ok: h >= k.n });
@@ -2754,7 +2780,7 @@ route('POST', '/api/achievements/pin', async (req, res, ctx) => {
 
 // 관리자: 업적 정의 추가·수정·삭제 (모든 헌터에게 즉시 적용)
 route('GET', '/api/admin/achievements', async (req, res) => {
-  const list = await loadAch();
+  const list = await loadAch(true);
   send(res, 200, { kinds: G.ACH_KINDS, places: G.COUNTRIES.flatMap(c => [[c.id, c.name + ' (나라 전체)']].concat(c.regions.map(r => [r.id, c.name + ' · ' + r.name]))), list: list.map(a => ({ id: a.id, name: a.name, desc: a.descr, kind: a.kind, val: a.val })) });
 }, { auth: false, admin: true });
 
@@ -2783,12 +2809,14 @@ route('POST', '/api/admin/achievements/save', async (req, res, ctx) => {
     const r = await db.get('SELECT id FROM achievements WHERE id = ?', [id]);
     if (!r) return fail(res, 404, 'no_ach');
     await db.run('UPDATE achievements SET name = ?, descr = ?, kind = ?, val = ? WHERE id = ?', [name, desc, kind, val, id]);
+    achCache.defs = null;
   } else {
     await loadAch();
     const c = await db.get('SELECT COUNT(*) AS c FROM achievements');
     if (c.c >= 100) return fail(res, 400, 'too_many');
     const nid = 'c' + Date.now().toString(36) + crypto.randomBytes(2).toString('hex');
     await db.run('INSERT INTO achievements (id, name, descr, kind, val, at) VALUES (?, ?, ?, ?, ?, ?)', [nid, name, desc, kind, val, Date.now()]);
+    achCache.defs = null;
   }
   send(res, 200, { ok: true });
 }, { auth: false, admin: true });
@@ -2796,6 +2824,7 @@ route('POST', '/api/admin/achievements/save', async (req, res, ctx) => {
 route('POST', '/api/admin/achievements/delete', async (req, res, ctx) => {
   const id = String(ctx.body.id || '');
   await db.batch([['DELETE FROM achievements WHERE id = ?', [id]], ['DELETE FROM ach_grants WHERE ach_id = ?', [id]]]);
+  achCache.defs = null;
   send(res, 200, { ok: true });
 }, { auth: false, admin: true });
 
@@ -2937,6 +2966,42 @@ route('POST', '/api/admin/player/delete', async (req, res, ctx) => {
   send(res, 200, { ok: true });
 }, { auth: false, admin: true });
 
+// ── 오래된 기록 압축 (무료 DB 용량 아끼기) ──
+// 화면에는 최근 200건만 보이므로, 그보다 오래된 토벌·획득 기록은 '같은 종류끼리 한 줄'로 합칩니다.
+// 합쳐도 처치 수·업적·승급 조건에 쓰는 숫자(n 열의 합)와 획득 수량은 그대로 유지됩니다.
+const KEEP_LOG = 200;
+async function compactLogs(table, keyCols, sumCols, lim) {
+  const users = await db.all('SELECT user_id, COUNT(*) AS c FROM ' + table + ' GROUP BY user_id HAVING COUNT(*) > ?', [KEEP_LOG + 50]);
+  let done = 0;
+  for (const u of users) {
+    if (done >= lim) break;
+    const cut = await db.get('SELECT id FROM ' + table + ' WHERE user_id = ? ORDER BY id DESC LIMIT 1 OFFSET ?', [u.user_id, KEEP_LOG]);
+    if (!cut) continue;
+    const extra = table === 'hunt_log' ? " AND result <> 'pending'" : '';
+    const groups = await db.all('SELECT ' + keyCols.join(', ') + ', MIN(id) AS mid, COUNT(*) AS c, SUM(n) AS sn, MAX(at) AS mat' + sumCols.map(k => ', SUM(' + k + ') AS s_' + k).join('') +
+      ' FROM ' + table + ' WHERE user_id = ? AND id <= ?' + extra + ' GROUP BY ' + keyCols.join(', ') + ' HAVING COUNT(*) > 1', [u.user_id, cut.id]);
+    const list = [];
+    for (const g of groups) {
+      list.push(['UPDATE ' + table + ' SET n = ?, at = ?' + sumCols.map(k => ', ' + k + ' = ?').join('') + ' WHERE id = ?', [Number(g.sn), Number(g.mat)].concat(sumCols.map(k => Number(g['s_' + k]))).concat([g.mid])]);
+      list.push(['DELETE FROM ' + table + ' WHERE user_id = ? AND id <= ? AND id <> ?' + extra + ' AND ' + keyCols.map(k => k + ' = ?').join(' AND '), [u.user_id, cut.id, g.mid].concat(keyCols.map(k => g[k]))]);
+    }
+    for (let i = 0; i < list.length; i += 100) await db.batch(list.slice(i, i + 100));
+    done++;
+  }
+}
+async function compactOld(now) {
+  await compactLogs('hunt_log', ['mon', 'rank', 'result'], ['exp_gain'], 80);
+  await compactLogs('acquire_log', ['kind', 'name', 'source'], ['qty'], 80);
+  const day = kstDay(now - 7 * 24 * 3600000);
+  await db.run('DELETE FROM pact_log WHERE day < ?', [day]);
+  await db.run('DELETE FROM daily_quests WHERE day < ?', [day]);
+  // 이틀이 지난 개인 몬스터(처치 기록 포함)는 더 이상 쓰이지 않습니다
+  const old = now - 2 * 24 * 3600000;
+  await db.run('DELETE FROM kills WHERE monster_id IN (SELECT id FROM monsters WHERE owner_id IS NOT NULL AND corrupt_of IS NULL AND rumor_id IS NULL AND spawned_at < ?)', [old]);
+  await db.run('DELETE FROM monsters WHERE owner_id IS NOT NULL AND corrupt_of IS NULL AND rumor_id IS NULL AND spawned_at < ?', [old]);
+  await db.run('DELETE FROM fail_cd WHERE monster_id NOT IN (SELECT id FROM monsters)');
+}
+
 // Cron 이 호출: 출몰·S급 결과 따라잡기 + 오래된 데이터 정리. Vercel 은 CRON_SECRET 을 Bearer 로 보냅니다.
 route('GET', '/api/cron', async (req, res) => {
   const secret = process.env.CRON_SECRET || '';
@@ -2949,6 +3014,7 @@ route('GET', '/api/cron', async (req, res) => {
   await db.run('DELETE FROM sessions WHERE expires_at < ?', [now]);
   await db.run('DELETE FROM rate_limits WHERE start < ?', [now - G.HOUR]);
   await db.run('DELETE FROM fail_cd WHERE until < ?', [now - G.HOUR]);
+  try { await compactOld(now); } catch (e) { console.error('[compact]', e); }
   send(res, 200, { ok: true });
 }, { auth: false });
 
