@@ -5,42 +5,61 @@ const crypto = require('node:crypto');
 const rnd = (a, b) => crypto.randomInt(a, b + 1);          // a~b (양끝 포함)
 const chance01 = () => crypto.randomInt(0, 1000000) / 1000000;
 
-// 세계: 10개국, 나라마다 세부 지역. 헌터는 세부 지역에 머물고, F~A급은 그 나라 안의 세부 지역에서 출몰하며,
+// 세계: 12개국(+적월문), 나라마다 세부 지역 9곳. 헌터는 세부 지역에 머물고, F~A급은 그 나라 안의 세부 지역에서 출몰하며,
 // S급만 서버 전체가 같은 '나라'에서 출몰합니다. pos 는 레이더(200x200) 위의 좌표입니다.
-const P4 = [[78, 112], [142, 64], [58, 152], [150, 138]];
+const P9 = [[28, 36], [96, 26], [162, 40], [30, 84], [104, 76], [168, 92], [34, 132], [98, 126], [158, 138]];
 const R = (id, name, sub, icon, danger, pos) => ({ id, name, sub, icon, danger, pos });
+// 나라마다 세부 지역 9곳 (레이더 위 위치는 P9 순서)
+const mk = (id, name, lat, lon, list) => ({ id, name, lat, lon, regions: list.map((x, i) => R(x[0], x[1], x[2], x[3], x[4], P9[i])) });
 const COUNTRIES = [
-  { id: 'KR', name: '대한민국', lat: 36.5, lon: 127.8, regions: [
-    R('city', '도심', '중구 게이트 지대', 'i-city', 'D', [78, 112]), R('mine', '폐광', '북부 지하 갱도', 'i-mine', 'C', [142, 64]),
-    R('river', '한강변', '안개 자욱한 강가', 'i-wave', 'E', [58, 152]), R('temple', '산사', '봉인된 옛 절터', 'i-temple', 'B', [150, 138]),
-    R('port', '폐항', '오염된 항만', 'i-port', 'C', [44, 66]), R('gate', '적월 게이트', '붉은 달 아래 균열', 'i-gate', 'A', [112, 38])] },
-  { id: 'JP', name: '일본', lat: 36, lon: 138, regions: [
-    R('jp-tokyo', '도쿄 번화가', '네온이 꺼진 게이트 거리', 'i-city', 'D', P4[0]), R('jp-mine', '이와미 갱도', '폐은광 깊은 곳', 'i-mine', 'C', P4[1]),
-    R('jp-bay', '오사카만', '녹슨 컨테이너 항구', 'i-port', 'C', P4[2]), R('jp-shrine', '후지 신사', '산기슭의 봉인 신사', 'i-temple', 'B', P4[3])] },
-  { id: 'CN', name: '중국', lat: 35, lon: 104, regions: [
-    R('cn-old', '베이징 구시가', '붉은 성벽 아래 균열', 'i-city', 'D', P4[0]), R('cn-coal', '산시 탄광', '불타는 지하 탄층', 'i-mine', 'C', P4[1]),
-    R('cn-gorge', '장강 협곡', '물안개 낀 절벽', 'i-wave', 'E', P4[2]), R('cn-temple', '소림 폐사', '무너진 선원', 'i-temple', 'B', P4[3])] },
-  { id: 'RU', name: '러시아', lat: 61, lon: 95, regions: [
-    R('ru-metro', '모스크바 지하철', '끝없는 지하 승강장', 'i-city', 'D', P4[0]), R('ru-ural', '우랄 광산', '얼어붙은 갱도', 'i-mine', 'C', P4[1]),
-    R('ru-port', '블라디보스토크항', '얼음에 갇힌 부두', 'i-port', 'C', P4[2]), R('ru-snow', '시베리아 설원', '눈 속에 열린 균열', 'i-gate', 'A', P4[3])] },
-  { id: 'US', name: '미국', lat: 39, lon: -98, regions: [
-    R('us-ny', '뉴욕 맨해튼', '무너진 마천루 사이', 'i-city', 'D', P4[0]), R('us-canyon', '그랜드캐니언', '협곡 아래 폐갱도', 'i-mine', 'C', P4[1]),
-    R('us-bayou', '미시시피 습지', '늪지에 깔린 안개', 'i-wave', 'E', P4[2]), R('us-desert', '네바다 사막', '모래 위에 열린 균열', 'i-gate', 'A', P4[3])] },
-  { id: 'IT', name: '이탈리아', lat: 42.5, lon: 12.5, regions: [
-    R('it-rome', '로마 유적', '콜로세움 아래 봉인', 'i-temple', 'B', P4[0]), R('it-venice', '베네치아 수로', '가라앉은 골목길', 'i-wave', 'E', P4[1]),
-    R('it-genoa', '제노바항', '낡은 범선 부두', 'i-port', 'C', P4[2]), R('it-vesuvius', '베수비오 화구', '끓어오르는 균열', 'i-gate', 'A', P4[3])] },
-  { id: 'MG', name: '마다가스카르', lat: -19, lon: 47, regions: [
-    R('mg-tsingy', '칭기 석림', '칼날 같은 석회암 숲', 'i-mine', 'C', P4[0]), R('mg-river', '마하장가 강', '붉은 흙탕물 강', 'i-wave', 'E', P4[1]),
-    R('mg-baobab', '바오바브 길', '거목 사이에 봉인된 제단', 'i-temple', 'B', P4[2]), R('mg-port', '토아마시나항', '버려진 어선 부두', 'i-port', 'C', P4[3])] },
-  { id: 'BR', name: '브라질', lat: -10, lon: -52, regions: [
-    R('br-rio', '리우 언덕마을', '밤마다 문이 열리는 골목', 'i-city', 'D', P4[0]), R('br-mine', '미나스 광산', '금빛 지하 갱도', 'i-mine', 'C', P4[1]),
-    R('br-amazon', '아마존 강', '끝이 보이지 않는 수면', 'i-wave', 'E', P4[2]), R('br-gate', '파라 밀림', '밀림 속 붉은 균열', 'i-gate', 'A', P4[3])] },
-  { id: 'EG', name: '이집트', lat: 26, lon: 30, regions: [
-    R('eg-cairo', '카이로 구시가', '미로 같은 시장 골목', 'i-city', 'D', P4[0]), R('eg-nile', '나일 강변', '고요한 검은 물', 'i-wave', 'E', P4[1]),
-    R('eg-pyramid', '기자 피라미드', '묘실에 갇힌 저주', 'i-temple', 'B', P4[2]), R('eg-suez', '수에즈 운하', '좌초된 화물선', 'i-port', 'C', P4[3])] },
-  { id: 'AU', name: '호주', lat: -25, lon: 134, regions: [
-    R('au-sydney', '시드니항', '불 꺼진 오페라 하우스', 'i-port', 'C', P4[0]), R('au-opal', '쿠버페디 광산', '지하 오팔 갱도', 'i-mine', 'C', P4[1]),
-    R('au-reef', '대보초', '죽어 가는 산호 군락', 'i-wave', 'E', P4[2]), R('au-outback', '아웃백', '붉은 사막의 균열', 'i-gate', 'A', P4[3])] },
+  mk('KR', '대한민국', 36.5, 127.8, [
+    ['city', '도심', '중구 게이트 지대', 'i-city', 'D'], ['mine', '폐광', '북부 지하 갱도', 'i-mine', 'C'], ['river', '한강변', '안개 자욱한 강가', 'i-wave', 'E'],
+    ['temple', '산사', '봉인된 옛 절터', 'i-temple', 'B'], ['port', '폐항', '오염된 항만', 'i-port', 'C'], ['gate', '적월 게이트', '붉은 달 아래 균열', 'i-gate', 'A'],
+    ['kr-conv', '편의점 골목', '새벽 편의점 앞의 깜빡이는 불빛', 'i-city', 'E'], ['kr-sky', '하늘정원', '고층 옥상에 버려진 정원', 'i-cloud', 'B'], ['kr-mall', '지하상가', '불 꺼진 지하 쇼핑로', 'i-city', 'D']]),
+  mk('JP', '일본', 36, 138, [
+    ['jp-tokyo', '도쿄 번화가', '네온이 꺼진 게이트 거리', 'i-city', 'D'], ['jp-mine', '이와미 갱도', '폐은광 깊은 곳', 'i-mine', 'C'], ['jp-bay', '오사카만', '녹슨 컨테이너 항구', 'i-port', 'C'],
+    ['jp-shrine', '후지 신사', '산기슭의 봉인 신사', 'i-temple', 'B'], ['jp-conv', '심야 편의점', '새벽 두 시의 24시간 매장', 'i-city', 'E'], ['jp-sky', '도쿄 전망대', '구름 위의 관측 데크', 'i-cloud', 'B'],
+    ['jp-forest', '아오키가하라', '길을 잃는 푸른 수해', 'i-tree', 'C'], ['jp-onsen', '폐온천', '김이 식지 않는 옛 온천가', 'i-wave', 'D'], ['jp-arcade', '아키하바라 오락실', '꺼지지 않는 게임기 불빛', 'i-city', 'E']]),
+  mk('CN', '중국', 35, 104, [
+    ['cn-old', '베이징 구시가', '붉은 성벽 아래 균열', 'i-city', 'D'], ['cn-coal', '산시 탄광', '불타는 지하 탄층', 'i-mine', 'C'], ['cn-gorge', '장강 협곡', '물안개 낀 절벽', 'i-wave', 'E'],
+    ['cn-temple', '소림 폐사', '무너진 선원', 'i-temple', 'B'], ['cn-night', '상하이 야시장', '불 꺼진 노점 골목', 'i-city', 'E'], ['cn-tower', '상하이 첨탑', '유리 전망대의 균열', 'i-cloud', 'B'],
+    ['cn-karst', '계림 봉우리', '안개 속 솟은 석회봉', 'i-mtn', 'C'], ['cn-wall', '만리장성 봉화대', '꺼지지 않는 옛 봉홧불', 'i-rock', 'B'], ['cn-tea', '쓰촨 폐찻집', '식지 않는 찻물의 방', 'i-grass', 'D']]),
+  mk('RU', '러시아', 61, 95, [
+    ['ru-metro', '모스크바 지하철', '끝없는 지하 승강장', 'i-city', 'D'], ['ru-ural', '우랄 광산', '얼어붙은 갱도', 'i-mine', 'C'], ['ru-port', '블라디보스토크항', '얼음에 갇힌 부두', 'i-port', 'C'],
+    ['ru-snow', '시베리아 설원', '눈 속에 열린 균열', 'i-gate', 'A'], ['ru-red', '붉은 광장', '눈 덮인 돌바닥 위의 그림자', 'i-city', 'D'], ['ru-baikal', '바이칼 호수', '얼음 밑에서 올라오는 소리', 'i-wave', 'C'],
+    ['ru-bunker', '지하 벙커', '봉인된 냉전기 시설', 'i-mine', 'B'], ['ru-taiga', '타이가 숲', '끝없이 이어진 침엽수림', 'i-tree', 'D'], ['ru-station', '횡단열차 간이역', '멈춰 선 열차', 'i-city', 'E']]),
+  mk('US', '미국', 39, -98, [
+    ['us-ny', '뉴욕 맨해튼', '무너진 마천루 사이', 'i-city', 'D'], ['us-canyon', '그랜드캐니언', '협곡 아래 폐갱도', 'i-mine', 'C'], ['us-bayou', '미시시피 습지', '늪지에 깔린 안개', 'i-wave', 'E'],
+    ['us-desert', '네바다 사막', '모래 위에 열린 균열', 'i-gate', 'A'], ['us-diner', '국도변 다이너', '네온이 깜빡이는 24시간 식당', 'i-city', 'E'], ['us-vegas', '라스베이거스', '꺼진 카지노 거리', 'i-city', 'C'],
+    ['us-sky', '시카고 전망대', '유리 바닥 아래의 심연', 'i-cloud', 'B'], ['us-forest', '옐로스톤 숲', '끓는 땅 위의 삼림', 'i-tree', 'D'], ['us-harbor', '샌프란시스코 부두', '안개에 잠긴 해안 다리', 'i-port', 'C']]),
+  mk('IT', '이탈리아', 42.5, 12.5, [
+    ['it-rome', '로마 유적', '콜로세움 아래 봉인', 'i-temple', 'B'], ['it-venice', '베네치아 수로', '가라앉은 골목길', 'i-wave', 'E'], ['it-genoa', '제노바항', '낡은 범선 부두', 'i-port', 'C'],
+    ['it-vesuvius', '베수비오 화구', '끓어오르는 균열', 'i-gate', 'A'], ['it-alps', '돌로미티 설산', '눈 덮인 바위 첨탑', 'i-mtn', 'C'], ['it-cafe', '피렌체 카페 골목', '문 닫힌 에스프레소 바', 'i-city', 'E'],
+    ['it-catacomb', '카타콤', '해골이 쌓인 지하 묘지', 'i-mine', 'B'], ['it-tuscany', '토스카나 언덕', '사이프러스가 늘어선 길', 'i-grass', 'E'], ['it-dome', '두오모 지붕', '붉은 돔 위의 바람', 'i-cloud', 'D']]),
+  mk('MG', '마다가스카르', -19, 47, [
+    ['mg-tsingy', '칭기 석림', '칼날 같은 석회암 숲', 'i-mine', 'C'], ['mg-river', '마하장가 강', '붉은 흙탕물 강', 'i-wave', 'E'], ['mg-baobab', '바오바브 길', '거목 사이에 봉인된 제단', 'i-temple', 'B'],
+    ['mg-port', '토아마시나항', '버려진 어선 부두', 'i-port', 'C'], ['mg-lemur', '여우원숭이 숲', '울음소리가 끊긴 우림', 'i-tree', 'D'], ['mg-market', '안타나나리보 시장', '인적 끊긴 언덕 시장', 'i-city', 'E'],
+    ['mg-cave', '안카나 동굴', '물이 고인 석회 동굴', 'i-mine', 'C'], ['mg-coast', '모론다바 해안', '노을 진 모래 해변', 'i-wave', 'D'], ['mg-plateau', '이살로 고원', '붉은 암벽의 고원', 'i-mtn', 'B']]),
+  mk('BR', '브라질', -10, -52, [
+    ['br-rio', '리우 언덕마을', '밤마다 문이 열리는 골목', 'i-city', 'D'], ['br-mine', '미나스 광산', '금빛 지하 갱도', 'i-mine', 'C'], ['br-amazon', '아마존 강', '끝이 보이지 않는 수면', 'i-wave', 'E'],
+    ['br-gate', '파라 밀림', '밀림 속 붉은 균열', 'i-gate', 'A'], ['br-beach', '코파카바나', '파도가 멈춘 해변', 'i-wave', 'D'], ['br-sky', '코르코바도 전망대', '구름 속의 거대한 동상', 'i-cloud', 'B'],
+    ['br-metro', '상파울루 지하철', '사람 없는 환승 통로', 'i-city', 'C'], ['br-pantanal', '판타나우 습지', '악어가 숨어 있는 늪', 'i-grass', 'D'], ['br-falls', '이구아수 폭포', '물소리에 가려진 비명', 'i-wave', 'C']]),
+  mk('EG', '이집트', 26, 30, [
+    ['eg-cairo', '카이로 구시가', '미로 같은 시장 골목', 'i-city', 'D'], ['eg-nile', '나일 강변', '고요한 검은 물', 'i-wave', 'E'], ['eg-pyramid', '기자 피라미드', '묘실에 갇힌 저주', 'i-temple', 'B'],
+    ['eg-suez', '수에즈 운하', '좌초된 화물선', 'i-port', 'C'], ['eg-luxor', '룩소르 신전', '기둥 사이의 어둠', 'i-temple', 'B'], ['eg-oasis', '시와 오아시스', '야자수 아래의 샘', 'i-grass', 'E'],
+    ['eg-bazaar', '칸 엘 칼릴리 시장', '향신료 냄새가 남은 상점가', 'i-city', 'D'], ['eg-sphinx', '스핑크스 광장', '모래 속에서 눈뜬 균열', 'i-gate', 'A'], ['eg-white', '백사막', '하얀 바위가 늘어선 사막', 'i-rock', 'C']]),
+  mk('AU', '호주', -25, 134, [
+    ['au-sydney', '시드니항', '불 꺼진 오페라 하우스', 'i-port', 'C'], ['au-opal', '쿠버페디 광산', '지하 오팔 갱도', 'i-mine', 'C'], ['au-reef', '대보초', '죽어 가는 산호 군락', 'i-wave', 'E'],
+    ['au-outback', '아웃백', '붉은 사막의 균열', 'i-gate', 'A'], ['au-uluru', '울루루', '붉은 거석 아래의 울림', 'i-rock', 'B'], ['au-mel', '멜버른 골목 카페', '낙서 가득한 뒷골목', 'i-city', 'E'],
+    ['au-rain', '데인트리 우림', '고대 숲의 짙은 안개', 'i-tree', 'D'], ['au-bridge', '하버브리지 전망대', '아치 위의 바람', 'i-cloud', 'C'], ['au-road', '그레이트 오션 로드', '절벽 해안 도로', 'i-wave', 'D']]),
+  mk('IN', '인도', 22, 79, [
+    ['in-delhi', '델리 구시가', '좁은 골목의 끝없는 시장', 'i-city', 'D'], ['in-ganges', '갠지스 강변', '재가 떠다니는 강가', 'i-wave', 'E'], ['in-taj', '타지마할', '대리석 돔 아래의 균열', 'i-temple', 'B'],
+    ['in-mumbai', '뭄바이 항구', '녹슨 크레인이 선 부두', 'i-port', 'C'], ['in-thar', '타르 사막', '모래 위에 열린 균열', 'i-gate', 'A'], ['in-himalaya', '히말라야 기슭', '눈보라 속의 오래된 길', 'i-mtn', 'C'],
+    ['in-spice', '향신료 시장', '매운 연기가 자욱한 시장', 'i-city', 'E'], ['in-ellora', '엘로라 석굴', '바위를 깎아 만든 사원', 'i-mine', 'B'], ['in-tea', '다르질링 찻밭', '안개 낀 계단식 찻밭', 'i-grass', 'D']]),
+  mk('FR', '프랑스', 46.5, 2.5, [
+    ['fr-paris', '파리 뒷골목', '가로등이 꺼진 석조 골목', 'i-city', 'D'], ['fr-seine', '센강', '다리 아래로 흐르는 검은 물', 'i-wave', 'E'], ['fr-museum', '지하 미술관', '봉인된 전시실', 'i-temple', 'B'],
+    ['fr-marseille', '마르세유항', '어선이 가라앉은 부두', 'i-port', 'C'], ['fr-montblanc', '몽블랑', '얼음 틈에 열린 균열', 'i-gate', 'A'], ['fr-vine', '보르도 포도밭', '붉게 익은 포도 사이', 'i-grass', 'E'],
+    ['fr-catacomb', '파리 지하묘지', '뼈로 쌓은 터널', 'i-mine', 'C'], ['fr-eiffel', '에펠탑 전망대', '철골 위의 붉은 달', 'i-cloud', 'B'], ['fr-cafe', '심야 카페', '문 닫을 시간이 없는 카페', 'i-city', 'E']]),
   // 적월문: 일본 동쪽 먼바다 위의 구역. 문으로 들어가면 안쪽 지역 가운데 한 곳으로 무작위 이동합니다.
   { id: 'GT', name: '적월문', lat: 35, lon: 155, gate: true, regions: [
     R('gt-hill', '푸른 언덕', '바람이 부는 풀밭 언덕', 'i-grass', 'E', [60, 120]), R('gt-ridge', '바위 골짜기', '깎아지른 바위벽 사이의 골짜기', 'i-rock', 'D', [140, 70]),
@@ -89,7 +108,9 @@ const STAT_MAX = 100, FAME_MAX = 1000;                             // 근력·�
 const FAME_PER_LV = 5, FAME_PER_RANK = 20;                       // 출몰 후 토벌 가능한 시간
 
 // 등급별 처치 골드(G) 범위 [최소, 최대]
-const KILL_GOLD = { F: [1, 5], E: [6, 15], D: [16, 35], C: [36, 70], B: [71, 120], A: [121, 180], S: [190, 200] };
+// 몬스터 토벌 골드: 기본값의 60% (40% 감소)
+const GOLD_RATE = 0.6;
+const KILL_GOLD = Object.fromEntries(Object.entries({ F: [1, 5], E: [6, 15], D: [16, 35], C: [36, 70], B: [71, 120], A: [121, 180], S: [190, 200] }).map(([k, v]) => [k, [Math.max(1, Math.round(v[0] * GOLD_RATE)), Math.max(1, Math.round(v[1] * GOLD_RATE))]]));
 const rollGold = rank => { const r = KILL_GOLD[rank] || [0, 0]; return r[0] + Math.floor(Math.random() * (r[1] - r[0] + 1)); };
 // 업적 종류: always(항상) · kills(처치 수) · rank(해당 등급 이상 처치) · sTry(S급 도전 수) · sWin(S급 처치 수) · lv(전투력 레벨) · manual(관리자가 직접 부여)
 const RANK_IDX = { F: 0, E: 1, D: 2, C: 3, B: 4, A: 5, S: 6 };
@@ -294,6 +315,126 @@ const MATERIALS = [
   { name: '적월석 가루', desc: '붉게 빛나는 돌의 가루. 어디서든 아주 드물게 발견된다.', w: 1, at: {} },
   { name: '오래된 열쇠', desc: '무엇을 여는지 알 수 없는 낡은 열쇠.', w: 2, at: { 'gt-field': 3 } },
 ];
+
+// ── 적월문 심층 탐험(50층) 전용 재료: 구간(10층)마다 일반·희귀·영웅 재료가 있고, 30층부터 전설 재료가 아주 드물게 나옵니다. (현장 조사에서는 나오지 않음)
+const GATE_ZONES = [
+  { name: '입구 회랑', boss: '문지기 석상' }, { name: '붉은 수로', boss: '수룡' }, { name: '잿빛 서고', boss: '금서의 사서' },
+  { name: '심연의 정원', boss: '그림자 정원사' }, { name: '적월의 심장', boss: '적월의 주인' },
+];
+const GATE_MATS = [
+  { name: '붉은 석재 조각', desc: '입구 회랑의 벽에서 떨어진 붉은 돌조각.', tier: 'c', zone: 0 },
+  { name: '낡은 문양판', desc: '오래된 문양이 새겨진 석판.', tier: 'r', zone: 0 },
+  { name: '수문장의 인장', desc: '문지기 석상이 지니고 있던 인장.', tier: 'e', zone: 0 },
+  { name: '수로의 이끼구슬', desc: '붉은 물에서 자란 이끼가 구슬처럼 뭉쳤다.', tier: 'c', zone: 1 },
+  { name: '붉은 물방울', desc: '굳지 않는 붉은 물방울.', tier: 'r', zone: 1 },
+  { name: '수룡의 비늘', desc: '수룡의 몸에서 떨어진 단단한 비늘.', tier: 'e', zone: 1 },
+  { name: '찢어진 서책', desc: '글자가 반쯤 지워진 책장.', tier: 'c', zone: 2 },
+  { name: '잉크 병', desc: '마르지 않는 검은 잉크가 든 병.', tier: 'r', zone: 2 },
+  { name: '금서의 표지', desc: '읽으면 안 되는 책의 가죽 표지.', tier: 'e', zone: 2 },
+  { name: '심연의 꽃잎', desc: '어둠 속에서만 피는 꽃의 잎.', tier: 'c', zone: 3 },
+  { name: '그림자 열매', desc: '손에 쥐면 그림자처럼 흐려지는 열매.', tier: 'r', zone: 3 },
+  { name: '심연의 씨앗', desc: '심연의 정원사가 가꾸던 검은 씨앗.', tier: 'e', zone: 3 },
+  { name: '월광 가루', desc: '붉은 달빛이 굳어 생긴 가루.', tier: 'c', zone: 4 },
+  { name: '적월의 눈물', desc: '붉은 달이 흘린 듯한 맑은 방울.', tier: 'r', zone: 4 },
+  { name: '적월의 심장 파편', desc: '적월의 주인에게서 떨어진 붉은 파편.', tier: 'e', zone: 4 },
+  { name: '월식의 조각', desc: '달이 가려지던 순간을 담은 전설의 조각.', tier: 'l', zone: 4, special: true },
+  { name: '균열난 기둥 파편', desc: '금이 간 회랑 기둥에서 떨어진 파편.', tier: 'c', zone: 0 },
+  { name: '먼지 낀 촛대', desc: '오래전 꺼진 촛불의 받침.', tier: 'c', zone: 0 },
+  { name: '청동 문고리', desc: '회랑 문에 달려 있던 묵직한 청동 고리.', tier: 'r', zone: 0 },
+  { name: '봉인 부적 조각', desc: '반쯤 찢어진 봉인 부적.', tier: 'r', zone: 0 },
+  { name: '석상의 눈동자', desc: '문지기 석상의 눈에 박혀 있던 검은 보석.', tier: 'e', zone: 0 },
+  { name: '문지기의 열쇠', desc: '모든 문을 연다고 전해지는 낡은 열쇠.', tier: 'l', zone: 0 },
+  { name: '녹슨 쇠사슬', desc: '붉은 물에 잠겨 삭은 쇠사슬.', tier: 'c', zone: 1 },
+  { name: '젖은 부적', desc: '물에 젖어도 글씨가 번지지 않는 부적.', tier: 'c', zone: 1 },
+  { name: '붉은 산호', desc: '수로 바닥에서 자란 붉은 산호.', tier: 'r', zone: 1 },
+  { name: '물귀신의 머리카락', desc: '젖은 채 엉킨 검은 머리카락.', tier: 'r', zone: 1 },
+  { name: '수룡의 송곳니', desc: '수룡의 입에서 빠진 날카로운 송곳니.', tier: 'e', zone: 1 },
+  { name: '붉은 조류의 핵', desc: '붉은 물살의 중심에서 건진 맥동하는 핵.', tier: 'l', zone: 1 },
+  { name: '곰팡이 핀 두루마리', desc: '펼치면 재가 날리는 두루마리.', tier: 'c', zone: 2 },
+  { name: '부러진 깃펜', desc: '잉크가 아직 마르지 않은 깃펜.', tier: 'c', zone: 2 },
+  { name: '봉인된 책갈피', desc: '끼워 둔 페이지가 영영 열리지 않는 책갈피.', tier: 'r', zone: 2 },
+  { name: '재가 된 양피지', desc: '손대면 부서지지만 글자는 남아 있는 양피지.', tier: 'r', zone: 2 },
+  { name: '사서의 안경', desc: '서고의 사서가 쓰던 둥근 안경.', tier: 'e', zone: 2 },
+  { name: '금서의 심장', desc: '금서 안에서 뛰고 있던 검붉은 덩어리.', tier: 'l', zone: 2 },
+  { name: '시든 덩굴', desc: '검게 말라붙은 덩굴.', tier: 'c', zone: 3 },
+  { name: '검은 이슬', desc: '정원 잎사귀에 맺힌 새까만 이슬.', tier: 'c', zone: 3 },
+  { name: '달빛 가시', desc: '달빛을 머금어 은은히 빛나는 가시.', tier: 'r', zone: 3 },
+  { name: '그림자 뿌리', desc: '땅 밑 그림자 속에서 자란 뿌리.', tier: 'r', zone: 3 },
+  { name: '정원사의 가위', desc: '그림자 정원사가 쓰던 커다란 가위.', tier: 'e', zone: 3 },
+  { name: '심연의 왕관 조각', desc: '정원의 왕이 쓰던 왕관의 깨진 조각.', tier: 'l', zone: 3 },
+  { name: '붉은 재', desc: '적월의 열기에 타고 남은 붉은 재.', tier: 'c', zone: 4 },
+  { name: '굳은 월광', desc: '굳어서 돌이 된 달빛.', tier: 'c', zone: 4 },
+  { name: '핏빛 수정', desc: '안쪽에서 붉은 빛이 일렁이는 수정.', tier: 'r', zone: 4 },
+  { name: '월식의 깃털', desc: '달이 가려질 때만 떨어지는 검은 깃털.', tier: 'r', zone: 4 },
+  { name: '주인의 손톱', desc: '적월의 주인의 손톱. 만지면 맥이 뛴다.', tier: 'e', zone: 4 },
+  { name: '적월의 핵', desc: '적월의 심장 한가운데 박혀 있던 핵.', tier: 'l', zone: 4 },
+];
+
+// ── 오염 거래(계약): 오염도를 대가로 보상을 받습니다. 하루에 계약마다 한 번. ──
+const PACTS = [
+  { id: 'p_gold1', name: '그림자 상인의 흥정', desc: '어둠 속 상인이 금화를 내미는 대신 몸 안의 탁기를 거래한다.', taint: 6, gold: 400 },
+  { id: 'p_fame', name: '명예 매매', desc: '누군가의 명성을 사 오는 대가로 오염이 쌓인다.', taint: 8, fame: 4 },
+  { id: 'p_exp', name: '피의 서약', desc: '핏빛 서약서에 이름을 쓰면 경험이 몸에 스며든다.', taint: 10, exp: 150 },
+  { id: 'p_str', name: '부패한 부적', desc: '썩은 부적을 몸에 지니면 힘이 솟는다.', taint: 12, stat: 'str', amt: 2 },
+  { id: 'p_agi', name: '그림자 걸음', desc: '그림자가 발끝을 끌어 걸음이 가벼워진다.', taint: 12, stat: 'agi', amt: 2 },
+  { id: 'p_luck', name: '심연의 속삭임', desc: '귓가의 속삭임을 따르면 운이 트인다.', taint: 12, stat: 'luck', amt: 2 },
+  { id: 'p_mat', name: '금단의 재료상', desc: '금지된 거래로 적월석 가루를 넘겨받는다.', taint: 15, item: '적월석 가루', qty: 2 },
+  { id: 'p_gold2', name: '악마의 지갑', desc: '끝없이 금화가 쏟아지는 지갑. 그만큼 깊이 오염된다.', taint: 20, gold: 1500 },
+];
+const PACT_BACKLASH = 0.2, PACT_BACKLASH_TAINT = 5;     // 계약의 반동: 20% 확률로 오염도가 추가로 5 더 오름
+// ── 도시 괴담: 소문이 돌고, 믿는 사람이 모이면 진실 여부가 가려집니다. ──
+const RUMOR_NEED = 3, RUMOR_OPEN_MS = 6 * HOUR, RUMOR_GAP_MS = 90 * MIN, RUMOR_MAX_OPEN = 2;
+const RUMOR_TPL = [
+  { t: '{p}의 입 찢어진 여자', mon: '입 찢어진 여자', rank: 'B', body: '해 질 녘 {p} 골목에서 마스크 쓴 여자가 "나 예뻐?" 하고 묻는다는 소문입니다.', hoax: '마스크를 쓴 채 길을 묻던 평범한 행인이었다고 합니다.' },
+  { t: '{p}의 밤마다 우는 아이', mon: '울음귀', rank: 'B', body: '밤이면 {p} 근처에서 아이 울음소리가 들리는데, 가 보면 아무도 없다고 합니다.', hoax: '길고양이의 울음소리를 잘못 들은 것이었습니다.' },
+  { t: '{p}의 열세 번째 계단', mon: '열세 번째 계단의 그것', rank: 'A', body: '{p}의 계단은 분명 열두 개인데, 밤에 올라가면 하나가 더 있다고 합니다.', hoax: '계단 수를 잘못 센 것이었습니다. 몇 번을 세어도 열두 개입니다.' },
+  { t: '{p}의 없는 층', mon: '없는 층의 주민', rank: 'B', body: '{p}의 엘리베이터에서 존재하지 않는 층 버튼이 눌린다는 소문이 돕니다.', hoax: '고장 난 엘리베이터 버튼의 오작동이었다고 합니다.' },
+  { t: '{p}의 거울 속 또 다른 나', mon: '거울 속의 나', rank: 'A', body: '{p}의 거울 앞에서 한 박자 늦게 웃는 "나"를 봤다는 사람이 늘고 있습니다.', hoax: '낡은 거울의 반사 지연일 뿐이었습니다.' },
+  { t: '{p}의 새벽 3시 전화박스', mon: '수화기 너머의 목소리', rank: 'C', body: '새벽 3시, {p}의 낡은 전화박스가 혼자 울린다는 소문입니다.', hoax: '전화박스 안에서 울린 건 누군가의 잃어버린 휴대폰이었습니다.' },
+  { t: '{p}의 끝나지 않는 막차', mon: '막차의 승객', rank: 'B', body: '{p}에서 막차를 타면 종점에 닿지 않고 계속 달린다고 합니다.', hoax: '졸다가 종점을 지나친 취객의 이야기가 부풀려진 것이었습니다.' },
+  { t: '{p}의 웃는 인형', mon: '웃는 인형', rank: 'C', body: '{p}의 오래된 가게 진열장에서 밤마다 인형의 표정이 바뀐다는 소문입니다.', hoax: '진열장 조명이 흔들려 그렇게 보인 것이었습니다.' },
+];
+// 보상표: 소문에 어떻게 표를 던졌고 결과가 어떻게 되었는가
+const RUMOR_REWARD = { believeTrue: { gold: 150, exp: 30 }, doubtFalse: { gold: 80, exp: 20 }, believeFalse: { gold: -100, exp: 0 } };
+
+// ── 장비: 탑 재료로만 조합할 수 있고, 상점·몬스터에서는 얻을 수 없습니다. ──
+// 등급(C~S)에 따라 성능과 내구도가 달라집니다. 내구도는 토벌을 한 번 할 때마다(성공·실패 모두) 착용 중인 장비마다 1씩 줄고, 0이 되면 효과가 사라집니다(수리하면 복구).
+const EQ_GRADE = {
+  C: { dur: 30, repair: 150, k: 1 },
+  B: { dur: 50, repair: 400, k: 2 },
+  A: { dur: 80, repair: 900, k: 3.4 },
+  S: { dur: 120, repair: 2000, k: 5.4 },
+};
+// 부위마다 올려 주는 능력과 등급별 수치 [C, B, A, S]
+const EQ_SLOTS = {
+  weapon: { ko: '무기', stat: 'str', ko_stat: '근력', v: [3, 6, 10, 16], unit: '' },
+  armor: { ko: '방어구', stat: 'hpGuard', ko_stat: '체력 피해 감소', v: [10, 18, 28, 40], unit: '%' },
+  head: { ko: '머리', stat: 'luck', ko_stat: '행운', v: [2, 4, 7, 11], unit: '' },
+  boots: { ko: '신발', stat: 'agi', ko_stat: '민첩', v: [3, 6, 10, 16], unit: '' },
+  acc: { ko: '장신구', stat: 'taintRes', ko_stat: '오염도 증가 감소', v: [8, 15, 24, 35], unit: '%' },
+};
+const EQUIPS = [
+  { id: 'e_w1', name: '회랑의 석제 단검', slot: 'weapon', grade: 'C', desc: '기둥 파편을 갈아 만든 투박한 단검.', mats: { '균열난 기둥 파편': 4, '먼지 낀 촛대': 1, '붉은 석재 조각': 3 } },
+  { id: 'e_w2', name: '수룡의 송곳니 창', slot: 'weapon', grade: 'B', desc: '수룡의 송곳니를 창끝에 박았다.', mats: { '수룡의 송곳니': 1, '녹슨 쇠사슬': 3, '붉은 산호': 2, '나뭇가지': 4 } },
+  { id: 'e_w3', name: '정원사의 가위검', slot: 'weapon', grade: 'A', desc: '거대한 가위를 한 자루 검으로 벼렸다.', mats: { '정원사의 가위': 1, '달빛 가시': 3, '시든 덩굴': 4, '철광석 조각': 3 } },
+  { id: 'e_w4', name: '금서의 필검', slot: 'weapon', grade: 'A', desc: '금서의 글귀가 칼날에 번지는 가는 검.', mats: { '금서의 심장': 1, '부러진 깃펜': 3, '재가 된 양피지': 3, '철광석 조각': 2 } },
+  { id: 'e_w5', name: '적월의 대검', slot: 'weapon', grade: 'S', desc: '붉은 달의 힘이 깃든 거대한 검.', mats: { '적월의 핵': 1, '주인의 손톱': 2, '핏빛 수정': 3, '월식의 조각': 1 } },
+  { id: 'e_a1', name: '석재 흉갑', slot: 'armor', grade: 'C', desc: '석재를 이어 붙인 무거운 흉갑.', mats: { '붉은 석재 조각': 5, '균열난 기둥 파편': 3, '낡은 천조각': 3 } },
+  { id: 'e_a2', name: '촛대 방패', slot: 'armor', grade: 'C', desc: '촛대 받침을 펴 만든 작은 방패.', mats: { '먼지 낀 촛대': 3, '녹슨 쇠사슬': 2, '녹슨 못': 4 } },
+  { id: 'e_a3', name: '산호 비늘 갑옷', slot: 'armor', grade: 'B', desc: '산호와 비늘 조각을 엮은 갑옷.', mats: { '붉은 산호': 3, '물귀신의 머리카락': 2, '수로의 이끼구슬': 4, '낡은 천조각': 3 } },
+  { id: 'e_a4', name: '재의 사서 외투', slot: 'armor', grade: 'A', desc: '타다 남은 양피지를 겹겹이 누빈 외투.', mats: { '사서의 안경': 1, '재가 된 양피지': 4, '봉인된 책갈피': 2, '곰팡이 핀 두루마리': 4 } },
+  { id: 'e_a5', name: '심연의 갑주', slot: 'armor', grade: 'S', desc: '심연의 왕관 조각을 박은 검은 갑주.', mats: { '심연의 왕관 조각': 1, '그림자 뿌리': 3, '정원사의 가위': 1, '심연의 씨앗': 2 } },
+  { id: 'e_h1', name: '청동 문고리 투구', slot: 'head', grade: 'C', desc: '문고리를 녹여 만든 단단한 투구.', mats: { '청동 문고리': 2, '균열난 기둥 파편': 3, '낡은 천조각': 2 } },
+  { id: 'e_h2', name: '봉인 부적 두건', slot: 'head', grade: 'B', desc: '부적 조각을 덧댄 두건. 눈앞이 맑아진다.', mats: { '봉인 부적 조각': 3, '젖은 부적': 3, '새의 깃털': 3, '낡은 천조각': 2 } },
+  { id: 'e_h3', name: '통찰의 안경', slot: 'head', grade: 'A', desc: '사서의 안경에 수정을 끼운 안경.', mats: { '사서의 안경': 1, '수정 파편': 3, '봉인된 책갈피': 2, '금서의 표지': 1 } },
+  { id: 'e_h4', name: '심연의 왕관', slot: 'head', grade: 'S', desc: '깨진 왕관을 다시 이어 붙인 왕관.', mats: { '심연의 왕관 조각': 1, '달빛 가시': 3, '그림자 열매': 3, '심연의 꽃잎': 4 } },
+  { id: 'e_b1', name: '쇠사슬 장화', slot: 'boots', grade: 'C', desc: '쇠사슬을 감은 투박한 장화.', mats: { '녹슨 쇠사슬': 3, '낡은 천조각': 3, '짐승의 뼈': 2 } },
+  { id: 'e_b2', name: '월식의 깃털 신발', slot: 'boots', grade: 'B', desc: '검은 깃털이 달린 가벼운 신발.', mats: { '월식의 깃털': 3, '새의 깃털': 4, '굳은 월광': 2, '낡은 천조각': 2 } },
+  { id: 'e_b3', name: '그림자 뿌리 각반', slot: 'boots', grade: 'A', desc: '발이 그림자처럼 소리 없이 움직인다.', mats: { '그림자 뿌리': 3, '검은 이슬': 3, '정원사의 가위': 1, '시든 덩굴': 3 } },
+  { id: 'e_b4', name: '월광의 장화', slot: 'boots', grade: 'S', desc: '굳은 월광으로 빚은 하늘을 걷는 장화.', mats: { '적월의 핵': 1, '굳은 월광': 4, '월식의 깃털': 3, '문지기의 열쇠': 1 } },
+  { id: 'e_x1', name: '붉은 산호 목걸이', slot: 'acc', grade: 'B', desc: '오염을 걸러 주는 붉은 산호 목걸이.', mats: { '붉은 산호': 2, '물귀신의 머리카락': 2, '진주': 1, '조개껍데기': 2 } },
+  { id: 'e_x2', name: '적월의 반지', slot: 'acc', grade: 'S', desc: '붉은 달빛이 오염을 밀어내는 반지.', mats: { '적월의 핵': 1, '붉은 조류의 핵': 1, '핏빛 수정': 2, '붉은 재': 4 } },
+];
 // 조합법: 재료를 모두 모으면 완성 아이템 1개를 만듭니다. (완성 아이템은 '사용'하면 효과가 나타남)
 const RECIPES = [
   { id: 'r_fruit', name: '열매 주스', desc: '새콤한 열매를 짜 병에 담은 주스.', mats: { '야생 열매': 3, '빈 공병': 1 }, stat: 'hp', amt: 10 },
@@ -306,13 +447,19 @@ const RECIPES = [
   { id: 'r_agi', name: '민첩의 영약', desc: '깃털처럼 가벼워지는 영약.', mats: { '새의 깃털': 3, '야생 열매': 2, '맑은 샘물': 1, '빈 공병': 1 }, stat: 'agi', amt: 2 },
   { id: 'r_luck1', name: '행운의 부적', desc: '네잎 클로버를 천에 싸 묶은 부적.', mats: { '네잎 클로버': 1, '새의 깃털': 1, '낡은 천조각': 1, '나뭇가지': 1 }, stat: 'luck', amt: 3 },
   { id: 'r_luck2', name: '진주 목걸이', desc: '진주를 조개껍데기와 엮은 목걸이.', mats: { '진주': 1, '조개껍데기': 2, '낡은 천조각': 1 }, stat: 'luck', amt: 5 },
+  { id: 'r_g1', name: '수문장의 가호', desc: '석재 인장에 깃든 수호의 힘.', mats: { '수문장의 인장': 1, '붉은 석재 조각': 2, '빈 공병': 1 }, stat: 'hp', amt: 80 },
+  { id: 'r_g2', name: '수룡의 영약', desc: '수룡의 비늘을 달인 강한 영약.', mats: { '수룡의 비늘': 1, '붉은 물방울': 2, '빈 공병': 1 }, stat: 'str', amt: 4 },
+  { id: 'r_g3', name: '금서의 지혜', desc: '금서의 한 구절이 행운을 끌어온다.', mats: { '금서의 표지': 1, '잉크 병': 2, '낡은 천조각': 1 }, stat: 'luck', amt: 6 },
+  { id: 'r_g4', name: '심연의 정화약', desc: '심연의 씨앗으로 짙은 오염을 씻어낸다.', mats: { '심연의 씨앗': 1, '심연의 꽃잎': 3, '맑은 샘물': 1, '빈 공병': 1 }, stat: 'taint', amt: -45 },
+  { id: 'r_g5', name: '적월의 비약', desc: '붉은 달의 힘으로 몸이 가벼워진다.', mats: { '적월의 심장 파편': 1, '적월의 눈물': 2, '월광 가루': 2, '빈 공병': 1 }, stat: 'agi', amt: 6 },
+  { id: 'r_g6', name: '월식의 성유', desc: '모든 오염을 가리는 전설의 성유.', mats: { '월식의 조각': 1, '적월의 눈물': 1, '월광 가루': 2, '빈 공병': 1 }, stat: 'taint', amt: -70 },
   { id: 'r_crystal', name: '적월의 결정', desc: '적월석 가루를 굳혀 만든 붉은 결정.', mats: { '적월석 가루': 3, '수정 파편': 2, '철광석 조각': 1, '부싯돌': 1 }, stat: 'str', amt: 5 },
 ];
 const CRAFT_DEFS = {};                       // 이름 -> {desc, stat, amt}  (완성 아이템)
 RECIPES.forEach(r => { CRAFT_DEFS[r.name] = { desc: r.desc, stat: r.stat, amt: r.amt }; });
 
 module.exports = {
-  SV_MARKS, MATERIALS, RECIPES, CRAFT_DEFS,
+  SV_MARKS, MATERIALS, GATE_MATS, GATE_ZONES, EQ_GRADE, EQ_SLOTS, EQUIPS, PACTS, PACT_BACKLASH, PACT_BACKLASH_TAINT, RUMOR_NEED, RUMOR_OPEN_MS, RUMOR_GAP_MS, RUMOR_MAX_OPEN, RUMOR_TPL, RUMOR_REWARD, RECIPES, CRAFT_DEFS,
   STAT_MAX, FAME_MAX, rnd, chance01, SPAWN_COUNTRIES, SPAWN_REGIONS, REGIONS, REGION_BY_ID, COUNTRIES, COUNTRY_BY_ID, countryOf, placeName, placeLong, MON, TIERS, ACTIVE_MS, ACTIVE_MS_F, ACTIVE_MS_S, activeMsOf, FAME_PER_LV, FAME_PER_RANK, KILL_EXP, KILL_GOLD, KILL_TAINT, rollTaint, garble, RANK_IDX, ACH_KINDS, ACH_COMPOUND, ACH_NUM, ACH_SEED, ACH_SEED2, PROMO, ACH_PIN_MAX, rollGold, HUNT_DIFF,
   RAID_NEED, RAID_ATTEMPTS, S_MAX, S_WINDOW_MS, S_WAIT_MS, powNeed, cdOf, huntChance,
   rollRank, rollStats, PROB_CAP, STR_WIN, guardChance, freeChance, HP_START, HP_MIN, HP_DYING_MS, HP_REVIVE, hpLoss, makeCode, addExp, MIN, HOUR,
