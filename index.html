@@ -3655,7 +3655,7 @@ function loadQuests(){
 
 
 /* ───── 큰 팝업으로 여는 앱 (상점·의뢰·괴담·그림자 거래소) ───── */
-var BIG={shop:1,qst:1,rum:1,exc:1},bigOpen=false;
+var BIG={shop:1,qst:1,rum:1,exc:1,eqp:1},bigOpen=false;
 function openBig(id){
   if(bigOpen)return;
   var home=$("phscr"),body=$("bigbody");if(!home||!body)return;
@@ -3774,7 +3774,7 @@ function loadPact(){
     if(r.error||!r.pacts){appFail(scr,loadPact);return}
     var old=scr.querySelector(".app-empty,.app-list,.app-note");while(old){old.remove();old=scr.querySelector(".app-empty,.app-list,.app-note")}
     var nt=document.createElement("p");nt.className="app-note";var hh=Math.floor(r.resetIn/3600000),mm=Math.floor(r.resetIn%3600000/60000);
-    nt.textContent="오염 거래 · 오염도를 대가로 보상을 받습니다. 계약마다 하루 한 번(새 계약까지 "+hh+"시간 "+mm+"분). 서명할 때마다 "+Math.round(r.backlash*100)+"% 확률로 '계약의 반동'이 일어나 오염도가 "+r.backlashTaint+"% 더 오릅니다. 오염도가 100%가 되면 몬스터가 됩니다. 현재 오염도 "+r.taint+"%";
+    var left=r.pacts.filter(function(p){return !p.done}).length;nt.textContent="오늘 계약 가능 횟수 "+left+" / "+r.pacts.length;
     scr.appendChild(nt);
     var ul=document.createElement("ul");ul.className="app-list";
     r.pacts.forEach(function(p){
