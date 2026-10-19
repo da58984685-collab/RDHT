@@ -636,7 +636,7 @@ async function buildState(u, now) {
     unreadMsgs: um.c,
     board: (await db.get('SELECT COALESCE(MAX(id), 0) AS m FROM board_posts')).m,
     friendReqs: frq.c,
-    questReady: Number(qRdy.c), rumorNew: Number(rumNew.c), rescueReq: Number(resq.c), rescued: rescued.map(x => ({ hn: x.hn, at: x.at })),
+    questReady: Number(qRdy.c), rumorNew: Number(rumNew.c), battle: await (async () => { const bb = await battleLive(u.id, now); return bb ? btView(bb) : null; })(), rescueReq: Number(resq.c), rescued: rescued.map(x => ({ hn: x.hn, at: x.at })),
     sWin: swin.map(x => ({ id: x.id, mon: x.name, part: !!x.part, exp: x.exp || 0, gold: x.gold || 0, taint: x.taint || 0, minAt: Number(x.min_at) || 0 })),
     sAuto, sHoldMs: SWIN_HOLD_MS,
     rec: await getRec(),
@@ -1776,20 +1776,37 @@ route('POST', '/api/hunt', async (req, res, ctx) => {
 
   const cd = cm ? null : await db.get('SELECT until FROM fail_cd WHERE user_id = ? AND monster_id = ?', [cur.id, m.id]);
   if (cd && cd.until > now) return fail(res, 429, 'cooldown', { until: cd.until });
-  if (cm || G.chance01() < G.huntChance(m.rank, cur.lv, 0, myStats.str)) {   // 오염 몬스터는 무조건 성공
-    const k = await db.run('INSERT OR IGNORE INTO kills (user_id, monster_id, at) VALUES (?, ?, ?)', [cur.id, m.id, now]);
-    if (k.changes !== 1) return fail(res, 409, 'already_done');
-    const gain = G.KILL_EXP[m.rank];
-    const r = await grantExp(cur.id, gain);
-    const gold = G.rollGold(m.rank); await grantGold(cur.id, gold);
-    const taint = eqTaint(G.rollTaint(m.rank), eb), taintNow = await grantTaint(cur.id, taint);
-    await equipWear(cur.id);
-    await logHunt(cur.id, m, 'success', gain, now);
-    await logAcquire(cur.id, 'exp', '경험치', gain, m.name + ' 토벌', now);
-    await logAcquire(cur.id, 'gold', '골드', gold, m.name + ' 토벌', now);
-    await questProg(cur, 'kill', 1, QRANKS.indexOf(m.rank));
-    return send(res, 200, { result: 'success', gain, gold, taint, taintNow, levelUp: r.up, lv: r.lv, exp: r.exp });
+  // 내 등급과 같거나 높은 몬스터는 턴제 전투로 진행합니다 (오염 몬스터는 예전처럼 바로 처치)
+  if (!cm && G.isTurnBased(m.rank, cur.rank)) {
+    const bv = await battleStart(cur, m, myStats, now);
+    if (bv.error) return fail(res, 409, bv.error, { battle: bv.view });
+    return send(res, 200, { result: 'battle', battle: bv.view });
   }
+  if (cm || G.chance01() < G.huntChance(m.rank, cur.lv, 0, myStats.str)) {   // 오염 몬스터는 무조건 성공
+    const w = await huntWin(cur, m, eb, now);
+    if (w.err) return fail(res, 409, w.err);
+    return send(res, 200, w.payload);
+  }
+  return send(res, 200, await huntLose(cur, m, myStats, eb, now));
+});
+
+// 토벌 성공 처리 (바로 토벌과 턴제 전투 승리가 같은 보상을 씁니다)
+async function huntWin(cur, m, eb, now) {
+  const k = await db.run('INSERT OR IGNORE INTO kills (user_id, monster_id, at) VALUES (?, ?, ?)', [cur.id, m.id, now]);
+  if (k.changes !== 1) return { err: 'already_done' };
+  const gain = G.KILL_EXP[m.rank];
+  const r = await grantExp(cur.id, gain);
+  const gold = G.rollGold(m.rank); await grantGold(cur.id, gold);
+  const taint = eqTaint(G.rollTaint(m.rank), eb), taintNow = await grantTaint(cur.id, taint);
+  await equipWear(cur.id);
+  await logHunt(cur.id, m, 'success', gain, now);
+  await logAcquire(cur.id, 'exp', '경험치', gain, m.name + ' 토벌', now);
+  await logAcquire(cur.id, 'gold', '골드', gold, m.name + ' 토벌', now);
+  await questProg(cur, 'kill', 1, QRANKS.indexOf(m.rank));
+  return { payload: { result: 'success', gain, gold, taint, taintNow, levelUp: r.up, lv: r.lv, exp: r.exp } };
+}
+// 토벌 실패 처리
+async function huntLose(cur, m, myStats, eb, now) {
   await equipWear(cur.id);
   await logHunt(cur.id, m, 'fail', 0, now);
   // 행운: 실패해도 시간 제한 없이 바로 재토벌할 수 있습니다 (1회). 재토벌에서 또 실패하면 보통의 대기 시간이 적용됩니다.
@@ -1799,7 +1816,114 @@ route('POST', '/api/hunt', async (req, res, ctx) => {
   await db.run(`INSERT INTO fail_cd (user_id, monster_id, until, free) VALUES (?, ?, ?, ?)
                 ON CONFLICT(user_id, monster_id) DO UPDATE SET until = excluded.until, free = excluded.free`, [cur.id, m.id, until, free ? 1 : 0]);
   const hp = await applyHpLoss(cur.id, m.rank, now, eb);
-  send(res, 200, { result: 'fail', until, free, hpLoss: hp.loss, prevented: hp.prevented, hpNow: hp.hp, dying: hp.dying, dyingUntil: hp.dying ? hp.until : 0 });
+  return { result: 'fail', until, free, hpLoss: hp.loss, prevented: hp.prevented, hpNow: hp.hp, dying: hp.dying, dyingUntil: hp.dying ? hp.until : 0 };
+}
+
+// ═════════════ 턴제 전투 ═════════════
+const btView = (b, extra) => Object.assign({
+  mon: b.mname, rank: b.mrank, mhp: b.mhp, mmax: b.mmax, php: b.php, pmax: b.pmax, round: b.round, intent: b.intent,
+  heavyCd: b.cd_heavy, guarded: !!b.buff, log: (() => { try { return JSON.parse(b.log); } catch (_) { return []; } })(), id: b.monster_id,
+}, extra || {});
+async function battleLive(uid, now) {
+  const b = await db.get('SELECT * FROM battles WHERE user_id = ?', [uid]);
+  if (!b) return null;
+  const m = await db.get('SELECT id, spawned_at, rank, corrupt_of FROM monsters WHERE id = ?', [b.monster_id]);
+  if (now - b.upd > G.BT.idleMs || !m || now - m.spawned_at >= G.activeMsOf(m.rank)) {        // 오래 방치했거나 몬스터가 사라짐: 불이익 없이 취소
+    await db.run('DELETE FROM battles WHERE user_id = ? AND ver = ?', [uid, b.ver]);
+    return null;
+  }
+  return b;
+}
+async function battleStart(cur, m, myStats, now) {
+  const have = await battleLive(cur.id, now);
+  if (have) return have.monster_id === m.id ? { view: btView(have) } : { error: 'in_battle', view: btView(have) };
+  const mo = G.btMon(m.rank), pl = G.btPlayer(cur.lv, myStats);
+  const log = JSON.stringify([m.name + '이(가) 나타났다! 전투 시작.']);
+  const ins = await db.run('INSERT OR IGNORE INTO battles (user_id, monster_id, mname, mrank, mhp, mmax, php, pmax, round, intent, cd_heavy, buff, log, ver, started, upd) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, 0, 0, ?, 0, ?, ?)',
+    [cur.id, m.id, m.name, m.rank, mo.hp, mo.hp, pl.max, pl.max, 'atk', log, now, now]);
+  const b = await db.get('SELECT * FROM battles WHERE user_id = ?', [cur.id]);
+  if (ins.changes !== 1 && b.monster_id !== m.id) return { error: 'in_battle', view: btView(b) };
+  return { view: btView(b) };
+}
+route('GET', '/api/battle', async (req, res, ctx) => {
+  const b = await battleLive(ctx.user.id, Date.now());
+  send(res, 200, { battle: b ? btView(b) : null });
+});
+route('POST', '/api/battle/act', async (req, res, ctx) => {
+  if (await limited('btl:' + ctx.user.id, 120, 60000)) return fail(res, 429, 'rate_limited');
+  const now = Date.now(), action = String(ctx.body.action || '');
+  if (!['attack', 'heavy', 'guard', 'flee'].includes(action)) return fail(res, 400, 'bad_action');
+  const cur = await userById(ctx.user.id);
+  const b = await battleLive(cur.id, now);
+  if (!b) return fail(res, 404, 'no_battle');
+  if (corruptLock(cur, now)) return fail(res, 409, 'corrupted', { until: cur.corrupt_until });
+  if (action === 'heavy' && b.cd_heavy > 0) return fail(res, 409, 'heavy_cd', { battle: btView(b) });
+  const m = await db.get('SELECT * FROM monsters WHERE id = ?', [b.monster_id]);
+  const eb = await equipBonus(cur.id), myStats = withEq(JSON.parse(cur.stats), eb);
+  const pl = G.btPlayer(cur.lv, myStats), mo = G.btMon(b.mrank), BT = G.BT;
+  const log = [];
+  let mhp = b.mhp, php = b.php, buff = b.buff, cd = Math.max(0, b.cd_heavy - 1), outcome = null;
+  const rr = (lo, hi) => lo + Math.random() * (hi - lo);
+  // 내 행동
+  if (action === 'flee') {
+    if (Math.random() < pl.flee) { outcome = 'fled'; log.push('전투에서 빠져나왔다!'); }
+    else log.push('도망치지 못했다!');
+  } else if (action === 'guard') {
+    buff = 1; log.push('방어 자세를 취했다. (이번 라운드 피해 감소 · 다음 공격 강화)');
+  } else {
+    let hit = true, mul = 1;
+    if (action === 'heavy') { mul = BT.heavy.mul; cd = BT.heavy.cd; hit = Math.random() < BT.heavy.hit; }
+    if (!hit) log.push('강타가 빗나갔다!');
+    else {
+      let dmg = pl.atk * mul * rr(0.85, 1.15);
+      if (buff) { dmg *= 1 + BT.guardBonus; buff = 0; }
+      const crit = Math.random() < pl.crit; if (crit) dmg *= 1.8;
+      dmg = Math.max(1, Math.round(dmg));
+      mhp = Math.max(0, mhp - dmg);
+      log.push((action === 'heavy' ? '강타! ' : '공격! ') + b.mname + '에게 ' + dmg + ' 피해' + (crit ? ' (치명타!)' : '') + '.');
+    }
+  }
+  const guarding = action === 'guard';
+  if (action !== 'guard' && action !== 'flee') { /* buff는 위에서 소모 */ }
+  if (!outcome && mhp <= 0) outcome = 'win';
+  // 몬스터 행동
+  if (!outcome) {
+    const heavy = b.intent === 'heavy';
+    if (Math.random() < pl.dodge) log.push(b.mname + '의 ' + (heavy ? '강공' : '공격') + '을 피했다!');
+    else {
+      let dmg = mo.atk * (heavy ? BT.mHeavy : 1) * rr(0.85, 1.15);
+      if (b.round > 20) dmg *= 1 + (b.round - 20) * 0.1;        // 오래 끌면 몬스터가 광폭해짐
+      if (guarding) dmg *= BT.guardTaken;
+      dmg = Math.max(1, Math.round(dmg));
+      php = Math.max(0, php - dmg);
+      log.push(b.mname + '의 ' + (heavy ? '강공!' : '공격!') + ' ' + dmg + ' 피해를 입었다' + (guarding ? ' (방어로 감소)' : '') + '.');
+    }
+    if (php <= 0) outcome = 'lose';
+    else if (b.round >= BT.maxRound) { outcome = 'lose'; log.push('전투가 너무 길어져 쓰러졌다…'); }
+  }
+  const round = b.round + 1;
+  const intent = round >= 2 && Math.random() < BT.mHeavyChance ? 'heavy' : 'atk';
+  const prevLog = (() => { try { return JSON.parse(b.log); } catch (_) { return []; } })();
+  const nlog = prevLog.concat(['— ' + b.round + '라운드 —'], log).slice(-40);
+  if (!outcome) {
+    const w = await db.run('UPDATE battles SET mhp = ?, php = ?, round = ?, intent = ?, cd_heavy = ?, buff = ?, log = ?, ver = ver + 1, upd = ? WHERE user_id = ? AND ver = ?',
+      [mhp, php, round, intent, cd, buff, JSON.stringify(nlog), now, cur.id, b.ver]);
+    if (w.changes !== 1) return fail(res, 409, 'busy');
+    const nb = await db.get('SELECT * FROM battles WHERE user_id = ?', [cur.id]);
+    return send(res, 200, { done: false, battle: btView(nb, { last: log }) });
+  }
+  // 전투 종료: 먼저 전투 기록을 지워 한 번만 정산합니다
+  const del = await db.run('DELETE FROM battles WHERE user_id = ? AND ver = ?', [cur.id, b.ver]);
+  if (del.changes !== 1) return fail(res, 409, 'busy');
+  const finalView = btView(Object.assign({}, b, { mhp, php, round: b.round, intent: b.intent, log: JSON.stringify(nlog), cd_heavy: cd, buff }), { last: log });
+  if (outcome === 'fled') return send(res, 200, { done: true, outcome, battle: finalView, result: null });
+  if (!m) return send(res, 200, { done: true, outcome: 'fled', battle: finalView, result: null });
+  if (outcome === 'win') {
+    const w = await huntWin(cur, m, eb, now);
+    if (w.err) return send(res, 200, { done: true, outcome: 'fled', battle: finalView, result: null, error: w.err });
+    return send(res, 200, { done: true, outcome, battle: finalView, result: w.payload });
+  }
+  return send(res, 200, { done: true, outcome, battle: finalView, result: await huntLose(cur, m, myStats, eb, now) });
 });
 
 route('POST', '/api/results/ack', async (req, res, ctx) => {
@@ -2782,6 +2906,7 @@ route('POST', '/api/admin/player/delete', async (req, res, ctx) => {
     ['DELETE FROM survey_marks WHERE user_id = ?', [id]],
     ['DELETE FROM s_min WHERE user_id = ?', [id]],
     ['DELETE FROM pact_log WHERE user_id = ?', [id]],
+    ['DELETE FROM battles WHERE user_id = ?', [id]],
     ['DELETE FROM exchange WHERE seller_id = ?', [id]],
     ['DELETE FROM equip_inv WHERE user_id = ?', [id]],
     ['DELETE FROM rumor_votes WHERE user_id = ?', [id]],
