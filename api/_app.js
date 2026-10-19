@@ -82,7 +82,7 @@ async function limited(key, max, windowMs) {
 // S급이 나올 나라 고르기: 지금 S급이 출몰 중인 나라는 피해서(모두 차 있으면 전체에서) 무작위로 고릅니다.
 // → 같은 나라에만 몰려서 나오는 일이 없도록 합니다.
 async function liveSCountries(now) {
-  const rows = await db.all(`SELECT region FROM monsters WHERE rank = 'S' AND owner_id IS NULL AND corrupt_of IS NULL AND spawned_at > ?
+  const rows = await db.all(`SELECT region FROM monsters WHERE rank = 'SS' AND owner_id IS NULL AND corrupt_of IS NULL AND spawned_at > ?
     AND id NOT IN (SELECT monster_id FROM s_close)`, [now - G.ACTIVE_MS_S]);
   return new Set(rows.map(r => r.region));
 }
@@ -250,7 +250,7 @@ async function hpForAttempts(ids, now) {
     if (!a) continue;
     const claim = await db.run('UPDATE s_attempts SET hp_done = 1 WHERE id = ? AND hp_done = 0', [id]);
     if (claim.changes !== 1) continue;
-    const r = await applyHpLoss(a.user_id, 'S', now);
+    const r = await applyHpLoss(a.user_id, 'SS', now);
     await db.run('UPDATE s_attempts SET hp_loss = ? WHERE id = ?', [r.prevented ? -1 : r.loss, id]);
   }
 }
@@ -264,8 +264,8 @@ async function declareSuccess(m, how) {
   const users = await db.all('SELECT DISTINCT user_id FROM s_attempts WHERE monster_id = ? AND resolved IN (0, 2)', [m.id]);
   const list = [];
   for (const x of users) {
-    const exp = G.KILL_EXP.S;
-    list.push(['INSERT OR IGNORE INTO s_rewards (user_id, monster_id, exp, gold, taint) VALUES (?, ?, ?, ?, ?)', [x.user_id, m.id, exp, G.rollGold('S'), G.rollTaint('S')]]);
+    const exp = G.KILL_EXP.SS;
+    list.push(['INSERT OR IGNORE INTO s_rewards (user_id, monster_id, exp, gold, taint) VALUES (?, ?, ?, ?, ?)', [x.user_id, m.id, exp, G.rollGold('SS'), G.rollTaint('SS')]]);
     list.push(['INSERT OR IGNORE INTO kills (user_id, monster_id, at) VALUES (?, ?, ?)', [x.user_id, m.id, now]]);
     list.push(["UPDATE hunt_log SET result = 'success', exp_gain = ? WHERE user_id = ? AND monster_id = ? AND result = 'pending'", [exp, x.user_id, m.id]]);
   }
@@ -344,12 +344,12 @@ async function purgeMonsters(force) {
   lastPurge = now;
   // 사라지는 S급(도주)은 관리자 통계를 위해 기록을 남깁니다
   await db.run(`INSERT OR IGNORE INTO s_log (monster_id, name, region, spawned_at, status, ended_at)
-    SELECT id, name, region, spawned_at, 'fled', ? FROM monsters WHERE rank = 'S' AND corrupt_of IS NULL AND spawned_at < ?
+    SELECT id, name, region, spawned_at, 'fled', ? FROM monsters WHERE rank = 'SS' AND corrupt_of IS NULL AND spawned_at < ?
     AND NOT EXISTS (SELECT 1 FROM kills k WHERE k.monster_id = monsters.id)
     AND NOT EXISTS (SELECT 1 FROM s_close c WHERE c.monster_id = monsters.id AND c.ok = 1)
     AND NOT EXISTS (SELECT 1 FROM s_attempts a WHERE a.monster_id = monsters.id AND (a.resolved != 1 OR a.notified = 0))`,
     [now, now - G.ACTIVE_MS_S]);
-  await db.run(`DELETE FROM monsters WHERE corrupt_of IS NULL AND ((rank = 'S' AND spawned_at < ?) OR (rank != 'S' AND spawned_at < ?) OR (rank = 'F' AND spawned_at < ?))
+  await db.run(`DELETE FROM monsters WHERE corrupt_of IS NULL AND ((rank = 'SS' AND spawned_at < ?) OR (rank != 'SS' AND spawned_at < ?) OR (rank = 'F' AND spawned_at < ?))
     AND NOT EXISTS (SELECT 1 FROM kills k WHERE k.monster_id = monsters.id)
     AND NOT EXISTS (SELECT 1 FROM s_close c WHERE c.monster_id = monsters.id AND c.ok = 1)
     AND NOT EXISTS (SELECT 1 FROM s_attempts a WHERE a.monster_id = monsters.id AND (a.resolved != 1 OR a.notified = 0))`,
@@ -362,8 +362,8 @@ async function purgeMonsters(force) {
 const BOARD_GAP = 5 * G.MIN;
 async function boardCtx(now) {
   const mons = {}, regions = G.SPAWN_REGIONS.map(r => G.placeLong(r.id));
-  ['F', 'E', 'D', 'C', 'B', 'A'].forEach(k => { mons[k] = G.MON[k]; });
-  const sOn = (await db.all(`SELECT name, region FROM monsters WHERE rank = 'S' AND owner_id IS NULL AND corrupt_of IS NULL AND spawned_at > ?
+  ['F', 'E', 'D', 'C', 'B', 'A', 'S'].forEach(k => { mons[k] = G.MON[k]; });
+  const sOn = (await db.all(`SELECT name, region FROM monsters WHERE rank = 'SS' AND owner_id IS NULL AND corrupt_of IS NULL AND spawned_at > ?
       AND id NOT IN (SELECT monster_id FROM s_close)`, [now - G.ACTIVE_MS_S])).map(m => ({ name: m.name, place: G.placeName(m.region) }));
   const sKill = (await db.all(`SELECT m.name, m.region FROM s_close c JOIN monsters m ON m.id = c.monster_id WHERE c.ok = 1 AND c.at > ? LIMIT 10`, [now - 3 * G.HOUR]))
     .map(m => ({ name: m.name, place: G.placeName(m.region) }));
@@ -447,7 +447,7 @@ async function achStats(u, defs) {
     db.get("SELECT COUNT(*) AS c FROM hunt_log WHERE user_id = ? AND result = 'success'", [u.id]),
     db.all("SELECT DISTINCT rank FROM hunt_log WHERE user_id = ? AND result = 'success'", [u.id]),
     db.get('SELECT COUNT(*) AS c FROM s_attempts WHERE user_id = ?', [u.id]),
-    db.get("SELECT COUNT(*) AS c FROM hunt_log WHERE user_id = ? AND result = 'success' AND rank = 'S'", [u.id])]);
+    db.get("SELECT COUNT(*) AS c FROM hunt_log WHERE user_id = ? AND result = 'success' AND rank = 'SS'", [u.id])]);
   const s = { kills: k.c, maxRank: rs.reduce((m, r) => Math.max(m, G.RANK_IDX[r.rank] == null ? -1 : G.RANK_IDX[r.rank]), -1), sTry: st.c, sWin: sw.c, lv: u.lv,
     visitBy: {}, visits: 0, countries: 0, collected: {}, slain: {}, surveys: 0, crafts: 0, fails: 0, friends: 0, gifts: 0, gold: Number(u.gold) || 0,
     rankIdx: G.RANK_IDX[u.rank] == null ? -1 : G.RANK_IDX[u.rank], stats: {} };
@@ -569,9 +569,9 @@ async function buildState(u, now) {
   if (!Number(u.ach_seen)) { await db.run('UPDATE users SET ach_seen = ? WHERE id = ? AND ach_seen = 0', [now, u.id]); u.ach_seen = now; }
   const achNew = (await db.get('SELECT COUNT(*) AS c FROM ach_earned WHERE user_id = ? AND at > ?', [u.id, Number(u.ach_seen)])).c;
   // 보이는 몬스터: 서버 공통 S급 + 내 몬스터(F~A). 예전 공통 F~A 몬스터는 보이지 않습니다.
-  const vis = "((owner_id IS NULL AND (rank = 'S' OR corrupt_of IS NOT NULL OR rumor_id IS NOT NULL)) OR owner_id = ?)";
+  const vis = "((owner_id IS NULL AND (rank = 'SS' OR corrupt_of IS NOT NULL OR rumor_id IS NOT NULL)) OR owner_id = ?)";
   const mons = await db.all(`SELECT * FROM monsters
-    WHERE ${vis} AND (spawned_at > ? OR (rank = 'S' AND spawned_at > ?) OR (corrupt_of IS NOT NULL AND spawned_at > ?) OR id IN (SELECT id FROM monsters WHERE ${vis} ORDER BY id DESC LIMIT 6))
+    WHERE ${vis} AND (spawned_at > ? OR (rank = 'SS' AND spawned_at > ?) OR (corrupt_of IS NOT NULL AND spawned_at > ?) OR id IN (SELECT id FROM monsters WHERE ${vis} ORDER BY id DESC LIMIT 6))
       AND id NOT IN (SELECT monster_id FROM s_close WHERE ok = 0)
       AND NOT (rank = 'F' AND corrupt_of IS NULL AND spawned_at < ${now - G.ACTIVE_MS_F} AND id NOT IN (SELECT monster_id FROM kills WHERE user_id = ?))
       AND (corrupt_of IS NULL OR corrupt_of <> ?)
@@ -581,7 +581,7 @@ async function buildState(u, now) {
     db.all('SELECT monster_id FROM kills WHERE user_id = ? AND monster_id >= ?', [u.id, minId]),
     db.all('SELECT monster_id, until FROM fail_cd WHERE user_id = ? AND until > ?', [u.id, now]),
     db.all(`SELECT monster_id, COUNT(DISTINCT user_id) AS c FROM s_attempts
-            WHERE monster_id IN (SELECT id FROM monsters WHERE rank = 'S' AND corrupt_of IS NULL AND id >= ?) GROUP BY monster_id`, [minId]),
+            WHERE monster_id IN (SELECT id FROM monsters WHERE rank = 'SS' AND corrupt_of IS NULL AND id >= ?) GROUP BY monster_id`, [minId]),
     sInfo(u.id, now),
     db.all(`SELECT a.id, a.resolve_at, m.name FROM s_attempts a JOIN monsters m ON m.id = a.monster_id
             WHERE a.user_id = ? AND a.resolved = 0 ORDER BY a.resolve_at`, [u.id]),
@@ -624,7 +624,7 @@ async function buildState(u, now) {
     monsters: mons.map(m => ({
       id: m.id, region: m.region, rname: G.placeName(m.region), mon: m.rumor_id ? '[괴담] ' + m.name : m.name, r: m.rank, ts: m.spawned_at,
       done: killed.has(m.id), cd: cdm.get(m.id) || 0,
-      parts: m.rank === 'S' && m.corrupt_of == null ? (pm.get(m.id) || 0) : undefined,
+      parts: m.rank === 'SS' && m.corrupt_of == null ? (pm.get(m.id) || 0) : undefined,
       c: m.corrupt_of != null ? 1 : undefined,
     })),
     s: Object.assign(si, { need: G.RAID_NEED, needTries: G.RAID_ATTEMPTS, max: G.S_MAX }),
@@ -1408,6 +1408,7 @@ route('POST', '/api/friends/rescue', async (req, res, ctx) => {
 // 오염도가 100이 되면 폭주하며 모은 것을 전부 잃습니다.
 // ═════════════ 장비 ═════════════
 const EQ_BY_ID = new Map(G.EQUIPS.map(e => [e.id, e]));
+const EQ_BY_NAME = new Map(G.EQUIPS.map(e => [e.name, e]));
 const eqBonusOf = e => { const sl = G.EQ_SLOTS[e.slot], gi = 'CBAS'.indexOf(e.grade); return { stat: sl.stat, val: sl.v[gi] }; };
 async function equipBonus(uid) {
   const b = { str: 0, agi: 0, luck: 0, hpGuard: 0, taintRes: 0 };
@@ -1709,7 +1710,7 @@ route('GET', '/api/world/stats', async (req, res) => {
   const rows = await db.all('SELECT region, COUNT(*) AS c FROM users GROUP BY region');
   const hunters = {};
   rows.forEach(r => { const k = G.countryOf(r.region); hunters[k] = (hunters[k] || 0) + r.c; });
-  const ss = await db.all(`SELECT id, name, region, spawned_at FROM monsters m WHERE rank = 'S' AND owner_id IS NULL AND corrupt_of IS NULL AND spawned_at > ?
+  const ss = await db.all(`SELECT id, name, region, spawned_at FROM monsters m WHERE rank = 'SS' AND owner_id IS NULL AND corrupt_of IS NULL AND spawned_at > ?
     AND id NOT IN (SELECT monster_id FROM s_close)`, [now - G.ACTIVE_MS_S]);
   send(res, 200, { hunters, s: ss.map(m => ({ id: m.id, name: m.name, country: m.region, left: m.spawned_at + G.ACTIVE_MS_S - now })) });
 });
@@ -1737,14 +1738,14 @@ route('POST', '/api/hunt', async (req, res, ctx) => {
   if (cur.block_flags & 1) return fail(res, 403, 'blocked', { what: 'hunt' });      // 운영자가 토벌을 막아 둠
   const m = await db.get('SELECT * FROM monsters WHERE id = ?', [Number(ctx.body.id)]);
   if (!m) return fail(res, 410, 'expired');
-  if ((m.owner_id != null && m.owner_id !== cur.id) || (m.owner_id == null && m.rank !== 'S' && m.corrupt_of == null && m.rumor_id == null)) return fail(res, 404, 'no_monster');
+  if ((m.owner_id != null && m.owner_id !== cur.id) || (m.owner_id == null && m.rank !== 'SS' && m.corrupt_of == null && m.rumor_id == null)) return fail(res, 404, 'no_monster');
   const cm = m.corrupt_of != null;
   if (corruptLock(cur, now)) return fail(res, 409, 'corrupted', { until: cur.corrupt_until });   // 오염도 100: 1시간 활동 불가
   if ((Number(JSON.parse(cur.stats).taint) || 0) >= 100) return fail(res, 409, 'tainted');          // 오염도를 줄여야 토벌 가능
   if (await db.get('SELECT 1 AS x FROM kills WHERE user_id = ? AND monster_id = ?', [cur.id, m.id])) return fail(res, 409, 'already_done');
   if (now - m.spawned_at >= (cm ? CORRUPT_MON_MS : G.activeMsOf(m.rank))) return fail(res, 410, 'expired');
   // S급은 나라 단위, 나머지는 세부 지역 단위로 같은 곳에 있어야 합니다.
-  const here = m.rank === 'S' && !cm ? G.countryOf(cur.region) : cur.region;
+  const here = m.rank === 'SS' && !cm ? G.countryOf(cur.region) : cur.region;
   if (here !== m.region) return fail(res, 409, 'wrong_region', { region: m.region, rname: G.placeName(m.region) });
 
   await settleDying(cur.id, now);
@@ -1754,7 +1755,7 @@ route('POST', '/api/hunt', async (req, res, ctx) => {
   const myStats = withEq(JSON.parse(me.stats), eb);
   if (cm && m.corrupt_of === cur.id) return fail(res, 404, 'no_monster');
 
-  if (m.rank === 'S' && !cm) {
+  if (m.rank === 'SS' && !cm) {
     if (await db.get('SELECT 1 AS x FROM s_close WHERE monster_id = ?', [m.id])) return fail(res, 409, 'already_done');
     // 도전권 1장 사용: 1시간 창이 끝났으면 새로 시작, 아니면 3회까지만 (한 문장으로 처리해 동시 요청에도 안전)
     const W = G.S_WINDOW_MS;
@@ -1802,7 +1803,7 @@ async function huntWin(cur, m, eb, now) {
   await logHunt(cur.id, m, 'success', gain, now);
   await logAcquire(cur.id, 'exp', '경험치', gain, m.name + ' 토벌', now);
   await logAcquire(cur.id, 'gold', '골드', gold, m.name + ' 토벌', now);
-  await questProg(cur, 'kill', 1, QRANKS.indexOf(m.rank));
+  await questProg(cur, 'kill', 1, G.RANK_IDX[m.rank]);
   return { payload: { result: 'success', gain, gold, taint, taintNow, levelUp: r.up, lv: r.lv, exp: r.exp } };
 }
 // 토벌 실패 처리
@@ -2079,9 +2080,19 @@ route('POST', '/api/notices/claim', async (req, res, ctx) => {
   if (!n.item) return fail(res, 400, 'no_item');
   if (!(ctx.user.created_at < n.created_at)) return fail(res, 403, 'not_eligible');
   const now = Date.now();
+  const eq = EQ_BY_NAME.get(n.item);       // 첨부 아이템이 장비이면 장비 보관함으로 지급 (장비는 개당 내구도를 가짐)
+  if (eq) {
+    const own = await db.get('SELECT COUNT(*) AS c FROM equip_inv WHERE user_id = ?', [ctx.user.id]);
+    if (Number(own.c) + n.qty > EQ_MAX_OWN) return fail(res, 409, 'full', { max: EQ_MAX_OWN });
+  }
   const c = await db.run('INSERT OR IGNORE INTO notice_claims (user_id, notice_id, at) VALUES (?, ?, ?)', [ctx.user.id, n.id, now]);
   if (c.changes !== 1) return fail(res, 409, 'claimed');
   try {
+    if (eq) {
+      for (let i = 0; i < n.qty; i++) await db.run('INSERT INTO equip_inv (user_id, key, dur, equipped, at) VALUES (?, ?, ?, 0, ?)', [ctx.user.id, eq.id, G.EQ_GRADE[eq.grade].dur, now]);
+      await logAcquire(ctx.user.id, 'item', eq.name + ' (' + eq.grade + '급 장비)', n.qty, '시스템 알림', now);
+      return send(res, 200, { ok: true, item: n.item, qty: n.qty });
+    }
     await db.run('INSERT INTO inventory (user_id, item, qty) VALUES (?, ?, ?) ON CONFLICT(user_id, item) DO UPDATE SET qty = MIN(9999, qty + excluded.qty)', [ctx.user.id, n.item, n.qty]);
   } catch (e) {
     await db.run('DELETE FROM notice_claims WHERE user_id = ? AND notice_id = ?', [ctx.user.id, n.id]);
@@ -2125,7 +2136,7 @@ route('POST', '/api/admin/notice', async (req, res, ctx) => {
   if (!text || cp(text) > 300 || cp(title) > 40) return fail(res, 400, 'bad_text');      // 본문 최대 300자, 제목 최대 40자
   const item = String(ctx.body.item == null ? '' : ctx.body.item).trim();
   const qty = item ? Number(ctx.body.qty) : 0;
-  if (item && (cp(item) > 30 || !Number.isInteger(qty) || qty < 1 || qty > 9999)) return fail(res, 400, 'bad_item');
+  if (item && (cp(item) > 30 || !Number.isInteger(qty) || qty < 1 || qty > (EQ_BY_NAME.has(item) ? EQ_MAX_OWN : 9999))) return fail(res, 400, 'bad_item');
   const r = await db.run('INSERT INTO notices (title, text, item, qty, created_at) VALUES (?, ?, ?, ?, ?)', [title, text, item, qty, Date.now()]);
   send(res, 201, { id: r.lastId });
 }, { auth: false });
@@ -2466,7 +2477,7 @@ async function promoInfo(u) {
       conds.push({ t: k.min + '급 이상 몬스터 ' + k.n + '마리 처치', have: Math.min(h, k.n), need: k.n, ok: h >= k.n });
     }
   }
-  if (rule.sTry) { const h = Number((await db.get('SELECT COUNT(*) AS c FROM s_attempts WHERE user_id = ?', [u.id])).c) || 0; conds.push({ t: 'S급 몬스터 토벌 도전 ' + rule.sTry + '회', have: Math.min(h, rule.sTry), need: rule.sTry, ok: h >= rule.sTry }); }
+  if (rule.sTry) { const h = Number((await db.get('SELECT COUNT(*) AS c FROM s_attempts WHERE user_id = ?', [u.id])).c) || 0; conds.push({ t: 'SS급 몬스터 토벌 도전 ' + rule.sTry + '회', have: Math.min(h, rule.sTry), need: rule.sTry, ok: h >= rule.sTry }); }
   if (rule.taintMax != null) {
     let tn = 0; try { tn = Number(JSON.parse(u.stats).taint) || 0; } catch (_) {}
     conds.push({ t: '오염도 ' + rule.taintMax + '% 이하 (정화의 물약 등으로 낮추기)', have: Math.round(tn * 10) / 10, need: rule.taintMax, ok: tn <= rule.taintMax, atMost: true });
@@ -2537,7 +2548,8 @@ route('POST', '/api/inventory/use', async (req, res, ctx) => {
 
 route('GET', '/api/admin/shop', async (req, res) => {
   const items = await db.all('SELECT id, name, descr, price, eff_stat, eff_amt FROM shop_items ORDER BY id');
-  send(res, 200, { items: items.map(i => ({ id: i.id, name: i.name, desc: i.descr, price: i.price, stat: i.eff_stat, amt: i.eff_amt })) });
+  send(res, 200, { items: items.map(i => ({ id: i.id, name: i.name, desc: i.descr, price: i.price, stat: i.eff_stat, amt: i.eff_amt })),
+    equips: G.EQUIPS.map(e => ({ name: e.name, grade: e.grade, slot: e.slot })) });
 }, { auth: false, admin: true });
 
 route('POST', '/api/admin/shop/save', async (req, res, ctx) => {
@@ -2574,7 +2586,7 @@ const inList = ids => ids.map(() => '?').join(',');
 route('GET', '/api/admin/s', async (req, res) => {
   await purgeMonsters(true);
   const now = Date.now();
-  const live = await db.all("SELECT id, name, region, spawned_at FROM monsters WHERE rank = 'S' AND owner_id IS NULL AND corrupt_of IS NULL ORDER BY spawned_at DESC");
+  const live = await db.all("SELECT id, name, region, spawned_at FROM monsters WHERE rank = 'SS' AND owner_id IS NULL AND corrupt_of IS NULL ORDER BY spawned_at DESC");
   const logs = await db.all('SELECT monster_id AS id, name, region, spawned_at, status FROM s_log ORDER BY spawned_at DESC');
   const ids = live.map(m => m.id);
   const kc = new Map(), pc = new Map(), part = new Map(), cl = new Map(), pp = new Map();
@@ -2596,7 +2608,7 @@ route('GET', '/api/admin/s', async (req, res) => {
     (await db.all(`SELECT a.monster_id, u.hunter_name AS hn, a.resolved, a.success FROM s_attempts a JOIN users u ON u.id = a.user_id WHERE a.monster_id IN (${inList(tids)}) ORDER BY a.id`, tids))
       .forEach(r => { if (!part.has(r.monster_id)) part.set(r.monster_id, []); part.get(r.monster_id).push({ hn: r.hn, st: r.resolved === 1 ? (r.success ? 'win' : 'lose') : 'wait' }); });
   }
-  const catalog = G.MON.S.map(name => {
+  const catalog = G.MON.SS.map(name => {
     const rows = recent.filter(r => r.name === name);
     return {
       name,
@@ -2625,14 +2637,14 @@ route('GET', '/api/admin/s', async (req, res) => {
 
 route('POST', '/api/admin/s/spawn', async (req, res, ctx) => {
   const name = String(ctx.body.name || '');
-  if (!G.MON.S.includes(name)) return fail(res, 400, 'bad_name');
+  if (!G.MON.SS.includes(name)) return fail(res, 400, 'bad_name');
   let region = String(ctx.body.region || '');
   if (region && (!G.COUNTRY_BY_ID[region] || G.COUNTRY_BY_ID[region].gate)) return fail(res, 400, 'bad_region');      // S급은 나라 단위로만 출현
   const now = Date.now();
   if (!region) region = pickSCountry(await liveSCountries(now));
-  const live = await db.get("SELECT COUNT(*) AS c FROM monsters WHERE rank = 'S' AND owner_id IS NULL AND corrupt_of IS NULL AND spawned_at > ?", [now - G.ACTIVE_MS_S]);
+  const live = await db.get("SELECT COUNT(*) AS c FROM monsters WHERE rank = 'SS' AND owner_id IS NULL AND corrupt_of IS NULL AND spawned_at > ?", [now - G.ACTIVE_MS_S]);
   if (live.c >= 20) return fail(res, 400, 'too_many');
-  const r = await db.run("INSERT INTO monsters (region, name, rank, spawned_at) VALUES (?, ?, 'S', ?)", [region, name, now]);
+  const r = await db.run("INSERT INTO monsters (region, name, rank, spawned_at) VALUES (?, ?, 'SS', ?)", [region, name, now]);
   send(res, 200, { ok: true, id: r.lastId, region });
 }, { auth: false, admin: true });
 
@@ -2675,7 +2687,7 @@ route('POST', '/api/swin/minimize', async (req, res, ctx) => {
 });
 
 route('POST', '/api/admin/s/decide', async (req, res, ctx) => {
-  const m = await db.get("SELECT * FROM monsters WHERE id = ? AND rank = 'S' AND owner_id IS NULL AND corrupt_of IS NULL", [Number(ctx.body.id) || 0]);
+  const m = await db.get("SELECT * FROM monsters WHERE id = ? AND rank = 'SS' AND owner_id IS NULL AND corrupt_of IS NULL", [Number(ctx.body.id) || 0]);
   if (!m) return fail(res, 404, 'no_monster');
   if (await db.get('SELECT 1 AS x FROM s_close WHERE monster_id = ?', [m.id])) return fail(res, 409, 'already_decided');
   const ok = ctx.body.success === true ? await declareSuccess(m, 'admin') : await declareFail(m, 'admin');
@@ -2686,9 +2698,9 @@ route('POST', '/api/admin/s/decide', async (req, res, ctx) => {
 route('POST', '/api/admin/s/recall', async (req, res, ctx) => {
   const now = Date.now();
   let rows;
-  if (ctx.body.all === true) rows = await db.all("SELECT * FROM monsters WHERE rank = 'S' AND owner_id IS NULL AND corrupt_of IS NULL AND spawned_at > ?", [now - G.ACTIVE_MS_S]);
-  else if (ctx.body.id) rows = await db.all("SELECT * FROM monsters WHERE id = ? AND rank = 'S' AND owner_id IS NULL AND corrupt_of IS NULL", [Number(ctx.body.id) || 0]);
-  else if (ctx.body.name) rows = await db.all("SELECT * FROM monsters WHERE name = ? AND rank = 'S' AND owner_id IS NULL AND corrupt_of IS NULL AND spawned_at > ?", [String(ctx.body.name), now - G.ACTIVE_MS_S]);
+  if (ctx.body.all === true) rows = await db.all("SELECT * FROM monsters WHERE rank = 'SS' AND owner_id IS NULL AND corrupt_of IS NULL AND spawned_at > ?", [now - G.ACTIVE_MS_S]);
+  else if (ctx.body.id) rows = await db.all("SELECT * FROM monsters WHERE id = ? AND rank = 'SS' AND owner_id IS NULL AND corrupt_of IS NULL", [Number(ctx.body.id) || 0]);
+  else if (ctx.body.name) rows = await db.all("SELECT * FROM monsters WHERE name = ? AND rank = 'SS' AND owner_id IS NULL AND corrupt_of IS NULL AND spawned_at > ?", [String(ctx.body.name), now - G.ACTIVE_MS_S]);
   else return fail(res, 400, 'bad_target');
   let recalled = 0, skipped = 0, cancelled = 0;
   for (const m of rows) {
@@ -2862,7 +2874,7 @@ route('POST', '/api/admin/player/hunt/update', async (req, res, ctx) => {
   const rank = ctx.body.rank, result = ctx.body.result, exp = Number(ctx.body.exp);
   if (!Number.isInteger(id)) return fail(res, 400, 'bad_id');
   if (!mon || cp(mon) > 30) return fail(res, 400, 'bad_mon');
-  if (!RANKS.includes(rank)) return fail(res, 400, 'bad_rank');
+  if (!RANKS.concat(['SS']).includes(rank)) return fail(res, 400, 'bad_rank');
   if (!['success', 'fail', 'pending'].includes(result)) return fail(res, 400, 'bad_result');
   if (!Number.isInteger(exp) || exp < 0 || exp > 99999) return fail(res, 400, 'bad_exp');
   const r = await db.run('UPDATE hunt_log SET mon = ?, rank = ?, result = ?, exp_gain = ? WHERE id = ? AND user_id = ?', [mon, rank, result, exp, id, u.id]);
