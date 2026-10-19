@@ -1989,6 +1989,9 @@ function drawRadar(){
 /* ───── 레이더 → 세계 지구본 확장 (Lucian UX/UI #385 · MIT) ─────
    레이더 위에서 휠을 아래로 굴리면 점으로 찍은 지구본으로 확장되고, 위로 굴리면 레이더로 돌아옵니다.
    끌면 돌아가고, 놓으면 관성으로 미끄러지다 제 속도로 돌아옵니다. 나라 점에 올리면 이름과 헌터 수가 뜨고, 누르면 그 나라로 이동합니다. */
+// 적월문 옆에 띄우는 픽셀 느낌표 (조사 '!' 와 같은 그림, 5×11)
+var EXCL_O=[[1,0,3,1],[0,1,1,1],[4,1,1,1],[0,2,1,1],[4,2,1,1],[0,3,1,1],[4,3,1,1],[0,4,1,1],[4,4,1,1],[1,5,1,1],[3,5,1,1],[1,6,1,1],[3,6,1,1],[2,7,1,1],[1,8,3,1],[0,9,1,1],[4,9,1,1],[1,10,3,1]];
+var EXCL_W=[[1,1,3,1],[1,2,3,1],[1,3,3,1],[1,4,3,1],[2,5,1,1],[2,6,1,1],[1,9,3,1]];
 var globe=(function(){
   var wrap=$("rwrap"),cv=$("glcv"),cx=cv.getContext("2d"),box=$("globe"),tip=$("gltip"),tn=$("gltn"),tv=$("gltv"),num=$("gln"),tg=$("gltg");
   var rm=window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -2053,6 +2056,13 @@ var globe=(function(){
         cx.stroke();
       }else{
       cx.fillStyle=isOn?"#fff":sA?"#ff3b4a":isMe?"#ff6672":"#f3e9e7";cx.beginPath();cx.arc(q.x,q.y,(isOn?4.4:sA?4:2.8)*f+q.z,0,6.2832);cx.fill();}
+      if(c.gate&&svReady()){   // 적월문에서 조사할 수 있는 곳이 있으면 옆에 픽셀 '!'
+        var px=Math.max(1.6,2.2*f),bob=Math.floor(performance.now()/450)%2?px:0,ox=Math.round(q.x+13*f),oy=Math.round(q.y-5.5*px-bob);
+        cx.save();cx.shadowColor="rgba(255,59,74,.9)";cx.shadowBlur=7*f;
+        cx.fillStyle="#d4202e";EXCL_O.forEach(function(r){cx.fillRect(ox+r[0]*px,oy+r[1]*px,r[2]*px,r[3]*px)});
+        cx.restore();
+        cx.fillStyle="#fff";EXCL_W.forEach(function(r){cx.fillRect(ox+r[0]*px,oy+r[1]*px,r[2]*px,r[3]*px)});
+      }
       cx.strokeStyle="rgba(255,102,114,.4)";cx.lineWidth=1;cx.beginPath();cx.moveTo(q.x,q.y);cx.lineTo(q.x,q.y-8*q.z*f);cx.stroke();
       if(q.z>0.3){cx.font="600 "+(10*f)+"px 'Noto Sans KR',sans-serif";cx.textAlign="center";cx.fillStyle="rgba(243,233,231,"+(0.45+q.z*0.45).toFixed(2)+")";cx.fillText(c.name+(sA?" · S":""),q.x,q.y+(c.gate?-9:14)*f)}
     });
@@ -3184,7 +3194,7 @@ function enterGame(me){
   renderChar(d);renderStats(d.stats);buildCountries();buildRegions();devApp=null;renderPower(false);
   statSig="";applyState(me.state,true);
   moveTo(curRegion,true);$("mapmsg").textContent=sAutoMsg;sAutoMsg="";
-  clearInterval(pollTimer);pollTimer=setInterval(pollState,5000);
+  clearInterval(pollTimer);pollTimer=setInterval(pollState,5000);svData={};svSync();
   var h=$("hudloc");h.tabIndex=-1;h.focus();
 }
 // ── 커뮤니티 (읽기 전용) ──
@@ -3489,6 +3499,18 @@ var SV_POS={
   "gt-lake":[[22,76],[30,70],[56,80]]
 };
 var svData={},svBusy=false,svNow=0;
+// 조사할 수 있는 곳이 하나라도 있는지 (지구본의 적월문 옆 '!' 표시에 쓰임)
+function svReady(){
+  var now=Date.now();
+  for(var rg in SV_POS){var l=svData[rg];if(!l)continue;for(var i=0;i<SV_POS[rg].length;i++)if((l[i]||0)<=now)return true}
+  return false;
+}
+var svLoaded=false;
+function svSync(){
+  if($("game").hidden)return;
+  api("GET","/api/survey").then(function(r){if(r.error||!r.marks)return;svData=r.marks;svLoaded=true;if(!gtmodal.hidden)svPlace()});
+}
+setInterval(svSync,180000);
 function svLeft(ms){if(ms<=0)return "";var m=Math.ceil(ms/60000),h=Math.floor(m/60);return h?h+"시간 "+(m%60)+"분":m+"분"}
 function svPlace(){
   var cv=$("scene"),st=$("gtstage");if(!cv||!st)return;
