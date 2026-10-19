@@ -425,7 +425,7 @@ async function tickBoard() {
   } finally { boardBusy = false; }
 }
 
-async function catchUp() { await corruptTick(); await tickSpawns(); await resolveDue(); await purgeMonsters(); await tickBoard(); await tickRumors(); }
+async function catchUp() { await corruptTick(); await tickSpawns(); await resolveDue(); await purgeMonsters(); await tickBoard(); await tickRumors(); await sweepExchange(); }
 
 // ── 업적 (정의는 DB에 저장되어 모든 헌터에게 똑같이 적용됩니다) ──
 async function loadAch() {
@@ -1117,6 +1117,79 @@ route('POST', '/api/quests/claim', async (req, res, ctx) => {
   await logAcquire(u.id, 'exp', '경험치', q.exp, '일일 의뢰', now);
   await logAcquire(u.id, 'gold', '골드', q.gold, '일일 의뢰', now);
   send(res, 200, { ok: true, gold: q.gold, exp: q.exp, levelUp: !!(g && g.up) });
+});
+
+// ═════════════ 그림자 거래소 ═════════════
+// 헌터끼리 익명으로 아이템을 사고파는 암시장. 판매자는 이름이 드러나지 않고, 팔리면 수수료 10%를 뗀 골드를 받습니다. 24시간 안에 안 팔리면 아이템이 돌아옵니다.
+// 그림자 거래를 하는 구매자는 흔적(오염도 +2%)이 남습니다.
+const EXC = { fee: 0.10, maxListings: 8, ms: 24 * 3600000, buyTaint: 2, maxPrice: 9999999 };
+const giveItem = (uid, item, qty) => db.run('INSERT INTO inventory (user_id, item, qty) VALUES (?, ?, ?) ON CONFLICT(user_id, item) DO UPDATE SET qty = MIN(9999, qty + excluded.qty)', [uid, item, qty]);
+let lastExcSweep = 0;
+async function sweepExchange(force) {
+  const now = Date.now();
+  if (!force && now - lastExcSweep < 30000) return;
+  lastExcSweep = now;
+  const old = await db.all('SELECT id, seller_id, item, qty FROM exchange WHERE ends <= ? LIMIT 50', [now]);
+  for (const x of old) {
+    const d = await db.run('DELETE FROM exchange WHERE id = ? AND ends <= ?', [x.id, now]);
+    if (d.changes === 1) await giveItem(x.seller_id, x.item, x.qty);          // 안 팔린 아이템은 판매자에게 돌아감
+  }
+}
+route('GET', '/api/exchange', async (req, res, ctx) => {
+  await sweepExchange();
+  const now = Date.now(), uid = ctx.user.id;
+  const rows = await db.all('SELECT id, seller_id, item, qty, price, ends FROM exchange WHERE ends > ? ORDER BY id DESC LIMIT 80', [now]);
+  const inv = await db.all('SELECT item, qty FROM inventory WHERE user_id = ? AND qty > 0 ORDER BY item', [uid]);
+  const me = await db.get('SELECT gold FROM users WHERE id = ?', [uid]);
+  send(res, 200, { gold: me.gold, fee: EXC.fee, maxListings: EXC.maxListings, buyTaint: EXC.buyTaint, hours: EXC.ms / 3600000,
+    market: rows.filter(r => r.seller_id !== uid).map(r => ({ id: r.id, item: r.item, qty: r.qty, price: r.price, endsIn: r.ends - now })),
+    mine: rows.filter(r => r.seller_id === uid).map(r => ({ id: r.id, item: r.item, qty: r.qty, price: r.price, endsIn: r.ends - now })),
+    sellable: inv.map(r => ({ item: r.item, qty: Number(r.qty) })) });
+});
+route('POST', '/api/exchange/list', async (req, res, ctx) => {
+  if (await limited('exl:' + ctx.user.id, 30, 60000)) return fail(res, 429, 'rate_limited');
+  const now = Date.now(), uid = ctx.user.id, cur = await userById(uid);
+  if (corruptLock(cur, now)) return fail(res, 409, 'corrupted', { until: cur.corrupt_until });
+  const item = String(ctx.body.item == null ? '' : ctx.body.item), qty = Number(ctx.body.qty), price = Number(ctx.body.price);
+  if (!item || !Number.isInteger(qty) || qty < 1 || qty > 9999) return fail(res, 400, 'bad_qty');
+  if (!Number.isInteger(price) || price < 1 || price > EXC.maxPrice) return fail(res, 400, 'bad_price');
+  const cnt = await db.get('SELECT COUNT(*) AS c FROM exchange WHERE seller_id = ? AND ends > ?', [uid, now]);
+  if (Number(cnt.c) >= EXC.maxListings) return fail(res, 409, 'too_many');
+  const dec = await db.run('UPDATE inventory SET qty = qty - ? WHERE user_id = ? AND item = ? AND qty >= ?', [qty, uid, item, qty]);
+  if (dec.changes !== 1) return fail(res, 404, 'no_item');
+  await db.run('DELETE FROM inventory WHERE user_id = ? AND qty <= 0', [uid]);
+  try { await db.run('INSERT INTO exchange (seller_id, item, qty, price, at, ends) VALUES (?, ?, ?, ?, ?, ?)', [uid, item, qty, price, now, now + EXC.ms]); }
+  catch (e) { await giveItem(uid, item, qty); throw e; }
+  send(res, 200, { ok: true });
+});
+route('POST', '/api/exchange/cancel', async (req, res, ctx) => {
+  const x = await db.get('SELECT id, item, qty FROM exchange WHERE id = ? AND seller_id = ?', [Number(ctx.body.id) || 0, ctx.user.id]);
+  if (!x) return fail(res, 404, 'no_listing');
+  const d = await db.run('DELETE FROM exchange WHERE id = ? AND seller_id = ?', [x.id, ctx.user.id]);
+  if (d.changes !== 1) return fail(res, 409, 'busy');
+  await giveItem(ctx.user.id, x.item, x.qty);
+  send(res, 200, { ok: true });
+});
+route('POST', '/api/exchange/buy', async (req, res, ctx) => {
+  if (await limited('exb:' + ctx.user.id, 40, 60000)) return fail(res, 429, 'rate_limited');
+  const now = Date.now(), uid = ctx.user.id, cur = await userById(uid);
+  if (corruptLock(cur, now)) return fail(res, 409, 'corrupted', { until: cur.corrupt_until });
+  const x = await db.get('SELECT * FROM exchange WHERE id = ?', [Number(ctx.body.id) || 0]);
+  if (!x || x.ends <= now) return fail(res, 404, 'no_listing');
+  if (x.seller_id === uid) return fail(res, 409, 'own');
+  const have = await db.get('SELECT qty FROM inventory WHERE user_id = ? AND item = ?', [uid, x.item]);
+  if (have && Number(have.qty) + x.qty > 9999) return fail(res, 409, 'max_qty');
+  const pay = await db.run('UPDATE users SET gold = gold - ? WHERE id = ? AND gold >= ?', [x.price, uid, x.price]);
+  if (pay.changes !== 1) return fail(res, 402, 'no_gold', { price: x.price });
+  const claim = await db.run('DELETE FROM exchange WHERE id = ? AND ends > ?', [x.id, now]);
+  if (claim.changes !== 1) { await grantGold(uid, x.price); return fail(res, 409, 'sold'); }       // 그 사이 다른 사람이 샀음
+  await giveItem(uid, x.item, x.qty);
+  const fee = Math.floor(x.price * EXC.fee), got = x.price - fee;
+  await grantGold(x.seller_id, got);
+  await logAcquire(uid, 'item', x.item, x.qty, '그림자 거래소 (-' + x.price + ' G)', now);
+  await logAcquire(x.seller_id, 'gold', '골드', got, '그림자 거래소 판매: ' + x.item + ' ×' + x.qty, now);
+  const taintNow = await grantTaint(uid, EXC.buyTaint);
+  send(res, 200, { ok: true, item: x.item, qty: x.qty, price: x.price, taint: EXC.buyTaint, taintNow });
 });
 
 // ═════════════ 오염 거래 (계약) ═════════════
@@ -2685,6 +2758,7 @@ route('POST', '/api/admin/player/delete', async (req, res, ctx) => {
     ['DELETE FROM survey_marks WHERE user_id = ?', [id]],
     ['DELETE FROM s_min WHERE user_id = ?', [id]],
     ['DELETE FROM pact_log WHERE user_id = ?', [id]],
+    ['DELETE FROM exchange WHERE seller_id = ?', [id]],
     ['DELETE FROM equip_inv WHERE user_id = ?', [id]],
     ['DELETE FROM rumor_votes WHERE user_id = ?', [id]],
     ['DELETE FROM daily_quests WHERE user_id = ?', [id]],
