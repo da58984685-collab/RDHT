@@ -442,7 +442,13 @@ const MIGRATIONS = [
   // S급은 나라 단위로만 출몰합니다. 예전에 세부 지역(도심 등)에서 나온 기록은 대한민국으로 옮깁니다.
   "UPDATE monsters SET region = 'KR' WHERE region = 'GT'",
   "UPDATE monsters SET region = 'city' WHERE region LIKE 'gt-%'",
-  "UPDATE monsters SET region = 'KR' WHERE rank = 'S' AND region NOT IN ('KR','JP','CN','RU','US','IT','MG','BR','EG','AU','IN','FR','GT')",
+  "UPDATE monsters SET region = 'KR' WHERE rank = 'SS' AND region NOT IN ('KR','JP','CN','RU','US','IT','MG','BR','EG','AU','IN','FR','GT')",
+  // 예전 S급(서버 공통 출몰)은 SS급으로 올리고, S급은 F~A급처럼 헌터마다 따로 출몰하는 새 등급이 됩니다 (한 번만 실행)
+  "UPDATE monsters SET rank = 'SS' WHERE rank = 'S' AND owner_id IS NULL AND corrupt_of IS NULL AND rumor_id IS NULL AND NOT EXISTS (SELECT 1 FROM settings WHERE key = 'ss_v1')",
+  "UPDATE hunt_log SET rank = 'SS' WHERE rank = 'S' AND NOT EXISTS (SELECT 1 FROM settings WHERE key = 'ss_v1')",
+  "UPDATE achievements SET name = 'SS급 도전', descr = 'SS급 몬스터 토벌에 도전했다.' WHERE id = 'sTry' AND name = 'S급 도전' AND NOT EXISTS (SELECT 1 FROM settings WHERE key = 'ss_v1')",
+  "UPDATE achievements SET name = 'SS급 토벌자', descr = 'SS급 몬스터를 처치했다.' WHERE id = 'sWin' AND name = 'S급 토벌자' AND NOT EXISTS (SELECT 1 FROM settings WHERE key = 'ss_v1')",
+  "INSERT OR IGNORE INTO settings (key, value) VALUES ('ss_v1', '1')",
   "UPDATE s_log SET region = 'KR' WHERE region NOT IN ('KR','JP','CN','RU','US','IT','MG','BR','EG','AU','IN','FR','GT')",
   "ALTER TABLE users ADD COLUMN invite_code TEXT NOT NULL DEFAULT ''",
   'ALTER TABLE users ADD COLUMN gold INTEGER NOT NULL DEFAULT 0',
