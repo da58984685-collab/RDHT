@@ -427,6 +427,15 @@ label[for="name"]::after,label[for="age"]::after,label[for="hname"]::after,#gl::
 .app-list{list-style:none;margin:0;padding:0;display:grid;gap:6px;font-size:.84rem}
 .app-list li{padding:7px 9px;background:#161012;border:1px solid var(--line);border-radius:6px}
 .gold-tag{margin:0 0 8px;color:#e0b25a;font-size:.84rem;font-weight:700}
+.shop-q{display:flex;align-items:center;gap:4px;margin-top:6px}
+.shop-qb{flex:none;min-width:30px;min-height:30px;padding:0 8px;color:var(--text);background:var(--field);border:1px solid var(--line);border-radius:4px;cursor:pointer;font:700 .85rem/1 "Noto Sans KR",sans-serif}
+.shop-qb:hover{border-color:var(--red2)}
+.shop-qi{width:64px;min-height:30px;text-align:center;color:var(--text);background:var(--field);border:1px solid var(--line);border-radius:4px;font:inherit;font-size:.85rem;-moz-appearance:textfield}
+.shop-qi::-webkit-outer-spin-button,.shop-qi::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+.inv-tabs{display:flex;gap:6px;margin:8px 0 4px}
+.inv-tabs button{flex:1;min-height:34px;padding:0 8px;color:var(--sub);background:var(--field);border:1px solid var(--line);border-radius:6px;cursor:pointer;font:500 .8rem/1 "Noto Sans KR",sans-serif}
+.inv-tabs button[aria-selected="true"]{color:#fff;border-color:var(--red2);background:#2a0e12}
+.inv-tabs button:focus-visible{outline:2px solid var(--red2);outline-offset:2px}
 .shop-buy{margin-top:6px;padding:4px 10px;background:#2a0e12;color:#e8d8d0;border:1px solid var(--line);border-radius:4px;cursor:pointer;font:inherit;font-size:.78rem}
 .app-list small{display:block;color:var(--sub);font-size:.74rem}
 .app-list .lock{opacity:.5}
@@ -1715,7 +1724,7 @@ function renderStats(st){
   });
 }
 
-var invBusy=false;
+var invBusy=false,invTab="shop";
 function investStat(k,btn){
   if(invBusy)return;invBusy=true;btn.disabled=true;
   api("POST","/api/stats/invest",{stat:k,amt:1}).then(function(r){
@@ -2194,17 +2203,32 @@ function loadShop(){
       var li=document.createElement("li");li.textContent=it.name;
       if(it.desc){var sm=document.createElement("small");sm.textContent=it.desc;li.appendChild(sm)}
       if(it.eff){var sf=document.createElement("small");sf.className="inv-fx";sf.textContent="사용 효과 · "+fxText(it.eff);li.appendChild(sf)}
-      var b=document.createElement("button");b.type="button";b.className="shop-buy";b.textContent=it.price>0?"구매 · "+it.price.toLocaleString("ko-KR")+" G":"구매 · 무료";
+      var qrow=document.createElement("div");qrow.className="shop-q";
+      var qm=document.createElement("button");qm.type="button";qm.className="shop-qb";qm.textContent="−";qm.setAttribute("aria-label",it.name+" 수량 줄이기");
+      var qi=document.createElement("input");qi.type="number";qi.className="shop-qi";qi.min="1";qi.max="9999";qi.step="1";qi.value="1";qi.inputMode="numeric";qi.setAttribute("aria-label",it.name+" 구매 수량");
+      var qp=document.createElement("button");qp.type="button";qp.className="shop-qb";qp.textContent="+";qp.setAttribute("aria-label",it.name+" 수량 늘리기");
+      var q10=document.createElement("button");q10.type="button";q10.className="shop-qb wide";q10.textContent="+10";q10.setAttribute("aria-label",it.name+" 수량 10 늘리기");
+      function qty(){var n=Math.floor(Number(qi.value));return n>=1?Math.min(9999,n):1}
+      var b=document.createElement("button");b.type="button";b.className="shop-buy";
+      function priceTxt(){var n=qty();return it.price>0?"구매 · "+(it.price*n).toLocaleString("ko-KR")+" G":"구매 · 무료"}
+      b.textContent=priceTxt();
+      function sync(){qi.value=String(qty());if(!b.disabled)b.textContent=priceTxt();lbl=b.textContent}
       var lbl=b.textContent;
+      qm.addEventListener("click",function(){qi.value=String(Math.max(1,qty()-1));sync()});
+      qp.addEventListener("click",function(){qi.value=String(Math.min(9999,qty()+1));sync()});
+      q10.addEventListener("click",function(){qi.value=String(Math.min(9999,qty()+10));sync()});
+      qi.addEventListener("input",function(){if(qi.value!==""){var n=Math.floor(Number(qi.value));if(n>9999)qi.value="9999";b.textContent=priceTxt();lbl=b.textContent}});
+      qi.addEventListener("change",sync);
+      qrow.appendChild(qm);qrow.appendChild(qi);qrow.appendChild(qp);qrow.appendChild(q10);
       b.addEventListener("click",function(){
-        b.disabled=true;
-        api("POST","/api/shop/buy",{id:it.id}).then(function(x){
-          b.disabled=false;b.textContent=x.ok?"구매 완료 ✓":x.error==="no_gold"?"골드가 부족합니다":x.error==="max_qty"?"더 가질 수 없습니다":x.error==="blocked"?"운영자가 제한함":x.error==="corrupted"?"활동 불가 상태입니다":"구매 실패";
+        var n=qty();sync();b.disabled=true;
+        api("POST","/api/shop/buy",{id:it.id,qty:n}).then(function(x){
+          b.disabled=false;b.textContent=x.ok?(x.qty>1?x.qty+"개 구매 완료 ✓":"구매 완료 ✓"):x.error==="no_gold"?"골드가 부족합니다":x.error==="max_qty"?(x.room>0?"최대 "+x.room+"개까지 살 수 있습니다":"더 가질 수 없습니다"):x.error==="blocked"?"운영자가 제한함":x.error==="corrupted"?"활동 불가 상태입니다":"구매 실패";
           setTimeout(function(){b.textContent=lbl},1400);
           if(x.ok){gold=x.gold;setGoldTag();pollState(false)}
         });
       });
-      li.appendChild(b);ul.appendChild(li);
+      li.appendChild(qrow);li.appendChild(b);ul.appendChild(li);
     });
     scr.appendChild(ul);
   });
@@ -2237,10 +2261,19 @@ function renderDevice(){
     var cb=document.createElement("button");cb.type="button";cb.className="gift-btn gift-gold";cb.textContent="조합하기";
     cb.addEventListener("click",function(){devApp="craft";craftNote="";craftData=null;renderDevice()});scr.appendChild(cb);
     if(invNote){var nt=document.createElement("p");nt.className="app-note";nt.setAttribute("role","status");nt.textContent=invNote;scr.appendChild(nt)}
+    var matN=inventory.filter(function(x){return x.mat}).length,shopN=inventory.length-matN;
+    var tb=document.createElement("div");tb.className="inv-tabs";tb.setAttribute("role","tablist");tb.setAttribute("aria-label","아이템 종류");
+    [["shop","상점 아이템",shopN],["mat","조합 아이템",matN]].forEach(function(t){
+      var tbtn=document.createElement("button");tbtn.type="button";tbtn.setAttribute("role","tab");tbtn.setAttribute("aria-selected",invTab===t[0]?"true":"false");tbtn.textContent=t[1]+" "+t[2];
+      tbtn.addEventListener("click",function(){if(invTab!==t[0]){invTab=t[0];renderDevice()}});tb.appendChild(tbtn);
+    });
+    scr.appendChild(tb);
+    var shown=inventory.filter(function(x){return invTab==="mat"?!!x.mat:!x.mat});
     if(!inventory.length)empty("보유한 아이템이 없습니다.");
+    else if(!shown.length)empty(invTab==="mat"?"보유한 조합 아이템이 없습니다. 적월문에서 조사하면 재료를 얻을 수 있습니다.":"보유한 상점 아이템이 없습니다. (상점에서 산 아이템과 조합으로 만든 아이템이 여기에 들어옵니다.)");
     else{
       var iu=document.createElement("ul");iu.className="app-list";
-      inventory.forEach(function(it){
+      shown.forEach(function(it){
         var li=document.createElement("li");li.className="nt";
         var tx=document.createElement("div");tx.className="nt-tx";tx.appendChild(document.createTextNode(it.item));
         var sm=document.createElement("small");sm.textContent="x"+it.qty;tx.appendChild(sm);
