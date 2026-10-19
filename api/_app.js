@@ -2240,6 +2240,18 @@ route('POST', '/api/admin/player/item', async (req, res, ctx) => {
   send(res, 200, { ok: true });
 }, { auth: false, admin: true });
 
+// 모든 유저에게 골드 일괄 지급 (보유 골드 상한 99,999,999 G)
+route('POST', '/api/admin/gold/all', async (req, res, ctx) => {
+  const amt = Number(ctx.body.amount);
+  if (!Number.isInteger(amt) || amt < 1 || amt > 9999999) return fail(res, 400, 'bad_amount');
+  if (await limited('goldall', 10, 60000)) return fail(res, 429, 'rate_limited');
+  const now = Date.now(), CAP = 99999999;
+  const n = await db.get('SELECT COUNT(*) AS c FROM users');
+  await db.run('INSERT INTO acquire_log (user_id, kind, name, qty, source, at) SELECT id, ?, ?, MIN(?, ? - gold), ?, ? FROM users WHERE gold < ?', ['gold', '골드', amt, CAP, '관리자 일괄 지급', now, CAP]);
+  await db.run('UPDATE users SET gold = MIN(?, gold + ?)', [CAP, amt]);
+  send(res, 200, { ok: true, users: Number(n.c), amount: amt });
+}, { auth: false, admin: true });
+
 route('POST', '/api/admin/player/item/delete', async (req, res, ctx) => {
   const u = await adminTarget(ctx, res); if (!u) return;
   if (ctx.body.all === true) await db.run('DELETE FROM inventory WHERE user_id = ?', [u.id]);
