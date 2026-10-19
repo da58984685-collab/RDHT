@@ -85,7 +85,8 @@ const MON = {
   C: ['야차', '구미호 분신'],
   B: ['이무기 유체', '불가사리'],
   A: ['백귀야행', '천년 야차왕'],
-  S: ['적월의 군주', '흑룡 이무기',
+  S: ['혈귀 장군', '달그림자 무녀', '천년 구렁이', '저승의 사냥개', '철갑 도깨비왕', '낙뢰 해태'],
+  SS: ['적월의 군주', '흑룡 이무기',
     '혈월의 여왕', '천공의 심판자', '심연의 군주', '만귀의 왕', '백골 제왕', '멸망의 불새',
     '대지를 삼키는 자', '폭풍의 용왕', '서리 마녀', '지옥문의 수문장', '붉은 달의 사도', '천 개의 눈'],
 };
@@ -97,12 +98,13 @@ const TIERS = [
   { k: 'low',  ranks: ['E', 'D'],      gap: () => 5 * MIN },
   { k: 'mid',  ranks: ['C', 'B'],      gap: () => 30 * MIN },
   { k: 'high', ranks: ['A'],           gap: () => rnd(60, 120) * MIN },
-  { k: 'top',  ranks: ['S'],           gap: () => 8 * HOUR },
+  { k: 's',    ranks: ['S'],           gap: () => rnd(120, 240) * MIN },
+  { k: 'top',  ranks: ['SS'],          gap: () => 8 * HOUR },
 ];
 const ACTIVE_MS = 30 * MIN;
 const ACTIVE_MS_F = 5 * MIN;                      // F급만 예외: 5분 안에 토벌하지 않으면 사라짐
 const ACTIVE_MS_S = 24 * HOUR;                    // S급은 24시간 동안 출현 (토벌되지 않으면 사라짐)
-const activeMsOf = rank => (rank === 'F' ? ACTIVE_MS_F : rank === 'S' ? ACTIVE_MS_S : ACTIVE_MS);
+const activeMsOf = rank => (rank === 'F' ? ACTIVE_MS_F : rank === 'SS' ? ACTIVE_MS_S : ACTIVE_MS);
 // 명성: 전투력(레벨)이 오를 때, 헌터 등급이 오를 때만 함께 오릅니다 (시작은 항상 0)
 const STAT_MAX = 100, FAME_MAX = 1000;                             // 근력·민첩·행운 최대치 / 명성 최대치
 const FAME_PER_LV = 5, FAME_PER_RANK = 20;                       // 출몰 후 토벌 가능한 시간
@@ -110,10 +112,10 @@ const FAME_PER_LV = 5, FAME_PER_RANK = 20;                       // 출몰 후 �
 // 등급별 처치 골드(G) 범위 [최소, 최대]
 // 몬스터 토벌 골드: 기본값의 60% (40% 감소)
 const GOLD_RATE = 0.6;
-const KILL_GOLD = Object.fromEntries(Object.entries({ F: [1, 5], E: [6, 15], D: [16, 35], C: [36, 70], B: [71, 120], A: [121, 180], S: [190, 200] }).map(([k, v]) => [k, [Math.max(1, Math.round(v[0] * GOLD_RATE)), Math.max(1, Math.round(v[1] * GOLD_RATE))]]));
+const KILL_GOLD = Object.fromEntries(Object.entries({ F: [1, 5], E: [6, 15], D: [16, 35], C: [36, 70], B: [71, 120], A: [121, 180], S: [181, 195], SS: [190, 200] }).map(([k, v]) => [k, [Math.max(1, Math.round(v[0] * GOLD_RATE)), Math.max(1, Math.round(v[1] * GOLD_RATE))]]));
 const rollGold = rank => { const r = KILL_GOLD[rank] || [0, 0]; return r[0] + Math.floor(Math.random() * (r[1] - r[0] + 1)); };
 // 업적 종류: always(항상) · kills(처치 수) · rank(해당 등급 이상 처치) · sTry(S급 도전 수) · sWin(S급 처치 수) · lv(전투력 레벨) · manual(관리자가 직접 부여)
-const RANK_IDX = { F: 0, E: 1, D: 2, C: 3, B: 4, A: 5, S: 6 };
+const RANK_IDX = { F: 0, E: 1, D: 2, C: 3, B: 4, A: 5, S: 6, SS: 7 };   // SS 는 몬스터 전용 (헌터 등급은 S 까지)
 // 새 종류: visit(지역/나라:횟수 방문) · visits(전체 이동 횟수) · countries(방문한 나라 수) · collect(아이템:수집 개수) · slay(몬스터 이름:처치 수)
 //          surveys(적월문 조사 횟수) · crafts(조합 횟수) · fails(토벌 실패 횟수) · friends(친구 수) · gifts(보낸 선물 횟수)
 //          gold(보유 골드) · fame(명성) · taint(오염도) · hrank(헌터 등급 이상) · stat(근력/민첩/행운:값)
@@ -130,8 +132,8 @@ const ACH_SEED = [
   { id: 'k200', name: '붉은 달의 학살자', desc: '몬스터를 200마리 처치했다.', kind: 'kills', val: '200' },
   { id: 'rC',   name: 'C급 토벌',    desc: 'C급 이상 몬스터를 처치했다.',     kind: 'rank', val: 'C' },
   { id: 'rA',   name: 'A급 토벌',    desc: 'A급 이상 몬스터를 처치했다.',     kind: 'rank', val: 'A' },
-  { id: 'sTry', name: 'S급 도전',    desc: 'S급 몬스터 토벌에 도전했다.',     kind: 'sTry', val: '1' },
-  { id: 'sWin', name: 'S급 토벌자',  desc: 'S급 몬스터를 처치했다.',          kind: 'sWin', val: '1' },
+  { id: 'sTry', name: 'SS급 도전',   desc: 'SS급 몬스터 토벌에 도전했다.',     kind: 'sTry', val: '1' },
+  { id: 'sWin', name: 'SS급 토벌자', desc: 'SS급 몬스터를 처치했다.',          kind: 'sWin', val: '1' },
   { id: 'lv5',  name: '전투력 Lv.5',  desc: '전투력 5레벨을 달성했다.',       kind: 'lv', val: '5' },
   { id: 'lv10', name: '전투력 Lv.10', desc: '전투력 10레벨을 달성했다.',      kind: 'lv', val: '10' },
   { id: 'lv20', name: '전투력 Lv.20', desc: '전투력 20레벨을 달성했다.',      kind: 'lv', val: '20' },
@@ -191,7 +193,7 @@ const PROMO = {
 };
 const ACH_PIN_MAX = 3;
 // 등급별 오염도(%) 상승 범위 [최소, 최대] (0.1% 단위)
-const KILL_TAINT = { F: [9, 11], E: [11, 13], D: [13, 16], C: [16, 20], B: [20, 25], A: [25, 30], S: [30, 40] };   // F급은 평균 10%: 토벌 10회에 오염도 100% (정화 필요)
+const KILL_TAINT = { F: [9, 11], E: [11, 13], D: [13, 16], C: [16, 20], B: [20, 25], A: [25, 30], S: [28, 34], SS: [30, 40] };   // F급은 평균 10%: 토벌 10회에 오염도 100% (정화 필요)
 const TAINT_SCALE = 0.485;   // 오염도 상승량 50% 감소 (이전 0.97 의 절반)
 const rollTaint = rank => {
   const r = KILL_TAINT[rank] || [0, 0], lo = Math.round(r[0] * 10), hi = Math.round(r[1] * 10);
@@ -209,9 +211,9 @@ const garble = (text, taint, id) => {
 };
 // 전투력(레벨) 상승 속도: 기본 경험치의 70% (30% 감소)
 const EXP_RATE = 0.7;
-const KILL_EXP = Object.fromEntries(Object.entries({ F: 8, E: 12, D: 20, C: 35, B: 60, A: 120, S: 300 }).map(([k, v]) => [k, Math.round(v * EXP_RATE)]));
-const HUNT_DIFF = { F: '쉬움', E: '쉬움', D: '쉬움', C: '보통', B: '보통', A: '어려움', S: '매우 어려움' };
-const HUNT_BASE = { '쉬움': 0.85, '보통': 0.65, '어려움': 0.4 };
+const KILL_EXP = Object.fromEntries(Object.entries({ F: 8, E: 12, D: 20, C: 35, B: 60, A: 120, S: 200, SS: 300 }).map(([k, v]) => [k, Math.round(v * EXP_RATE)]));
+const HUNT_DIFF = { F: '쉬움', E: '쉬움', D: '쉬움', C: '보통', B: '보통', A: '어려움', S: '매우 어려움', SS: '매우 어려움' };
+const HUNT_BASE = { '쉬움': 0.85, '보통': 0.65, '어려움': 0.4, '매우 어려움': 0.25 };
 
 const RAID_NEED = 100;                             // S급 자동 토벌 성공: 서로 다른 참여 헌터 수
 const RAID_ATTEMPTS = 300;                         // S급 자동 토벌 성공: 도전(토벌) 횟수 합계 (중복 포함)
@@ -237,7 +239,7 @@ const STR_WIN = 0.01, AGI_GUARD = 0.03, LUCK_FREE = 0.03;
 const guardChance = agi => capP((Number(agi) || 0) * AGI_GUARD);
 const freeChance = luck => capP((Number(luck) || 0) * LUCK_FREE);
 function huntChance(r, lv, participants, str) {
-  if (r === 'S') {
+  if (r === 'SS') {
     const lb = Math.min(0.1, (lv - 1) * 0.01);
     const p = 0.05 + 0.9 * Math.min(1, participants / RAID_NEED) + lb + (Number(str) || 0) * STR_WIN;
     return Math.max(0.05, capP(p));
@@ -249,7 +251,7 @@ function huntChance(r, lv, participants, str) {
 // 체력: 100에서 시작. 토벌에 실패하면 등급에 따라 줄고(최대 20), 5 아래로는 내려가지 않습니다.
 // 5 이하가 되면 빈사 상태로 5분간 토벌할 수 없고, 5분 뒤 체력 10으로 돌아옵니다. 그 외에는 저절로 회복되지 않습니다.
 const HP_START = 100, HP_MIN = 5, HP_DYING_MS = 5 * MIN, HP_REVIVE = 10;
-const HP_LOSS = { F: [1, 3], E: [2, 5], D: [4, 7], C: [6, 10], B: [9, 13], A: [12, 17], S: [16, 20] };
+const HP_LOSS = { F: [1, 3], E: [2, 5], D: [4, 7], C: [6, 10], B: [9, 13], A: [12, 17], S: [14, 18], SS: [16, 20] };
 const hpLoss = rank => { const r = HP_LOSS[rank] || [1, 3]; return Math.min(20, rnd(r[0], r[1])); };
 
 function rollRank() {
@@ -459,7 +461,7 @@ const CRAFT_DEFS = {};                       // 이름 -> {desc, stat, amt}  (�
 RECIPES.forEach(r => { CRAFT_DEFS[r.name] = { desc: r.desc, stat: r.stat, amt: r.amt }; });
 
 
-// ── 턴제 전투: 헌터 등급과 같거나 높은 등급의 몬스터(S급·오염 몬스터 제외)와는 라운드마다 행동을 골라 싸웁니다. ──
+// ── 턴제 전투: 헌터 등급과 같거나 높은 등급의 몬스터(SS급·오염 몬스터 제외)와는 라운드마다 행동을 골라 싸웁니다. ──
 const BT = {
   idleMs: 10 * MIN,                      // 이 시간 동안 행동이 없으면 전투가 취소됩니다 (불이익 없음)
   maxRound: 40,
@@ -467,7 +469,7 @@ const BT = {
   guardTaken: 0.35, guardBonus: 0.3,     // 방어: 이번 라운드 받는 피해 ×0.35, 다음 공격 +30%
   mHeavy: 1.7, mHeavyChance: 0.25,       // 몬스터 강공(예고됨)
 };
-const BT_REF = { F: 2, E: 7, D: 14, C: 22, B: 32, A: 44, S: 60 };      // 등급마다 '보통 헌터'의 전투력 레벨 (근력은 레벨의 0.8배로 가정)
+const BT_REF = { F: 2, E: 7, D: 14, C: 22, B: 32, A: 44, S: 60, SS: 80 };      // 등급마다 '보통 헌터'의 전투력 레벨 (근력은 레벨의 0.8배로 가정)
 const btMon = rank => {
   const L = BT_REF[rank] || 2, atkRef = 6 + 1.2 * L + 0.8 * (L * 0.8);
   return { hp: Math.round(atkRef * 4), atk: Math.max(3, Math.round((40 + 5 * L) * 0.22)) };
@@ -479,7 +481,7 @@ const btPlayer = (lv, st) => ({
   crit: Math.min(0.5, 0.05 + (Number(st.luck) || 0) * 0.005),
   flee: Math.min(0.9, 0.45 + (Number(st.agi) || 0) * 0.004),
 });
-const isTurnBased = (monRank, hunterRank) => monRank !== 'S' && RANK_IDX[monRank] !== undefined && RANK_IDX[monRank] >= (RANK_IDX[hunterRank] || 0);
+const isTurnBased = (monRank, hunterRank) => monRank !== 'SS' && RANK_IDX[monRank] !== undefined && RANK_IDX[monRank] >= (RANK_IDX[hunterRank] || 0);
 
 module.exports = {
   BT, btMon, btPlayer, isTurnBased,
