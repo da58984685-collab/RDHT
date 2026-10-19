@@ -477,7 +477,7 @@ label[for="name"]::after,label[for="age"]::after,label[for="hname"]::after,#gl::
 @keyframes fpshine{to{transform:translateX(120%)}}
 .fp-nm{margin:14px 0 0;font:800 1.35rem/1.25 "Nanum Myeongjo",serif;color:#fff;overflow-wrap:anywhere;text-shadow:0 0 12px var(--glow)}
 .fp-cd{margin:2px 0 0;font:400 .72rem/1.2 "Share Tech Mono",monospace;color:var(--sub);letter-spacing:.1em}
-.fp-kv{width:100%;display:grid;gap:8px;margin:14px 0 0;text-align:left}
+.fp-kv{flex:none;width:100%;display:grid;gap:8px;margin:14px 0 0;text-align:left}
 .fp-kv>div{padding:9px 11px;background:var(--field);border:1px solid var(--line);border-left:3px solid var(--red2)}
 .fp-kv small{display:block;font:400 .66rem/1 "Share Tech Mono",monospace;letter-spacing:.16em;color:var(--sub)}
 .fp-kv b{display:flex;align-items:center;gap:8px;margin-top:5px;font-size:.92rem;font-weight:700;overflow-wrap:anywhere}
@@ -670,6 +670,14 @@ input[type=checkbox]:checked::after{transform:rotate(-45deg) scale(1)}
 input[type=checkbox]:focus-visible{outline:2px solid var(--deep);outline-offset:2px}
 .privrow{display:flex;align-items:center;gap:10px;margin:12px 0 0;padding:8px 10px;background:var(--field);border:1px solid var(--line);border-radius:10px;font-size:.88rem;cursor:pointer}
 .privrow:hover{border-color:var(--red2)}
+.bioBox{margin:12px 0 0}.bioBox textarea{width:100%;min-height:64px;resize:vertical;padding:8px 10px;background:var(--field);color:var(--text);border:1px solid var(--line);border-radius:10px;font:inherit;font-size:.88rem;line-height:1.45}
+.bioBox textarea:focus{outline:none;border-color:var(--red2)}
+.bioBox .bio-r{display:flex;align-items:center;gap:8px;margin-top:6px}.bioBox .bio-r small{flex:1;color:var(--sub);font-size:.76rem}
+.bioBox button{padding:7px 12px;background:var(--field);color:var(--text);border:1px solid var(--line);border-radius:10px;font:inherit;font-size:.82rem;cursor:pointer;min-height:34px}.bioBox button:hover{border-color:var(--red2)}
+.fp-bio{flex:none;margin:12px 0 0;padding:9px 11px;width:100%;box-sizing:border-box;text-align:left;font-size:.86rem;line-height:1.5;color:var(--text);background:var(--field);border:1px solid var(--line);border-radius:10px;white-space:pre-wrap;overflow-wrap:anywhere}
+.fp-bio.mute{color:var(--sub)}
+.fp-pins{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}.fp-pins span{padding:3px 10px;font:700 .76rem/1.4 "Noto Serif KR","Nanum Myeongjo",serif;color:#f0c75e;border:1px solid rgba(240,185,58,.5);border-radius:999px;background:rgba(240,185,58,.08)}
+.ach-new{display:inline-block;margin-left:6px;padding:1px 6px;font:800 .62rem/1.5 "Share Tech Mono",monospace;letter-spacing:.08em;color:#fff;background:var(--red2);border-radius:8px;vertical-align:middle;-webkit-text-fill-color:#fff}
 .todo li input[type=checkbox]{width:18px;height:18px;border-radius:5px}
 .todo li input[type=checkbox]::after{width:8px;height:4px}
 </style>
@@ -757,6 +765,8 @@ input[type=checkbox]:focus-visible{outline:2px solid var(--deep);outline-offset:
           <div class="imgrow"><button type="button" class="hud-btn" id="gimgbtn">이미지 변경</button><button type="button" class="hud-btn" id="gimgrm">이미지 삭제</button><input type="file" id="gimgfile" accept="image/*" hidden></div>
           <p class="pwnote" id="gimgmsg" role="status"></p>
           <label class="privrow"><input type="checkbox" id="gpriv"><span>비공개 유저</span></label>
+          <div class="bioBox"><p class="lbl">프로필 소개글</p><textarea id="gbio" maxlength="200" rows="3" placeholder="친구 프로필에 보일 소개글을 적어보세요. (최대 200자)" aria-label="프로필 소개글"></textarea>
+            <div class="bio-r"><small id="gbiomsg" role="status">친구에게 보입니다.</small><button type="button" id="gbiosave">저장</button></div></div>
           <p class="lbl">BGM</p>
           <form class="bgm" id="bgmf">
             <input id="bgmurl" type="url" inputmode="url" autocomplete="off" placeholder="유튜브 링크를 붙여넣으세요" aria-label="유튜브 링크">
@@ -1599,6 +1609,16 @@ $("gpriv").addEventListener("change",function(){
   var cb=this,want=cb.checked;privBusy=true;
   api("POST","/api/me/private",{on:want}).then(function(r){if(r._status!==200)cb.checked=!want;privBusy=false});
 });
+var bioDirty=false,bioSaved="";
+$("gbio").addEventListener("input",function(){bioDirty=true;$("gbiomsg").textContent=this.value.length+" / 200"});
+$("gbiosave").addEventListener("click",function(){
+  var bt=this,v=$("gbio").value;bt.disabled=true;
+  api("POST","/api/me/bio",{text:v}).then(function(r){
+    bt.disabled=false;
+    if(r.ok){bioDirty=false;bioSaved=r.bio;$("gbio").value=r.bio;$("gbiomsg").textContent="저장했습니다. 친구 프로필에 표시됩니다."}
+    else $("gbiomsg").textContent="저장하지 못했습니다. 잠시 후 다시 시도해주세요.";
+  });
+});
 var curRec=null,recSig="";
 function renderRec(){
   var box=$("grec");if(!box)return;box.innerHTML="";
@@ -1685,7 +1705,7 @@ function renderChar(d){
   $("ghn").textContent=d.hunterName||d.name||"";
   $("gnm").textContent=[d.name,d.age?d.age+"세":"",d.gender].filter(Boolean).join(" · ");
   var rk=$("grank");rk.textContent=d.rank||"-";rk.dataset.r=d.rank||"";
-  myCode=d.code||d.hunterName||"me";renderTodo();renderRec();pinned=[];renderPins();
+  myCode=d.code||d.hunterName||"me";renderTodo();renderRec();pinned=[];renderPins();bioDirty=false;bioSaved="";$("gbio").value="";
 }
 function powNeed(lv){return Math.max(10,Math.round(30*Math.pow(lv,1.6)*(lv<30?0.1+0.3*Math.pow(lv/30,1.5):1)))}
 function renderPower(up){
@@ -2123,10 +2143,10 @@ var globe=(function(){
   document.addEventListener("visibilitychange",function(){if(!document.hidden)run()});
   return {set:set,isOn:function(){return on},redraw:function(){if(on&&rm)draw()}};
 })();
-var gold=0,devApp=null,inventory=[],invSig="",invNote="";
+var achNew=0,gold=0,devApp=null,inventory=[],invSig="",invNote="";
 var APPS=[["gw","게이트웨이브","i-eye"],["msg","메신저","i-chat"],["com","커뮤니티","i-board"],["ach","업적","i-medal"],["sys","시스템 알림","i-bell"],["shop","상점","i-shop"],["inv","인벤토리","i-bag"]];
 function devClock(){var d=new Date(),c=$("phclk");if(c)c.textContent=pad(d.getHours())+":"+pad(d.getMinutes())}
-function badgeOf(id){return id==="inv"?giftUnread:id==="sys"?unreadNotices:id==="msg"?unreadMsgs+friendReqs:id==="com"?Math.max(0,Math.min(99,cmLatest-cmSeen)):0}
+function badgeOf(id){return id==="inv"?giftUnread:id==="sys"?unreadNotices:id==="msg"?unreadMsgs+friendReqs:id==="com"?Math.max(0,Math.min(99,cmLatest-cmSeen)):id==="ach"?achNew:0}
 function loadNotices(){
   var scr=$("phscr");
   api("GET","/api/notices").then(function(r){
@@ -2205,10 +2225,11 @@ function loadAch(){
     if(devApp!=="ach")return;
     if(r.error||!r.list){appFail(scr,loadAch);return}
     var old=scr.querySelector(".app-empty,.app-list");if(old)old.remove();
+    if(achNew){achNew=0;api("POST","/api/achievements/seen",{})}
     var ul=document.createElement("ul");ul.className="app-list";
     (r.list||[]).forEach(function(a){
       var li=document.createElement("li");li.className="ach-li"+(a.done?" got":" lock");
-      var d=document.createElement("div"),b=document.createElement("b");b.textContent=(a.done?"★ ":"☆ ")+a.name;
+      var d=document.createElement("div"),b=document.createElement("b");b.textContent=(a.done?"★ ":"☆ ")+a.name;if(a.isNew){var nw=document.createElement("span");nw.className="ach-new";nw.textContent="NEW";b.appendChild(nw)}
       var sm=document.createElement("small");sm.textContent=a.desc;d.appendChild(b);d.appendChild(sm);li.appendChild(d);
       if(a.done){
         var bt=document.createElement("button");bt.type="button";bt.className="ach-btn"+(a.pinned?" off":"");bt.textContent=a.pinned?"내리기":"달기";
@@ -2392,6 +2413,8 @@ function applyState(st,first){
     var up=st.user.lv>power.lv;power={lv:st.user.lv,exp:st.user.exp};renderPower(up);
   }
   if(st.user&&st.user.gold!==undefined&&st.user.gold!==gold){gold=st.user.gold;if(devApp==='shop'||devApp==='inv')setGoldTag()}
+  if(st.user&&typeof st.user.bio==="string"&&!bioDirty&&st.user.bio!==bioSaved){bioSaved=st.user.bio;$("gbio").value=st.user.bio}
+  if(st.achNew!==undefined&&st.achNew!==achNew){achNew=st.achNew;if(!devApp&&$("phscr"))renderDevice()}
   if(st.user&&st.user.pinned){var psg=JSON.stringify(st.user.pinned);if(psg!==JSON.stringify(pinned)){pinned=st.user.pinned;renderPins()}}
   var rsg=JSON.stringify(st.rec||null);if(rsg!==recSig){recSig=rsg;curRec=st.rec||null;renderRec()}
   var isg=JSON.stringify(st.inventory||[]);
@@ -2809,14 +2832,23 @@ function pBuild(f,d){
   function row(l,cls){var r=document.createElement("div");if(cls)r.className=cls;var sm=document.createElement("small");sm.textContent=l;var b=document.createElement("b");r.appendChild(sm);r.appendChild(b);kv.appendChild(r);return b}
   var rb=row("헌터 등급"),rk=document.createElement("span");rk.className="rk";rk.textContent=(d&&d.rank)||f.rank;rb.appendChild(rk);
   var lb=row("현재 위치");
-  var ab=row("가장 최근 획득 업적","fp-ac");
+  var ab=row("대표 업적","fp-ac");
   if(!d){lb.textContent="불러오는 중…";lb.className="mute";ab.textContent="불러오는 중…";ab.className="mute"}
   else{
     lb.textContent=d.region||"알 수 없음";
     if(d.ach){ab.textContent=d.ach.name;var em=document.createElement("em");em.textContent=(d.ach.desc?d.ach.desc+" · ":"")+new Date(d.ach.at).toLocaleDateString("ko-KR");ab.parentNode.appendChild(em)}
     else{ab.textContent="아직 획득한 업적이 없습니다.";ab.className="mute";ab.parentNode.className=""}
   }
-  pg.appendChild(im);pg.appendChild(h);pg.appendChild(c);pg.appendChild(kv);
+  var bio=document.createElement("p");bio.className="fp-bio";
+  if(!d){bio.className+=" mute";bio.textContent="불러오는 중…"}
+  else if(d.bio)bio.textContent=d.bio;
+  else{bio.className+=" mute";bio.textContent="소개글이 없습니다."}
+  if(d&&d.pins&&d.pins.length){
+    var pr=document.createElement("div"),ps=document.createElement("small");ps.textContent="등록한 업적";var pw=document.createElement("div");pw.className="fp-pins";
+    d.pins.forEach(function(n){var sp=document.createElement("span");sp.textContent=n;pw.appendChild(sp)});
+    pr.appendChild(ps);pr.appendChild(pw);kv.appendChild(pr);
+  }
+  pg.appendChild(im);pg.appendChild(h);pg.appendChild(c);pg.appendChild(bio);pg.appendChild(kv);
   return pg;
 }
 function showP(code,dir){
