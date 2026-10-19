@@ -229,13 +229,13 @@ async function settleDying(userId, now) {
   }
 }
 // 토벌 실패: 민첩에 비례한 확률로 체력 차감을 막고, 아니면 등급에 따라 체력이 줄어듭니다 (5 아래로는 내려가지 않음).
-async function applyHpLoss(userId, rank, now) {
+async function applyHpLoss(userId, rank, now, eb) {
   for (let i = 0; i < 6; i++) {
     const u = await db.get('SELECT stats, dying_until FROM users WHERE id = ?', [userId]);
     if (!u) return { loss: 0, prevented: false, hp: 0, dying: false, until: 0 };
     const st = JSON.parse(u.stats), hp = Number(st.hp) || 0;
-    if (G.chance01() < G.guardChance(st.agi)) return { loss: 0, prevented: true, hp, dying: u.dying_until > now, until: u.dying_until };
-    const nh = Math.max(G.HP_MIN, hp - G.hpLoss(rank)), loss = Math.max(0, hp - nh);
+    if (G.chance01() < G.guardChance((Number(st.agi) || 0) + (eb ? eb.agi : 0))) return { loss: 0, prevented: true, hp, dying: u.dying_until > now, until: u.dying_until };
+    const nh = Math.max(G.HP_MIN, hp - Math.round(G.hpLoss(rank) * (1 - (eb ? eb.hpGuard : 0) / 100))), loss = Math.max(0, hp - nh);
     st.hp = nh;
     const dying = nh <= G.HP_MIN, until = dying ? (u.dying_until > now ? u.dying_until : now + G.HP_DYING_MS) : u.dying_until;
     const w = await db.run('UPDATE users SET stats = ?, dying_until = ? WHERE id = ? AND stats = ? AND dying_until = ?', [JSON.stringify(st), until, userId, u.stats, u.dying_until]);
@@ -425,7 +425,7 @@ async function tickBoard() {
   } finally { boardBusy = false; }
 }
 
-async function catchUp() { await corruptTick(); await tickSpawns(); await resolveDue(); await purgeMonsters(); await tickBoard(); }
+async function catchUp() { await corruptTick(); await tickSpawns(); await resolveDue(); await purgeMonsters(); await tickBoard(); await tickRumors(); }
 
 // ── 업적 (정의는 DB에 저장되어 모든 헌터에게 똑같이 적용됩니다) ──
 async function loadAch() {
@@ -557,7 +557,7 @@ async function sInfo(userId, now) {
 
 // 스탯이 만드는 확률 (모두 95% 이하)
 const fxOf = st => ({ win: Math.round(Math.min(G.PROB_CAP, (Number(st.str) || 0) * G.STR_WIN) * 100), guard: Math.round(G.guardChance(st.agi) * 100), free: Math.round(G.freeChance(st.luck) * 100) });
-const MAT_NAMES = new Set(G.MATERIALS.map(m => m.name));      // 인벤토리 '조합 아이템' 탭에 들어가는 재료 이름
+const MAT_NAMES = new Set(G.MATERIALS.concat(G.GATE_MATS).map(m => m.name));      // 인벤토리 '조합 아이템' 탭에 들어가는 재료 이름
 async function buildState(u, now) {
   await settleDying(u.id, now);
   u = (await userById(u.id)) || u;
@@ -569,7 +569,7 @@ async function buildState(u, now) {
   if (!Number(u.ach_seen)) { await db.run('UPDATE users SET ach_seen = ? WHERE id = ? AND ach_seen = 0', [now, u.id]); u.ach_seen = now; }
   const achNew = (await db.get('SELECT COUNT(*) AS c FROM ach_earned WHERE user_id = ? AND at > ?', [u.id, Number(u.ach_seen)])).c;
   // 보이는 몬스터: 서버 공통 S급 + 내 몬스터(F~A). 예전 공통 F~A 몬스터는 보이지 않습니다.
-  const vis = "((owner_id IS NULL AND (rank = 'S' OR corrupt_of IS NOT NULL)) OR owner_id = ?)";
+  const vis = "((owner_id IS NULL AND (rank = 'S' OR corrupt_of IS NOT NULL OR rumor_id IS NOT NULL)) OR owner_id = ?)";
   const mons = await db.all(`SELECT * FROM monsters
     WHERE ${vis} AND (spawned_at > ? OR (rank = 'S' AND spawned_at > ?) OR (corrupt_of IS NOT NULL AND spawned_at > ?) OR id IN (SELECT id FROM monsters WHERE ${vis} ORDER BY id DESC LIMIT 6))
       AND id NOT IN (SELECT monster_id FROM s_close WHERE ok = 0)
@@ -592,6 +592,12 @@ async function buildState(u, now) {
             WHERE m.to_id = ? AND m.id > f.last_read`, [u.id]),
   ]);
   const frq = await db.get('SELECT COUNT(*) AS c FROM friend_requests WHERE to_id = ?', [u.id]);
+  // 일일 의뢰(수령 가능 수) · 구조가 필요한 친구 수 · 나를 구해 준 친구 알림(한 번만)
+  const rumNew = await db.get("SELECT COUNT(*) AS c FROM rumors r WHERE r.status = 'open' AND r.ends > ? AND NOT EXISTS (SELECT 1 FROM rumor_votes v WHERE v.rumor_id = r.id AND v.user_id = ?)", [now, u.id]);
+  const qRdy = await db.get('SELECT COUNT(*) AS c FROM daily_quests WHERE user_id = ? AND day = ? AND claimed = 0 AND prog >= need', [u.id, kstDay(now)]);
+  const resq = await db.get('SELECT COUNT(*) AS c FROM friends f JOIN users x ON x.id = f.friend_id WHERE f.user_id = ? AND x.corrupt_flag = 1', [u.id]);
+  const rescued = await db.all('SELECT r.id, r.at, x.hunter_name AS hn FROM rescues r JOIN users x ON x.id = r.rescuer_id WHERE r.target_id = ? AND r.seen = 0 ORDER BY r.id LIMIT 5', [u.id]);
+  if (rescued.length) await db.run('UPDATE rescues SET seen = 1 WHERE target_id = ? AND seen = 0 AND id <= ?', [u.id, rescued[rescued.length - 1].id]);
   const inv = await db.all('SELECT i.item, i.qty, s.eff_stat, s.eff_amt FROM inventory i LEFT JOIN shop_items s ON s.name = i.item WHERE i.user_id = ? AND i.qty > 0 ORDER BY i.item', [u.id]);
   const closedOk = new Set((await db.all('SELECT monster_id FROM s_close WHERE ok = 1 AND monster_id >= ?', [minId])).map(r => r.monster_id));
   // S급 토벌 성공 안내(모든 헌터에게): 확인을 누르면 참여자에게만 보상이 지급됩니다
@@ -616,7 +622,7 @@ async function buildState(u, now) {
     now,
     user: { pinned: pinnedList(u, await loadAch()), bio: u.bio || '', lv: u.lv, exp: u.exp, gold: u.gold, region: u.region, country: G.countryOf(u.region), hunterName: u.hunter_name, private: !!u.is_private, stats: statsOf(u), dyingUntil: u.dying_until > now ? u.dying_until : 0, blocked: u.block_flags | 0, adminChar: !!u.admin_char, inqUnread: (await db.get('SELECT COUNT(*) AS c FROM inquiries WHERE user_id = ? AND from_admin = 1 AND id > ?', [u.id, u.inq_read])).c, corruptUntil: corruptLock(u, now) ? u.corrupt_until : 0, tainted: (JSON.parse(u.stats).taint || 0) >= 100, fx: fxOf(JSON.parse(u.stats)) },
     monsters: mons.map(m => ({
-      id: m.id, region: m.region, rname: G.placeName(m.region), mon: m.name, r: m.rank, ts: m.spawned_at,
+      id: m.id, region: m.region, rname: G.placeName(m.region), mon: m.rumor_id ? '[괴담] ' + m.name : m.name, r: m.rank, ts: m.spawned_at,
       done: killed.has(m.id), cd: cdm.get(m.id) || 0,
       parts: m.rank === 'S' && m.corrupt_of == null ? (pm.get(m.id) || 0) : undefined,
       c: m.corrupt_of != null ? 1 : undefined,
@@ -630,6 +636,7 @@ async function buildState(u, now) {
     unreadMsgs: um.c,
     board: (await db.get('SELECT COALESCE(MAX(id), 0) AS m FROM board_posts')).m,
     friendReqs: frq.c,
+    questReady: Number(qRdy.c), rumorNew: Number(rumNew.c), rescueReq: Number(resq.c), rescued: rescued.map(x => ({ hn: x.hn, at: x.at })),
     sWin: swin.map(x => ({ id: x.id, mon: x.name, part: !!x.part, exp: x.exp || 0, gold: x.gold || 0, taint: x.taint || 0, minAt: Number(x.min_at) || 0 })),
     sAuto, sHoldMs: SWIN_HOLD_MS,
     rec: await getRec(),
@@ -1026,6 +1033,7 @@ route('POST', '/api/survey', async (req, res, ctx) => {
     const f = await db.get('SELECT at FROM survey_marks WHERE user_id = ? AND region = ? AND idx = ?', [cur.id, region, idx]);
     return fail(res, 429, 'cooldown', { until: (f ? Number(f.at) : 0) + SURVEY_CD, now });
   }
+  await questProg(cur, 'survey', 1);
   try {
     // 대부분 이 지역의 재료를 찾고, 가끔 상점 아이템이나 골드를 찾습니다.
     let pick = null, qty = 1;
@@ -1055,10 +1063,520 @@ route('POST', '/api/survey', async (req, res, ctx) => {
     throw e;
   }
 });
+// ═════════════ 일일 계약 의뢰 ═════════════
+// 하루(한국 시간 0시 기준)에 3개. 토벌·조사·탐험을 하면 자동으로 진행되고, 완료하면 의뢰 앱에서 보상을 받습니다.
+const QRANKS = ['F', 'E', 'D', 'C', 'B', 'A', 'S'];
+const kstDay = now => new Date(now + 9 * 3600000).toISOString().slice(0, 10);
+const questText = q => q.kind === 'kill' ? '몬스터 ' + q.need + '마리 처치'
+  : q.kind === 'killr' ? QRANKS[q.arg] + '급 이상 몬스터 ' + q.need + '마리 처치'
+  : q.kind === 'survey' ? '적월문에서 ' + q.need + '번 조사하기'
+  : '적월문 심층 탐험으로 ' + q.need + '개 층 내려가기';
+async function ensureQuests(u, now) {
+  const day = kstDay(now);
+  const have = await db.get('SELECT COUNT(*) AS c FROM daily_quests WHERE user_id = ? AND day = ?', [u.id, day]);
+  if (Number(have.c) >= 3) return day;
+  const ri = Math.max(0, QRANKS.indexOf(u.rank));
+  const minR = Math.min(5, Math.max(1, ri - 1));
+  const third = G.rnd(0, 1) ? ['survey', 0, G.rnd(3, 5)] : ['floor', 0, G.rnd(2, 4)];
+  const defs = [
+    [0, 'kill', 0, 3 + ri, 80 + ri * 50, 8 + ri * 5],
+    [1, 'killr', minR, 2 + Math.floor(ri / 2), 120 + ri * 70, 12 + ri * 7],
+    [2, third[0], third[1], third[2], 100 + ri * 60, 10 + ri * 6],
+  ];
+  for (const d of defs) {
+    await db.run('INSERT INTO daily_quests (user_id, day, slot, kind, arg, need, gold, exp) VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(user_id, day, slot) DO NOTHING',
+      [u.id, day, d[0], d[1], d[2], d[3], d[4], d[5]]);
+  }
+  return day;
+}
+// kind: 'kill'(rankIdx 필요) | 'survey' | 'floor'
+async function questProg(u, kind, n, rankIdx) {
+  try {
+    const day = await ensureQuests(u, Date.now());
+    if (kind === 'kill') await db.run("UPDATE daily_quests SET prog = MIN(need, prog + ?) WHERE user_id = ? AND day = ? AND claimed = 0 AND (kind = 'kill' OR (kind = 'killr' AND arg <= ?))", [n, u.id, day, rankIdx]);
+    else await db.run('UPDATE daily_quests SET prog = MIN(need, prog + ?) WHERE user_id = ? AND day = ? AND claimed = 0 AND kind = ?', [n, u.id, day, kind]);
+  } catch (e) { if (process.env.DEBUG_QUEST) console.error("questProg", e); }
+}
+route('GET', '/api/quests', async (req, res, ctx) => {
+  const u = await userById(ctx.user.id), now = Date.now();
+  const day = await ensureQuests(u, now);
+  const rows = await db.all('SELECT slot, kind, arg, need, prog, gold, exp, claimed FROM daily_quests WHERE user_id = ? AND day = ? ORDER BY slot', [u.id, day]);
+  const left = 24 * 3600000 - ((now + 9 * 3600000) % (24 * 3600000));
+  send(res, 200, { resetIn: left, quests: rows.map(q => ({ slot: q.slot, text: questText(q), need: q.need, prog: q.prog, gold: q.gold, exp: q.exp, claimed: !!q.claimed })) });
+});
+route('POST', '/api/quests/claim', async (req, res, ctx) => {
+  const u = await userById(ctx.user.id), now = Date.now(), slot = Number(ctx.body.slot);
+  if (!Number.isInteger(slot)) return fail(res, 400, 'bad_slot');
+  const day = kstDay(now);
+  const q = await db.get('SELECT gold, exp, kind, arg, need FROM daily_quests WHERE user_id = ? AND day = ? AND slot = ?', [u.id, day, slot]);
+  if (!q) return fail(res, 404, 'no_quest');
+  const c = await db.run('UPDATE daily_quests SET claimed = 1 WHERE user_id = ? AND day = ? AND slot = ? AND claimed = 0 AND prog >= need', [u.id, day, slot]);
+  if (c.changes !== 1) return fail(res, 409, 'not_ready');
+  const g = await grantExp(u.id, q.exp);
+  await grantGold(u.id, q.gold);
+  await logAcquire(u.id, 'exp', '경험치', q.exp, '일일 의뢰', now);
+  await logAcquire(u.id, 'gold', '골드', q.gold, '일일 의뢰', now);
+  send(res, 200, { ok: true, gold: q.gold, exp: q.exp, levelUp: !!(g && g.up) });
+});
+
+// ═════════════ 오염 거래 (계약) ═════════════
+// 오염도를 대가로 보상을 받는 계약. 계약마다 하루(한국 시간 0시 기준)에 한 번. 오염도가 100이 되면 몬스터가 되므로, 그렇게 될 계약은 확인을 한 번 더 받습니다.
+const pactReward = p => p.gold ? { kind: 'gold', text: '골드 +' + p.gold + ' G' } : p.exp ? { kind: 'exp', text: '경험치 +' + p.exp }
+  : p.fame ? { kind: 'fame', text: '명성 +' + p.fame } : p.stat ? { kind: 'stat', text: ({ str: '근력', agi: '민첩', luck: '행운' })[p.stat] + ' +' + p.amt } : { kind: 'item', text: p.item + ' ×' + p.qty };
+route('GET', '/api/pact', async (req, res, ctx) => {
+  const u = await userById(ctx.user.id), now = Date.now(), day = kstDay(now);
+  const done = new Set((await db.all('SELECT pid FROM pact_log WHERE user_id = ? AND day = ?', [u.id, day])).map(r => r.pid));
+  const left = 24 * 3600000 - ((now + 9 * 3600000) % (24 * 3600000));
+  send(res, 200, { taint: Number(JSON.parse(u.stats).taint) || 0, resetIn: left, backlash: G.PACT_BACKLASH, backlashTaint: G.PACT_BACKLASH_TAINT,
+    pacts: G.PACTS.map(p => ({ id: p.id, name: p.name, desc: p.desc, taint: p.taint, reward: pactReward(p).text, done: done.has(p.id) })) });
+});
+route('POST', '/api/pact/sign', async (req, res, ctx) => {
+  if (await limited('pact:' + ctx.user.id, 30, 60000)) return fail(res, 429, 'rate_limited');
+  const now = Date.now(), cur = await userById(ctx.user.id), day = kstDay(now);
+  const p = G.PACTS.find(x => x.id === String(ctx.body.id || ''));
+  if (!p) return fail(res, 404, 'no_pact');
+  if (corruptLock(cur, now)) return fail(res, 409, 'corrupted', { until: cur.corrupt_until });
+  const t0 = Number(JSON.parse(cur.stats).taint) || 0;
+  if (t0 >= 100) return fail(res, 409, 'tainted');
+  if (t0 + p.taint >= 100 && ctx.body.confirm !== true) return fail(res, 409, 'will_corrupt', { taint: t0, add: p.taint });
+  const ins = await db.run('INSERT OR IGNORE INTO pact_log (user_id, day, pid, at) VALUES (?, ?, ?, ?)', [cur.id, day, p.id, now]);
+  if (ins.changes !== 1) return fail(res, 409, 'already_done');
+  let levelUp = false;
+  if (p.gold) { await grantGold(cur.id, p.gold); await logAcquire(cur.id, 'gold', '골드', p.gold, '오염 거래: ' + p.name, now); }
+  if (p.exp) { const g = await grantExp(cur.id, p.exp); levelUp = !!(g && g.up); await logAcquire(cur.id, 'exp', '경험치', p.exp, '오염 거래: ' + p.name, now); }
+  if (p.fame) await grantFame(cur.id, p.fame);
+  if (p.stat) await applyItemEffect(cur.id, p.stat, p.amt, now);
+  if (p.item) {
+    await db.run('INSERT INTO inventory (user_id, item, qty) VALUES (?, ?, ?) ON CONFLICT(user_id, item) DO UPDATE SET qty = MIN(9999, qty + excluded.qty)', [cur.id, p.item, p.qty]);
+    await logAcquire(cur.id, 'item', p.item, p.qty, '오염 거래: ' + p.name, now);
+  }
+  const backlash = G.chance01() < G.PACT_BACKLASH;
+  const add = p.taint + (backlash ? G.PACT_BACKLASH_TAINT : 0);
+  const taintNow = await grantTaint(cur.id, add);
+  const fresh = await userById(cur.id);
+  send(res, 200, { ok: true, name: p.name, reward: pactReward(p).text, taint: add, backlash, taintNow, levelUp, corrupted: !!fresh.corrupt_flag });
+});
+
+// ═════════════ 도시 괴담 소문 ═════════════
+// 시민들 사이에 괴담 소문이 돕니다. 헌터들이 '믿는다 / 의심한다'로 표를 던지고, 한쪽이 RUMOR_NEED 명에 이르면 진실이 가려집니다.
+//  · 믿는 쪽이 이기고 진짜 → 그 지역에 괴담 몬스터가 실제로 나타남 (30분, 누구나 토벌 가능). 믿은 사람은 보상.
+//  · 믿는 쪽이 이기고 거짓 → 헛소문. 믿은 사람은 골드를 잃고, 의심한 사람은 보상.
+//  · 의심하는 쪽이 이기고 거짓 → 의심한 사람 보상. 진짜였다면 소문은 묻히고 아무 일도 없음.
+//  · 아무도 결론을 못 내고 6시간이 지나면 잊혀짐.
+const rumorPlace = r => G.placeLong(r.region);
+let lastRumorTick = 0;
+async function tickRumors() {
+  const now = Date.now();
+  if (now - lastRumorTick < 20000) return;
+  lastRumorTick = now;
+  await db.run("DELETE FROM rumor_votes WHERE rumor_id IN (SELECT id FROM rumors WHERE status <> 'open' AND resolved > 0 AND resolved < ?)", [now - 7 * 24 * 3600000]);
+  await db.run("DELETE FROM rumors WHERE status <> 'open' AND resolved > 0 AND resolved < ?", [now - 7 * 24 * 3600000]);
+  const old = await db.all("SELECT id FROM rumors WHERE status = 'open' AND ends <= ? LIMIT 20", [now]);
+  for (const o of old) await db.run("UPDATE rumors SET status = 'faded', resolved = ? WHERE id = ? AND status = 'open'", [now, o.id]);
+  const open = await db.get("SELECT COUNT(*) AS c FROM rumors WHERE status = 'open'");
+  if (Number(open.c) >= G.RUMOR_MAX_OPEN) return;
+  const row = await db.get("SELECT next_at FROM spawn_state WHERE tier = 'rumor'");
+  if (!row) await db.run("INSERT OR IGNORE INTO spawn_state (tier, next_at) VALUES ('rumor', 0)");
+  const from = row ? row.next_at : 0;
+  if (from > now) return;
+  const claim = await db.run("UPDATE spawn_state SET next_at = ? WHERE tier = 'rumor' AND next_at = ?", [now + G.RUMOR_GAP_MS + G.rnd(0, 30) * G.MIN, from]);
+  if (claim.changes !== 1) return;
+  await makeRumor(now);
+}
+async function makeRumor(now, forceTruth) {
+  const live = await db.all("SELECT tpl FROM rumors WHERE status = 'open'");
+  const used = new Set(live.map(x => x.tpl));
+  const idxs = G.RUMOR_TPL.map((_, i) => i).filter(i => !used.has(i));
+  const i = idxs[G.rnd(0, idxs.length - 1)], tp = G.RUMOR_TPL[i];
+  const region = G.SPAWN_REGIONS[G.rnd(0, G.SPAWN_REGIONS.length - 1)].id;
+  const place = G.placeName(region);
+  const truth = forceTruth === undefined ? (G.chance01() < 0.5 ? 1 : 0) : (forceTruth ? 1 : 0);
+  const title = tp.t.replace('{p}', place), body = tp.body.replace('{p}', place);
+  const r = await db.run('INSERT INTO rumors (title, body, region, mon_name, rank, tpl, truth, status, created, ends) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+    [title, body, region, tp.mon, tp.rank, i, truth, 'open', now, now + G.RUMOR_OPEN_MS]);
+  await db.run('INSERT INTO board_posts (who, title, body, tag, at) VALUES (?, ?, ?, ?, ?)', ['익명의 시민', '[괴담] ' + title, body + ' 헌터 기기의 괴담 앱에서 믿을지 의심할지 정해 주세요.', '괴담', now]);
+  return r.lastId;
+}
+// side: 'believe' | 'doubt' — 이긴 쪽
+async function resolveRumor(r, side, now) {
+  const status = side === 'believe' ? (r.truth ? 'true' : 'false') : (r.truth ? 'buried' : 'debunked');
+  const claim = await db.run("UPDATE rumors SET status = ?, resolved = ? WHERE id = ? AND status = 'open'", [status, now, r.id]);
+  if (claim.changes !== 1) return null;
+  const votes = await db.all('SELECT user_id, vote FROM rumor_votes WHERE rumor_id = ?', [r.id]);
+  const RW = G.RUMOR_REWARD;
+  const pay = async (uid, rw) => {
+    if (rw.gold > 0) { await grantGold(uid, rw.gold); await logAcquire(uid, 'gold', '골드', rw.gold, '괴담 소문', now); }
+    if (rw.gold < 0) await db.run('UPDATE users SET gold = gold - MIN(gold, ?) WHERE id = ?', [-rw.gold, uid]);
+    if (rw.exp > 0) { await grantExp(uid, rw.exp); await logAcquire(uid, 'exp', '경험치', rw.exp, '괴담 소문', now); }
+  };
+  if (status === 'true') {
+    await db.run('INSERT INTO monsters (region, name, rank, spawned_at, rumor_id) VALUES (?, ?, ?, ?, ?)', [r.region, r.mon_name, r.rank, now, r.id]);
+    await db.run('INSERT INTO board_posts (who, title, body, tag, at) VALUES (?, ?, ?, ?, ?)', ['익명의 시민', '[괴담] 소문이 사실이었다', G.placeName(r.region) + '에 "' + r.mon_name + '"이(가) 실제로 나타났습니다. 조심하세요.', '괴담', now]);
+    for (const v of votes) if (v.vote === 1) await pay(v.user_id, RW.believeTrue);
+  } else if (status === 'false') {
+    for (const v of votes) await pay(v.user_id, v.vote === 1 ? RW.believeFalse : RW.doubtFalse);
+  } else if (status === 'debunked') {
+    for (const v of votes) if (v.vote === 0) await pay(v.user_id, RW.doubtFalse);
+  }
+  return status;
+}
+const rumorMine = async (uid) => {
+  const m = new Map((await db.all('SELECT rumor_id, vote FROM rumor_votes WHERE user_id = ?', [uid])).map(x => [x.rumor_id, x.vote]));
+  return m;
+};
+route('GET', '/api/rumors', async (req, res, ctx) => {
+  await tickRumors();
+  const now = Date.now();
+  const rows = await db.all("SELECT * FROM rumors WHERE status = 'open' OR resolved > ? ORDER BY id DESC LIMIT 12", [now - 24 * 3600000]);
+  const cnt = new Map((await db.all('SELECT rumor_id, vote, COUNT(*) AS c FROM rumor_votes WHERE rumor_id IN (SELECT id FROM rumors WHERE status = \'open\' OR resolved > ?) GROUP BY rumor_id, vote', [now - 24 * 3600000])).map(x => [x.rumor_id + ':' + x.vote, Number(x.c)]));
+  const mine = await rumorMine(ctx.user.id);
+  const HOAX = i => (G.RUMOR_TPL[i] || {}).hoax || '';
+  send(res, 200, { need: G.RUMOR_NEED, rumors: rows.map(r => {
+    const open = r.status === 'open', my = mine.has(r.id) ? mine.get(r.id) : null;
+    const o = { id: r.id, title: r.title, body: r.body, place: rumorPlace(r), status: r.status, believers: cnt.get(r.id + ':1') || 0, doubters: cnt.get(r.id + ':0') || 0, my, endsIn: open ? Math.max(0, r.ends - now) : 0 };
+    if (!open) {
+      o.truth = !!r.truth; o.mon = r.mon_name; o.hoax = r.truth ? '' : HOAX(r.tpl);
+      const RW = G.RUMOR_REWARD;
+      if (my !== null) o.reward = r.status === 'true' && my === 1 ? RW.believeTrue : r.status === 'false' ? (my === 1 ? RW.believeFalse : RW.doubtFalse) : r.status === 'debunked' && my === 0 ? RW.doubtFalse : null;
+    }
+    return o;
+  }) });
+});
+route('POST', '/api/rumors/vote', async (req, res, ctx) => {
+  if (await limited('rumor:' + ctx.user.id, 30, 60000)) return fail(res, 429, 'rate_limited');
+  const now = Date.now(), id = Number(ctx.body.id) || 0, vote = ctx.body.vote === 'believe' ? 1 : ctx.body.vote === 'doubt' ? 0 : -1;
+  if (vote < 0) return fail(res, 400, 'bad_vote');
+  const r = await db.get('SELECT * FROM rumors WHERE id = ?', [id]);
+  if (!r) return fail(res, 404, 'no_rumor');
+  if (r.status !== 'open' || r.ends <= now) return fail(res, 409, 'closed');
+  const ins = await db.run('INSERT OR IGNORE INTO rumor_votes (rumor_id, user_id, vote, at) VALUES (?, ?, ?, ?)', [id, ctx.user.id, vote, now]);
+  if (ins.changes !== 1) return fail(res, 409, 'already_voted');
+  const c = await db.all('SELECT vote, COUNT(*) AS n FROM rumor_votes WHERE rumor_id = ? GROUP BY vote', [id]);
+  const bel = Number((c.find(x => x.vote === 1) || {}).n || 0), dou = Number((c.find(x => x.vote === 0) || {}).n || 0);
+  let status = 'open';
+  const side = vote === 1 ? (bel >= G.RUMOR_NEED ? 'believe' : null) : (dou >= G.RUMOR_NEED ? 'doubt' : null);
+  if (side) status = (await resolveRumor(r, side, now)) || 'open';
+  send(res, 200, { ok: true, status, believers: bel, doubters: dou });
+});
+
+// ═════════════ 오염된 친구 구조 의뢰 ═════════════
+// 오염 폭주(오염도 100)에 빠진 친구에게 정화 아이템을 써서 구해 줍니다. 구한 사람에게는 보상, 구해진 친구는 오염도가 40으로 내려가고 폭주가 풀립니다.
+const RESCUE_REWARD = { gold: 200, exp: 40, fame: 3 };
+async function cureItems() {
+  const m = new Map();
+  Object.keys(G.CRAFT_DEFS).forEach(n => { const d = G.CRAFT_DEFS[n]; if (d.stat === 'taint' && d.amt < 0) m.set(n, d.amt); });
+  (await db.all("SELECT name, eff_amt FROM shop_items WHERE eff_stat = 'taint' AND eff_amt < 0")).forEach(r => m.set(r.name, Number(r.eff_amt)));
+  return m;
+}
+async function findCure(userId) {
+  const m = await cureItems();
+  if (!m.size) return null;
+  const names = [...m.keys()];
+  const rows = await db.all('SELECT item, qty FROM inventory WHERE user_id = ? AND qty > 0 AND item IN (' + names.map(() => '?').join(',') + ')', [userId, ...names]);
+  if (!rows.length) return null;
+  rows.sort((a, b) => Math.abs(m.get(a.item)) - Math.abs(m.get(b.item)));      // 가장 약한 정화 아이템부터 사용
+  return rows[0].item;
+}
+route('POST', '/api/friends/rescue', async (req, res, ctx) => {
+  if (await limited('rescue:' + ctx.user.id, 20, 60000)) return fail(res, 429, 'rate_limited');
+  const me = await userById(ctx.user.id), now = Date.now();
+  const f = await userByCode(normCode(ctx.body.code));
+  if (!f || f.id === me.id || !(await isFriend(me.id, f.id))) return fail(res, 404, 'not_found');
+  if (corruptLock(me, now) || (Number(JSON.parse(me.stats).taint) || 0) >= 100) return fail(res, 409, 'corrupted');
+  if (!f.corrupt_flag || (Number(JSON.parse(f.stats).taint) || 0) < 100) return fail(res, 409, 'not_corrupted');
+  if (await db.get('SELECT 1 AS x FROM rescues WHERE rescuer_id = ? AND target_id = ? AND at > ?', [me.id, f.id, now - 6 * 3600000])) return fail(res, 429, 'pair_cooldown');
+  const cnt = await db.get('SELECT COUNT(*) AS c FROM rescues WHERE rescuer_id = ? AND at > ?', [me.id, now - 24 * 3600000]);
+  if (Number(cnt.c) >= 5) return fail(res, 429, 'daily_limit');
+  const item = await findCure(me.id);
+  if (!item) return fail(res, 409, 'no_item');
+  const dec = await db.run('UPDATE inventory SET qty = qty - 1 WHERE user_id = ? AND item = ? AND qty > 0', [me.id, item]);
+  if (dec.changes !== 1) return fail(res, 409, 'no_item');
+  await db.run('DELETE FROM inventory WHERE user_id = ? AND item = ? AND qty <= 0', [me.id, item]);
+  // 친구의 오염도를 40으로 내리고 폭주를 풉니다 (이미 누군가 구했다면 한 번만 적용)
+  let done = false;
+  for (let i = 0; i < 6; i++) {
+    const cur = await db.get('SELECT stats FROM users WHERE id = ?', [f.id]);
+    const st = JSON.parse(cur.stats);
+    if ((Number(st.taint) || 0) < 100) break;
+    st.taint = 40;
+    const w = await db.run('UPDATE users SET stats = ? WHERE id = ? AND stats = ?', [JSON.stringify(st), f.id, cur.stats]);
+    if (w.changes === 1) { done = true; break; }
+  }
+  if (!done) {            // 그 사이 이미 풀렸으면 아이템을 돌려줍니다
+    await db.run('INSERT INTO inventory (user_id, item, qty) VALUES (?, ?, 1) ON CONFLICT(user_id, item) DO UPDATE SET qty = MIN(9999, qty + 1)', [me.id, item]);
+    return fail(res, 409, 'not_corrupted');
+  }
+  await db.run('UPDATE users SET corrupt_until = 0, corrupt_flag = 0 WHERE id = ?', [f.id]);
+  await db.run('UPDATE monsters SET spawned_at = 0 WHERE corrupt_of = ?', [f.id]);
+  await db.run('DELETE FROM monsters WHERE corrupt_of = ? AND NOT EXISTS (SELECT 1 FROM kills k WHERE k.monster_id = monsters.id)', [f.id]);
+  await db.run('INSERT INTO rescues (target_id, rescuer_id, at, seen) VALUES (?, ?, ?, 0)', [f.id, me.id, now]);
+  const g = await grantExp(me.id, RESCUE_REWARD.exp);
+  await grantGold(me.id, RESCUE_REWARD.gold);
+  await grantFame(me.id, RESCUE_REWARD.fame);
+  await logAcquire(me.id, 'exp', '경험치', RESCUE_REWARD.exp, '친구 구조', now);
+  await logAcquire(me.id, 'gold', '골드', RESCUE_REWARD.gold, '친구 구조', now);
+  send(res, 200, { ok: true, item, friend: f.hunter_name, gold: RESCUE_REWARD.gold, exp: RESCUE_REWARD.exp, fame: RESCUE_REWARD.fame, levelUp: !!(g && g.up) });
+});
+
+// ═════════════ 적월문 심층 탐험 (층 구조) ═════════════
+// 시작 → 한 층씩 내려가며 재료·골드를 모음 → 복귀하면 전부 가져감. 깊을수록 보상이 크지만 오염도가 쌓이고, 함정에 걸리면 절반을 잃습니다.
+// 오염도가 100이 되면 폭주하며 모은 것을 전부 잃습니다.
+// ═════════════ 장비 ═════════════
+const EQ_BY_ID = new Map(G.EQUIPS.map(e => [e.id, e]));
+const eqBonusOf = e => { const sl = G.EQ_SLOTS[e.slot], gi = 'CBAS'.indexOf(e.grade); return { stat: sl.stat, val: sl.v[gi] }; };
+async function equipBonus(uid) {
+  const b = { str: 0, agi: 0, luck: 0, hpGuard: 0, taintRes: 0 };
+  const rows = await db.all('SELECT key FROM equip_inv WHERE user_id = ? AND equipped = 1 AND dur > 0', [uid]);
+  for (const r of rows) { const e = EQ_BY_ID.get(r.key); if (e) { const x = eqBonusOf(e); b[x.stat] += x.val; } }
+  b.hpGuard = Math.min(80, b.hpGuard); b.taintRes = Math.min(70, b.taintRes);
+  return b;
+}
+const withEq = (st, eb) => Object.assign({}, st, { agi: (Number(st.agi) || 0) + eb.agi, luck: (Number(st.luck) || 0) + eb.luck, str: (Number(st.str) || 0) + eb.str });
+const eqTaint = (t, eb) => Math.max(0, Math.round(t * (1 - eb.taintRes / 100) * 10) / 10);
+// 토벌 한 번마다 착용 중인 장비의 내구도가 1씩 줄어듭니다.
+async function equipWear(uid) { await db.run('UPDATE equip_inv SET dur = dur - 1 WHERE user_id = ? AND equipped = 1 AND dur > 0', [uid]); }
+
+
+const EQ_MAX_OWN = 40;
+const eqView = e => { const x = eqBonusOf(e), sl = G.EQ_SLOTS[e.slot], g = G.EQ_GRADE[e.grade];
+  return { id: e.id, name: e.name, slot: e.slot, slotKo: sl.ko, grade: e.grade, desc: e.desc, stat: sl.ko_stat, val: x.val, unit: sl.unit, maxDur: g.dur, repair: g.repair }; };
+route('GET', '/api/equip', async (req, res, ctx) => {
+  const inv = new Map((await db.all('SELECT item, qty FROM inventory WHERE user_id = ? AND qty > 0', [ctx.user.id])).map(r => [r.item, Number(r.qty)]));
+  const mine = await db.all('SELECT id, key, dur, equipped FROM equip_inv WHERE user_id = ? ORDER BY equipped DESC, id', [ctx.user.id]);
+  const eb = await equipBonus(ctx.user.id);
+  send(res, 200, {
+    gold: (await db.get('SELECT gold FROM users WHERE id = ?', [ctx.user.id])).gold,
+    defs: G.EQUIPS.map(e => Object.assign(eqView(e), { mats: Object.keys(e.mats).map(k => ({ item: k, qty: e.mats[k], have: inv.get(k) || 0 })) })),
+    mine: mine.filter(r => EQ_BY_ID.has(r.key)).map(r => { const e = EQ_BY_ID.get(r.key); return Object.assign(eqView(e), { uid: r.id, dur: r.dur, equipped: !!r.equipped, broken: r.dur <= 0 }); }),
+    bonus: eb,
+  });
+});
+route('POST', '/api/equip/craft', async (req, res, ctx) => {
+  if (await limited('eqc:' + ctx.user.id, 40, 60000)) return fail(res, 429, 'rate_limited');
+  const e = EQ_BY_ID.get(String(ctx.body.id || ''));
+  if (!e) return fail(res, 404, 'no_recipe');
+  const cur = await userById(ctx.user.id);
+  if (corruptLock(cur, Date.now())) return fail(res, 409, 'corrupted', { until: cur.corrupt_until });
+  const own = await db.get('SELECT COUNT(*) AS c FROM equip_inv WHERE user_id = ?', [cur.id]);
+  if (Number(own.c) >= EQ_MAX_OWN) return fail(res, 409, 'full');
+  const taken = [];
+  const restore = async () => { for (const t of taken) await db.run('INSERT INTO inventory (user_id, item, qty) VALUES (?, ?, ?) ON CONFLICT(user_id, item) DO UPDATE SET qty = MIN(9999, qty + excluded.qty)', [cur.id, t[0], t[1]]); };
+  try {
+    for (const [item, need] of Object.entries(e.mats)) {
+      const d = await db.run('UPDATE inventory SET qty = qty - ? WHERE user_id = ? AND item = ? AND qty >= ?', [need, cur.id, item, need]);
+      if (d.changes !== 1) { await restore(); return fail(res, 400, 'no_mats', { item }); }
+      taken.push([item, need]);
+    }
+    await db.run('INSERT INTO equip_inv (user_id, key, dur, equipped, at) VALUES (?, ?, ?, 0, ?)', [cur.id, e.id, G.EQ_GRADE[e.grade].dur, Date.now()]);
+  } catch (err) { await restore(); throw err; }
+  await db.run('DELETE FROM inventory WHERE user_id = ? AND qty <= 0', [cur.id]);
+  await logAcquire(cur.id, 'item', e.name + ' (' + e.grade + '급 장비)', 1, '장비 조합', Date.now());
+  send(res, 200, { ok: true, name: e.name, grade: e.grade });
+});
+route('POST', '/api/equip/wear', async (req, res, ctx) => {
+  const uid = Number(ctx.body.uid) || 0;
+  const r = await db.get('SELECT id, key, dur FROM equip_inv WHERE id = ? AND user_id = ?', [uid, ctx.user.id]);
+  if (!r || !EQ_BY_ID.has(r.key)) return fail(res, 404, 'no_equip');
+  const e = EQ_BY_ID.get(r.key);
+  const same = await db.all('SELECT id, key FROM equip_inv WHERE user_id = ? AND equipped = 1', [ctx.user.id]);
+  for (const o of same) { const oe = EQ_BY_ID.get(o.key); if (oe && oe.slot === e.slot && o.id !== r.id) await db.run('UPDATE equip_inv SET equipped = 0 WHERE id = ?', [o.id]); }
+  await db.run('UPDATE equip_inv SET equipped = 1 WHERE id = ? AND user_id = ?', [r.id, ctx.user.id]);
+  send(res, 200, { ok: true, broken: r.dur <= 0 });
+});
+route('POST', '/api/equip/unwear', async (req, res, ctx) => {
+  const w = await db.run('UPDATE equip_inv SET equipped = 0 WHERE id = ? AND user_id = ?', [Number(ctx.body.uid) || 0, ctx.user.id]);
+  if (w.changes !== 1) return fail(res, 404, 'no_equip');
+  send(res, 200, { ok: true });
+});
+// 수리: 부족한 내구도 비율만큼 골드를 냅니다 (최소 1 G)
+route('POST', '/api/equip/repair', async (req, res, ctx) => {
+  if (await limited('eqr:' + ctx.user.id, 40, 60000)) return fail(res, 429, 'rate_limited');
+  const r = await db.get('SELECT id, key, dur FROM equip_inv WHERE id = ? AND user_id = ?', [Number(ctx.body.uid) || 0, ctx.user.id]);
+  if (!r || !EQ_BY_ID.has(r.key)) return fail(res, 404, 'no_equip');
+  const e = EQ_BY_ID.get(r.key), g = G.EQ_GRADE[e.grade], missing = g.dur - Math.max(0, r.dur);
+  if (missing <= 0) return fail(res, 409, 'full_dur');
+  const cost = Math.max(1, Math.round(g.repair * missing / g.dur));
+  const pay = await db.run('UPDATE users SET gold = gold - ? WHERE id = ? AND gold >= ?', [cost, ctx.user.id, cost]);
+  if (pay.changes !== 1) return fail(res, 402, 'no_gold', { cost });
+  const w = await db.run('UPDATE equip_inv SET dur = ? WHERE id = ? AND user_id = ? AND dur = ?', [g.dur, r.id, ctx.user.id, r.dur]);
+  if (w.changes !== 1) { await grantGold(ctx.user.id, cost); return fail(res, 409, 'busy'); }
+  send(res, 200, { ok: true, cost, dur: g.dur });
+});
+route('POST', '/api/equip/discard', async (req, res, ctx) => {
+  const w = await db.run('DELETE FROM equip_inv WHERE id = ? AND user_id = ?', [Number(ctx.body.uid) || 0, ctx.user.id]);
+  if (w.changes !== 1) return fail(res, 404, 'no_equip');
+  send(res, 200, { ok: true });
+});
+
+const GATE_MAX = 50, GATE_CD_OK = 10 * 60000, GATE_CD_FAIL = 30 * 60000;
+const zoneIdx = n => Math.min(G.GATE_ZONES.length - 1, Math.max(0, Math.floor((n - 1) / 10)));       // 1~10층 = 0구간 … 41~50층 = 4구간
+const isBoss = n => n % 10 === 0;                                                                     // 10층마다 구간의 수문장
+// 처음 도달 보너스 [명성, 골드]: 3·5·7·10층은 기존 값, 15층부터는 5층마다
+function gateMilestone(n) {
+  const old = { 3: [1, 150], 5: [2, 300], 7: [3, 500], 10: [5, 1000] };
+  if (old[n]) return old[n];
+  return n > 10 && n % 5 === 0 ? [Math.round(n / 5) + 3, n * 60] : null;
+}
+const gateLoot = r => { try { const o = JSON.parse(r.loot || '{}'); return o && typeof o === 'object' ? o : {}; } catch (_) { return {}; } };
+async function gateRow(uid) {
+  let r = await db.get('SELECT * FROM gate_run WHERE user_id = ?', [uid]);
+  if (!r) { await db.run('INSERT INTO gate_run (user_id) VALUES (?) ON CONFLICT(user_id) DO NOTHING', [uid]); r = await db.get('SELECT * FROM gate_run WHERE user_id = ?', [uid]); }
+  return r;
+}
+// 다음 층(n층)의 확률표 — 화면에도 그대로 보여 줍니다 (모두 0~1)
+function gateOdds(n, st) {
+  const agi = Number(st && st.agi) || 0, luck = Number(st && st.luck) || 0;
+  const cut = Math.min(0.25, agi * 0.0015 + luck * 0.0008);                                // 민첩·행운으로 줄일 수 있는 위험은 최대 25%p
+  const lk = 1 + luck * 0.004;
+  const boss = isBoss(n);
+  return {
+    n, zone: zoneIdx(n), boss,
+    danger: Math.min(0.65, Math.max(0.04, 0.06 + 0.010 * n + (boss ? 0.08 : 0) - cut)),
+    rare: Math.min(0.4, (0.03 + 0.006 * n) * lk),
+    epic: n >= 10 ? Math.min(0.15, 0.003 * (n - 5) * lk) : 0,
+    legend: n >= 10 ? Math.min(0.03, 0.0006 * (n - 5) * lk) : 0,
+    spring: boss ? 0 : 0.05 + zoneIdx(n) * 0.01,
+    treasure: boss ? 0 : Math.min(0.15, 0.06 + luck * 0.001),
+  };
+}
+const gateView = (r, now, st) => {
+  const next = r.floor < GATE_MAX ? gateOdds(r.floor + 1, st) : null;
+  const starts = []; for (let f = 10; f < GATE_MAX; f += 10) if (f <= r.best) starts.push(f);
+  return { active: !!r.active, floor: r.floor, from: r.from_floor | 0, best: r.best, max: GATE_MAX, loot: gateLoot(r), gold: r.gold, cd: Math.max(0, Number(r.cd_until) - now),
+    zones: G.GATE_ZONES.map(z => z.name), zone: r.floor > 0 ? zoneIdx(r.floor) : 0, starts, next };
+};
+// 모은 것을 가져가고 탐험을 끝냅니다. keep 은 가져가는 비율(1=전부, 0.5=절반, 0=전부 잃음)
+async function gateFinish(uid, r, now, keep, cdMs) {
+  const w = await db.run('UPDATE gate_run SET active = 0, floor = 0, from_floor = 0, loot = ?, gold = 0, cd_until = ? WHERE user_id = ? AND active = 1 AND floor = ?', ['{}', now + cdMs, uid, r.floor]);
+  if (w.changes !== 1) return null;
+  const loot = gateLoot(r), got = {};
+  for (const name of Object.keys(loot)) {
+    const q = Math.floor(Number(loot[name]) * keep);
+    if (q <= 0) continue;
+    got[name] = q;
+    await db.run('INSERT INTO inventory (user_id, item, qty) VALUES (?, ?, ?) ON CONFLICT(user_id, item) DO UPDATE SET qty = MIN(9999, qty + excluded.qty)', [uid, name, q]);
+    await logAcquire(uid, 'item', name, q, '적월문 심층 탐험', now);
+  }
+  const gold = Math.floor(r.gold * keep);
+  if (gold > 0) { await grantGold(uid, gold); await logAcquire(uid, 'gold', '골드', gold, '적월문 심층 탐험', now); }
+  let exp = 0;
+  const climbed = r.floor - (r.from_floor | 0);
+  if (keep >= 1 && climbed > 0) { exp = climbed * 6; await grantExp(uid, exp); await logAcquire(uid, 'exp', '경험치', exp, '적월문 심층 탐험', now); }
+  return { got, gold, exp };
+}
+route('GET', '/api/gate/run', async (req, res, ctx) => {
+  const u = await userById(ctx.user.id);
+  send(res, 200, gateView(await gateRow(ctx.user.id), Date.now(), withEq(JSON.parse(u.stats), await equipBonus(u.id))));
+});
+route('POST', '/api/gate/start', async (req, res, ctx) => {
+  const now = Date.now(), cur = await userById(ctx.user.id);
+  if (G.countryOf(cur.region) !== 'GT') return fail(res, 409, 'not_here');
+  if (corruptLock(cur, now)) return fail(res, 409, 'corrupted', { until: cur.corrupt_until });
+  if ((Number(JSON.parse(cur.stats).taint) || 0) >= 100) return fail(res, 409, 'tainted');
+  const r = await gateRow(cur.id), st = withEq(JSON.parse(cur.stats), await equipBonus(cur.id));
+  if (r.active) return send(res, 200, Object.assign({ ok: true }, gateView(r, now, st)));
+  if (Number(r.cd_until) > now) return fail(res, 429, 'cooldown', { cd: Number(r.cd_until) - now });
+  // 10층 단위 거점: 그 층 수문장을 이미 넘은 적이 있다면(최고 기록 이상) 그 층에서부터 시작할 수 있습니다.
+  const from = ctx.body.from === undefined ? 0 : Number(ctx.body.from);
+  if (!Number.isInteger(from) || from < 0 || from >= GATE_MAX || (from > 0 && (from % 10 !== 0 || from > r.best))) return fail(res, 400, 'bad_from');
+  const w = await db.run('UPDATE gate_run SET active = 1, floor = ?, from_floor = ?, loot = ?, gold = 0, started_at = ? WHERE user_id = ? AND active = 0', [from, from, '{}', now, cur.id]);
+  if (w.changes !== 1) return fail(res, 409, 'busy');
+  send(res, 200, Object.assign({ ok: true }, gateView(await gateRow(cur.id), now, st)));
+});
+// 한 층에서 얻는 재료: 등급(일반·희귀·영웅·전설)을 먼저 굴리고, 그 구간의 재료에서 고릅니다.
+function gateRoll(odds, force) {
+  const z = odds.zone, roll = x => G.rnd(1, 100000) <= x * 100000;
+  const tier = force || (roll(odds.legend) ? 'l' : roll(odds.epic) ? 'e' : roll(odds.rare) ? 'r' : 'c');
+  const pool = t => G.GATE_MATS.filter(m => m.zone === z && m.tier === t && !m.special);
+  const pickOf = arr => arr[G.rnd(0, arr.length - 1)].name;
+  if (tier === 'l') return { name: odds.n >= 30 && G.rnd(1, 100) <= 40 ? '월식의 조각' : pickOf(pool('l')), tier };
+  if (tier === 'e' || tier === 'r') return { name: pickOf(pool(tier)), tier };
+  if (G.rnd(1, 100) <= 60) return { name: pickOf(pool('c')), tier };       // 일반: 60% 구간 재료, 40% 일반 재료
+  const regions = Object.keys(G.SV_MARKS);
+  return { name: pickMaterial(regions[G.rnd(0, regions.length - 1)]).name, tier };
+}
+route('POST', '/api/gate/descend', async (req, res, ctx) => {
+  if (await limited('gate:' + ctx.user.id, 40, 60000)) return fail(res, 429, 'rate_limited');
+  const now = Date.now(), cur = await userById(ctx.user.id);
+  if (G.countryOf(cur.region) !== 'GT') return fail(res, 409, 'not_here');
+  if (corruptLock(cur, now)) return fail(res, 409, 'corrupted', { until: cur.corrupt_until });
+  const r = await gateRow(cur.id);
+  if (!r.active) return fail(res, 409, 'not_active');
+  if (r.floor >= GATE_MAX) return fail(res, 409, 'bottom');
+  const n = r.floor + 1, eb = await equipBonus(cur.id), st = withEq(JSON.parse(cur.stats), eb), od = gateOdds(n, st), zi = od.zone;
+  if (Math.random() < od.danger) {          // 함정·습격: 종류마다 잃는 정도가 다릅니다
+    let kind, keep;
+    if (od.boss) { kind = 'boss'; keep = 0.3; }
+    else {
+      const wRock = 55 - zi * 6, wGas = 30, wAmb = 15 + zi * 6;
+      const x = G.rnd(1, wRock + wGas + wAmb);
+      if (x <= wRock) { kind = 'rock'; keep = 0.6; } else if (x <= wRock + wGas) { kind = 'gas'; keep = 0.5; } else { kind = 'ambush'; keep = 0.3; }
+    }
+    const f = await gateFinish(cur.id, r, now, keep, GATE_CD_FAIL);
+    if (!f) return fail(res, 409, 'busy');
+    const tAdd = eqTaint(4 + Math.round(n * 0.4) + (kind === 'gas' ? Math.round(n * 0.3) : 0), eb);
+    const taintNow = await grantTaint(cur.id, tAdd);
+    return send(res, 200, { result: 'trap', kind, floor: n, kept: f.got, gold: f.gold, keep, taint: tAdd, taintNow, cd: GATE_CD_FAIL });
+  }
+  // 안전하게 내려감
+  const loot = gateLoot(r), found = {}, tiers = {};
+  let event = od.boss ? 'boss' : null;
+  if (!event) { const x = Math.random(); if (x < od.spring) event = 'spring'; else if (x < od.spring + od.treasure) event = 'treasure'; }
+  const picks = 1 + Math.floor(n / 12) + (od.boss ? 1 : 0) + (event === 'treasure' ? 1 : 0);
+  for (let i = 0; i < picks; i++) {
+    const force = od.boss && i === 0 ? 'e' : event === 'treasure' && i === 0 ? 'r' : null;      // 수문장은 영웅 재료, 보물방은 희귀 재료가 반드시 나옴
+    const it = gateRoll(od, force);
+    found[it.name] = (found[it.name] || 0) + 1; tiers[it.name] = it.tier;
+  }
+  if (n >= 3 && G.rnd(1, 100) <= Math.min(25, n * 3 / 2 + 2)) { found['적월석 가루'] = (found['적월석 가루'] || 0) + 1; tiers['적월석 가루'] = 'r'; }
+  Object.keys(found).forEach(nm => { loot[nm] = (loot[nm] || 0) + found[nm]; });
+  const gold = Math.round(G.rnd(12, 24) * (1 + n * 0.5) * (event === 'treasure' ? 3 : od.boss ? 2 : 1));
+  const w = await db.run('UPDATE gate_run SET floor = ?, best = ?, loot = ?, gold = gold + ? WHERE user_id = ? AND active = 1 AND floor = ?',
+    [n, Math.max(r.best, n), JSON.stringify(loot), gold, cur.id, r.floor]);
+  if (w.changes !== 1) return fail(res, 409, 'busy');
+  await questProg(cur, 'floor', 1);
+  let bonus = null;
+  const ms = gateMilestone(n);
+  if (n > r.best && ms) {
+    bonus = { fame: ms[0], gold: ms[1] };
+    await grantFame(cur.id, bonus.fame); await grantGold(cur.id, bonus.gold);
+    await logAcquire(cur.id, 'gold', '골드', bonus.gold, '심층 탐험 ' + n + '층 최초 도달', now);
+  }
+  let spring = 0;
+  if (event === 'spring') {         // 정화의 샘: 오염도를 덜어 줌
+    spring = 3 + zi * 2;
+    await applyItemEffect(cur.id, 'taint', -spring, now);
+  }
+  const taintAdd = eqTaint(Math.round(1 + n * 0.5), eb);
+  const taintNow = await grantTaint(cur.id, taintAdd);
+  if (taintNow !== null && taintNow >= 100) {       // 오염 폭주: 모은 것을 전부 잃습니다
+    const row = await gateRow(cur.id);
+    await gateFinish(cur.id, row, now, 0, GATE_CD_FAIL);
+    return send(res, 200, { result: 'tainted', floor: n, taint: taintAdd, taintNow, cd: GATE_CD_FAIL, bonus });
+  }
+  const after = await userById(cur.id);
+  send(res, 200, Object.assign({ result: 'ok', found, tiers, gold, taint: taintAdd, taintNow, bonus, event, spring, odds: od }, gateView(await gateRow(cur.id), now, withEq(JSON.parse(after.stats), eb))));
+});
+route('POST', '/api/gate/retreat', async (req, res, ctx) => {
+  const now = Date.now(), r = await gateRow(ctx.user.id);
+  if (!r.active) return fail(res, 409, 'not_active');
+  const cdMs = r.floor > (r.from_floor | 0) ? GATE_CD_OK : 0;
+  const f = await gateFinish(ctx.user.id, r, now, 1, cdMs);
+  if (!f) return fail(res, 409, 'busy');
+  send(res, 200, { ok: true, floor: r.floor, got: f.got, gold: f.gold, exp: f.exp, cd: cdMs });
+});
+// 문 밖으로 나가면(다른 지역으로 이동하면) 자동으로 복귀 처리합니다
+async function gateAutoRetreat(uid) {
+  try {
+    const r = await db.get('SELECT * FROM gate_run WHERE user_id = ? AND active = 1', [uid]);
+    if (r) await gateFinish(uid, r, Date.now(), 1, r.floor > (r.from_floor | 0) ? GATE_CD_OK : 0);
+  } catch (_) {}
+}
+
 // ── 조합: 재료를 모아 완성 아이템을 만듭니다 ──
 route('GET', '/api/craft', async (req, res, ctx) => {
   send(res, 200, {
-    materials: G.MATERIALS.map(m => ({ name: m.name, desc: m.desc })),
+    materials: G.MATERIALS.concat(G.GATE_MATS).map(m => ({ name: m.name, desc: m.desc })),
     recipes: G.RECIPES.map(r => ({ id: r.id, name: r.name, desc: r.desc, mats: Object.keys(r.mats).map(k => ({ item: k, qty: r.mats[k] })), eff: { stat: r.stat, amt: r.amt } })),
   });
 });
@@ -1120,6 +1638,7 @@ route('POST', '/api/move', async (req, res, ctx) => {
   if (dest.gate && G.countryOf(ctx.user.region) !== dest.id) id = dest.regions[G.rnd(0, dest.regions.length - 1)].id;
   if (ctx.user.block_flags & 2) return fail(res, 403, 'blocked', { what: 'move' });
   if (corruptLock(ctx.user, Date.now())) return fail(res, 409, 'corrupted', { until: ctx.user.corrupt_until });
+  if (G.countryOf(ctx.user.region) === 'GT' && G.countryOf(id) !== 'GT') await gateAutoRetreat(ctx.user.id);
   await db.run('UPDATE users SET region = ? WHERE id = ?', [id, ctx.user.id]);
   if (id !== ctx.user.region) await db.run('INSERT INTO visit_counts (user_id, region, n) VALUES (?, ?, 1) ON CONFLICT(user_id, region) DO UPDATE SET n = n + 1', [ctx.user.id, id]);   // 방문 횟수 (업적)
   send(res, 200, { region: id, country: G.countryOf(id) });
@@ -1133,7 +1652,7 @@ route('POST', '/api/hunt', async (req, res, ctx) => {
   if (cur.block_flags & 1) return fail(res, 403, 'blocked', { what: 'hunt' });      // 운영자가 토벌을 막아 둠
   const m = await db.get('SELECT * FROM monsters WHERE id = ?', [Number(ctx.body.id)]);
   if (!m) return fail(res, 410, 'expired');
-  if ((m.owner_id != null && m.owner_id !== cur.id) || (m.owner_id == null && m.rank !== 'S' && m.corrupt_of == null)) return fail(res, 404, 'no_monster');
+  if ((m.owner_id != null && m.owner_id !== cur.id) || (m.owner_id == null && m.rank !== 'S' && m.corrupt_of == null && m.rumor_id == null)) return fail(res, 404, 'no_monster');
   const cm = m.corrupt_of != null;
   if (corruptLock(cur, now)) return fail(res, 409, 'corrupted', { until: cur.corrupt_until });   // 오염도 100: 1시간 활동 불가
   if ((Number(JSON.parse(cur.stats).taint) || 0) >= 100) return fail(res, 409, 'tainted');          // 오염도를 줄여야 토벌 가능
@@ -1146,7 +1665,8 @@ route('POST', '/api/hunt', async (req, res, ctx) => {
   await settleDying(cur.id, now);
   const me = await db.get('SELECT stats, dying_until FROM users WHERE id = ?', [cur.id]);
   if (me.dying_until > now) return fail(res, 409, 'dying', { until: me.dying_until });        // 빈사 상태: 5분간 토벌 불가
-  const myStats = JSON.parse(me.stats);
+  const eb = await equipBonus(cur.id);
+  const myStats = withEq(JSON.parse(me.stats), eb);
   if (cm && m.corrupt_of === cur.id) return fail(res, 404, 'no_monster');
 
   if (m.rank === 'S' && !cm) {
@@ -1177,12 +1697,15 @@ route('POST', '/api/hunt', async (req, res, ctx) => {
     const gain = G.KILL_EXP[m.rank];
     const r = await grantExp(cur.id, gain);
     const gold = G.rollGold(m.rank); await grantGold(cur.id, gold);
-    const taint = G.rollTaint(m.rank), taintNow = await grantTaint(cur.id, taint);
+    const taint = eqTaint(G.rollTaint(m.rank), eb), taintNow = await grantTaint(cur.id, taint);
+    await equipWear(cur.id);
     await logHunt(cur.id, m, 'success', gain, now);
     await logAcquire(cur.id, 'exp', '경험치', gain, m.name + ' 토벌', now);
     await logAcquire(cur.id, 'gold', '골드', gold, m.name + ' 토벌', now);
+    await questProg(cur, 'kill', 1, QRANKS.indexOf(m.rank));
     return send(res, 200, { result: 'success', gain, gold, taint, taintNow, levelUp: r.up, lv: r.lv, exp: r.exp });
   }
+  await equipWear(cur.id);
   await logHunt(cur.id, m, 'fail', 0, now);
   // 행운: 실패해도 시간 제한 없이 바로 재토벌할 수 있습니다 (1회). 재토벌에서 또 실패하면 보통의 대기 시간이 적용됩니다.
   const prev = await db.get('SELECT free FROM fail_cd WHERE user_id = ? AND monster_id = ?', [cur.id, m.id]);
@@ -1190,7 +1713,7 @@ route('POST', '/api/hunt', async (req, res, ctx) => {
   const until = free ? now : now + G.cdOf(m.rank);
   await db.run(`INSERT INTO fail_cd (user_id, monster_id, until, free) VALUES (?, ?, ?, ?)
                 ON CONFLICT(user_id, monster_id) DO UPDATE SET until = excluded.until, free = excluded.free`, [cur.id, m.id, until, free ? 1 : 0]);
-  const hp = await applyHpLoss(cur.id, m.rank, now);
+  const hp = await applyHpLoss(cur.id, m.rank, now, eb);
   send(res, 200, { result: 'fail', until, free, hpLoss: hp.loss, prevented: hp.prevented, hpNow: hp.hp, dying: hp.dying, dyingUntil: hp.dying ? hp.until : 0 });
 });
 
@@ -1201,7 +1724,7 @@ route('POST', '/api/results/ack', async (req, res, ctx) => {
 });
 
 route('GET', '/api/friends', async (req, res, ctx) => {
-  const rows = await db.all(`SELECT u.code, u.hunter_name AS hn, u.rank,
+  const rows = await db.all(`SELECT u.code, u.hunter_name AS hn, u.rank, u.corrupt_flag AS cf,
       (SELECT COUNT(*) FROM messages m WHERE m.from_id = f.friend_id AND m.to_id = f.user_id AND m.id > f.last_read) AS unread
     FROM friends f JOIN users u ON u.id = f.friend_id WHERE f.user_id = ? ORDER BY u.hunter_name`, [ctx.user.id]);
   const inc = await db.all(`SELECT u.code, u.hunter_name AS hn, u.rank, r.at FROM friend_requests r JOIN users u ON u.id = r.from_id
@@ -1209,7 +1732,7 @@ route('GET', '/api/friends', async (req, res, ctx) => {
   const out = await db.all(`SELECT u.code, u.hunter_name AS hn, u.rank, r.at FROM friend_requests r JOIN users u ON u.id = r.to_id
     WHERE r.from_id = ? ORDER BY r.at DESC LIMIT 100`, [ctx.user.id]);
   const mp = x => ({ code: x.code, hn: x.hn, rank: x.rank, at: x.at });
-  send(res, 200, { friends: rows.map(f => ({ code: f.code, hn: f.hn, rank: f.rank, unread: f.unread })), incoming: inc.map(mp), outgoing: out.map(mp) });
+  send(res, 200, { friends: rows.map(f => ({ code: f.code, hn: f.hn, rank: f.rank, unread: f.unread, corrupt: !!f.cf })), incoming: inc.map(mp), outgoing: out.map(mp) });
 });
 
 const makeFriends = (a, b) => db.batch([
@@ -1290,7 +1813,8 @@ route('GET', '/api/friend/profile', async (req, res, ctx) => {
     WHERE e.user_id = ? ORDER BY e.at DESC, e.rowid DESC LIMIT 1`, [f.id]);
   send(res, 200, { profile: { code: f.code, hn: f.hunter_name, rank: f.rank, image: (await withImage(f)).image || '',
     region: G.placeLong(f.region), ach: a ? { name: a.name, desc: a.descr, at: a.at } : null,
-    bio: f.bio || '', pins: pinnedList(f, await loadAch()).map(p => p.name) } });
+    bio: f.bio || '', pins: pinnedList(f, await loadAch()).map(p => p.name),
+    corrupt: !!f.corrupt_flag, canRescue: !!f.corrupt_flag && !!(await findCure(u.id)) } });
 });
 
 
@@ -2160,6 +2684,12 @@ route('POST', '/api/admin/player/delete', async (req, res, ctx) => {
     ['DELETE FROM inventory WHERE user_id = ?', [id]],
     ['DELETE FROM survey_marks WHERE user_id = ?', [id]],
     ['DELETE FROM s_min WHERE user_id = ?', [id]],
+    ['DELETE FROM pact_log WHERE user_id = ?', [id]],
+    ['DELETE FROM equip_inv WHERE user_id = ?', [id]],
+    ['DELETE FROM rumor_votes WHERE user_id = ?', [id]],
+    ['DELETE FROM daily_quests WHERE user_id = ?', [id]],
+    ['DELETE FROM gate_run WHERE user_id = ?', [id]],
+    ['DELETE FROM rescues WHERE target_id = ? OR rescuer_id = ?', [id, id]],
     ['DELETE FROM visit_counts WHERE user_id = ?', [id]],
     ['DELETE FROM invite_rewards WHERE user_id = ?', [id]],
     ['DELETE FROM notice_del WHERE user_id = ?', [id]],
