@@ -394,6 +394,9 @@ CREATE TABLE IF NOT EXISTS invites (
 // 예전에 만들어진 표에 새 칸을 추가합니다 (이미 있으면 무시).
 const MIGRATIONS = [
   'ALTER TABLE monsters ADD COLUMN rumor_id INTEGER',
+  // 오래된 기록을 한 줄로 합칠 때 원래 몇 건이었는지 (기본 1건)
+  'ALTER TABLE hunt_log ADD COLUMN n INTEGER NOT NULL DEFAULT 1',
+  'ALTER TABLE acquire_log ADD COLUMN n INTEGER NOT NULL DEFAULT 1',
   'ALTER TABLE gate_run ADD COLUMN from_floor INTEGER NOT NULL DEFAULT 0',
   // 마지막으로 접속(요청)한 시각 — 관리자 화면의 동시 접속자 수에 쓰입니다
   'ALTER TABLE users ADD COLUMN last_seen INTEGER NOT NULL DEFAULT 0',
