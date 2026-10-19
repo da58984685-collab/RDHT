@@ -186,7 +186,9 @@ const garble = (text, taint, id) => {
   const rnd = () => { a = (a + 0x6D2B79F5) >>> 0; let x = a; x = Math.imul(x ^ (x >>> 15), x | 1); x ^= x + Math.imul(x ^ (x >>> 7), x | 61); return ((x ^ (x >>> 14)) >>> 0) / 4294967296; };
   return Array.from(String(text)).map(ch => (/\s/.test(ch) ? ch : (rnd() < p ? GARBLE[Math.floor(rnd() * GARBLE.length)] : ch))).join('');
 };
-const KILL_EXP = { F: 8, E: 12, D: 20, C: 35, B: 60, A: 120, S: 300 };
+// 전투력(레벨) 상승 속도: 기본 경험치의 70% (30% 감소)
+const EXP_RATE = 0.7;
+const KILL_EXP = Object.fromEntries(Object.entries({ F: 8, E: 12, D: 20, C: 35, B: 60, A: 120, S: 300 }).map(([k, v]) => [k, Math.round(v * EXP_RATE)]));
 const HUNT_DIFF = { F: '쉬움', E: '쉬움', D: '쉬움', C: '보통', B: '보통', A: '어려움', S: '매우 어려움' };
 const HUNT_BASE = { '쉬움': 0.85, '보통': 0.65, '어려움': 0.4 };
 
