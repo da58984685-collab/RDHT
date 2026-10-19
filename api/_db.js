@@ -305,6 +305,13 @@ CREATE TABLE IF NOT EXISTS exchange (
   ends      INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS exchange_ends ON exchange(ends);
+CREATE TABLE IF NOT EXISTS rumor_stats (
+  user_id    INTEGER PRIMARY KEY,
+  gained     INTEGER NOT NULL DEFAULT 0,
+  lost       INTEGER NOT NULL DEFAULT 0,
+  last_delta INTEGER NOT NULL DEFAULT 0,
+  last_at    INTEGER NOT NULL DEFAULT 0
+);
 CREATE TABLE IF NOT EXISTS pact_log (
   user_id INTEGER NOT NULL,
   day     TEXT NOT NULL,
