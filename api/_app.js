@@ -303,7 +303,8 @@ async function resolveDue() {
 }
 
 // ── 오염도 100: 1시간 활동 불가 + 같은 이름·등급의 몬스터 출몰 (1시간, 누구나 반드시 토벌 성공) ──
-const CORRUPT_MS = G.HOUR;
+const CORRUPT_MS = G.HOUR;                 // 오염 폭주로 활동하지 못하는 시간
+const CORRUPT_MON_MS = 30 * G.MIN;         // 오염된 유저 몬스터가 출몰 알림에 남아 있는 시간
 // 폭주 잠금: 잠금 시간이 남아 있어도 오염도가 100 아래로 내려가면 풀립니다.
 const corruptLock = (row, now) => row.corrupt_until > now && (Number(JSON.parse(row.stats).taint) || 0) >= 100;
 async function corruptCheck(userId) {
@@ -315,6 +316,13 @@ async function corruptCheck(userId) {
   const now = Date.now();
   const claim = await db.run('UPDATE users SET corrupt_flag = 1, corrupt_until = ? WHERE id = ? AND corrupt_flag = 0', [now + CORRUPT_MS, u.id]);
   if (claim.changes !== 1) return;
+  // 이미 이 헌터의 오염 몬스터가 출몰 중이면 새로 만들지 않고, 그 몬스터의 출몰 시간만 지금부터 다시 시작합니다.
+  const live = await db.get('SELECT id FROM monsters WHERE corrupt_of = ? AND spawned_at > ? ORDER BY id DESC LIMIT 1', [u.id, now - CORRUPT_MON_MS]);
+  if (live) {
+    await db.run('UPDATE monsters SET spawned_at = ?, name = ?, rank = ? WHERE id = ?', [now, u.hunter_name, u.rank, live.id]);
+    await db.run('UPDATE monsters SET spawned_at = 0 WHERE corrupt_of = ? AND id <> ? AND spawned_at > 0', [u.id, live.id]);     // 혹시 겹쳐 있던 것은 정리
+    return;
+  }
   const region = G.SPAWN_REGIONS[Math.floor(Math.random() * G.SPAWN_REGIONS.length)].id;
   await db.run('INSERT INTO monsters (region, name, rank, spawned_at, corrupt_of) VALUES (?, ?, ?, ?, ?)', [region, u.hunter_name, u.rank, now, u.id]);
 }
@@ -346,7 +354,7 @@ async function purgeMonsters(force) {
     AND NOT EXISTS (SELECT 1 FROM s_close c WHERE c.monster_id = monsters.id AND c.ok = 1)
     AND NOT EXISTS (SELECT 1 FROM s_attempts a WHERE a.monster_id = monsters.id AND (a.resolved != 1 OR a.notified = 0))`,
     [now - G.ACTIVE_MS_S, now - G.ACTIVE_MS, now - G.ACTIVE_MS_F]);
-  await db.run('DELETE FROM monsters WHERE corrupt_of IS NOT NULL AND spawned_at < ? AND NOT EXISTS (SELECT 1 FROM kills k WHERE k.monster_id = monsters.id)', [now - CORRUPT_MS]);
+  await db.run('DELETE FROM monsters WHERE corrupt_of IS NOT NULL AND spawned_at < ? AND NOT EXISTS (SELECT 1 FROM kills k WHERE k.monster_id = monsters.id)', [now - CORRUPT_MON_MS]);
   await db.run('DELETE FROM fail_cd WHERE monster_id NOT IN (SELECT id FROM monsters)');
 }
 
@@ -567,7 +575,7 @@ async function buildState(u, now) {
       AND id NOT IN (SELECT monster_id FROM s_close WHERE ok = 0)
       AND NOT (rank = 'F' AND corrupt_of IS NULL AND spawned_at < ${now - G.ACTIVE_MS_F} AND id NOT IN (SELECT monster_id FROM kills WHERE user_id = ?))
       AND (corrupt_of IS NULL OR corrupt_of <> ?)
-    ORDER BY spawned_at DESC, id DESC LIMIT 40`, [u.id, now - G.ACTIVE_MS, now - G.ACTIVE_MS_S, now - CORRUPT_MS, u.id, u.id, u.id]);
+    ORDER BY spawned_at DESC, id DESC LIMIT 40`, [u.id, now - G.ACTIVE_MS, now - G.ACTIVE_MS_S, now - CORRUPT_MON_MS, u.id, u.id, u.id]);
   const minId = mons.length ? Math.min.apply(null, mons.map(m => m.id)) : 0;
   const [kills, cds, parts, si, pending, results, un, um] = await Promise.all([
     db.all('SELECT monster_id FROM kills WHERE user_id = ? AND monster_id >= ?', [u.id, minId]),
@@ -1130,7 +1138,7 @@ route('POST', '/api/hunt', async (req, res, ctx) => {
   if (corruptLock(cur, now)) return fail(res, 409, 'corrupted', { until: cur.corrupt_until });   // 오염도 100: 1시간 활동 불가
   if ((Number(JSON.parse(cur.stats).taint) || 0) >= 100) return fail(res, 409, 'tainted');          // 오염도를 줄여야 토벌 가능
   if (await db.get('SELECT 1 AS x FROM kills WHERE user_id = ? AND monster_id = ?', [cur.id, m.id])) return fail(res, 409, 'already_done');
-  if (now - m.spawned_at >= (cm ? CORRUPT_MS : G.activeMsOf(m.rank))) return fail(res, 410, 'expired');
+  if (now - m.spawned_at >= (cm ? CORRUPT_MON_MS : G.activeMsOf(m.rank))) return fail(res, 410, 'expired');
   // S급은 나라 단위, 나머지는 세부 지역 단위로 같은 곳에 있어야 합니다.
   const here = m.rank === 'S' && !cm ? G.countryOf(cur.region) : cur.region;
   if (here !== m.region) return fail(res, 409, 'wrong_region', { region: m.region, rname: G.placeName(m.region) });
@@ -1459,7 +1467,7 @@ route('GET', '/api/admin/player', async (req, res) => {
     achievements: ach.map(a => ({ id: a.id, name: a.name, desc: a.descr, kind: a.kind, met: a.met, granted: a.granted, done: a.done })),
     player: Object.assign(publicUser(await withImage(u)), { inviteReward: await inviteRewardOf(u.id), invite: u.invite_code || '', created: u.created_at, lastSeen: Number(u.last_seen) || 0, region: G.placeLong(u.region), friends: fr.c }),
     items: inv, acquired: acq, hunts, counts: cnt, pendingS: pend.map(p => ({ mon: p.name, at: p.resolve_at })),
-    activity: { corruptMonster: !!(await db.get('SELECT 1 AS x FROM monsters WHERE corrupt_of = ? AND spawned_at > ?', [u.id, Date.now() - CORRUPT_MS])), adminChar: !!u.admin_char, blocked: u.block_flags | 0, corruptUntil: corruptLock(u, Date.now()) ? u.corrupt_until : 0, dyingUntil: u.dying_until > Date.now() ? u.dying_until : 0,
+    activity: { corruptMonster: !!(await db.get('SELECT 1 AS x FROM monsters WHERE corrupt_of = ? AND spawned_at > ?', [u.id, Date.now() - CORRUPT_MON_MS])), adminChar: !!u.admin_char, blocked: u.block_flags | 0, corruptUntil: corruptLock(u, Date.now()) ? u.corrupt_until : 0, dyingUntil: u.dying_until > Date.now() ? u.dying_until : 0,
       taint: Number(JSON.parse(u.stats).taint) || 0, now: Date.now() },
   });
 }, { auth: false, admin: true });
