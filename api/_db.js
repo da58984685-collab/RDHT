@@ -253,6 +253,76 @@ CREATE TABLE IF NOT EXISTS s_ack (
   at         INTEGER NOT NULL,
   PRIMARY KEY (user_id, monster_id)
 );
+CREATE TABLE IF NOT EXISTS rescues (
+  id        INTEGER PRIMARY KEY AUTOINCREMENT,
+  target_id INTEGER NOT NULL,
+  rescuer_id INTEGER NOT NULL,
+  at        INTEGER NOT NULL,
+  seen      INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS rescues_target ON rescues(target_id, seen);
+CREATE INDEX IF NOT EXISTS rescues_rescuer ON rescues(rescuer_id, at);
+CREATE TABLE IF NOT EXISTS daily_quests (
+  user_id INTEGER NOT NULL,
+  day     TEXT NOT NULL,
+  slot    INTEGER NOT NULL,
+  kind    TEXT NOT NULL,
+  arg     INTEGER NOT NULL DEFAULT 0,
+  need    INTEGER NOT NULL,
+  prog    INTEGER NOT NULL DEFAULT 0,
+  gold    INTEGER NOT NULL DEFAULT 0,
+  exp     INTEGER NOT NULL DEFAULT 0,
+  claimed INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (user_id, day, slot)
+);
+CREATE TABLE IF NOT EXISTS gate_run (
+  user_id    INTEGER PRIMARY KEY,
+  active     INTEGER NOT NULL DEFAULT 0,
+  floor      INTEGER NOT NULL DEFAULT 0,
+  best       INTEGER NOT NULL DEFAULT 0,
+  loot       TEXT NOT NULL DEFAULT '{}',
+  gold       INTEGER NOT NULL DEFAULT 0,
+  cd_until   INTEGER NOT NULL DEFAULT 0,
+  started_at INTEGER NOT NULL DEFAULT 0,
+  from_floor INTEGER NOT NULL DEFAULT 0
+);
+CREATE TABLE IF NOT EXISTS equip_inv (
+  id       INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id  INTEGER NOT NULL,
+  key      TEXT NOT NULL,
+  dur      INTEGER NOT NULL,
+  equipped INTEGER NOT NULL DEFAULT 0,
+  at       INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS equip_inv_user ON equip_inv(user_id);
+CREATE TABLE IF NOT EXISTS pact_log (
+  user_id INTEGER NOT NULL,
+  day     TEXT NOT NULL,
+  pid     TEXT NOT NULL,
+  at      INTEGER NOT NULL,
+  PRIMARY KEY (user_id, day, pid)
+);
+CREATE TABLE IF NOT EXISTS rumors (
+  id       INTEGER PRIMARY KEY AUTOINCREMENT,
+  title    TEXT NOT NULL,
+  body     TEXT NOT NULL,
+  region   TEXT NOT NULL,
+  mon_name TEXT NOT NULL,
+  rank     TEXT NOT NULL,
+  tpl      INTEGER NOT NULL DEFAULT 0,
+  truth    INTEGER NOT NULL DEFAULT 0,
+  status   TEXT NOT NULL DEFAULT 'open',
+  created  INTEGER NOT NULL,
+  ends     INTEGER NOT NULL,
+  resolved INTEGER NOT NULL DEFAULT 0
+);
+CREATE TABLE IF NOT EXISTS rumor_votes (
+  rumor_id INTEGER NOT NULL,
+  user_id  INTEGER NOT NULL,
+  vote     INTEGER NOT NULL,
+  at       INTEGER NOT NULL,
+  PRIMARY KEY (rumor_id, user_id)
+);
 CREATE TABLE IF NOT EXISTS s_min (
   user_id    INTEGER NOT NULL,
   monster_id INTEGER NOT NULL,
@@ -288,6 +358,8 @@ CREATE TABLE IF NOT EXISTS invites (
 
 // 예전에 만들어진 표에 새 칸을 추가합니다 (이미 있으면 무시).
 const MIGRATIONS = [
+  'ALTER TABLE monsters ADD COLUMN rumor_id INTEGER',
+  'ALTER TABLE gate_run ADD COLUMN from_floor INTEGER NOT NULL DEFAULT 0',
   // 마지막으로 접속(요청)한 시각 — 관리자 화면의 동시 접속자 수에 쓰입니다
   'ALTER TABLE users ADD COLUMN last_seen INTEGER NOT NULL DEFAULT 0',
   // 적월문 조사: 마지막으로 조사를 마친 시각 (3시간 안에는 다시 조사할 수 없음)
@@ -335,8 +407,8 @@ const MIGRATIONS = [
   // S급은 나라 단위로만 출몰합니다. 예전에 세부 지역(도심 등)에서 나온 기록은 대한민국으로 옮깁니다.
   "UPDATE monsters SET region = 'KR' WHERE region = 'GT'",
   "UPDATE monsters SET region = 'city' WHERE region LIKE 'gt-%'",
-  "UPDATE monsters SET region = 'KR' WHERE rank = 'S' AND region NOT IN ('KR','JP','CN','RU','US','IT','MG','BR','EG','AU','GT')",
-  "UPDATE s_log SET region = 'KR' WHERE region NOT IN ('KR','JP','CN','RU','US','IT','MG','BR','EG','AU','GT')",
+  "UPDATE monsters SET region = 'KR' WHERE rank = 'S' AND region NOT IN ('KR','JP','CN','RU','US','IT','MG','BR','EG','AU','IN','FR','GT')",
+  "UPDATE s_log SET region = 'KR' WHERE region NOT IN ('KR','JP','CN','RU','US','IT','MG','BR','EG','AU','IN','FR','GT')",
   "ALTER TABLE users ADD COLUMN invite_code TEXT NOT NULL DEFAULT ''",
   'ALTER TABLE users ADD COLUMN gold INTEGER NOT NULL DEFAULT 0',
   "ALTER TABLE users ADD COLUMN pinned_ach TEXT NOT NULL DEFAULT '[]'",
