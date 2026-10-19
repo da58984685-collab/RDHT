@@ -557,6 +557,9 @@ async function buildState(u, now) {
   await corruptCheck(u.id);
   u = (await userById(u.id)) || u;
   await syncAchEarned(u, now);
+  // 기기 '업적' 앱의 새 업적 표시: 마지막으로 업적 앱을 본 뒤에 얻은 업적 수 (처음 한 번은 기준만 잡습니다)
+  if (!Number(u.ach_seen)) { await db.run('UPDATE users SET ach_seen = ? WHERE id = ? AND ach_seen = 0', [now, u.id]); u.ach_seen = now; }
+  const achNew = (await db.get('SELECT COUNT(*) AS c FROM ach_earned WHERE user_id = ? AND at > ?', [u.id, Number(u.ach_seen)])).c;
   // 보이는 몬스터: 서버 공통 S급 + 내 몬스터(F~A). 예전 공통 F~A 몬스터는 보이지 않습니다.
   const vis = "((owner_id IS NULL AND (rank = 'S' OR corrupt_of IS NOT NULL)) OR owner_id = ?)";
   const mons = await db.all(`SELECT * FROM monsters
@@ -603,7 +606,7 @@ async function buildState(u, now) {
   const pm = new Map(parts.map(r => [r.monster_id, r.c]));
   return {
     now,
-    user: { pinned: pinnedList(u, await loadAch()), lv: u.lv, exp: u.exp, gold: u.gold, region: u.region, country: G.countryOf(u.region), hunterName: u.hunter_name, private: !!u.is_private, stats: statsOf(u), dyingUntil: u.dying_until > now ? u.dying_until : 0, blocked: u.block_flags | 0, adminChar: !!u.admin_char, inqUnread: (await db.get('SELECT COUNT(*) AS c FROM inquiries WHERE user_id = ? AND from_admin = 1 AND id > ?', [u.id, u.inq_read])).c, corruptUntil: corruptLock(u, now) ? u.corrupt_until : 0, tainted: (JSON.parse(u.stats).taint || 0) >= 100, fx: fxOf(JSON.parse(u.stats)) },
+    user: { pinned: pinnedList(u, await loadAch()), bio: u.bio || '', lv: u.lv, exp: u.exp, gold: u.gold, region: u.region, country: G.countryOf(u.region), hunterName: u.hunter_name, private: !!u.is_private, stats: statsOf(u), dyingUntil: u.dying_until > now ? u.dying_until : 0, blocked: u.block_flags | 0, adminChar: !!u.admin_char, inqUnread: (await db.get('SELECT COUNT(*) AS c FROM inquiries WHERE user_id = ? AND from_admin = 1 AND id > ?', [u.id, u.inq_read])).c, corruptUntil: corruptLock(u, now) ? u.corrupt_until : 0, tainted: (JSON.parse(u.stats).taint || 0) >= 100, fx: fxOf(JSON.parse(u.stats)) },
     monsters: mons.map(m => ({
       id: m.id, region: m.region, rname: G.placeName(m.region), mon: m.name, r: m.rank, ts: m.spawned_at,
       done: killed.has(m.id), cd: cdm.get(m.id) || 0,
@@ -614,6 +617,7 @@ async function buildState(u, now) {
     pending: pending.map(p => ({ id: p.id, mon: p.name, at: p.resolve_at })),
     results: results.map(r => ({ id: r.id, mon: r.name, success: !!r.success, exp: r.exp_gain, gold: r.gold_gain, taint: r.taint_gain, levelUp: !!r.level_up, hpLoss: r.hp_loss })),
     unreadNotices: un.c,
+    achNew,
     giftUnread: (await db.get('SELECT COUNT(*) AS c FROM gifts WHERE to_id = ? AND seen = 0', [u.id])).c,
     unreadMsgs: um.c,
     board: (await db.get('SELECT COALESCE(MAX(id), 0) AS m FROM board_posts')).m,
@@ -1268,7 +1272,7 @@ route('POST', '/api/friends/cancel', async (req, res, ctx) => {
   send(res, 200, { ok: true });
 });
 
-// 친구 프로필: 이미지, 헌터 네임, 등급, 현재 위치, 가장 최근에 획득한 업적 1개
+// 친구 프로필: 이미지, 헌터 네임, 등급, 현재 위치, 소개글, 대표 업적(가장 최근 획득 1개), 등록(달아 둔) 업적
 route('GET', '/api/friend/profile', async (req, res, ctx) => {
   const u = ctx.user;
   const f = await userByCode(normCode(new URL(req.url, 'http://x').searchParams.get('code')));
@@ -1277,7 +1281,8 @@ route('GET', '/api/friend/profile', async (req, res, ctx) => {
   const a = await db.get(`SELECT a.name, a.descr, e.at FROM ach_earned e JOIN achievements a ON a.id = e.ach_id
     WHERE e.user_id = ? ORDER BY e.at DESC, e.rowid DESC LIMIT 1`, [f.id]);
   send(res, 200, { profile: { code: f.code, hn: f.hunter_name, rank: f.rank, image: (await withImage(f)).image || '',
-    region: G.placeLong(f.region), ach: a ? { name: a.name, desc: a.descr, at: a.at } : null } });
+    region: G.placeLong(f.region), ach: a ? { name: a.name, desc: a.descr, at: a.at } : null,
+    bio: f.bio || '', pins: pinnedList(f, await loadAch()).map(p => p.name) } });
 });
 
 
@@ -1747,6 +1752,15 @@ route('POST', '/api/admin/player/image', async (req, res, ctx) => {
   await db.run('UPDATE users SET image = ? WHERE id = ?', [ctx.body.image, u.id]);
   send(res, 200, { ok: true });
 }, { auth: false, admin: true, limit: 1200000 });
+// 프로필 소개글 (최대 200자, 줄바꿈 최대 5줄) — 친구 프로필에도 보입니다
+route('POST', '/api/me/bio', async (req, res, ctx) => {
+  let t = String(ctx.body.text == null ? '' : ctx.body.text).replace(/\r/g, '').replace(/[\u0000-\u0009\u000B-\u001F\u007F]/g, '');
+  t = t.split('\n').slice(0, 5).join('\n').trim();
+  if (t.length > 200) t = t.slice(0, 200);
+  await db.run('UPDATE users SET bio = ? WHERE id = ?', [t, ctx.user.id]);
+  send(res, 200, { ok: true, bio: t });
+});
+
 route('POST', '/api/me/private', async (req, res, ctx) => {
   const on = ctx.body.on === true ? 1 : 0;
   await db.run('UPDATE users SET is_private = ? WHERE id = ?', [on, ctx.user.id]);
@@ -1946,7 +1960,14 @@ route('POST', '/api/admin/s/recall', async (req, res, ctx) => {
 route('GET', '/api/achievements', async (req, res, ctx) => {
   const u = await userById(ctx.user.id);
   const list = await achOf(u), pins = pinnedList(u, list).map(p => p.id);
-  send(res, 200, { max: G.ACH_PIN_MAX, list: list.map(a => ({ id: a.id, name: a.name, desc: a.descr, done: a.done, pinned: pins.includes(a.id) })) });
+  await syncAchEarned(u, Date.now(), true);
+  const seen = Number(u.ach_seen) || 0;
+  const at = new Map((await db.all('SELECT ach_id, at FROM ach_earned WHERE user_id = ?', [u.id])).map(r => [r.ach_id, Number(r.at)]));
+  send(res, 200, { max: G.ACH_PIN_MAX, list: list.map(a => ({ id: a.id, name: a.name, desc: a.descr, done: a.done, pinned: pins.includes(a.id), isNew: !!(a.done && seen && (at.get(a.id) || 0) > seen) })) });
+});
+route('POST', '/api/achievements/seen', async (req, res, ctx) => {
+  await db.run('UPDATE users SET ach_seen = ? WHERE id = ?', [Date.now(), ctx.user.id]);
+  send(res, 200, { ok: true });
 });
 
 route('POST', '/api/achievements/pin', async (req, res, ctx) => {
