@@ -4,6 +4,7 @@ const crypto = require('node:crypto');
 const { promisify } = require('node:util');
 const db = require('./_db');
 const G = require('./_game');
+const EVT = require('./_event');      // [EVENT:HALLOWEEN] 할로윈 이벤트 (api/_event.js)
 const B = require('./_board');
 
 const scrypt = promisify(crypto.scrypt);
@@ -442,7 +443,7 @@ async function catchUp() {
   catchUpRun = catchUpNow().finally(() => { catchUpRun = null; });
   return catchUpRun;
 }
-async function catchUpNow() { await corruptTick(); await tickSpawns(); await resolveDue(); await purgeMonsters(); await tickBoard(); await tickRumors(); await sweepExchange(); }
+async function catchUpNow() { await corruptTick(); await tickSpawns(); await resolveDue(); await purgeMonsters(); await tickBoard(); await tickRumors(); await sweepExchange(); await EV.refresh(); await EV.cleanup(); }
 
 // ── 업적 (정의는 DB에 저장되어 모든 헌터에게 똑같이 적용됩니다) ──
 let achCache = { at: 0, defs: null }, achSeeded = false;
@@ -588,11 +589,35 @@ async function sInfo(userId, now) {
 
 // 스탯이 만드는 확률 (모두 95% 이하)
 const fxOf = st => ({ win: Math.round(Math.min(G.PROB_CAP, (Number(st.str) || 0) * G.STR_WIN) * 100), guard: Math.round(G.guardChance(st.agi) * 100), free: Math.round(G.freeChance(st.luck) * 100) });
-const MAT_NAMES = new Set(G.MATERIALS.concat(G.GATE_MATS).map(m => m.name));      // 인벤토리 '조합 아이템' 탭에 들어가는 재료 이름
-const MAT_TIER = new Map(G.MATERIALS.map(m => [m.name, 'c']).concat(G.GATE_MATS.map(m => [m.name, m.tier])));   // 재료 등급 (현장 재료는 일반)
+const MAT_NAMES = new Set(G.MATERIALS.concat(G.GATE_MATS).map(m => m.name).concat([EVT.EMBER]));      // 인벤토리 '조합 아이템' 탭에 들어가는 재료 이름
+const MAT_TIER = new Map(G.MATERIALS.map(m => [m.name, 'c']).concat(G.GATE_MATS.map(m => [m.name, m.tier])).concat([[EVT.EMBER, 'r']]));   // 재료 등급 (현장 재료는 일반)
+// ── 서버 BGM: 관리자가 정한 유튜브 영상을 모든 헌터가 듣습니다. (끄기·볼륨은 각자 브라우저에서만 정함 — 서버에는 아무것도 저장하지 않음) ──
+const ytIdOf = u => {
+  u = String(u || '').trim();
+  if (!u) return '';
+  if (/^[\w-]{11}$/.test(u)) return u;
+  let m; try { m = new URL(/^https?:\/\//i.test(u) ? u : 'https://' + u); } catch (e) { return ''; }
+  const h = m.hostname.replace(/^(www\.|m\.|music\.)/, '');
+  if (h === 'youtu.be') { const i = m.pathname.slice(1).split('/')[0]; return /^[\w-]{11}$/.test(i) ? i : ''; }
+  if (h === 'youtube.com' || h === 'youtube-nocookie.com') {
+    const v = m.searchParams.get('v'); if (v && /^[\w-]{11}$/.test(v)) return v;
+    const p = m.pathname.match(/^\/(?:embed|shorts|live|v)\/([\w-]{11})/); if (p) return p[1];
+  }
+  return '';
+};
+let bgmCache = { at: 0, id: '', v: 0 };
+async function srvBgm() {
+  const now = Date.now();
+  if (now - bgmCache.at < 5000) return bgmCache;
+  let o = {};
+  try { const r = await db.get("SELECT value FROM settings WHERE key = 'srv_bgm'"); if (r) o = JSON.parse(r.value) || {}; } catch (e) { /* 읽지 못하면 꺼진 것으로 */ }
+  bgmCache = { at: now, id: /^[\w-]{11}$/.test(o.id || '') ? o.id : '', v: Number(o.v) || 0 };
+  return bgmCache;
+}
 async function buildState(u, now) {
   await settleDying(u.id, now);
   await tickPersonal(u.id, now);
+  await EV.refresh(); await EV.tick(u, now);      // [EVENT:HALLOWEEN] 백귀야행
   await corruptCheck(u.id);
   u = (await userById(u.id)) || u;
   await syncAchEarned(u, now);
@@ -671,6 +696,8 @@ async function buildState(u, now) {
     sWin: swin.map(x => ({ id: x.id, mon: x.name, part: !!x.part, exp: x.exp || 0, gold: x.gold || 0, taint: x.taint || 0, minAt: Number(x.min_at) || 0 })),
     sAuto, sHoldMs: SWIN_HOLD_MS,
     rec: await getRec(),
+    event: EV.brief(now),      // [EVENT:HALLOWEEN]
+    bgm: (await srvBgm()).id, bgmv: bgmCache.v,      // 서버 BGM (유튜브 영상 ID, 없으면 빈 문자열)
     inventory: inv.map(r => ({ item: r.item, qty: r.qty, mat: MAT_NAMES.has(r.item), tier: MAT_TIER.get(r.item) || null, eff: r.eff_stat ? { stat: r.eff_stat, amt: r.eff_amt } : (G.CRAFT_DEFS[r.item] ? { stat: G.CRAFT_DEFS[r.item].stat, amt: G.CRAFT_DEFS[r.item].amt } : null) })),
   };
 }
@@ -930,9 +957,10 @@ route('GET', '/api/gw/post', async (req, res, ctx) => {
   const p = await db.get('SELECT p.id, p.user_id, p.title, p.body, p.ts, u.hunter_name AS hn, u.rank AS rk FROM gw_posts p LEFT JOIN users u ON u.id = p.user_id WHERE p.id = ?', [id]);
   if (!p) return fail(res, 404, 'not_found');
   const cs = await db.all('SELECT c.id, c.user_id, c.body, c.ts, c.parent_id, c.reply_to, u.hunter_name AS hn, u.rank AS rk FROM gw_comments c LEFT JOIN users u ON u.id = c.user_id WHERE c.post_id = ? ORDER BY c.id ASC LIMIT 300', [id]);
+  const lk = new Map((await db.all('SELECT comment_id AS cid, COUNT(*) AS n, SUM(CASE WHEN user_id = ? THEN 1 ELSE 0 END) AS mine FROM gw_likes WHERE comment_id IN (SELECT id FROM gw_comments WHERE post_id = ?) GROUP BY comment_id', [ctx.user.id, id])).map(r => [Number(r.cid), r]));
   const mod = !!ctx.user.admin_char;     // 관리자 전용 캐릭터는 모든 글과 댓글을 지울 수 있음
   send(res, 200, { post: { id: p.id, title: p.title, body: p.body, hn: p.hn || '(탈퇴한 헌터)', rank: p.rk || '', mine: p.user_id === ctx.user.id, canDel: mod || p.user_id === ctx.user.id, ts: p.ts },
-    comments: cs.map(c => ({ id: c.id, parent: Number(c.parent_id) || 0, toHn: c.reply_to ? ((cs.find(x => x.id === Number(c.reply_to)) || {}).hn || '(삭제된 댓글)') : '', text: c.body, hn: c.hn || '(탈퇴한 헌터)', rank: c.rk || '', mine: c.user_id === ctx.user.id, canDel: mod || c.user_id === ctx.user.id, ts: c.ts })) });
+    comments: cs.map(c => ({ id: c.id, parent: Number(c.parent_id) || 0, toHn: c.reply_to ? ((cs.find(x => x.id === Number(c.reply_to)) || {}).hn || '(삭제된 댓글)') : '', text: c.body, hn: c.hn || '(탈퇴한 헌터)', rank: c.rk || '', mine: c.user_id === ctx.user.id, canDel: mod || c.user_id === ctx.user.id, ts: c.ts, likes: Number((lk.get(c.id) || {}).n) || 0, liked: Number((lk.get(c.id) || {}).mine) > 0 })) });
 });
 // 게이트웨이브 알림 확인: 마지막으로 확인한 글/댓글 번호(p, c) 이후에 생긴 일을 종류별로 셉니다. (번호를 안 보내면 현재 번호만 알려줌)
 route('GET', '/api/gw/notify', async (req, res, ctx) => {
@@ -963,15 +991,25 @@ route('POST', '/api/gw/post/delete', async (req, res, ctx) => {
   const id = Number(ctx.body.id) || 0;
   const p = ctx.user.admin_char ? await db.get('SELECT id FROM gw_posts WHERE id = ?', [id]) : await db.get('SELECT id FROM gw_posts WHERE id = ? AND user_id = ?', [id, ctx.user.id]);
   if (!p) return fail(res, 404, 'not_found');           // 본인 글만 지울 수 있음 (관리자 전용 캐릭터는 모두 가능)
-  await db.batch([['DELETE FROM gw_comments WHERE post_id = ?', [id]], ['DELETE FROM gw_posts WHERE id = ?', [id]]]);
+  await db.batch([['DELETE FROM gw_likes WHERE comment_id IN (SELECT id FROM gw_comments WHERE post_id = ?)', [id]], ['DELETE FROM gw_comments WHERE post_id = ?', [id]], ['DELETE FROM gw_posts WHERE id = ?', [id]]]);
   send(res, 200, { ok: true });
 });
 route('POST', '/api/gw/comment/delete', async (req, res, ctx) => {
   const id = Number(ctx.body.id) || 0;
   const c = ctx.user.admin_char ? await db.get('SELECT id FROM gw_comments WHERE id = ?', [id]) : await db.get('SELECT id FROM gw_comments WHERE id = ? AND user_id = ?', [id, ctx.user.id]);
   if (!c) return fail(res, 404, 'not_found');
-  await db.batch([['DELETE FROM gw_comments WHERE parent_id = ?', [id]], ['DELETE FROM gw_comments WHERE id = ?', [id]]]);      // 댓글을 지우면 그 아래 대댓글도 함께 지워집니다
+  await db.batch([['DELETE FROM gw_likes WHERE comment_id = ? OR comment_id IN (SELECT id FROM gw_comments WHERE parent_id = ?)', [id, id]], ['DELETE FROM gw_comments WHERE parent_id = ?', [id]], ['DELETE FROM gw_comments WHERE id = ?', [id]]]);      // 댓글을 지우면 그 아래 대댓글도 함께 지워집니다
   send(res, 200, { ok: true });
+});
+// 댓글·대댓글 좋아요: 누르면 켜지고, 다시 누르면 취소됩니다 (한 사람이 한 댓글에 한 번)
+route('POST', '/api/gw/comment/like', async (req, res, ctx) => {
+  if (await limited('gwl:' + ctx.user.id, 60, 60000)) return fail(res, 429, 'rate_limited');
+  const id = Number(ctx.body.id) || 0;
+  if (!(await db.get('SELECT id FROM gw_comments WHERE id = ?', [id]))) return fail(res, 404, 'not_found');
+  const ins = await db.run('INSERT OR IGNORE INTO gw_likes (comment_id, user_id) VALUES (?, ?)', [id, ctx.user.id]);
+  if (ins.changes !== 1) await db.run('DELETE FROM gw_likes WHERE comment_id = ? AND user_id = ?', [id, ctx.user.id]);
+  const n = Number((await db.get('SELECT COUNT(*) AS n FROM gw_likes WHERE comment_id = ?', [id])).n) || 0;
+  send(res, 200, { ok: true, liked: ins.changes === 1, likes: n });
 });
 route('POST', '/api/gw/comment', async (req, res, ctx) => {
   if (await limited('gwc:' + ctx.user.id, 30, 60000)) return fail(res, 429, 'rate_limited');
@@ -1155,6 +1193,8 @@ route('POST', '/api/quests/claim', async (req, res, ctx) => {
 // 그림자 거래를 하는 구매자는 흔적(오염도 +2%)이 남습니다.
 const EXC = { fee: 0.10, maxListings: 8, ms: 24 * 3600000, buyTaint: 2, maxPrice: 9999999 };
 const giveItem = (uid, item, qty) => db.run('INSERT INTO inventory (user_id, item, qty) VALUES (?, ?, ?) ON CONFLICT(user_id, item) DO UPDATE SET qty = MIN(9999, qty + excluded.qty)', [uid, item, qty]);
+// [EVENT:HALLOWEEN] 이벤트 모듈 연결 (끄려면 관리자 페이지에서 '끄기' — 코드 수정 불필요)
+const EV = EVT.install({ db, G, route, send, fail, limited, userById, grantGold, logAcquire, giveItem, achReset: () => { achCache.defs = null; } });
 let lastExcSweep = 0;
 async function sweepExchange(force) {
   const now = Date.now();
@@ -1291,7 +1331,10 @@ async function tickRumors() {
 async function makeRumor(now, forceTruth) {
   const live = await db.all("SELECT tpl FROM rumors WHERE status = 'open'");
   const used = new Set(live.map(x => x.tpl));
-  const idxs = G.RUMOR_TPL.map((_, i) => i).filter(i => !used.has(i));
+  await EV.refresh();
+  let idxs = G.RUMOR_TPL.map((_, i) => i).filter(i => !used.has(i) && (!G.RUMOR_TPL[i].ev || EV.on()));
+  const evIdx = idxs.filter(i => G.RUMOR_TPL[i].ev);      // [EVENT:HALLOWEEN] 이벤트 중에는 혼령 소문이 60% 확률로 우선
+  if (evIdx.length && G.chance01() < 0.6) idxs = evIdx;
   const i = idxs[G.rnd(0, idxs.length - 1)], tp = G.RUMOR_TPL[i];
   const region = G.SPAWN_REGIONS[G.rnd(0, G.SPAWN_REGIONS.length - 1)].id;
   const place = G.placeName(region);
@@ -1326,6 +1369,8 @@ async function resolveRumor(r, side, now) {
     await db.run('INSERT INTO monsters (region, name, rank, spawned_at, rumor_id) VALUES (?, ?, ?, ?, ?)', [r.region, r.mon_name, r.rank, now, r.id]);
     await db.run('INSERT INTO board_posts (who, title, body, tag, at) VALUES (?, ?, ?, ?, ?)', ['익명의 시민', '[괴담] 소문이 사실이었다', G.placeName(r.region) + '에 "' + r.mon_name + '"이(가) 실제로 나타났습니다. 조심하세요.', '괴담', now]);
     for (const v of votes) await pay(v.user_id, v.vote === 1 ? RW.believeTrue : { gold: 0, exp: 0 });
+    const bn = (G.RUMOR_TPL[r.tpl] || {}).bonus;      // [EVENT:HALLOWEEN] 혼령 소문이 사실이면 믿은 사람에게 불씨
+    if (bn) for (const v of votes) if (v.vote === 1) { await giveItem(v.user_id, bn.item, bn.qty); await logAcquire(v.user_id, 'item', bn.item, bn.qty, '혼령 소문', now); }
   } else if (status === 'false') {
     for (const v of votes) await pay(v.user_id, v.vote === 1 ? RW.believeFalse : RW.doubtFalse);
   } else if (status === 'buried') {
@@ -1440,7 +1485,8 @@ route('POST', '/api/friends/rescue', async (req, res, ctx) => {
 // ═════════════ 장비 ═════════════
 const EQ_BY_ID = new Map(G.EQUIPS.map(e => [e.id, e]));
 const EQ_BY_NAME = new Map(G.EQUIPS.map(e => [e.name, e]));
-const eqBonusOf = e => { const sl = G.EQ_SLOTS[e.slot], gi = 'CBAS'.indexOf(e.grade); return { stat: sl.stat, val: sl.v[gi] }; };
+const eqBonusOf = e => { if (e.bonus) return { stat: e.bonus.stat, val: e.bonus.val }; const sl = G.EQ_SLOTS[e.slot], gi = 'CBAS'.indexOf(e.grade); return { stat: sl.stat, val: sl.v[gi] }; };      // e.bonus: 이벤트 가면처럼 능력치를 직접 지정한 장비
+const EQ_STAT_KO = { str: ['근력', ''], agi: ['민첩', ''], luck: ['행운', ''], hpGuard: ['체력 피해 감소', '%'], taintRes: ['오염도 증가 감소', '%'] };
 async function equipBonus(uid) {
   const b = { str: 0, agi: 0, luck: 0, hpGuard: 0, taintRes: 0 };
   const rows = await db.all('SELECT key FROM equip_inv WHERE user_id = ? AND equipped = 1 AND dur > 0', [uid]);
@@ -1456,22 +1502,26 @@ async function equipWear(uid) { await db.run('UPDATE equip_inv SET dur = dur - 1
 
 const EQ_MAX_OWN = 40;
 const eqView = e => { const x = eqBonusOf(e), sl = G.EQ_SLOTS[e.slot], g = G.EQ_GRADE[e.grade];
-  return { id: e.id, name: e.name, slot: e.slot, slotKo: sl.ko, grade: e.grade, desc: e.desc, stat: sl.ko_stat, val: x.val, unit: sl.unit, maxDur: g.dur, repair: g.repair }; };
+  const sk = e.bonus ? EQ_STAT_KO[e.bonus.stat] : [sl.ko_stat, sl.unit];
+  return { id: e.id, name: e.name, slot: e.slot, slotKo: sl.ko, grade: e.grade, desc: e.desc, stat: sk[0], val: x.val, unit: sk[1], maxDur: g.dur, repair: g.repair, ev: e.ev || undefined }; };
 route('GET', '/api/equip', async (req, res, ctx) => {
+  await EV.refresh();
   const inv = new Map((await db.all('SELECT item, qty FROM inventory WHERE user_id = ? AND qty > 0', [ctx.user.id])).map(r => [r.item, Number(r.qty)]));
   const mine = await db.all('SELECT id, key, dur, equipped FROM equip_inv WHERE user_id = ? ORDER BY equipped DESC, id', [ctx.user.id]);
   const eb = await equipBonus(ctx.user.id);
   send(res, 200, {
     gold: (await db.get('SELECT gold FROM users WHERE id = ?', [ctx.user.id])).gold,
-    defs: G.EQUIPS.map(e => Object.assign(eqView(e), { mats: Object.keys(e.mats).map(k => ({ item: k, qty: e.mats[k], have: inv.get(k) || 0 })) })),
+    defs: G.EQUIPS.filter(e => !e.ev || EV.on()).map(e => Object.assign(eqView(e), { mats: Object.keys(e.mats).map(k => ({ item: k, qty: e.mats[k], have: inv.get(k) || 0 })) })),
     mine: mine.filter(r => EQ_BY_ID.has(r.key)).map(r => { const e = EQ_BY_ID.get(r.key); return Object.assign(eqView(e), { uid: r.id, dur: r.dur, equipped: !!r.equipped, broken: r.dur <= 0 }); }),
     bonus: eb,
   });
 });
 route('POST', '/api/equip/craft', async (req, res, ctx) => {
   if (await limited('eqc:' + ctx.user.id, 40, 60000)) return fail(res, 429, 'rate_limited');
+  await EV.refresh();
   const e = EQ_BY_ID.get(String(ctx.body.id || ''));
   if (!e) return fail(res, 404, 'no_recipe');
+  if (e.ev && !EV.on()) return fail(res, 403, 'event_off');      // [EVENT:HALLOWEEN] 이벤트 장비는 이벤트 기간에만 조합
   const cur = await userById(ctx.user.id);
   if (corruptLock(cur, Date.now())) return fail(res, 409, 'corrupted', { until: cur.corrupt_until });
   const own = await db.get('SELECT COUNT(*) AS c FROM equip_inv WHERE user_id = ?', [cur.id]);
@@ -1560,7 +1610,7 @@ const gateView = (r, now, st) => {
   const next = r.floor < GATE_MAX ? gateOdds(r.floor + 1, st) : null;
   const starts = []; for (let f = 10; f < GATE_MAX; f += 10) if (f <= r.best) starts.push(f);
   return { active: !!r.active, floor: r.floor, from: r.from_floor | 0, best: r.best, max: GATE_MAX, loot: gateLoot(r), gold: r.gold, cd: Math.max(0, Number(r.cd_until) - now),
-    zones: G.GATE_ZONES.map(z => z.name), zone: r.floor > 0 ? zoneIdx(r.floor) : 0, starts, next };
+    zones: G.GATE_ZONES.map(z => z.name), zone: r.floor > 0 ? zoneIdx(r.floor) : 0, starts, next, taint: Math.round((Number(st && st.taint) || 0) * 10) / 10 };
 };
 // 모은 것을 가져가고 탐험을 끝냅니다. keep 은 가져가는 비율(1=전부, 0.5=절반, 0=전부 잃음)
 async function gateFinish(uid, r, now, keep, cdMs) {
@@ -1835,7 +1885,8 @@ async function huntWin(cur, m, eb, now) {
   await logAcquire(cur.id, 'exp', '경험치', gain, m.name + ' 토벌', now);
   await logAcquire(cur.id, 'gold', '골드', gold, m.name + ' 토벌', now);
   await questProg(cur, 'kill', 1, G.RANK_IDX[m.rank]);
-  return { payload: { result: 'success', gain, gold, taint, taintNow, levelUp: r.up, lv: r.lv, exp: r.exp } };
+  const ember = await EV.onKill(cur, m, now);      // [EVENT:HALLOWEEN] 잡귀 처치 시 도깨비 불씨
+  return { payload: { result: 'success', gain, gold, taint, taintNow, levelUp: r.up, lv: r.lv, exp: r.exp, ember: ember || undefined } };
 }
 // 토벌 실패 처리
 async function huntLose(cur, m, myStats, eb, now) {
@@ -2980,6 +3031,7 @@ route('POST', '/api/admin/player/delete', async (req, res, ctx) => {
     ['DELETE FROM friend_requests WHERE from_id = ? OR to_id = ?', [id, id]],
     ['DELETE FROM messages WHERE from_id = ? OR to_id = ?', [id, id]],
     ['DELETE FROM inquiries WHERE user_id = ?', [id]],
+    ['DELETE FROM gw_likes WHERE user_id = ? OR comment_id IN (SELECT id FROM gw_comments WHERE user_id = ? OR post_id IN (SELECT id FROM gw_posts WHERE user_id = ?))', [id, id, id]],
     ['DELETE FROM gw_comments WHERE user_id = ? OR post_id IN (SELECT id FROM gw_posts WHERE user_id = ?)', [id, id]],
     ['DELETE FROM gw_posts WHERE user_id = ?', [id]],
     ['DELETE FROM gifts WHERE from_id = ? OR to_id = ?', [id, id]],
@@ -3094,8 +3146,23 @@ async function maintState() {
 }
 route('GET', '/api/maintenance', async (req, res) => {
   const m = await maintState();
-  send(res, 200, { on: m.on, message: m.on ? m.msg : '' });
+  await EV.refresh();
+  send(res, 200, { on: m.on, message: m.on ? m.msg : '', hlw: EV.on() });      // hlw: [THEME:HALLOWEEN] 할로윈 화면 테마를 켤지 (이벤트 진행 중일 때)
 }, { auth: false });
+route('GET', '/api/admin/bgm', async (req, res) => {
+  bgmCache.at = 0;
+  const b = await srvBgm();
+  send(res, 200, { id: b.id, v: b.v, url: b.id ? 'https://youtu.be/' + b.id : '' });
+}, { auth: false, admin: true });
+route('POST', '/api/admin/bgm', async (req, res, ctx) => {
+  const raw = String(ctx.body.url == null ? '' : ctx.body.url).trim().slice(0, 300);
+  const id = ytIdOf(raw);
+  if (raw && !id) return fail(res, 400, 'bad_url');
+  const v = Date.now();
+  await db.run("INSERT INTO settings (key, value) VALUES ('srv_bgm', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value", [JSON.stringify({ id, v })]);
+  bgmCache = { at: Date.now(), id, v };
+  send(res, 200, { id, v, url: id ? 'https://youtu.be/' + id : '' });
+}, { auth: false, admin: true });
 route('GET', '/api/admin/maintenance', async (req, res) => {
   const m = await maintState();
   send(res, 200, { on: m.on, message: m.msg });
