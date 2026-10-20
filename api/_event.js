@@ -48,10 +48,10 @@ const WISH_GHOSTS = [
 
 // ── 가면 장비 (얼굴 부위). bonus 를 직접 적습니다. grade 는 내구도·수리비에 쓰입니다. ──
 const MASKS = [
-  { id: 'ev_m1', ev: 'halloween', name: '도깨비 가면', slot: 'mask', grade: 'B', desc: '뿔 달린 붉은 도깨비 탈. 쓰면 발걸음이 가벼워진다.', bonus: { stat: 'agi', val: 6 }, mats: { [EMBER]: 100, '나뭇가지': 4, '낡은 천조각': 3 } },
-  { id: 'ev_m2', ev: 'halloween', name: '해태 가면', slot: 'mask', grade: 'B', desc: '액운을 쫓는 해태의 탈. 오염이 덜 스며든다.', bonus: { stat: 'taintRes', val: 14 }, mats: { [EMBER]: 120, '소금': 3, '짐승의 뼈': 3 } },
-  { id: 'ev_m3', ev: 'halloween', name: '호랑이 가면', slot: 'mask', grade: 'A', desc: '산군(山君)의 기세가 서린 탈. 쓰면 힘이 솟는다.', bonus: { stat: 'str', val: 9 }, mats: { [EMBER]: 200, '짐승의 뼈': 5, '철광석 조각': 4, '붉은 석재 조각': 3 } },
-  { id: 'ev_m4', ev: 'halloween', name: '구미호 가면', slot: 'mask', grade: 'A', desc: '꼬리 아홉 달린 여우의 탈. 운이 따라붙는다.', bonus: { stat: 'luck', val: 9 }, mats: { [EMBER]: 200, '새의 깃털': 4, '수정 파편': 2, '네잎 클로버': 1 } },
+  { id: 'ev_m1', ev: 'halloween', name: '도깨비 가면', slot: 'mask', grade: 'B', desc: '뿔 달린 붉은 도깨비 탈. 쓰면 발걸음이 가벼워진다.', bonus: { stat: 'agi', val: 6 }, mats: { [EMBER]: 150, '나뭇가지': 4, '낡은 천조각': 3 } },
+  { id: 'ev_m2', ev: 'halloween', name: '해태 가면', slot: 'mask', grade: 'B', desc: '액운을 쫓는 해태의 탈. 오염이 덜 스며든다.', bonus: { stat: 'taintRes', val: 14 }, mats: { [EMBER]: 150, '소금': 3, '짐승의 뼈': 3 } },
+  { id: 'ev_m3', ev: 'halloween', name: '호랑이 가면', slot: 'mask', grade: 'A', desc: '산군(山君)의 기세가 서린 탈. 쓰면 힘이 솟는다.', bonus: { stat: 'str', val: 9 }, mats: { [EMBER]: 150, '짐승의 뼈': 5, '철광석 조각': 4, '붉은 석재 조각': 3 } },
+  { id: 'ev_m4', ev: 'halloween', name: '구미호 가면', slot: 'mask', grade: 'A', desc: '꼬리 아홉 달린 여우의 탈. 운이 따라붙는다.', bonus: { stat: 'luck', val: 9 }, mats: { [EMBER]: 150, '새의 깃털': 4, '수정 파편': 2, '네잎 클로버': 1 } },
 ];
 const MASK_SLOT = { ko: '가면', stat: 'luck', ko_stat: '행운', v: [0, 0, 0, 0], unit: '' };   // 부위 표(능력치는 가면마다 bonus 로 정함)
 
