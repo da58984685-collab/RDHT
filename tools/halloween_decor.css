@@ -1,0 +1,63 @@
+/* 할로윈 장식 (halloween.js 가 넣어 주는 요소 + 기존 요소에 덧붙이는 그림). {{이름}} 은 생성할 때 픽셀아트 주소로 바뀝니다. */
+::selection{background:#ff8a1f;color:#1a0b2a}
+*{scrollbar-color:#6a37b8 #120a1c}
+html{background:#08060b}
+
+/* 배경: 원래의 큰 '門' 글자 워터마크는 숨김 */
+#bg::after{content:none}
+#bg::before{opacity:.28}
+.fl{background:#ff9b2f;box-shadow:0 0 8px 2px rgba(255,138,31,.7)}
+.fl:nth-child(3n){background:#b077ff;box-shadow:0 0 8px 2px rgba(155,93,229,.75)}
+
+/* 타이틀(로그인 화면): 잭오랜턴 두 개가 양옆에서 불을 밝힘 */
+.hero h1{position:relative}
+.hero h1::before,.hero h1::after{content:"";position:absolute;top:50%;width:54px;height:48px;margin-top:-24px;
+  background:{{PUMPKIN}} center/contain no-repeat;image-rendering:pixelated;filter:drop-shadow(0 0 10px rgba(255,138,31,.75));animation:hw-flick 2.6s ease-in-out infinite;text-indent:0}
+.hero h1::before{left:-8px}
+.hero h1::after{right:-8px;animation-delay:-1.3s;transform:scaleX(-1)}
+.hero .desc::before,.hero .desc::after{content:"";display:inline-block;width:14px;height:21px;vertical-align:-5px;margin:0 8px;
+  background:{{CANDY}} center/contain no-repeat;image-rendering:pixelated}
+.hero .desc::after{transform:scaleX(-1)}
+
+/* 패널 제목 오른쪽 끝에 작은 잭오랜턴 */
+section>h2::after{content:"";flex:none;margin-left:auto;width:19px;height:17px;background:{{PUMPKIN}} center/contain no-repeat;image-rendering:pixelated;opacity:.9;filter:drop-shadow(0 0 4px rgba(255,138,31,.6))}
+section>h2 button+button::after,section>h2 .hud-btn::after{content:none}
+
+/* 지구본·장면 캔버스(그림 속 붉은색)를 주황 쪽으로 */
+#glcv,#scene,#gtlcv{filter:hue-rotate(34deg) saturate(1.05)}
+
+/* ───── 떠다니는 장식 (halloween.js 가 만든 #hwd 안) ───── */
+#hwd{position:fixed;inset:0;pointer-events:none;z-index:60;overflow:hidden}
+.hw-web{position:absolute;top:0;width:clamp(64px,10vw,124px);aspect-ratio:1/1;background:{{WEB}} center/contain no-repeat;image-rendering:pixelated;opacity:.5}
+.hw-web.l{left:0}
+.hw-web.r{right:0;transform:scaleX(-1)}
+.hw-spw{position:absolute;top:-220px;right:30px;width:2px;height:330px;background:linear-gradient(#cdbdf0,#cdbdf0);opacity:.55;animation:hw-dangle 7s ease-in-out infinite alternate}
+.hw-spw::after{content:"";position:absolute;left:-15px;bottom:-30px;width:33px;height:27px;background:{{SPIDER}} center/contain no-repeat;image-rendering:pixelated}
+.hw-bat{position:absolute;left:0;width:30px;height:16px;background:{{BATS}} 0 0/60px 16px no-repeat;image-rendering:pixelated;
+  animation:hw-fly var(--d,24s) linear var(--w,0s) infinite,hw-flap .34s steps(1) infinite;opacity:.9}
+.hw-bat.s2{width:45px;height:24px;background-size:90px 24px;animation-name:hw-fly,hw-flap2}
+.hw-foot{position:relative;z-index:1;display:flex;align-items:flex-end;justify-content:center;gap:clamp(10px,3vw,28px);padding:6px 16px 22px;pointer-events:none}
+.hw-foot i{display:block;flex:none;background-position:center;background-size:contain;background-repeat:no-repeat;image-rendering:pixelated}
+.hw-foot .pk{width:54px;height:48px;background-image:var(--hw-pumpkin);filter:drop-shadow(0 0 14px rgba(255,138,31,.7));animation:hw-flick 2.8s ease-in-out infinite}
+.hw-foot .pk.b{width:38px;height:34px;animation-delay:-1.4s}
+.hw-foot .gh{width:34px;height:37px;background-image:var(--hw-ghost);opacity:.85;filter:drop-shadow(0 0 10px rgba(205,189,240,.55));animation:hw-float 4.5s ease-in-out infinite}
+.hw-foot .hat{width:40px;height:37px;background-image:var(--hw-hat)}
+.hw-foot .sk{width:30px;height:27px;background-image:var(--hw-skull);opacity:.9}
+.hw-foot .cn{width:20px;height:26px;background-image:var(--hw-candy)}
+@keyframes hw-flap{0%{background-position:0 0}50%{background-position:-30px 0}}
+@keyframes hw-flap2{0%{background-position:0 0}50%{background-position:-45px 0}}
+@keyframes hw-fly{0%{transform:translate(-80px,0)}20%{transform:translate(20vw,-26px)}40%{transform:translate(42vw,14px)}60%{transform:translate(64vw,-20px)}80%{transform:translate(84vw,10px)}100%{transform:translate(calc(100vw + 80px),-6px)}}
+@keyframes hw-dangle{from{transform:translateY(0)}to{transform:translateY(48px)}}
+@keyframes hw-flick{0%,100%{filter:drop-shadow(0 0 10px rgba(255,138,31,.7)) brightness(1)}45%{filter:drop-shadow(0 0 18px rgba(255,170,60,.95)) brightness(1.15)}60%{filter:drop-shadow(0 0 8px rgba(255,138,31,.55)) brightness(.92)}}
+@keyframes hw-float{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+.fx-off #hwd .hw-bat,.fx-off #hwd .hw-spw{display:none}
+.fx-off .hero h1::before,.fx-off .hero h1::after,.fx-off .hw-foot i{animation:none}
+@media (max-width:700px){
+  .hw-foot .sk,.hw-foot .cn{display:none}
+  .hero h1::before,.hero h1::after{width:38px;height:34px;margin-top:-17px}
+  .hero h1::before{left:-2px}.hero h1::after{right:-2px}
+}
+@media (prefers-reduced-motion:reduce){
+  #hwd .hw-bat,#hwd .hw-spw{display:none}
+  .hero h1::before,.hero h1::after,.hw-foot i{animation:none}
+}
