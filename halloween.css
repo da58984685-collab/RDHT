@@ -1,0 +1,164 @@
+/* [THEME:HALLOWEEN] 할로윈 테마 — 자동 생성 파일 (tools/gen-halloween-css.py). 이 파일은 halloween.js 가 이벤트 중에만 불러옵니다. */
+/* ── 1부: index.html 의 붉은색 → 주황·보라 ── */
+:root{--bg1:#08060b;--bg2:#11051f;--card:#120d17;--field:#0a070c;--text:#f3eee7;--line:#3d146c;--red:#df7b2a;--red2:#ff933b;--deep:#fbb56a;--glow:rgba(223,123,42,.35);--bar1:#230445;--bar2:#100918;--err:#fcc68d}
+#bg{background:radial-gradient(70vmax 60vmax at 50% -15%,rgba(84,0,179,.38),transparent 62%),radial-gradient(90vmax 45vmax at 50% 112%,rgba(208,108,26,.5),transparent 65%),radial-gradient(50vmax 45vmax at 100% 100%,rgba(60,0,130,.3),transparent 60%),linear-gradient(180deg,#08060b,#0c0515)}
+#bg::before{background:radial-gradient(circle at 40% 38%,#ff9b4a,#c36214 55%,#220048)}
+#bg::after{color:rgba(223,123,42,.06)}
+.fl{background:#ff9b4a;box-shadow:0 0 8px 2px rgba(255,147,59,.7)}
+h1{background:linear-gradient(180deg,#fff2f2,#ffa45a 62%,#d66f1a);-webkit-background-clip:text;background-clip:text}
+@keyframes glow{from{filter:drop-shadow(0 0 5px rgba(255,147,59,.4))}to{filter:drop-shadow(0 0 14px rgba(255,147,59,.85))}}
+section{background:linear-gradient(180deg,#150e1c,#0c0810)}
+h2{color:#fef3e4}
+.imgbox{border:2px dashed #4f1590;background:radial-gradient(circle at 50% 30%,#1c0a31,#0a070c)}
+.genders button[aria-pressed=true]{background:linear-gradient(135deg,var(--red),#5000ab)}
+.actions .primary{background:linear-gradient(135deg,#e78c42,#5000ab)}
+#result .code{background:linear-gradient(90deg,#feebd3,#ff933b,#feebd3,#ff933b,#feebd3);background-size:200% 100%;-webkit-background-clip:text;background-clip:text}
+.gate-arch::before{background:linear-gradient(180deg,#e78c42,#460095)}
+.gate-arch::after{background:#5000ab}
+.gate-in{border-left:10px solid #c36214;border-right:10px solid #c36214;background:radial-gradient(circle at 50% 30%,rgba(255,147,59,.28),transparent 62%),rgba(8,6,11,.72)}
+.gate-in .gmoon{background:radial-gradient(circle at 40% 38%,#ff9b4a,#c36214 58%,#220048)}
+.dialog{background:linear-gradient(180deg,#100b16,#08060b);box-shadow:0 0 40px rgba(223,123,42,.35)}
+.sm{background:radial-gradient(circle at 50% 50%,rgba(0,0,0,.92),rgba(4,2,7,.6) 45%,transparent 70%)}
+.rk[data-r="A"]{background:linear-gradient(135deg,#e78c42,#5000ab);box-shadow:0 0 24px rgba(255,147,59,.85)}
+.pbtn.rdy{box-shadow:0 0 10px rgba(255,147,59,.45)}
+.pm-l li{background:#140f1a}
+.ach-pin{background:linear-gradient(135deg,#1d0934,#0d0615 60%,#18072a) padding-box,linear-gradient(100deg,var(--g3),var(--g1),var(--g2),#ffa255,var(--g1),var(--g3)) border-box;box-shadow:0 0 14px rgba(240,185,58,.28),0 0 26px rgba(223,123,42,.22);background-size:100% 100%,300% 100%}
+.ach-pin .st::after{background:#0d0615}
+.ach-none{background:linear-gradient(90deg,rgba(240,185,58,.07),rgba(223,123,42,.07))}
+@keyframes achglow{from{box-shadow:0 0 8px rgba(240,185,58,.2),0 0 18px rgba(223,123,42,.15)}to{box-shadow:0 0 18px rgba(240,185,58,.5),0 0 32px rgba(223,123,42,.35)}}
+.ach-li.got{background:linear-gradient(100deg,rgba(240,185,58,.12),rgba(223,123,42,.08))}
+.ach-btn{color:#13091e}
+.nt-item{background:rgba(223,123,42,.08)}
+.use-btn{background:linear-gradient(135deg,#b96723,#35066b)}
+.inv-fx{color:#fcc68d}
+.dying-note{background:rgba(223,123,42,.12);color:#fcc68d}
+.st[data-k="taint"] .bar i{background:linear-gradient(90deg,#110221,#340070 60%,#b35a12)}
+.pow .bar i{background:linear-gradient(90deg,#5000ab,#ff933b)}
+@keyframes alflash{0%,40%{background:rgba(223,123,42,.38)}100%{background:var(--field)}}
+.al[data-r="A"] .al-r,.al[data-r="B"] .al-r{background:linear-gradient(135deg,#e78c42,#5000ab)}
+.mfl li button{background:#140f1a}
+#maddc,#msendt{background:#0a070c}
+.mmsgs li{background:#191222}
+.mmsgs li.me{background:#270e44}
+#swchip{background:linear-gradient(180deg,#1d0b31,#0e0619)}
+.hcov{color:#f3eee7}
+.hf{background:#050307}
+.hbr{background:rgba(243,238,231,.18)}
+.al-go{background:linear-gradient(135deg,#b96723,#35066b)}
+.al.pins{background:linear-gradient(100deg,rgba(223,123,42,.22),rgba(240,185,58,.08) 70%,var(--field));box-shadow:0 0 14px rgba(223,123,42,.3)}
+.al.pins .al-r{background:linear-gradient(135deg,#ff933b,#5000ab)}
+.rg[aria-current="true"]{background:linear-gradient(180deg,#1c0a31,var(--field))}
+.big-p .ph-nav{background:#0a070c}
+.ph-scr{background:#0a070c}
+.app{background:#140f1a}
+.app-list li{background:#140f1a}
+.inv-tabs button[aria-selected="true"]{background:#1d0b31}
+.shop-buy{background:#1d0b31;color:#e7dcd1}
+.msg-b{background:#191222}
+.al[data-r="SS"]{box-shadow:0 0 18px rgba(255,147,59,.55)}
+.al[data-r="S"] .al-r{background:linear-gradient(135deg,#f0b93a,#b65b11)}
+.al[data-r="SS"] .al-r{background:linear-gradient(135deg,#ffa45a,#b65b11)}
+.fp{background:linear-gradient(180deg,#130a1e,#0b070f)}
+.fp-chat{background:linear-gradient(135deg,#b96723,#35066b)}
+.mfl li button.is-on{background:rgba(223,123,42,.14)}
+.ftabs{background:#0a070c}
+.ft-th{background:linear-gradient(135deg,#b96723,#35066b)}
+.frl li{background:#140f1a}
+.mfl.frl li button.fb{background:linear-gradient(135deg,#b96723,#35066b)}
+.gband-row:nth-child(3) span{-webkit-text-stroke:1.5px rgba(251,181,106,.9)}
+.mfl li button.press{background:#1e1529}
+.lp-bd{background:rgba(8,5,11,.45)}
+.lp-cd{background:linear-gradient(180deg,#130a1e,#0b070f)}
+.lp-th span{background:#191222}
+.lp-th span.me{background:rgba(185,103,35,.45)}
+.lp-mn{background:rgba(16,9,23,.96)}
+.lp-ac.del{color:#fcc080}
+.lp-ac.hl,.lp-ac:hover{background:rgba(223,123,42,.2)}
+.lp-ts{background:#f3eee7;color:#120d17}
+.gt-stage{background:#08060b}
+.gt-load{background:radial-gradient(circle at 50% 50%,#1b0832,#07030a 72%)}
+.gt-load p{background:rgba(26,7,47,.6);border:1px solid rgba(251,181,106,.35);color:#feeeda}
+.gt-sv svg{filter:drop-shadow(0 0 6px rgba(255,147,59,.8))}
+.gt-sv:hover svg,.gt-sv:focus-visible svg{filter:drop-shadow(0 0 9px rgba(251,181,106,1))}
+.gt-res{background:rgba(7,4,12,.82)}
+.gt-res b{color:#fcc68d}
+.gt-res p{color:#f3eee7}
+#maint{background:radial-gradient(80% 70% at 50% 40%,#1b0832,#07030a 75%)}
+.maint-mk{color:rgba(223,123,42,.55)}
+.maint-box h1{color:#fcc68d}
+.maint-box p{color:#f3eee7}
+.gt-rgs .hud-btn[aria-current="true"]{border-color:#fbb56a}
+.ct.on{background:linear-gradient(135deg,#b96723,#35066b)}
+.rd-s{fill:rgba(223,123,42,.35)}
+.globe{background:radial-gradient(80% 80% at 50% 48%,#1c0a31,#050308 72%)}
+.gl-hd small{color:rgba(243,238,231,.6)}
+@keyframes gllive{0%{box-shadow:0 0 0 0 rgba(255,147,59,.7)}70%{box-shadow:0 0 0 7px rgba(255,147,59,0)}100%{box-shadow:0 0 0 0 rgba(255,147,59,0)}}
+.gl-tip{background:rgba(243,238,231,.96);color:#130a1e}
+.gl-tip span{color:#4e3a66}
+.gl-tg{background:rgba(10,7,12,.8)}
+.is-globe .gl-tg{background:linear-gradient(135deg,#b96723,#35066b)}
+/* ── 2부: 장식 ── */
+:root{--hw-pumpkin:url('data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 18 16%27 width=%2718%27 height=%2716%27 shape-rendering=%27crispEdges%27%3E%3Cpath fill=%27%236cc04a%27 d=%27M8 0h1v1h-1zM7 1h2v1h-2zM7 2h3v1h-3z%27/%3E%3Cpath fill=%27%233e8a2a%27 d=%27M9 0h1v1h-1zM9 1h1v1h-1zM10 2h1v1h-1z%27/%3E%3Cpath fill=%27%23ff8a1f%27 d=%27M5 3h3v1h-3zM10 3h3v1h-3zM3 4h1v1h-1zM5 4h3v1h-3zM10 4h3v1h-3zM14 4h1v1h-1zM2 5h2v1h-2zM6 5h2v1h-2zM10 5h2v1h-2zM14 5h2v1h-2zM2 6h2v1h-2zM7 6h1v1h-1zM10 6h1v1h-1zM14 6h2v1h-2zM2 7h1v1h-1zM15 7h1v1h-1zM2 8h2v1h-2zM5 8h3v1h-3zM10 8h3v1h-3zM14 8h2v1h-2zM2 9h2v1h-2zM5 9h3v1h-3zM10 9h3v1h-3zM14 9h2v1h-2zM2 10h2v1h-2zM5 10h3v1h-3zM10 10h3v1h-3zM14 10h2v1h-2zM2 11h1v1h-1zM15 11h1v1h-1zM2 12h2v1h-2zM14 12h2v1h-2zM2 13h2v1h-2zM5 13h1v1h-1zM12 13h1v1h-1zM14 13h2v1h-2z%27/%3E%3Cpath fill=%27%23c9540a%27 d=%27M8 3h2v1h-2zM4 4h1v1h-1zM8 4h2v1h-2zM13 4h1v1h-1zM4 5h1v1h-1zM8 5h2v1h-2zM13 5h1v1h-1zM1 6h1v1h-1zM8 6h2v1h-2zM16 6h1v1h-1zM1 7h1v1h-1zM8 7h2v1h-2zM16 7h1v1h-1zM0 8h2v1h-2zM4 8h1v1h-1zM13 8h1v1h-1zM16 8h2v1h-2zM0 9h2v1h-2zM4 9h1v1h-1zM13 9h1v1h-1zM16 9h2v1h-2zM0 10h2v1h-2zM4 10h1v1h-1zM8 10h2v1h-2zM13 10h1v1h-1zM16 10h2v1h-2zM1 11h1v1h-1zM5 11h1v1h-1zM8 11h2v1h-2zM12 11h1v1h-1zM16 11h1v1h-1zM1 12h1v1h-1zM7 12h1v1h-1zM10 12h1v1h-1zM16 12h1v1h-1zM4 13h1v1h-1zM13 13h1v1h-1zM3 14h12v1h-12zM5 15h8v1h-8z%27/%3E%3Cpath fill=%27%23ffd23f%27 d=%27M5 5h1v1h-1zM12 5h1v1h-1zM4 6h3v1h-3zM11 6h3v1h-3zM3 7h5v1h-5zM10 7h5v1h-5zM8 8h2v1h-2zM8 9h2v1h-2zM3 11h2v1h-2zM6 11h2v1h-2zM10 11h2v1h-2zM13 11h2v1h-2zM4 12h3v1h-3zM8 12h2v1h-2zM11 12h3v1h-3zM6 13h6v1h-6z%27/%3E%3C/svg%3E');--hw-ghost:url('data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 11 12%27 width=%2711%27 height=%2712%27 shape-rendering=%27crispEdges%27%3E%3Cpath fill=%27%23f6efff%27 d=%27M3 0h5v1h-5zM2 1h7v1h-7zM1 2h9v1h-9zM0 3h3v1h-3zM5 3h2v1h-2zM9 3h2v1h-2zM0 4h3v1h-3zM5 4h2v1h-2zM9 4h2v1h-2zM0 5h11v1h-11zM0 6h5v1h-5zM7 6h4v1h-4zM0 7h5v1h-5zM7 7h4v1h-4zM0 8h11v1h-11zM0 9h11v1h-11zM0 10h11v1h-11zM0 11h2v1h-2zM3 11h3v1h-3zM7 11h3v1h-3z%27/%3E%3Cpath fill=%27%2314081f%27 d=%27M3 3h2v1h-2zM7 3h2v1h-2zM3 4h2v1h-2zM7 4h2v1h-2zM5 6h2v1h-2zM5 7h2v1h-2z%27/%3E%3C/svg%3E');--hw-spider:url('data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 11 9%27 width=%2711%27 height=%279%27 shape-rendering=%27crispEdges%27%3E%3Cpath fill=%27%23cdbdf0%27 d=%27M0 0h1v1h-1zM10 0h1v1h-1zM1 1h1v1h-1zM9 1h1v1h-1zM2 2h1v1h-1zM8 2h1v1h-1zM0 3h2v1h-2zM9 3h2v1h-2zM1 5h1v1h-1zM9 5h1v1h-1zM0 6h1v1h-1zM10 6h1v1h-1zM0 7h1v1h-1zM3 7h1v1h-1zM7 7h1v1h-1zM10 7h1v1h-1zM1 8h1v1h-1zM9 8h1v1h-1z%27/%3E%3Cpath fill=%27%236a37b8%27 d=%27M4 1h3v1h-3zM3 2h5v1h-5zM2 3h2v1h-2zM5 3h1v1h-1zM7 3h2v1h-2zM2 4h7v1h-7zM2 5h7v1h-7zM3 6h5v1h-5z%27/%3E%3Cpath fill=%27%23ff4a4a%27 d=%27M4 3h1v1h-1zM6 3h1v1h-1z%27/%3E%3C/svg%3E');--hw-web:url('data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 30 30%27 width=%2730%27 height=%2730%27 shape-rendering=%27crispEdges%27%3E%3Cpath fill=%27%23cdbdf0%27 d=%27M0 0h30v1h-30zM0 1h5v1h-5zM6 1h1v1h-1zM13 1h1v1h-1zM20 1h1v1h-1zM27 1h1v1h-1zM0 2h2v1h-2zM3 2h1v1h-1zM5 2h3v1h-3zM12 2h1v1h-1zM19 2h1v1h-1zM26 2h1v1h-1zM0 3h3v1h-3zM4 3h2v1h-2zM8 3h3v1h-3zM12 3h1v1h-1zM18 3h1v1h-1zM25 3h1v1h-1zM0 4h2v1h-2zM3 4h4v1h-4zM11 4h4v1h-4zM19 4h1v1h-1zM24 4h1v1h-1zM0 5h1v1h-1zM2 5h3v1h-3zM7 5h1v1h-1zM11 5h1v1h-1zM15 5h3v1h-3zM19 5h1v1h-1zM25 5h1v1h-1zM0 6h5v1h-5zM8 6h1v1h-1zM11 6h1v1h-1zM18 6h3v1h-3zM25 6h1v1h-1zM0 7h1v1h-1zM2 7h1v1h-1zM5 7h1v1h-1zM9 7h3v1h-3zM17 7h2v1h-2zM21 7h3v1h-3zM26 7h1v1h-1zM0 8h1v1h-1zM3 8h1v1h-1zM6 8h1v1h-1zM10 8h2v1h-2zM16 8h1v1h-1zM24 8h3v1h-3zM0 9h1v1h-1zM3 9h1v1h-1zM7 9h1v1h-1zM9 9h1v1h-1zM12 9h1v1h-1zM16 9h1v1h-1zM26 9h3v1h-3zM0 10h1v1h-1zM3 10h1v1h-1zM7 10h1v1h-1zM9 10h1v1h-1zM13 10h2v1h-2zM16 10h1v1h-1zM23 10h3v1h-3zM0 11h1v1h-1zM4 11h5v1h-5zM15 11h1v1h-1zM17 11h1v1h-1zM21 11h2v1h-2zM0 12h1v1h-1zM2 12h1v1h-1zM4 12h2v1h-2zM9 12h1v1h-1zM15 12h3v1h-3zM21 12h1v1h-1zM0 13h2v1h-2zM3 13h2v1h-2zM10 13h1v1h-1zM13 13h2v1h-2zM17 13h2v1h-2zM22 13h1v1h-1zM0 14h1v1h-1zM4 14h1v1h-1zM10 14h1v1h-1zM13 14h1v1h-1zM19 14h1v1h-1zM22 14h1v1h-1zM0 15h1v1h-1zM5 15h1v1h-1zM11 15h1v1h-1zM13 15h1v1h-1zM20 15h1v1h-1zM23 15h1v1h-1zM0 16h1v1h-1zM5 16h1v1h-1zM8 16h2v1h-2zM12 16h1v1h-1zM20 16h4v1h-4zM0 17h1v1h-1zM5 17h1v1h-1zM8 17h1v1h-1zM10 17h4v1h-4zM17 17h3v1h-3zM23 17h1v1h-1zM0 18h1v1h-1zM3 18h1v1h-1zM6 18h2v1h-2zM13 18h1v1h-1zM17 18h1v1h-1zM0 19h1v1h-1zM2 19h1v1h-1zM4 19h4v1h-4zM14 19h1v1h-1zM17 19h1v1h-1zM0 20h2v1h-2zM6 20h1v1h-1zM15 20h1v1h-1zM17 20h1v1h-1zM0 21h1v1h-1zM7 21h1v1h-1zM11 21h2v1h-2zM16 21h1v1h-1zM0 22h1v1h-1zM7 22h1v1h-1zM11 22h1v1h-1zM13 22h2v1h-2zM16 22h1v1h-1zM0 23h1v1h-1zM7 23h1v1h-1zM10 23h1v1h-1zM15 23h3v1h-3zM0 24h1v1h-1zM4 24h1v1h-1zM8 24h1v1h-1zM10 24h1v1h-1zM0 25h1v1h-1zM3 25h1v1h-1zM5 25h2v1h-2zM8 25h1v1h-1zM10 25h1v1h-1zM0 26h1v1h-1zM2 26h1v1h-1zM7 26h3v1h-3zM0 27h2v1h-2zM9 27h1v1h-1zM0 28h1v1h-1zM9 28h1v1h-1zM0 29h1v1h-1z%27/%3E%3C/svg%3E');--hw-candy:url('data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 7 9%27 width=%277%27 height=%279%27 shape-rendering=%27crispEdges%27%3E%3Cpath fill=%27%23f6efff%27 d=%27M3 0h1v1h-1zM2 1h3v1h-3z%27/%3E%3Cpath fill=%27%23ffd23f%27 d=%27M2 2h3v1h-3zM1 3h5v1h-5z%27/%3E%3Cpath fill=%27%23ffb21f%27 d=%27M1 4h5v1h-5zM1 5h5v1h-5zM0 6h1v1h-1zM5 6h1v1h-1z%27/%3E%3Cpath fill=%27%23ff8a1f%27 d=%27M1 6h4v1h-4zM0 7h6v1h-6zM1 8h4v1h-4z%27/%3E%3C/svg%3E');--hw-skull:url('data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 11 10%27 width=%2711%27 height=%2710%27 shape-rendering=%27crispEdges%27%3E%3Cpath fill=%27%23f6efff%27 d=%27M2 0h7v1h-7zM1 1h9v1h-9zM0 2h11v1h-11zM0 3h2v1h-2zM4 3h3v1h-3zM9 3h2v1h-2zM0 4h2v1h-2zM4 4h3v1h-3zM9 4h2v1h-2zM0 5h5v1h-5zM6 5h5v1h-5zM1 6h9v1h-9zM2 7h1v1h-1zM4 7h1v1h-1zM6 7h1v1h-1zM8 7h1v1h-1zM2 8h1v1h-1zM4 8h1v1h-1zM6 8h1v1h-1zM8 8h1v1h-1zM3 9h5v1h-5z%27/%3E%3Cpath fill=%27%2314081f%27 d=%27M2 3h2v1h-2zM7 3h2v1h-2zM2 4h2v1h-2zM7 4h2v1h-2zM5 5h1v1h-1zM3 7h1v1h-1zM5 7h1v1h-1zM7 7h1v1h-1zM3 8h1v1h-1zM5 8h1v1h-1zM7 8h1v1h-1z%27/%3E%3C/svg%3E');--hw-hat:url('data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 13 11%27 width=%2713%27 height=%2711%27 shape-rendering=%27crispEdges%27%3E%3Cpath fill=%27%236a37b8%27 d=%27M6 0h1v1h-1zM6 1h2v1h-2zM5 2h3v1h-3zM5 3h4v1h-4zM4 4h5v1h-5zM4 5h6v1h-6zM3 6h7v1h-7zM2 7h9v1h-9zM1 9h11v1h-11zM0 10h13v1h-13z%27/%3E%3Cpath fill=%27%23ff8a1f%27 d=%27M2 8h4v1h-4zM7 8h4v1h-4z%27/%3E%3Cpath fill=%27%23ffd23f%27 d=%27M6 8h1v1h-1z%27/%3E%3C/svg%3E');--hw-bats:url('data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 30 8%27 width=%2730%27 height=%278%27 shape-rendering=%27crispEdges%27%3E%3Cpath fill=%27%236a37b8%27 d=%27M0 0h1v1h-1zM14 0h1v1h-1zM0 1h2v1h-2zM5 1h1v1h-1zM9 1h1v1h-1zM13 1h2v1h-2zM0 2h3v1h-3zM4 2h3v1h-3zM8 2h3v1h-3zM12 2h3v1h-3zM0 3h15v1h-15zM1 4h5v1h-5zM7 4h1v1h-1zM9 4h5v1h-5zM2 5h11v1h-11zM3 6h2v1h-2zM6 6h3v1h-3zM10 6h2v1h-2zM4 7h1v1h-1zM10 7h1v1h-1zM16 2h2v1h-2zM19 2h1v1h-1zM25 2h1v1h-1zM27 2h2v1h-2zM15 3h6v1h-6zM22 3h1v1h-1zM24 3h6v1h-6zM16 4h5v1h-5zM22 4h1v1h-1zM24 4h5v1h-5zM17 5h11v1h-11zM18 6h3v1h-3zM22 6h1v1h-1zM24 6h3v1h-3zM19 7h1v1h-1zM25 7h1v1h-1z%27/%3E%3Cpath fill=%27%23ffd23f%27 d=%27M6 4h1v1h-1zM8 4h1v1h-1zM21 4h1v1h-1zM23 4h1v1h-1z%27/%3E%3C/svg%3E')}
+/* 할로윈 장식 (halloween.js 가 넣어 주는 요소 + 기존 요소에 덧붙이는 그림). {{이름}} 은 생성할 때 픽셀아트 주소로 바뀝니다. */
+::selection{background:#ff8a1f;color:#1a0b2a}
+*{scrollbar-color:#6a37b8 #120a1c}
+html{background:#08060b}
+
+/* 배경: 원래의 큰 '門' 글자 워터마크는 숨김 */
+#bg::after{content:none}
+#bg::before{opacity:.28}
+.fl{background:#ff9b2f;box-shadow:0 0 8px 2px rgba(255,138,31,.7)}
+.fl:nth-child(3n){background:#b077ff;box-shadow:0 0 8px 2px rgba(155,93,229,.75)}
+
+/* 타이틀(로그인 화면): 잭오랜턴 두 개가 양옆에서 불을 밝힘 */
+.hero h1{position:relative}
+.hero h1::before,.hero h1::after{content:"";position:absolute;top:50%;width:54px;height:48px;margin-top:-24px;
+  background:var(--hw-pumpkin) center/contain no-repeat;image-rendering:pixelated;filter:drop-shadow(0 0 10px rgba(255,138,31,.75));animation:hw-flick 2.6s ease-in-out infinite;text-indent:0}
+.hero h1::before{left:-8px}
+.hero h1::after{right:-8px;animation-delay:-1.3s;transform:scaleX(-1)}
+.hero .desc::before,.hero .desc::after{content:"";display:inline-block;width:14px;height:21px;vertical-align:-5px;margin:0 8px;
+  background:var(--hw-candy) center/contain no-repeat;image-rendering:pixelated}
+.hero .desc::after{transform:scaleX(-1)}
+
+/* 패널 제목 오른쪽 끝에 작은 잭오랜턴 */
+section>h2::after{content:"";flex:none;margin-left:auto;width:19px;height:17px;background:var(--hw-pumpkin) center/contain no-repeat;image-rendering:pixelated;opacity:.9;filter:drop-shadow(0 0 4px rgba(255,138,31,.6))}
+section>h2 button+button::after,section>h2 .hud-btn::after{content:none}
+
+/* 지구본·장면 캔버스(그림 속 붉은색)를 주황 쪽으로 */
+#glcv,#scene,#gtlcv{filter:hue-rotate(34deg) saturate(1.05)}
+
+/* ───── 떠다니는 장식 (halloween.js 가 만든 #hwd 안) ───── */
+#hwd{position:fixed;inset:0;pointer-events:none;z-index:60;overflow:hidden}
+.hw-web{position:absolute;top:0;width:clamp(64px,10vw,124px);aspect-ratio:1/1;background:var(--hw-web) center/contain no-repeat;image-rendering:pixelated;opacity:.5}
+.hw-web.l{left:0}
+.hw-web.r{right:0;transform:scaleX(-1)}
+.hw-spw{position:absolute;top:-220px;right:30px;width:2px;height:330px;background:linear-gradient(#cdbdf0,#cdbdf0);opacity:.55;animation:hw-dangle 7s ease-in-out infinite alternate}
+.hw-spw::after{content:"";position:absolute;left:-15px;bottom:-30px;width:33px;height:27px;background:var(--hw-spider) center/contain no-repeat;image-rendering:pixelated}
+.hw-bat{position:absolute;left:0;width:30px;height:16px;background:var(--hw-bats) 0 0/60px 16px no-repeat;image-rendering:pixelated;
+  animation:hw-fly var(--d,24s) linear var(--w,0s) infinite,hw-flap .34s steps(1) infinite;opacity:.9}
+.hw-bat.s2{width:45px;height:24px;background-size:90px 24px;animation-name:hw-fly,hw-flap2}
+.hw-foot{position:relative;z-index:1;display:flex;align-items:flex-end;justify-content:center;gap:clamp(10px,3vw,28px);padding:6px 16px 22px;pointer-events:none}
+.hw-foot i{display:block;flex:none;background-position:center;background-size:contain;background-repeat:no-repeat;image-rendering:pixelated}
+.hw-foot .pk{width:54px;height:48px;background-image:var(--hw-pumpkin);filter:drop-shadow(0 0 14px rgba(255,138,31,.7));animation:hw-flick 2.8s ease-in-out infinite}
+.hw-foot .pk.b{width:38px;height:34px;animation-delay:-1.4s}
+.hw-foot .gh{width:34px;height:37px;background-image:var(--hw-ghost);opacity:.85;filter:drop-shadow(0 0 10px rgba(205,189,240,.55));animation:hw-float 4.5s ease-in-out infinite}
+.hw-foot .hat{width:40px;height:37px;background-image:var(--hw-hat)}
+.hw-foot .sk{width:30px;height:27px;background-image:var(--hw-skull);opacity:.9}
+.hw-foot .cn{width:20px;height:26px;background-image:var(--hw-candy)}
+@keyframes hw-flap{0%{background-position:0 0}50%{background-position:-30px 0}}
+@keyframes hw-flap2{0%{background-position:0 0}50%{background-position:-45px 0}}
+@keyframes hw-fly{0%{transform:translate(-80px,0)}20%{transform:translate(20vw,-26px)}40%{transform:translate(42vw,14px)}60%{transform:translate(64vw,-20px)}80%{transform:translate(84vw,10px)}100%{transform:translate(calc(100vw + 80px),-6px)}}
+@keyframes hw-dangle{from{transform:translateY(0)}to{transform:translateY(48px)}}
+@keyframes hw-flick{0%,100%{filter:drop-shadow(0 0 10px rgba(255,138,31,.7)) brightness(1)}45%{filter:drop-shadow(0 0 18px rgba(255,170,60,.95)) brightness(1.15)}60%{filter:drop-shadow(0 0 8px rgba(255,138,31,.55)) brightness(.92)}}
+@keyframes hw-float{0%,100%{transform:translateY(0)}50%{transform:translateY(-10px)}}
+.fx-off #hwd .hw-bat,.fx-off #hwd .hw-spw{display:none}
+.fx-off .hero h1::before,.fx-off .hero h1::after,.fx-off .hw-foot i{animation:none}
+@media (max-width:700px){
+  .hw-foot .sk,.hw-foot .cn{display:none}
+  .hero h1::before,.hero h1::after{width:38px;height:34px;margin-top:-17px}
+  .hero h1::before{left:-2px}.hero h1::after{right:-2px}
+}
+@media (prefers-reduced-motion:reduce){
+  #hwd .hw-bat,#hwd .hw-spw{display:none}
+  .hero h1::before,.hero h1::after,.hw-foot i{animation:none}
+}
