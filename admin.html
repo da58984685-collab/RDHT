@@ -425,7 +425,7 @@ function renderDetail(){
       '<div class="note">체크를 해제하고 저장하면 해당 활동이 막히고, 체크하면 다시 가능해집니다. 오염 폭주·빈사·오염도 100%는 게임 규칙에 따른 상태라 여기서 바꾸지 않으며(오염도·체력은 "정보 · 스탯" 탭에서 수정), 위에 표시만 합니다.</div>';
   }else if(tab==="items"){
     h+='<div class="addrow"><input id="i_name" list="shoplist" placeholder="아이템 이름 (상점 아이템 선택)" maxlength="30"><input id="i_qty" type="number" min="1" max="9999" value="1" style="max-width:90px"><button class="btn" data-act="item-add" type="button">추가 / 수량 변경</button></div>';
-    h+=table(["아이템","수량",""],(r.items||[]).map(function(i){return'<tr data-item="'+esc(i.item)+'"><td>'+esc(i.item)+'</td><td><input class="mini" type="number" min="1" max="9999" value="'+i.qty+'" data-k="qty"></td><td><button class="btn ghost sm" data-act="item-save" type="button">저장</button> <button class="btn dbtn sm" data-act="item-del" type="button">삭제</button></td></tr>'}),"보유한 아이템이 없습니다. 위에서 추가할 수 있습니다.");
+    h+=table(["아이템","수량",""],koSort(r.items,"item").map(function(i){return'<tr data-item="'+esc(i.item)+'"><td>'+esc(i.item)+'</td><td><input class="mini" type="number" min="1" max="9999" value="'+i.qty+'" data-k="qty"></td><td><button class="btn ghost sm" data-act="item-save" type="button">저장</button> <button class="btn dbtn sm" data-act="item-del" type="button">삭제</button></td></tr>'}),"보유한 아이템이 없습니다. 위에서 추가할 수 있습니다.");
     if((r.items||[]).length)h+='<div class="row"><button class="btn dbtn sm" data-act="item-clear" type="button">아이템 전체 삭제</button></div>';
   }else if(tab==="ach"){
     var al=r.achievements||[],got=al.filter(function(x){return x.done}).length;
@@ -702,9 +702,10 @@ function sDone(r){
   $("smsg2").textContent=r.ok?"회수 "+r.recalled+"마리"+(r.cancelled?" · 취소된 도전 "+r.cancelled+"건(도전권 반환)":"")+(r.skipped?" · 이미 처치되어 남긴 "+r.skipped+"마리":""):"회수하지 못했습니다.";
   loadS();
 }
+function koSort(l,k){return (l||[]).slice().sort(function(a,b){return String(a[k]).localeCompare(String(b[k]),"ko")})}      // 아이템은 가나다 순으로 자동 정렬
 function loadShop(){
   api("GET","/api/admin/shop").then(function(r){
-    var it=r.items||[];SHOPL=it;var dl=$("shoplist");if(dl)dl.innerHTML=it.map(function(x){return'<option value="'+esc(x.name)+'">'}).join("");var nl=$("nlist");if(nl)nl.innerHTML=dl.innerHTML+(r.equips||[]).map(function(x){return'<option value="'+esc(x.name)+'">'+esc(x.grade+"급 장비 · "+x.slot)+'</option>'}).join("");
+    var it=koSort(r.items,"name");SHOPL=it;var dl=$("shoplist");if(dl)dl.innerHTML=it.map(function(x){return'<option value="'+esc(x.name)+'">'}).join("");var nl=$("nlist");if(nl)nl.innerHTML=dl.innerHTML+(r.equips||[]).map(function(x){return'<option value="'+esc(x.name)+'">'+esc(x.grade+"급 장비 · "+x.slot)+'</option>'}).join("");
     $("slist").innerHTML=it.length?it.map(function(x){return'<tr data-id="'+x.id+'"><td><input class="sn" maxlength="30" value="'+esc(x.name)+'"></td><td><input class="sd" maxlength="100" value="'+esc(x.desc)+'"></td><td><input class="sp" type="number" min="0" max="9999999" step="1" style="max-width:100px" value="'+(x.price||0)+'"></td><td><select class="ss" style="max-width:120px">'+statOpts(x.stat)+'</select> <input class="sam" type="number" min="-999" max="999" step="1" style="max-width:90px" value="'+(x.stat?x.amt:"")+'" placeholder="변동값"></td><td><button class="btn" data-sa="save">저장</button> <button class="btn" data-sa="del">삭제</button></td></tr>'}).join(""):'<tr><td colspan="5" class="muted">등록된 상점 아이템이 없습니다.</td></tr>';
   });
 }
@@ -738,7 +739,7 @@ function itemOpts(sel){return'<option value="">아이템 없음</option>'+SHOPL.
 function rwText(w){var p=[];if(w.gold)p.push("골드 "+Number(w.gold).toLocaleString("ko-KR")+" G");if(w.item)p.push(esc(w.item)+" x"+w.qty);return p.join(" + ")}
 function loadInv(){
   Promise.all([api("GET","/api/admin/invites"),api("GET","/api/admin/shop")]).then(function(rs){
-    var r=rs[0];SHOPL=(rs[1].items||[]);
+    var r=rs[0];SHOPL=koSort(rs[1].items,"name");
     $("iritem").innerHTML=itemOpts($("iritem").value);
     var l=r.invites||[];
     $("ilist").innerHTML=l.length?l.map(function(i){
