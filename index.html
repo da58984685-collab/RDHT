@@ -3863,8 +3863,7 @@ $("bigapp").addEventListener("mousedown",function(e){if(e.target===this)closeBig
 var evNote="";
 function loadEvent(){
   var scr=$("phscr");
-  Promise.all([api("GET","/api/event"),api("GET","/api/equip").catch(function(){return {}})]).then(function(rs){
-    var r=rs[0],eq=rs[1]||{};
+  api("GET","/api/event").then(function(r){
     if(devApp!=="hlw")return;
     if(r.error){appFail(scr,loadEvent);return}
     var old=scr.querySelector(".app-empty,.app-list,.app-note,.app-sub");while(old){old.remove();old=scr.querySelector(".app-empty,.app-list,.app-note,.app-sub")}
@@ -3894,7 +3893,7 @@ function loadEvent(){
     row.appendChild(bt);li.appendChild(row);ul.appendChild(li);scr.appendChild(ul);
     note("남은 시간 "+Math.floor(r.resetIn/3600000)+"시간 "+Math.floor(r.resetIn%3600000/60000)+"분");
     // 가면 조합 (도깨비 불씨 + 재료). 만든 가면은 장비 앱에서 착용합니다
-    var defs=(eq.defs||[]).filter(function(e){return e.ev});
+    var defs=r.masks||[];
     if(defs.length){
       head("가면 조합");
       if(evNote)note(evNote);
@@ -3902,7 +3901,7 @@ function loadEvent(){
       defs.forEach(function(e){
         var li2=document.createElement("li");li2.className="qst-li";
         var t2=document.createElement("div");t2.className="qst-t";t2.textContent="["+e.grade+"] "+e.name;
-        var d2=document.createElement("small");d2.textContent=e.slotKo+" · "+eqFx(e)+" · 내구도 "+e.maxDur+" · "+e.desc;
+        var d2=document.createElement("small");d2.textContent="가면 · "+e.fx+" · "+e.desc;
         var ok2=true,m2=document.createElement("small");m2.textContent="재료 · "+e.mats.map(function(x){if(x.have<x.qty)ok2=false;return x.item+" "+x.have+"/"+x.qty}).join(", ");
         var row2=document.createElement("div");row2.className="rum-v";var b2=document.createElement("button");b2.type="button";b2.className="ach-btn";b2.textContent="조합";b2.disabled=!ok2;
         b2.addEventListener("click",function(){
