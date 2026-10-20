@@ -3841,7 +3841,7 @@ function loadQuests(){
 
 
 /* ───── 큰 팝업으로 여는 앱 (상점·의뢰·괴담·그림자 거래소) ───── */
-var BIG={shop:1,pct:1,rum:1,exc:1,eqp:1},bigOpen=false;
+var BIG={shop:1,pct:1,rum:1,exc:1,eqp:1,hlw:1},bigOpen=false;
 function openBig(id){
   if(bigOpen)return;
   var home=$("phscr"),body=$("bigbody");if(!home||!body)return;
@@ -3860,9 +3860,11 @@ Array.prototype.forEach.call(document.querySelectorAll(".ph-nav .nv-back"),funct
 $("bigapp").addEventListener("mousedown",function(e){if(e.target===this)closeBig()});
 
 /* ───── [EVENT:HALLOWEEN] 할로윈 이벤트 앱 ───── */
+var evNote="";
 function loadEvent(){
   var scr=$("phscr");
-  api("GET","/api/event").then(function(r){
+  Promise.all([api("GET","/api/event"),api("GET","/api/equip").catch(function(){return {}})]).then(function(rs){
+    var r=rs[0],eq=rs[1]||{};
     if(devApp!=="hlw")return;
     if(r.error){appFail(scr,loadEvent);return}
     var old=scr.querySelector(".app-empty,.app-list,.app-note,.app-sub");while(old){old.remove();old=scr.querySelector(".app-empty,.app-list,.app-note,.app-sub")}
@@ -3870,16 +3872,16 @@ function loadEvent(){
     function note(t){var n=document.createElement("p");n.className="app-note";n.textContent=t;scr.appendChild(n)}
     function head(t){var h=document.createElement("p");h.className="app-sub";h.textContent=t;h.style.cssText="margin:12px 0 4px;font-weight:700;font-size:.9rem";scr.appendChild(h)}
     var end=r.ends?new Date(r.ends):null;
-    note("할로윈 이벤트"+(end?" · "+(end.getMonth()+1)+"월 "+end.getDate()+"일까지":"")+" · 보유 "+r.emberName+" "+r.ember+"개 · 가면 장비는 장비 앱에서 조합합니다.");
+    note((end?(end.getMonth()+1)+"월 "+end.getDate()+"일까지 · ":"")+"보유 "+r.emberName+" "+r.ember+"개");
     head("백귀야행");
-    note(r.night?"지금 백귀야행이 한창입니다! 내 주위에 잡귀가 몰려옵니다. 잡귀를 처치하면 "+r.emberName+"를 줍니다.":"백귀야행은 매일 밤 "+r.nightText+"에 열립니다. 그때 접속하면 잡귀가 몰려옵니다.");
+    note((r.night?"백귀야행 종료까지 ":"백귀야행까지 남은 시간 ")+Math.floor(r.nightLeft/3600000)+"시간 "+Math.floor(r.nightLeft%3600000/60000)+"분");
     head("오늘의 소원 · "+r.wish.who);
     var w=r.wish,ul=document.createElement("ul");ul.className="app-list";
     var li=document.createElement("li");li.className="qst-li"+(w.done?" got":"");
     var t=document.createElement("div");t.className="qst-t";t.textContent=w.say;li.appendChild(t);
     var ok=true;
     w.items.forEach(function(x){var sm=document.createElement("small");sm.textContent="· "+x.item+" "+x.have+" / "+x.qty;if(x.have<x.qty)ok=false;li.appendChild(sm)});
-    var info=document.createElement("small");info.textContent="보상 · 골드 · "+r.emberName+" "+w.reward.ember+"개 · 연속 "+w.streak+" / "+w.need+"일"+(w.streak<w.need?" (달성하면 "+r.emberName+" +"+w.reward.streakEmber+" · 업적 '"+w.reward.achName+"')":"");li.appendChild(info);
+    var info=document.createElement("small");info.textContent="보상 · 골드 · "+r.emberName+" "+w.reward.ember+"개 · 연속 "+w.streak+" / "+w.need+"일";li.appendChild(info);
     var row=document.createElement("div");row.className="rum-v";var bt=document.createElement("button");bt.type="button";bt.className="ach-btn";
     bt.textContent=w.done?"오늘의 소원 완료":"소원 들어주기";bt.disabled=w.done||!ok;
     bt.addEventListener("click",function(){
@@ -3890,7 +3892,30 @@ function loadEvent(){
       });
     });
     row.appendChild(bt);li.appendChild(row);ul.appendChild(li);scr.appendChild(ul);
-    note("소원은 매일 한국 시간 0시에 새로 바뀝니다 (남은 시간 "+Math.floor(r.resetIn/3600000)+"시간 "+Math.floor(r.resetIn%3600000/60000)+"분). 재료는 적월문에서 조사하면 얻을 수 있습니다.");
+    note("남은 시간 "+Math.floor(r.resetIn/3600000)+"시간 "+Math.floor(r.resetIn%3600000/60000)+"분");
+    // 가면 조합 (도깨비 불씨 + 재료). 만든 가면은 장비 앱에서 착용합니다
+    var defs=(eq.defs||[]).filter(function(e){return e.ev});
+    if(defs.length){
+      head("가면 조합");
+      if(evNote)note(evNote);
+      var ul2=document.createElement("ul");ul2.className="app-list";
+      defs.forEach(function(e){
+        var li2=document.createElement("li");li2.className="qst-li";
+        var t2=document.createElement("div");t2.className="qst-t";t2.textContent="["+e.grade+"] "+e.name;
+        var d2=document.createElement("small");d2.textContent=e.slotKo+" · "+eqFx(e)+" · 내구도 "+e.maxDur+" · "+e.desc;
+        var ok2=true,m2=document.createElement("small");m2.textContent="재료 · "+e.mats.map(function(x){if(x.have<x.qty)ok2=false;return x.item+" "+x.have+"/"+x.qty}).join(", ");
+        var row2=document.createElement("div");row2.className="rum-v";var b2=document.createElement("button");b2.type="button";b2.className="ach-btn";b2.textContent="조합";b2.disabled=!ok2;
+        b2.addEventListener("click",function(){
+          b2.disabled=true;
+          api("POST","/api/equip/craft",{id:e.id}).then(function(x){
+            evNote=x.ok?e.name+" 조합 완료!":x.error==="no_mats"?"재료가 부족합니다.":x.error==="full"?"장비는 최대 40개까지 가질 수 있습니다.":x.error==="corrupted"?"오염이 폭주해 조합할 수 없습니다.":x.error==="event_off"?"이벤트가 끝나 조합할 수 없습니다.":"조합하지 못했습니다.";
+            pollState(false);loadEvent();
+          }).catch(function(){b2.disabled=false;evNote="조합하지 못했습니다.";loadEvent()});
+        });
+        row2.appendChild(b2);li2.appendChild(t2);li2.appendChild(d2);li2.appendChild(m2);li2.appendChild(row2);ul2.appendChild(li2);
+      });
+      scr.appendChild(ul2);
+    }
   });
 }
 
