@@ -405,6 +405,9 @@ const MIGRATIONS = [
   'ALTER TABLE users ADD COLUMN last_seen INTEGER NOT NULL DEFAULT 0',
   // 적월문 조사: 마지막으로 조사를 마친 시각 (3시간 안에는 다시 조사할 수 없음)
   'ALTER TABLE users ADD COLUMN survey_at INTEGER NOT NULL DEFAULT 0',
+  // 캐릭터 이미지 버전(0 이면 이미지 없음). 이미지는 주소(/api/img?...&v=버전)로만 내려주고, 버전이 바뀔 때만 브라우저가 다시 받습니다.
+  'ALTER TABLE users ADD COLUMN img_ver INTEGER NOT NULL DEFAULT 0',
+  "UPDATE users SET img_ver = 1 WHERE img_ver = 0 AND image <> ''",
   'ALTER TABLE gw_comments ADD COLUMN parent_id INTEGER NOT NULL DEFAULT 0',
   'ALTER TABLE gw_comments ADD COLUMN reply_to INTEGER NOT NULL DEFAULT 0',
   // 관리자 전용 캐릭터(문의함 열람 가능) / 문의 답변 읽음 표시
@@ -475,6 +478,7 @@ function postgres() {
   let url = String(process.env.DATABASE_URL || process.env.POSTGRES_URL || '').trim().replace(/^['"]|['"]$/g, '');
   const noSsl = /sslmode=disable/.test(url) || /@(localhost|127\.0\.0\.1)(:|\/|$)/.test(url) || /[?&]host=\//.test(url);
   url = url.replace(/([?&])(sslmode|supa)=[^&]*/g, '$1').replace(/[?&]$/, '').replace(/\?&/, '?');
+  if (url && !noSsl && !/-pooler\./.test(url)) console.warn('[DB] DATABASE_URL 이 Neon 풀러(-pooler) 주소가 아닙니다. 접속 수가 늘면 연결 한도에 걸릴 수 있으니 Neon 대시보드의 Pooled connection 주소로 바꾸세요.');
   const pool = new Pool({
     connectionString: url,
     ssl: noSsl ? false : { rejectUnauthorized: false },
