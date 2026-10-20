@@ -2489,7 +2489,7 @@ function loadShop(){
     if(devApp!=="shop")return;
     if(r.error||!r.items){appFail(scr,loadShop);return}
     var box=scr.querySelector(".app-empty,.app-list");if(box)box.remove();
-    var list=r.items||[];if(r.gold!==undefined){gold=r.gold;setGoldTag()}
+    var list=(r.items||[]).slice().sort(function(a,b){return String(a.name).localeCompare(String(b.name),"ko")});if(r.gold!==undefined){gold=r.gold;setGoldTag()}      // 가나다 순
     if(!list.length){var p=document.createElement("p");p.className="app-empty";p.textContent="판매 중인 물품이 없습니다.";scr.appendChild(p);return}
     var ul=document.createElement("ul");ul.className="app-list";
     list.forEach(function(it){
