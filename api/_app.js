@@ -589,6 +589,7 @@ async function sInfo(userId, now) {
 // 스탯이 만드는 확률 (모두 95% 이하)
 const fxOf = st => ({ win: Math.round(Math.min(G.PROB_CAP, (Number(st.str) || 0) * G.STR_WIN) * 100), guard: Math.round(G.guardChance(st.agi) * 100), free: Math.round(G.freeChance(st.luck) * 100) });
 const MAT_NAMES = new Set(G.MATERIALS.concat(G.GATE_MATS).map(m => m.name));      // 인벤토리 '조합 아이템' 탭에 들어가는 재료 이름
+const MAT_TIER = new Map(G.MATERIALS.map(m => [m.name, 'c']).concat(G.GATE_MATS.map(m => [m.name, m.tier])));   // 재료 등급 (현장 재료는 일반)
 async function buildState(u, now) {
   await settleDying(u.id, now);
   await tickPersonal(u.id, now);
@@ -670,7 +671,7 @@ async function buildState(u, now) {
     sWin: swin.map(x => ({ id: x.id, mon: x.name, part: !!x.part, exp: x.exp || 0, gold: x.gold || 0, taint: x.taint || 0, minAt: Number(x.min_at) || 0 })),
     sAuto, sHoldMs: SWIN_HOLD_MS,
     rec: await getRec(),
-    inventory: inv.map(r => ({ item: r.item, qty: r.qty, mat: MAT_NAMES.has(r.item), eff: r.eff_stat ? { stat: r.eff_stat, amt: r.eff_amt } : (G.CRAFT_DEFS[r.item] ? { stat: G.CRAFT_DEFS[r.item].stat, amt: G.CRAFT_DEFS[r.item].amt } : null) })),
+    inventory: inv.map(r => ({ item: r.item, qty: r.qty, mat: MAT_NAMES.has(r.item), tier: MAT_TIER.get(r.item) || null, eff: r.eff_stat ? { stat: r.eff_stat, amt: r.eff_amt } : (G.CRAFT_DEFS[r.item] ? { stat: G.CRAFT_DEFS[r.item].stat, amt: G.CRAFT_DEFS[r.item].amt } : null) })),
   };
 }
 
