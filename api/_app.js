@@ -465,6 +465,11 @@ async function loadAchDb() {
     await db.batch(G.ACH_SEED2.map((a, i) => ['INSERT OR IGNORE INTO achievements (id, name, descr, kind, val, at) VALUES (?, ?, ?, ?, ?, ?)', [a.id, a.name, a.desc, a.kind, a.val, t0 + i]]));
     await db.run("INSERT OR IGNORE INTO settings (key, value) VALUES ('ach_seeded2', '1')");
   }
+  if (!(await db.get("SELECT 1 AS x FROM settings WHERE key = 'ach_seeded3'"))) {      // 세 번째 기본 업적 묶음(독특한 업적 20개): 한 번만 추가
+    const t0 = 2000;
+    await db.batch(G.ACH_SEED3.map((a, i) => ['INSERT OR IGNORE INTO achievements (id, name, descr, kind, val, at) VALUES (?, ?, ?, ?, ?, ?)', [a.id, a.name, a.desc, a.kind, a.val, t0 + i]]));
+    await db.run("INSERT OR IGNORE INTO settings (key, value) VALUES ('ach_seeded3', '1')");
+  }
   achSeeded = true;
   return db.all('SELECT id, name, descr, kind, val FROM achievements ORDER BY at, id');
 }
