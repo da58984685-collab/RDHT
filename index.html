@@ -3732,10 +3732,13 @@ $("gtexit").addEventListener("click",function(){
   if(gtBusy)return;gtBusy=true;
   gtLoad("문 밖으로 나가는 중…",api("POST","/api/move",{region:"city"})).then(function(r){
     gtBusy=false;var cl=gtExitClose;gtExitClose=false;
-    if(r.error){$("gtnote").textContent=gtErr(r);return}
+    if(r.error){      // 오염 폭주 등으로 문 밖으로 나갈 수 없어도, X·Esc 로 닫으면 창은 닫힙니다 (폭주가 풀릴 때까지는 적월문 안에 머무름)
+      var em=gtErr(r);$("gtnote").textContent=em;
+      if(cl){closeGate();$("mapmsg").textContent=em}
+      return}
     moveTo("city",true);markRegions();gtRender();$("gtnote").textContent="문 밖으로 나왔어요.";
     if(cl)closeGate();
-  }).catch(function(){gtBusy=false;gtExitClose=false});
+  }).catch(function(){var cl=gtExitClose;gtBusy=false;gtExitClose=false;if(cl)closeGate()});
 });
 document.addEventListener("keydown",function(e){if(e.key==="Escape"&&!gtmodal.hidden&&hmodal.hidden)gtXClose()});
 gtmodal.addEventListener("keydown",function(e){
