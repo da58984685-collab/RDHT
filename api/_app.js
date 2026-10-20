@@ -525,11 +525,14 @@ const achMet = (a, s) => {
   }
 };
 // 유저의 업적 상태: [{...정의, met(조건 달성), granted(관리자 부여), done}]
+// 오염도 업적(예: 붉은 달에 물든 자)은 '한 번이라도 달성하면' 계속 달성한 것으로 둡니다. 정화해서 오염도가 내려가도 사라지지 않고, 다시 새 업적으로 알리지도 않습니다.
+const STICKY_ACH = new Set(['taint']);
 async function achOf(u) {
   const defs = await loadAch();
-  const [s, gr] = await Promise.all([achStats(u, defs), db.all('SELECT ach_id FROM ach_grants WHERE user_id = ?', [u.id])]);
-  const gs = new Set(gr.map(g => g.ach_id));
-  return defs.map(a => { const met = achMet(a, s), granted = gs.has(a.id); return Object.assign({}, a, { met, granted, done: met || granted }); });
+  const [s, gr, er] = await Promise.all([achStats(u, defs), db.all('SELECT ach_id FROM ach_grants WHERE user_id = ?', [u.id]),
+    defs.some(a => STICKY_ACH.has(a.kind)) ? db.all('SELECT ach_id FROM ach_earned WHERE user_id = ?', [u.id]) : Promise.resolve([])]);
+  const gs = new Set(gr.map(g => g.ach_id)), es = new Set(er.map(g => g.ach_id));
+  return defs.map(a => { const met = achMet(a, s), granted = gs.has(a.id), kept = STICKY_ACH.has(a.kind) && es.has(a.id); return Object.assign({}, a, { met, granted, done: met || granted || kept }); });
 }
 // 업적을 처음 확인한 시각을 기록합니다 (친구 프로필의 '가장 최근 업적'에 쓰입니다).
 // 관리자가 부여한 업적은 부여 시각, 조건으로 달성한 업적은 서버가 처음 확인한 시각이 됩니다.
@@ -546,7 +549,8 @@ async function syncAchEarned(u, now, force) {
     const hv = new Set(have.map(h => h.ach_id)), gat = new Map(gr.map(g => [g.ach_id, g.at]));
     const ops = [];
     done.forEach(id => { if (!hv.has(id)) ops.push(['INSERT OR IGNORE INTO ach_earned (user_id, ach_id, at) VALUES (?, ?, ?)', [u.id, id, gat.get(id) || now]]); });
-    hv.forEach(id => { if (!done.has(id)) ops.push(['DELETE FROM ach_earned WHERE user_id = ? AND ach_id = ?', [u.id, id]]); });
+    const sticky = new Set(list.filter(a => STICKY_ACH.has(a.kind)).map(a => a.id));
+    hv.forEach(id => { if (!done.has(id) && !sticky.has(id)) ops.push(['DELETE FROM ach_earned WHERE user_id = ? AND ach_id = ?', [u.id, id]]); });
     if (ops.length) await db.batch(ops);
   } catch (_) { achSyncAt.delete(u.id); }
 }
@@ -2474,6 +2478,42 @@ async function applyItemEffect(userId, stat, amt, now) {
   throw new Error('stat_conflict');
 }
 // 스탯 투자: 스탯포인트를 근력·민첩·행운 중 하나에 씁니다 (포인트 1당 스탯 +1)
+// ── 스탯 초기화: 투자한 스탯포인트를 모두 돌려받는 대신 골드를 냅니다 (기본 요금 + 되돌려 받는 포인트 1개당 요금, 일괄 초기화) ──
+// 투자한 포인트 = (전투력 레벨 - 1) - 남은 포인트. 이 기능 이전에 투자한 몫은 기록이 없어, 기록된 투자분을 먼저 빼고
+// 나머지는 각 스탯이 1을 넘는 만큼에 비례해 뺍니다.
+function resetPlan(st, lv) {
+  const T = Math.max(0, (lv - 1) - spOf(st, lv));
+  const out = Object.assign({}, st);
+  const inv = Object.assign({ str: 0, agi: 0, luck: 0 }, st.inv);
+  const keys = ['str', 'agi', 'luck'];
+  let left = T;
+  keys.forEach(k => { const d = Math.min(left, Math.max(0, Math.min(inv[k] | 0, (Number(out[k]) || 1) - 1))); out[k] = (Number(out[k]) || 1) - d; left -= d; });
+  if (left > 0) {
+    const ex = keys.map(k => Math.max(0, (Number(out[k]) || 1) - 1)), tot = ex.reduce((a, b) => a + b, 0);
+    if (tot > 0) {
+      const take = Math.min(left, tot);
+      const q = ex.map(e => e * take / tot), f = q.map(Math.floor);
+      let rem = take - f.reduce((a, b) => a + b, 0);
+      q.map((v, i) => [v - f[i], i]).sort((a, b) => b[0] - a[0]).forEach(([, i]) => { if (rem > 0 && f[i] < ex[i]) { f[i]++; rem--; } });
+      keys.forEach((k, i) => { out[k] -= f[i]; });
+    }
+  }
+  out.sp = spOf(st, lv) + T;
+  delete out.inv;
+  return { T, stats: out, cost: G.statResetCost(T) };
+}
+route('POST', '/api/stats/reset', async (req, res, ctx) => {
+  if (await limited('streset:' + ctx.user.id, 10, 60000)) return fail(res, 429, 'rate_limited');
+  for (let i = 0; i < 6; i++) {
+    const u = await db.get('SELECT lv, stats, gold FROM users WHERE id = ?', [ctx.user.id]);
+    const st = JSON.parse(u.stats), plan = resetPlan(st, u.lv);
+    if (plan.T < 1) return fail(res, 400, 'nothing', { cost: 0 });
+    if (Number(u.gold) < plan.cost) return fail(res, 400, 'no_gold', { cost: plan.cost, gold: Number(u.gold) });
+    const w = await db.run('UPDATE users SET stats = ?, gold = gold - ? WHERE id = ? AND stats = ? AND gold >= ?', [JSON.stringify(plan.stats), plan.cost, ctx.user.id, u.stats, plan.cost]);
+    if (w.changes === 1) return send(res, 200, { ok: true, stats: plan.stats, fx: fxOf(plan.stats), cost: plan.cost, gold: Number(u.gold) - plan.cost, points: plan.T });
+  }
+  fail(res, 409, 'busy');
+});
 route('POST', '/api/stats/invest', async (req, res, ctx) => {
   const stat = String(ctx.body.stat || ''), amt = ctx.body.amt === undefined ? 1 : Number(ctx.body.amt);
   if (!['str', 'agi', 'luck'].includes(stat)) return fail(res, 400, 'bad_stat');
@@ -2484,6 +2524,7 @@ route('POST', '/api/stats/invest', async (req, res, ctx) => {
     if (sp < amt) return fail(res, 400, 'no_points', { sp });
     if ((Number(st[stat]) || 0) + amt > G.STAT_MAX) return fail(res, 400, 'max_stat', { max: G.STAT_MAX });
     st.sp = sp - amt; st[stat] = (Number(st[stat]) || 0) + amt;
+    st.inv = Object.assign({ str: 0, agi: 0, luck: 0 }, st.inv); st.inv[stat] += amt;      // 투자한 만큼 기록 (초기화할 때 정확히 되돌리기 위해)
     const w = await db.run('UPDATE users SET stats = ? WHERE id = ? AND stats = ?', [JSON.stringify(st), ctx.user.id, u.stats]);
     if (w.changes === 1) return send(res, 200, { ok: true, stats: st, fx: fxOf(st) });
   }
