@@ -191,6 +191,8 @@ function install(a) {
     send(res, 200, {
       on: true, night: isNight(now), nightLeft: nightLeft(now), nightText: String(NIGHT_FROM) + '시 ~ 다음날 ' + String(NIGHT_TO).padStart(2, '0') + '시', ends: cache.mode === 'auto' ? END : null,
       ember: inv.get(EMBER) || 0, emberName: EMBER,
+      masks: MASKS.map(m => ({ id: m.id, name: m.name, grade: m.grade, desc: m.desc, fx: ({ agi: '민첩', str: '근력', luck: '행운', taintRes: '오염도 증가 감소' })[m.bonus.stat] + ' +' + m.bonus.val + (m.bonus.stat === 'taintRes' ? '%' : ''),
+        mats: Object.keys(m.mats).map(k => ({ item: k, qty: m.mats[k], have: inv.get(k) || 0 })) })),
       wish: { who: w.who, say: w.say, items: w.items.map(x => ({ item: x.item, qty: x.qty, have: inv.get(x.item) || 0 })), done: !!(done && done.done), streak, need: WISH_STREAK, reward: { ember: WISH_EMBER, streakEmber: WISH_STREAK_EMBER, achName: WISH_ACH.name } },
       resetIn: 24 * HOUR - ((now + 9 * HOUR) % (24 * HOUR)),
     });
