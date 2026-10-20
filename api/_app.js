@@ -295,7 +295,7 @@ async function declareFail(m, how) {
 // 결정되지 않은 도전은 공개 시각(기본 24시간)이 되면 실패(도주)로 공개됩니다.
 async function resolveDue() {
   const now = Date.now();
-  const due = await db.all('SELECT * FROM s_attempts WHERE resolved = 0 AND resolve_at <= ? ORDER BY resolve_at LIMIT 100', [now]);
+  const due = await db.all('SELECT id, user_id, monster_id, created_at, resolve_at, resolved, success, exp_gain, level_up, notified, hp_loss, hp_done, taint_gain, gold_gain FROM s_attempts WHERE resolved = 0 AND resolve_at <= ? ORDER BY resolve_at LIMIT 100', [now]);
   for (const a of due) {
     const claim = await db.run('UPDATE s_attempts SET resolved = 2 WHERE id = ? AND resolved = 0', [a.id]);   // 2 = 처리 중
     if (claim.changes !== 1) continue;
@@ -312,24 +312,26 @@ const CORRUPT_MS = G.HOUR;                 // 오염 폭주로 활동하지 못�
 const CORRUPT_MON_MS = 30 * G.MIN;         // 오염된 유저 몬스터가 출몰 알림에 남아 있는 시간
 // 폭주 잠금: 잠금 시간이 남아 있어도 오염도가 100 아래로 내려가면 풀립니다.
 const corruptLock = (row, now) => row.corrupt_until > now && (Number(JSON.parse(row.stats).taint) || 0) >= 100;
-async function corruptCheck(userId) {
-  const u = await db.get('SELECT id, hunter_name, rank, stats, corrupt_flag, corrupt_until FROM users WHERE id = ?', [userId]);
-  if (!u) return;
+// row 를 넘기면(방금 읽은 유저 행) 다시 읽지 않습니다. 값을 바꿨으면 true 를 돌려줍니다.
+async function corruptCheck(userId, row) {
+  const u = row || await db.get('SELECT id, hunter_name, rank, stats, corrupt_flag, corrupt_until FROM users WHERE id = ?', [userId]);
+  if (!u) return false;
   const t = Number(JSON.parse(u.stats).taint) || 0;
-  if (t < 100) { if (u.corrupt_flag || u.corrupt_until > 0) await db.run('UPDATE users SET corrupt_flag = 0, corrupt_until = 0 WHERE id = ? AND (corrupt_flag = 1 OR corrupt_until > 0)', [u.id]); return; }
-  if (u.corrupt_flag) return;
+  if (t < 100) { if (u.corrupt_flag || u.corrupt_until > 0) { await db.run('UPDATE users SET corrupt_flag = 0, corrupt_until = 0 WHERE id = ? AND (corrupt_flag = 1 OR corrupt_until > 0)', [u.id]); return true; } return false; }
+  if (u.corrupt_flag) return false;
   const now = Date.now();
   const claim = await db.run('UPDATE users SET corrupt_flag = 1, corrupt_until = ? WHERE id = ? AND corrupt_flag = 0', [now + CORRUPT_MS, u.id]);
-  if (claim.changes !== 1) return;
+  if (claim.changes !== 1) return true;
   // 이미 이 헌터의 오염 몬스터가 출몰 중이면 새로 만들지 않고, 그 몬스터의 출몰 시간만 지금부터 다시 시작합니다.
   const live = await db.get('SELECT id FROM monsters WHERE corrupt_of = ? AND spawned_at > ? ORDER BY id DESC LIMIT 1', [u.id, now - CORRUPT_MON_MS]);
   if (live) {
     await db.run('UPDATE monsters SET spawned_at = ?, name = ?, rank = ? WHERE id = ?', [now, u.hunter_name, u.rank, live.id]);
     await db.run('UPDATE monsters SET spawned_at = 0 WHERE corrupt_of = ? AND id <> ? AND spawned_at > 0', [u.id, live.id]);     // 혹시 겹쳐 있던 것은 정리
-    return;
+    return true;
   }
   const region = G.SPAWN_REGIONS[Math.floor(Math.random() * G.SPAWN_REGIONS.length)].id;
   await db.run('INSERT INTO monsters (region, name, rank, spawned_at, corrupt_of) VALUES (?, ?, ?, ?, ?)', [region, u.hunter_name, u.rank, now, u.id]);
+  return true;
 }
 let lastCorrupt = 0;
 async function corruptTick() {
@@ -447,7 +449,7 @@ async function catchUpNow() { await corruptTick(); await tickSpawns(); await res
 
 // ── 업적 (정의는 DB에 저장되어 모든 헌터에게 똑같이 적용됩니다) ──
 let achCache = { at: 0, defs: null }, achSeeded = false;
-const ACH_TTL = PERF ? 30000 : 0;                    // 업적 정의는 관리자가 바꿀 때만 달라지므로 30초 동안 기억합니다 (관리자 창은 항상 새로 읽음)
+const ACH_TTL = PERF ? 120000 : 0;                    // 업적 정의는 관리자가 바꿀 때만 달라지므로 30초 동안 기억합니다 (관리자 창은 항상 새로 읽음)
 async function loadAch(fresh) {
   if (!fresh && achCache.defs && Date.now() - achCache.at < ACH_TTL) return achCache.defs;
   const defs = await loadAchDb();
@@ -491,8 +493,12 @@ async function achStats(u, defs) {
     rows.forEach(r => { const n = Number(r.n) || 0; s.visitBy[r.region] = n; s.visits += n; if (n > 0) cs.add(G.countryOf(r.region)); });
     s.countries = cs.size;
   }));
-  if (need('collect')) jobs.push(db.all("SELECT name, SUM(qty) AS q FROM acquire_log WHERE user_id = ? AND kind = 'item' GROUP BY name", [u.id]).then(rows => { rows.forEach(r => { s.collected[r.name] = Number(r.q) || 0; }); }));
-  if (need('slay')) jobs.push(db.all("SELECT mon, SUM(n) AS c FROM hunt_log WHERE user_id = ? AND result = 'success' GROUP BY mon", [u.id]).then(rows => { rows.forEach(r => { s.slain[r.mon] = Number(r.c) || 0; }); }));
+  // 업적에 쓰이는 아이템·몬스터 이름만 합산해서 가져옵니다 (전부 가져오면 기록이 쌓일수록 매번 읽는 양이 늘어남)
+  const tgt = k => [...new Set((defs || []).filter(d => d.kind === k).map(d => splitVal(d.val)[0]))].filter(Boolean).slice(0, 200);
+  const ph = l => l.map(() => '?').join(',');
+  const tc = tgt('collect'), ts = tgt('slay');
+  if (tc.length) jobs.push(db.all("SELECT name, SUM(qty) AS q FROM acquire_log WHERE user_id = ? AND kind = 'item' AND name IN (" + ph(tc) + ") GROUP BY name", [u.id].concat(tc)).then(rows => { rows.forEach(r => { s.collected[r.name] = Number(r.q) || 0; }); }));
+  if (ts.length) jobs.push(db.all("SELECT mon, SUM(n) AS c FROM hunt_log WHERE user_id = ? AND result = 'success' AND mon IN (" + ph(ts) + ") GROUP BY mon", [u.id].concat(ts)).then(rows => { rows.forEach(r => { s.slain[r.mon] = Number(r.c) || 0; }); }));
   if (need('surveys')) jobs.push(db.get("SELECT COALESCE(SUM(n), 0) AS c FROM acquire_log WHERE user_id = ? AND source = '적월문 조사'", [u.id]).then(r => { s.surveys = r.c; }));
   if (need('crafts')) jobs.push(db.get("SELECT COALESCE(SUM(n), 0) AS c FROM acquire_log WHERE user_id = ? AND source = '조합'", [u.id]).then(r => { s.crafts = r.c; }));
   if (need('fails')) jobs.push(db.get("SELECT COALESCE(SUM(n), 0) AS c FROM hunt_log WHERE user_id = ? AND result = 'fail'", [u.id]).then(r => { s.fails = r.c; }));
@@ -544,7 +550,7 @@ async function achOf(u) {
 // 관리자가 부여한 업적은 부여 시각, 조건으로 달성한 업적은 서버가 처음 확인한 시각이 됩니다.
 const achSyncAt = new Map();
 async function syncAchEarned(u, now, force) {
-  if (!force && (achSyncAt.get(u.id) || 0) > now - 30000) return;
+  if (!force && (achSyncAt.get(u.id) || 0) > now - 60000) return;
   achSyncAt.set(u.id, now);
   if (achSyncAt.size > 5000) achSyncAt.clear();
   try {
@@ -564,7 +570,14 @@ const pinIds = u => { try { const a = JSON.parse(u.pinned_ach || '[]'); return A
 const pinnedList = (u, defs) => { const m = new Map(defs.map(a => [a.id, a])); return pinIds(u).filter(id => m.has(id)).slice(0, G.ACH_PIN_MAX).map(id => ({ id, name: m.get(id).name })); };
 
 // 오늘의 추천 (관리자가 입력한 값만 보여줍니다)
+let recCache = { at: 0, v: null };
 async function getRec() {
+  if (PERF && Date.now() - recCache.at < 30000) return recCache.v;
+  const v = await getRec0();
+  recCache = { at: Date.now(), v };
+  return v;
+}
+async function getRec0() {
   const r = await db.get("SELECT value FROM settings WHERE key = 'daily_rec'");
   if (!r) return null;
   try {
@@ -581,7 +594,7 @@ async function getRec() {
 function publicUser(u) {
   return {
     code: u.code, name: u.name, gender: u.gender, age: u.age, personality: u.personality,
-    traits: JSON.parse(u.traits), image: u.image || '', hunterName: u.hunter_name, rank: u.rank,
+    traits: JSON.parse(u.traits || '[]'), image: imgUrl(u.id, u.img_ver), hunterName: u.hunter_name, rank: u.rank,
     stats: statsOf(u), lv: u.lv, exp: u.exp, gold: u.gold, region: u.region,
   };
 }
@@ -623,22 +636,33 @@ async function buildState(u, now) {
   await settleDying(u.id, now);
   await tickPersonal(u.id, now);
   await EV.refresh(); await EV.tick(u, now);      // [EVENT:HALLOWEEN] 백귀야행
-  await corruptCheck(u.id);
-  u = (await userById(u.id)) || u;
+  if (await corruptCheck(u.id, u)) u = (await userById(u.id)) || u;      // 방금 읽은 유저 행을 그대로 쓰고, 값이 바뀐 때만 다시 읽음
   await syncAchEarned(u, now);
   // 기기 '업적' 앱의 새 업적 표시: 마지막으로 업적 앱을 본 뒤에 얻은 업적 수 (처음 한 번은 기준만 잡습니다)
   if (!Number(u.ach_seen)) { await db.run('UPDATE users SET ach_seen = ? WHERE id = ? AND ach_seen = 0', [now, u.id]); u.ach_seen = now; }
-  const achNew = (await db.get('SELECT COUNT(*) AS c FROM ach_earned WHERE user_id = ? AND at > ?', [u.id, Number(u.ach_seen)])).c;
+  // 화면 숫자(알림·메시지·의뢰·선물 등)는 한 번의 질문으로 묶어서 가져옵니다 (질문마다 붙는 통신 부담을 줄임)
+  const cnt = await db.get(`SELECT
+    (SELECT COUNT(*) FROM ach_earned WHERE user_id = ? AND at > ?) AS ach,
+    (SELECT COUNT(*) FROM notices WHERE id > ?) AS un,
+    (SELECT COUNT(*) FROM messages m JOIN friends f ON f.user_id = m.to_id AND f.friend_id = m.from_id WHERE m.to_id = ? AND m.id > f.last_read) AS um,
+    (SELECT COUNT(*) FROM friend_requests WHERE to_id = ?) AS frq,
+    (SELECT COUNT(*) FROM rumors r WHERE r.status = 'open' AND r.ends > ? AND NOT EXISTS (SELECT 1 FROM rumor_votes v WHERE v.rumor_id = r.id AND v.user_id = ?)) AS rum,
+    (SELECT COUNT(*) FROM daily_quests WHERE user_id = ? AND day = ? AND claimed = 0 AND prog >= need) AS qrdy,
+    (SELECT COUNT(*) FROM friends f JOIN users x ON x.id = f.friend_id WHERE f.user_id = ? AND x.corrupt_flag = 1) AS resq,
+    (SELECT COUNT(*) FROM gifts WHERE to_id = ? AND seen = 0) AS gift,
+    (SELECT COALESCE(MAX(id), 0) FROM board_posts) AS board`,
+    [u.id, Number(u.ach_seen), u.notice_seen, u.id, u.id, now, u.id, u.id, kstDay(now), u.id, u.id]);
+  const achNew = Number(cnt.ach);
   // 보이는 몬스터: 서버 공통 S급 + 내 몬스터(F~A). 예전 공통 F~A 몬스터는 보이지 않습니다.
   const vis = "((owner_id IS NULL AND (rank = 'SS' OR corrupt_of IS NOT NULL OR rumor_id IS NOT NULL)) OR owner_id = ?)";
-  const mons = await db.all(`SELECT * FROM monsters
+  const mons = await db.all(`SELECT id, region, name, rank, spawned_at, rumor_id, corrupt_of FROM monsters
     WHERE ${vis} AND (spawned_at > ? OR (rank = 'SS' AND spawned_at > ?) OR (corrupt_of IS NOT NULL AND spawned_at > ?) OR id IN (SELECT id FROM monsters WHERE ${vis} ORDER BY id DESC LIMIT 6))
       AND id NOT IN (SELECT monster_id FROM s_close WHERE ok = 0)
       AND NOT (rank = 'F' AND corrupt_of IS NULL AND spawned_at < ${now - G.ACTIVE_MS_F} AND id NOT IN (SELECT monster_id FROM kills WHERE user_id = ?))
       AND (corrupt_of IS NULL OR corrupt_of <> ?)
     ORDER BY spawned_at DESC, id DESC LIMIT 40`, [u.id, now - G.ACTIVE_MS, now - G.ACTIVE_MS_S, now - CORRUPT_MON_MS, u.id, u.id, u.id]);
   const minId = mons.length ? Math.min.apply(null, mons.map(m => m.id)) : 0;
-  const [kills, cds, parts, si, pending, results, un, um] = await Promise.all([
+  const [kills, cds, parts, si, pending, results] = await Promise.all([
     db.all('SELECT monster_id FROM kills WHERE user_id = ? AND monster_id >= ?', [u.id, minId]),
     db.all('SELECT monster_id, until FROM fail_cd WHERE user_id = ? AND until > ?', [u.id, now]),
     db.all(`SELECT monster_id, COUNT(DISTINCT user_id) AS c FROM s_attempts
@@ -648,15 +672,8 @@ async function buildState(u, now) {
             WHERE a.user_id = ? AND a.resolved = 0 ORDER BY a.resolve_at`, [u.id]),
     db.all(`SELECT a.id, a.success, a.exp_gain, a.gold_gain, a.taint_gain, a.level_up, a.hp_loss, m.name FROM s_attempts a JOIN monsters m ON m.id = a.monster_id
             WHERE a.user_id = ? AND a.resolved = 1 AND a.notified = 0 ORDER BY a.id`, [u.id]),
-    db.get('SELECT COUNT(*) AS c FROM notices WHERE id > ?', [u.notice_seen]),
-    db.get(`SELECT COUNT(*) AS c FROM messages m JOIN friends f ON f.user_id = m.to_id AND f.friend_id = m.from_id
-            WHERE m.to_id = ? AND m.id > f.last_read`, [u.id]),
   ]);
-  const frq = await db.get('SELECT COUNT(*) AS c FROM friend_requests WHERE to_id = ?', [u.id]);
   // 일일 의뢰(수령 가능 수) · 구조가 필요한 친구 수 · 나를 구해 준 친구 알림(한 번만)
-  const rumNew = await db.get("SELECT COUNT(*) AS c FROM rumors r WHERE r.status = 'open' AND r.ends > ? AND NOT EXISTS (SELECT 1 FROM rumor_votes v WHERE v.rumor_id = r.id AND v.user_id = ?)", [now, u.id]);
-  const qRdy = await db.get('SELECT COUNT(*) AS c FROM daily_quests WHERE user_id = ? AND day = ? AND claimed = 0 AND prog >= need', [u.id, kstDay(now)]);
-  const resq = await db.get('SELECT COUNT(*) AS c FROM friends f JOIN users x ON x.id = f.friend_id WHERE f.user_id = ? AND x.corrupt_flag = 1', [u.id]);
   const rescued = await db.all('SELECT r.id, r.at, x.hunter_name AS hn FROM rescues r JOIN users x ON x.id = r.rescuer_id WHERE r.target_id = ? AND r.seen = 0 ORDER BY r.id LIMIT 5', [u.id]);
   if (rescued.length) await db.run('UPDATE rescues SET seen = 1 WHERE target_id = ? AND seen = 0 AND id <= ?', [u.id, rescued[rescued.length - 1].id]);
   const inv = await db.all('SELECT i.item, i.qty, s.eff_stat, s.eff_amt FROM inventory i LEFT JOIN shop_items s ON s.name = i.item WHERE i.user_id = ? AND i.qty > 0 ORDER BY i.item', [u.id]);
@@ -691,13 +708,13 @@ async function buildState(u, now) {
     s: Object.assign(si, { need: G.RAID_NEED, needTries: G.RAID_ATTEMPTS, max: G.S_MAX }),
     pending: pending.map(p => ({ id: p.id, mon: p.name, at: p.resolve_at })),
     results: results.map(r => ({ id: r.id, mon: r.name, success: !!r.success, exp: r.exp_gain, gold: r.gold_gain, taint: r.taint_gain, levelUp: !!r.level_up, hpLoss: r.hp_loss })),
-    unreadNotices: un.c,
+    unreadNotices: Number(cnt.un),
     achNew,
-    giftUnread: (await db.get('SELECT COUNT(*) AS c FROM gifts WHERE to_id = ? AND seen = 0', [u.id])).c,
-    unreadMsgs: um.c,
-    board: (await db.get('SELECT COALESCE(MAX(id), 0) AS m FROM board_posts')).m,
-    friendReqs: frq.c,
-    questReady: Number(qRdy.c), rumorNew: Number(rumNew.c), battle: await (async () => { const bb = await battleLive(u.id, now); return bb ? btView(bb) : null; })(), rescueReq: Number(resq.c), rescued: rescued.map(x => ({ hn: x.hn, at: x.at })),
+    giftUnread: Number(cnt.gift),
+    unreadMsgs: Number(cnt.um),
+    board: Number(cnt.board),
+    friendReqs: Number(cnt.frq),
+    questReady: Number(cnt.qrdy), rumorNew: Number(cnt.rum), battle: await (async () => { const bb = await battleLive(u.id, now); return bb ? btView(bb) : null; })(), rescueReq: Number(cnt.resq), rescued: rescued.map(x => ({ hn: x.hn, at: x.at })),
     sWin: swin.map(x => ({ id: x.id, mon: x.name, part: !!x.part, exp: x.exp || 0, gold: x.gold || 0, taint: x.taint || 0, minAt: Number(x.min_at) || 0 })),
     sAuto, sHoldMs: SWIN_HOLD_MS,
     rec: await getRec(),
@@ -750,19 +767,35 @@ async function userSel(prefix, withPw) {
   if (!_userCols) {
     const r = await db.get('SELECT * FROM users ORDER BY COALESCE(LENGTH(image), 0) LIMIT 1');      // 사진이 가장 작은 헌터 한 명 (열 이름만 필요하므로 큰 사진을 읽지 않도록)
     if (!r) return (prefix || '') + '*';           // 아직 가입자가 없을 때
-    _userCols = Object.keys(r).filter(k => k !== 'image');
+    _userCols = Object.keys(r).filter(k => k !== 'image' && k !== 'personality' && k !== 'traits');      // 긴 글(성격·특징)과 이미지는 필요할 때만 따로 읽습니다
   }
   // 비밀번호 해시는 로그인할 때만 필요합니다 (요청마다 읽어 오지 않음)
   return _userCols.filter(k => withPw || (k !== 'pw_salt' && k !== 'pw_hash')).map(k => (prefix || '') + k).join(', ');
 }
 const userById = async id => db.get('SELECT ' + (await userSel()) + ' FROM users WHERE id = ?', [id]);
 const userByCode = async code => db.get('SELECT ' + (await userSel('', true)) + ' FROM users WHERE code = ?', [code]);
-const withImage = async u => { if (!u) return u; const r = await db.get('SELECT image FROM users WHERE id = ?', [u.id]); return Object.assign({}, u, { image: r ? r.image : '' }); };
+// 성격·특징(긴 글)은 프로필 화면·관리자 수정처럼 꼭 필요할 때만 읽습니다 (매 요청마다 읽으면 DB 전송량이 늘어납니다)
+const withText = async u => { if (!u) return u; const r = await db.get('SELECT personality, traits FROM users WHERE id = ?', [u.id]); return Object.assign({}, u, { personality: r ? r.personality : '', traits: r ? r.traits : '[]' }); };
+const withImage = withText;
+// 캐릭터 이미지는 JSON 에 넣지 않고 주소로 내려줍니다. 주소에 버전이 들어 있어서 이미지가 바뀌지 않는 한 브라우저가 다시 받지 않습니다.
+const IMG_KEY = sha256('img:' + (process.env.IMG_SECRET || ADMIN_PASSWORD || process.env.DATABASE_URL || process.env.POSTGRES_URL || 'dev'));
+const imgSig = (id, ver) => crypto.createHmac('sha256', IMG_KEY).update(id + ':' + ver).digest('hex').slice(0, 24);
+const imgUrl = (id, ver) => (Number(ver) > 0 ? '/api/img?k=' + id + '.' + imgSig(id, Number(ver)) + '&v=' + Number(ver) : '');
 const isFriend = async (a, b) => !!(await db.get('SELECT 1 AS x FROM friends WHERE user_id = ? AND friend_id = ?', [a, b]));
 
 // ───────────── 경로 ─────────────
 const routes = {};
 const route = (method, p, fn, opts) => { routes[method + ' ' + p] = Object.assign({ fn, auth: true }, opts || {}); };
+route('GET', '/api/img', async (req, res) => {
+  const q = new URL(req.url, 'http://x').searchParams, [id, sig] = String(q.get('k') || '').split('.'), ver = Number(q.get('v')) || 0;
+  if (!/^\d+$/.test(id || '') || !ver || !safeEq(sig || '', imgSig(id, ver))) return fail(res, 404, 'not_found');
+  const r = await db.get('SELECT image FROM users WHERE id = ? AND img_ver = ?', [Number(id), ver]);
+  const m = r && /^data:image\/jpeg;base64,(.+)$/.exec(r.image || '');
+  if (!m) return fail(res, 404, 'not_found');
+  const buf = Buffer.from(m[1], 'base64');
+  res.writeHead(200, { 'Content-Type': 'image/jpeg', 'Content-Length': buf.length, 'Cache-Control': 'public, max-age=31536000, s-maxage=31536000, immutable', 'X-Content-Type-Options': 'nosniff' });
+  res.end(buf);
+}, { auth: false });
 
 route('POST', '/api/signup', async (req, res, ctx) => {
   { const mt = await maintState(); if (mt.on) return fail(res, 503, 'maintenance', { message: mt.msg }); }
@@ -800,9 +833,9 @@ route('POST', '/api/signup', async (req, res, ctx) => {
     code = G.makeCode();
     try {
       await db.run(`INSERT INTO users
-        (code, name, gender, age, personality, traits, image, hunter_name, rank, stats, pw_salt, pw_hash, created_at, invite_code, board_rank, intro_state)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
-        [code, name, gender, age, pers, JSON.stringify(traits), image, hn, rank, JSON.stringify(stats), salt, hash, Date.now(), inv, rank]);
+        (code, name, gender, age, personality, traits, image, img_ver, hunter_name, rank, stats, pw_salt, pw_hash, created_at, invite_code, board_rank, intro_state)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
+        [code, name, gender, age, pers, JSON.stringify(traits), image, image ? Date.now() : 0, hn, rank, JSON.stringify(stats), salt, hash, Date.now(), inv, rank]);
       break;
     } catch (e) {
       if (!(/UNIQUE|duplicate key/i.test(String(e.message)) || e.code === '23505') || ++tries > 10) throw e;
@@ -1251,7 +1284,7 @@ route('POST', '/api/exchange/buy', async (req, res, ctx) => {
   if (await limited('exb:' + ctx.user.id, 40, 60000)) return fail(res, 429, 'rate_limited');
   const now = Date.now(), uid = ctx.user.id, cur = await userById(uid);
   if (corruptLock(cur, now)) return fail(res, 409, 'corrupted', { until: cur.corrupt_until });
-  const x = await db.get('SELECT * FROM exchange WHERE id = ?', [Number(ctx.body.id) || 0]);
+  const x = await db.get('SELECT id, seller_id, item, qty, price, at, ends FROM exchange WHERE id = ?', [Number(ctx.body.id) || 0]);
   if (!x || x.ends <= now) return fail(res, 404, 'no_listing');
   if (x.seller_id === uid) return fail(res, 409, 'own');
   const have = await db.get('SELECT qty FROM inventory WHERE user_id = ? AND item = ?', [uid, x.item]);
@@ -1392,7 +1425,7 @@ const rumorMine = async (uid) => {
 route('GET', '/api/rumors', async (req, res, ctx) => {
   await tickRumors();
   const now = Date.now();
-  const rows = await db.all("SELECT * FROM rumors WHERE status = 'open' OR resolved > ? ORDER BY id DESC LIMIT 12", [now - 24 * 3600000]);
+  const rows = await db.all("SELECT id, title, body, region, mon_name, rank, tpl, truth, status, created, ends, resolved FROM rumors WHERE status = 'open' OR resolved > ? ORDER BY id DESC LIMIT 12", [now - 24 * 3600000]);
   const cnt = new Map((await db.all('SELECT rumor_id, vote, COUNT(*) AS c FROM rumor_votes WHERE rumor_id IN (SELECT id FROM rumors WHERE status = \'open\' OR resolved > ?) GROUP BY rumor_id, vote', [now - 24 * 3600000])).map(x => [x.rumor_id + ':' + x.vote, Number(x.c)]));
   const mine = await rumorMine(ctx.user.id);
   const HOAX = i => (G.RUMOR_TPL[i] || {}).hoax || '';
@@ -1412,7 +1445,7 @@ route('POST', '/api/rumors/vote', async (req, res, ctx) => {
   if (await limited('rumor:' + ctx.user.id, 30, 60000)) return fail(res, 429, 'rate_limited');
   const now = Date.now(), id = Number(ctx.body.id) || 0, vote = ctx.body.vote === 'believe' ? 1 : ctx.body.vote === 'doubt' ? 0 : -1;
   if (vote < 0) return fail(res, 400, 'bad_vote');
-  const r = await db.get('SELECT * FROM rumors WHERE id = ?', [id]);
+  const r = await db.get('SELECT id, title, body, region, mon_name, rank, tpl, truth, status, created, ends, resolved FROM rumors WHERE id = ?', [id]);
   if (!r) return fail(res, 404, 'no_rumor');
   if (r.status !== 'open' || r.ends <= now) return fail(res, 409, 'closed');
   const ins = await db.run('INSERT OR IGNORE INTO rumor_votes (rumor_id, user_id, vote, at) VALUES (?, ?, ?, ?)', [id, ctx.user.id, vote, now]);
@@ -1591,8 +1624,8 @@ function gateMilestone(n) {
 }
 const gateLoot = r => { try { const o = JSON.parse(r.loot || '{}'); return o && typeof o === 'object' ? o : {}; } catch (_) { return {}; } };
 async function gateRow(uid) {
-  let r = await db.get('SELECT * FROM gate_run WHERE user_id = ?', [uid]);
-  if (!r) { await db.run('INSERT INTO gate_run (user_id) VALUES (?) ON CONFLICT(user_id) DO NOTHING', [uid]); r = await db.get('SELECT * FROM gate_run WHERE user_id = ?', [uid]); }
+  let r = await db.get('SELECT user_id, active, floor, best, loot, gold, cd_until, started_at, from_floor FROM gate_run WHERE user_id = ?', [uid]);
+  if (!r) { await db.run('INSERT INTO gate_run (user_id) VALUES (?) ON CONFLICT(user_id) DO NOTHING', [uid]); r = await db.get('SELECT user_id, active, floor, best, loot, gold, cd_until, started_at, from_floor FROM gate_run WHERE user_id = ?', [uid]); }
   return r;
 }
 // 다음 층(n층)의 확률표 — 화면에도 그대로 보여 줍니다 (모두 0~1)
@@ -1740,7 +1773,7 @@ route('POST', '/api/gate/retreat', async (req, res, ctx) => {
 // 문 밖으로 나가면(다른 지역으로 이동하면) 자동으로 복귀 처리합니다
 async function gateAutoRetreat(uid) {
   try {
-    const r = await db.get('SELECT * FROM gate_run WHERE user_id = ? AND active = 1', [uid]);
+    const r = await db.get('SELECT user_id, active, floor, best, loot, gold, cd_until, started_at, from_floor FROM gate_run WHERE user_id = ? AND active = 1', [uid]);
     if (r) await gateFinish(uid, r, Date.now(), 1, r.floor > (r.from_floor | 0) ? GATE_CD_OK : 0);
   } catch (_) {}
 }
@@ -1822,7 +1855,7 @@ route('POST', '/api/hunt', async (req, res, ctx) => {
   await catchUp();
   const cur = await userById(u.id);
   if (cur.block_flags & 1) return fail(res, 403, 'blocked', { what: 'hunt' });      // 운영자가 토벌을 막아 둠
-  const m = await db.get('SELECT * FROM monsters WHERE id = ?', [Number(ctx.body.id)]);
+  const m = await db.get('SELECT id, region, name, rank, spawned_at, owner_id, rumor_id, corrupt_of FROM monsters WHERE id = ?', [Number(ctx.body.id)]);
   if (!m) return fail(res, 410, 'expired');
   if ((m.owner_id != null && m.owner_id !== cur.id) || (m.owner_id == null && m.rank !== 'SS' && m.corrupt_of == null && m.rumor_id == null)) return fail(res, 404, 'no_monster');
   const cm = m.corrupt_of != null;
@@ -1913,7 +1946,7 @@ const btView = (b, extra) => Object.assign({
   heavyCd: b.cd_heavy, guarded: !!b.buff, log: (() => { try { return JSON.parse(b.log); } catch (_) { return []; } })(), id: b.monster_id,
 }, extra || {});
 async function battleLive(uid, now) {
-  const b = await db.get('SELECT * FROM battles WHERE user_id = ?', [uid]);
+  const b = await db.get('SELECT user_id, monster_id, mname, mrank, mhp, mmax, php, pmax, round, intent, cd_heavy, buff, log, ver, started, upd FROM battles WHERE user_id = ?', [uid]);
   if (!b) return null;
   const m = await db.get('SELECT id, spawned_at, rank, corrupt_of FROM monsters WHERE id = ?', [b.monster_id]);
   if (now - b.upd > G.BT.idleMs || !m || now - m.spawned_at >= G.activeMsOf(m.rank)) {        // 오래 방치했거나 몬스터가 사라짐: 불이익 없이 취소
@@ -1929,7 +1962,7 @@ async function battleStart(cur, m, myStats, now) {
   const log = JSON.stringify([m.name + '이(가) 나타났다! 전투 시작.']);
   const ins = await db.run('INSERT OR IGNORE INTO battles (user_id, monster_id, mname, mrank, mhp, mmax, php, pmax, round, intent, cd_heavy, buff, log, ver, started, upd) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, 0, 0, ?, 0, ?, ?)',
     [cur.id, m.id, m.name, m.rank, mo.hp, mo.hp, pl.max, pl.max, 'atk', log, now, now]);
-  const b = await db.get('SELECT * FROM battles WHERE user_id = ?', [cur.id]);
+  const b = await db.get('SELECT user_id, monster_id, mname, mrank, mhp, mmax, php, pmax, round, intent, cd_heavy, buff, log, ver, started, upd FROM battles WHERE user_id = ?', [cur.id]);
   if (ins.changes !== 1 && b.monster_id !== m.id) return { error: 'in_battle', view: btView(b) };
   return { view: btView(b) };
 }
@@ -1946,7 +1979,7 @@ route('POST', '/api/battle/act', async (req, res, ctx) => {
   if (!b) return fail(res, 404, 'no_battle');
   if (corruptLock(cur, now)) return fail(res, 409, 'corrupted', { until: cur.corrupt_until });
   if (action === 'heavy' && b.cd_heavy > 0) return fail(res, 409, 'heavy_cd', { battle: btView(b) });
-  const m = await db.get('SELECT * FROM monsters WHERE id = ?', [b.monster_id]);
+  const m = await db.get('SELECT id, region, name, rank, spawned_at, owner_id, rumor_id, corrupt_of FROM monsters WHERE id = ?', [b.monster_id]);
   const eb = await equipBonus(cur.id), myStats = withEq(JSON.parse(cur.stats), eb);
   const pl = G.btPlayer(cur.lv, myStats), mo = G.btMon(b.mrank), BT = G.BT;
   const log = [];
@@ -1997,7 +2030,7 @@ route('POST', '/api/battle/act', async (req, res, ctx) => {
     const w = await db.run('UPDATE battles SET mhp = ?, php = ?, round = ?, intent = ?, cd_heavy = ?, buff = ?, log = ?, ver = ver + 1, upd = ? WHERE user_id = ? AND ver = ?',
       [mhp, php, round, intent, cd, buff, JSON.stringify(nlog), now, cur.id, b.ver]);
     if (w.changes !== 1) return fail(res, 409, 'busy');
-    const nb = await db.get('SELECT * FROM battles WHERE user_id = ?', [cur.id]);
+    const nb = await db.get('SELECT user_id, monster_id, mname, mrank, mhp, mmax, php, pmax, round, intent, cd_heavy, buff, log, ver, started, upd FROM battles WHERE user_id = ?', [cur.id]);
     return send(res, 200, { done: false, battle: btView(nb, { last: log }) });
   }
   // 전투 종료: 먼저 전투 기록을 지워 한 번만 정산합니다
@@ -2108,7 +2141,7 @@ route('GET', '/api/friend/profile', async (req, res, ctx) => {
   await syncAchEarned(f, Date.now(), true);
   const a = await db.get(`SELECT a.name, a.descr, e.at FROM ach_earned e JOIN achievements a ON a.id = e.ach_id
     WHERE e.user_id = ? ORDER BY e.at DESC, e.rowid DESC LIMIT 1`, [f.id]);
-  send(res, 200, { profile: { code: f.code, hn: f.hunter_name, rank: f.rank, image: (await withImage(f)).image || '',
+  send(res, 200, { profile: { code: f.code, hn: f.hunter_name, rank: f.rank, image: imgUrl(f.id, f.img_ver),
     region: G.placeLong(f.region), ach: a ? { name: a.name, desc: a.descr, at: a.at } : null,
     bio: f.bio || '', pins: pinnedList(f, await loadAch()).map(p => p.name),
     corrupt: !!f.corrupt_flag, canRescue: !!f.corrupt_flag && !!(await findCure(u.id)) } });
@@ -2117,20 +2150,20 @@ route('GET', '/api/friend/profile', async (req, res, ctx) => {
 
 route('GET', '/api/messages', async (req, res, ctx) => {
   const u = ctx.user, url = new URL(req.url, 'http://x');
-  const f = await userByCode(normCode(url.searchParams.get('with')));
+  const f = await db.get('SELECT id, code FROM users WHERE code = ?', [normCode(url.searchParams.get('with'))]);
   if (!f || !(await isFriend(u.id, f.id))) return fail(res, 404, 'not_found');
   const after = Math.max(0, Number(url.searchParams.get('after')) || 0);
   const M = m => ({ id: m.id, me: m.from_id === u.id, t: m.from_id === u.id ? m.text : G.garble(m.text, m.taint, m.id), ts: m.ts });   // 보낸 사람 오염도가 높으면 받는 사람에게만 글자가 깨져 보임
   // 미리보기: 최근 4개만 돌려주고 읽음 처리는 하지 않습니다.
   if (url.searchParams.get('preview')) {
-    const pr = await db.all(`SELECT * FROM (SELECT id, from_id, text, ts, taint FROM messages
+    const pr = await db.all(`SELECT id, from_id, text, ts, taint FROM (SELECT id, from_id, text, ts, taint FROM messages
         WHERE (from_id = ? AND to_id = ?) OR (from_id = ? AND to_id = ?) ORDER BY id DESC LIMIT 4) ORDER BY id`, [u.id, f.id, f.id, u.id]);
     return send(res, 200, { messages: pr.map(M) });
   }
   const rows = after
     ? await db.all(`SELECT id, from_id, text, ts, taint FROM messages
         WHERE ((from_id = ? AND to_id = ?) OR (from_id = ? AND to_id = ?)) AND id > ? ORDER BY id LIMIT 200`, [u.id, f.id, f.id, u.id, after])
-    : await db.all(`SELECT * FROM (SELECT id, from_id, text, ts, taint FROM messages
+    : await db.all(`SELECT id, from_id, text, ts, taint FROM (SELECT id, from_id, text, ts, taint FROM messages
         WHERE (from_id = ? AND to_id = ?) OR (from_id = ? AND to_id = ?) ORDER BY id DESC LIMIT 100) ORDER BY id`, [u.id, f.id, f.id, u.id]);
   if (rows.length) await db.run('UPDATE friends SET last_read = MAX(last_read, ?) WHERE user_id = ? AND friend_id = ?', [rows[rows.length - 1].id, u.id, f.id]);
   send(res, 200, { messages: rows.map(M) });
@@ -2306,7 +2339,7 @@ route('GET', '/api/admin/player', async (req, res) => {
 const RANKS = ['F', 'E', 'D', 'C', 'B', 'A', 'S'];
 route('POST', '/api/admin/player/update', async (req, res, ctx) => {
   const b = ctx.body;
-  const u = await userByCode(normCode(b.code));
+  const u = await withText(await userByCode(normCode(b.code)));      // 성격·특징은 수정할 때만 읽음
   if (!u) return fail(res, 404, 'not_found');
   const str = v => String(v == null ? '' : v).trim();
   const hn = str(b.hunterName);
@@ -2373,8 +2406,8 @@ const inqOut = m => ({ id: m.id, admin: !!m.from_admin, t: m.text, ts: m.ts });
 route('GET', '/api/inquiry', async (req, res, ctx) => {
   const after = Math.max(0, Number(new URL(req.url, 'http://x').searchParams.get('after')) || 0);
   const rows = after
-    ? await db.all('SELECT * FROM inquiries WHERE user_id = ? AND id > ? ORDER BY id LIMIT 200', [ctx.user.id, after])
-    : await db.all('SELECT * FROM (SELECT * FROM inquiries WHERE user_id = ? ORDER BY id DESC LIMIT 100) ORDER BY id', [ctx.user.id]);
+    ? await db.all('SELECT id, user_id, from_admin, text, ts FROM inquiries WHERE user_id = ? AND id > ? ORDER BY id LIMIT 200', [ctx.user.id, after])
+    : await db.all('SELECT id, user_id, from_admin, text, ts FROM (SELECT id, user_id, from_admin, text, ts FROM inquiries WHERE user_id = ? ORDER BY id DESC LIMIT 100) ORDER BY id', [ctx.user.id]);
   if (rows.length) await db.run('UPDATE users SET inq_read = MAX(inq_read, ?) WHERE id = ?', [rows[rows.length - 1].id, ctx.user.id]);
   send(res, 200, { messages: rows.map(inqOut) });
 });
@@ -2394,7 +2427,7 @@ const inqThreads = async () => (await db.all(`SELECT u.code, u.hunter_name AS hn
 const inqThread = async code => {
   const u = code && await userByCode(code);
   if (!u) return null;
-  const rows = await db.all('SELECT * FROM (SELECT * FROM inquiries WHERE user_id = ? ORDER BY id DESC LIMIT 200) ORDER BY id', [u.id]);
+  const rows = await db.all('SELECT id, user_id, from_admin, text, ts FROM (SELECT id, user_id, from_admin, text, ts FROM inquiries WHERE user_id = ? ORDER BY id DESC LIMIT 200) ORDER BY id', [u.id]);
   return { hn: u.hunter_name, code: u.code, messages: rows.map(inqOut) };
 };
 // 관리자 전용 캐릭터: 받은 문의를 메신저에서 열람 (읽기 전용)
@@ -2631,13 +2664,14 @@ route('POST', '/api/me/image', async (req, res, ctx) => {
   if (await limited('img:' + ctx.user.id, 10, 60000)) return fail(res, 429, 'rate_limited');
   const image = ctx.body.image;
   if (!validImage(image)) return fail(res, 400, 'bad_image');
-  await db.run('UPDATE users SET image = ? WHERE id = ?', [image, ctx.user.id]);
-  send(res, 200, { ok: true, image });
+  const ver = image ? Date.now() : 0;
+  await db.run('UPDATE users SET image = ?, img_ver = ? WHERE id = ?', [image, ver, ctx.user.id]);
+  send(res, 200, { ok: true, image: imgUrl(ctx.user.id, ver) });
 }, { limit: 1200000 });      // 이미지는 최대 약 700KB 라서 기본 요청 크기(20KB)보다 크게 허용
 route('POST', '/api/admin/player/image', async (req, res, ctx) => {
   const u = await adminTarget(ctx, res); if (!u) return;
   if (!validImage(ctx.body.image)) return fail(res, 400, 'bad_image');
-  await db.run('UPDATE users SET image = ? WHERE id = ?', [ctx.body.image, u.id]);
+  await db.run('UPDATE users SET image = ?, img_ver = ? WHERE id = ?', [ctx.body.image, ctx.body.image ? Date.now() : 0, u.id]);
   send(res, 200, { ok: true });
 }, { auth: false, admin: true, limit: 1200000 });
 // 프로필 소개글 (최대 200자, 줄바꿈 최대 5줄) — 친구 프로필에도 보입니다
@@ -2811,7 +2845,7 @@ route('POST', '/api/swin/minimize', async (req, res, ctx) => {
 });
 
 route('POST', '/api/admin/s/decide', async (req, res, ctx) => {
-  const m = await db.get("SELECT * FROM monsters WHERE id = ? AND rank = 'SS' AND owner_id IS NULL AND corrupt_of IS NULL", [Number(ctx.body.id) || 0]);
+  const m = await db.get("SELECT id, region, name, rank, spawned_at, owner_id, rumor_id, corrupt_of FROM monsters WHERE id = ? AND rank = 'SS' AND owner_id IS NULL AND corrupt_of IS NULL", [Number(ctx.body.id) || 0]);
   if (!m) return fail(res, 404, 'no_monster');
   if (await db.get('SELECT 1 AS x FROM s_close WHERE monster_id = ?', [m.id])) return fail(res, 409, 'already_decided');
   const ok = ctx.body.success === true ? await declareSuccess(m, 'admin') : await declareFail(m, 'admin');
@@ -2822,9 +2856,9 @@ route('POST', '/api/admin/s/decide', async (req, res, ctx) => {
 route('POST', '/api/admin/s/recall', async (req, res, ctx) => {
   const now = Date.now();
   let rows;
-  if (ctx.body.all === true) rows = await db.all("SELECT * FROM monsters WHERE rank = 'SS' AND owner_id IS NULL AND corrupt_of IS NULL AND spawned_at > ?", [now - G.ACTIVE_MS_S]);
-  else if (ctx.body.id) rows = await db.all("SELECT * FROM monsters WHERE id = ? AND rank = 'SS' AND owner_id IS NULL AND corrupt_of IS NULL", [Number(ctx.body.id) || 0]);
-  else if (ctx.body.name) rows = await db.all("SELECT * FROM monsters WHERE name = ? AND rank = 'SS' AND owner_id IS NULL AND corrupt_of IS NULL AND spawned_at > ?", [String(ctx.body.name), now - G.ACTIVE_MS_S]);
+  if (ctx.body.all === true) rows = await db.all("SELECT id, region, name, rank, spawned_at, owner_id, rumor_id, corrupt_of FROM monsters WHERE rank = 'SS' AND owner_id IS NULL AND corrupt_of IS NULL AND spawned_at > ?", [now - G.ACTIVE_MS_S]);
+  else if (ctx.body.id) rows = await db.all("SELECT id, region, name, rank, spawned_at, owner_id, rumor_id, corrupt_of FROM monsters WHERE id = ? AND rank = 'SS' AND owner_id IS NULL AND corrupt_of IS NULL", [Number(ctx.body.id) || 0]);
+  else if (ctx.body.name) rows = await db.all("SELECT id, region, name, rank, spawned_at, owner_id, rumor_id, corrupt_of FROM monsters WHERE name = ? AND rank = 'SS' AND owner_id IS NULL AND corrupt_of IS NULL AND spawned_at > ?", [String(ctx.body.name), now - G.ACTIVE_MS_S]);
   else return fail(res, 400, 'bad_target');
   let recalled = 0, skipped = 0, cancelled = 0;
   for (const m of rows) {
@@ -2973,11 +3007,13 @@ route('POST', '/api/admin/rec/save', async (req, res, ctx) => {
   if (!text) return fail(res, 400, 'empty');
   if (cp(text) > 100) return fail(res, 400, 'bad_text');
   const rec = { text, at: Date.now() };
+  recCache.at = 0;
   await db.run("INSERT INTO settings (key, value) VALUES ('daily_rec', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value", [JSON.stringify(rec)]);
   send(res, 200, { ok: true, rec });
 }, { auth: false, admin: true });
 
 route('POST', '/api/admin/rec/clear', async (req, res) => {
+  recCache.at = 0;
   await db.run("DELETE FROM settings WHERE key = 'daily_rec'");
   send(res, 200, { ok: true });
 }, { auth: false, admin: true });
