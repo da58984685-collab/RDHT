@@ -278,7 +278,7 @@ main.landing{display:flex;align-items:center;justify-content:center;max-width:no
 .dying-note{margin:10px 0 0;padding:9px 12px;border:1px solid var(--red);border-radius:10px;background:rgba(212,32,46,.12);font-size:.82rem;font-weight:700;color:#ff8a93}
 /* 스탯 투자 */
 .sprow{margin:0 0 12px;padding:7px 11px;display:flex;align-items:center;justify-content:space-between;background:var(--field);border:1px solid var(--line);border-radius:10px;font-size:.85rem;color:var(--sub)}
-.sprow b{color:#fff;font-size:1rem}
+.sprow b{color:#fff;font-size:1rem}.sp-reset{margin-left:auto;padding:3px 9px;font-size:.75rem;border:1px solid var(--line);background:transparent;color:var(--sub);border-radius:8px;cursor:pointer}.sp-reset.arm{border-color:var(--red2);color:#fff}.sprow b+.sp-reset{margin-left:10px}
 .sprow.has{border-color:var(--red2);color:var(--text)}
 .st-inv{width:24px;height:24px;padding:0;display:grid;place-content:center;font:700 1rem/1 "Noto Sans KR",sans-serif;color:#fff;background:linear-gradient(135deg,var(--red2),var(--red));border:1px solid var(--red2);border-radius:7px;cursor:pointer}
 .st-inv:hover{box-shadow:0 0 8px var(--glow)}
@@ -733,7 +733,8 @@ input[type=checkbox]:focus-visible{outline:2px solid var(--deep);outline-offset:
 .gt-ex p{margin:0;font-size:.84rem;line-height:1.5;color:#f3e9e7}
 .gt-ex .ex-loot{color:var(--sub);font-size:.8rem}
 .gt-ex .ex-log{min-height:2.6em;color:#ffd9dd}
-.gt-ex .gwrow{margin-top:auto}
+.gt-ex>*{flex:none}       /* 보상 글이 많아도 줄어들어 버튼 밑으로 겹치지 않고, 넘치면 패널이 스크롤됩니다 */
+.gt-ex .gwrow{margin-top:auto;position:sticky;bottom:-12px;padding:8px 0 12px;background:rgba(10,4,6,.96);z-index:1}
 .bioBox{margin:12px 0 0}.bioBox textarea{width:100%;min-height:64px;resize:vertical;padding:8px 10px;background:var(--field);color:var(--text);border:1px solid var(--line);border-radius:10px;font:inherit;font-size:.88rem;line-height:1.45}
 .bioBox textarea:focus{outline:none;border-color:var(--red2)}
 .bioBox .bio-r{display:flex;align-items:center;gap:8px;margin-top:6px}.bioBox .bio-r small{flex:1;color:var(--sub);font-size:.76rem}
@@ -1804,7 +1805,9 @@ function renderPower(up){
 function renderStats(st){
   var ul=$("gstats");ul.innerHTML="";
   var sp=Math.max(0,Math.floor(Number(st.sp)||0)),spb=$("gsp");
-  if(spb){spb.hidden=false;spb.className="sprow"+(sp>0?" has":"");spb.innerHTML="";var t1=document.createElement("span");t1.textContent="스탯포인트";var t2=document.createElement("b");t2.textContent=String(sp);spb.appendChild(t1);spb.appendChild(t2)}
+  if(spb){spb.hidden=false;spb.className="sprow"+(sp>0?" has":"");spb.innerHTML="";var t1=document.createElement("span");t1.textContent="스탯포인트";var t2=document.createElement("b");t2.textContent=String(sp);spb.appendChild(t1);spb.appendChild(t2);
+    var used=Math.max(0,((power&&power.lv)||1)-1-sp);       // 지금까지 투자한 포인트
+    if(used>0){var rb=document.createElement("button");rb.type="button";rb.className="sp-reset";rb.textContent="일괄 초기화";rb.title="투자한 스탯포인트 "+used+"개를 한 번에 모두 돌려받습니다 · "+(STAT_RESET_BASE+used*STAT_RESET_PER)+" G";spb.appendChild(rb);rb.addEventListener("click",function(){resetStats(rb,used)})}}
   STAT_DEF.forEach(function(d){
     var v=st[d[0]]||0,max=d[0]==="taint"?100:d[0]==="fame"?Math.max(1000,v):d[0]==="hp"?Math.max(100,v):Math.max(100,v);
     var li=document.createElement("li");li.className="st";li.dataset.k=d[0];
@@ -1827,6 +1830,19 @@ function renderStats(st){
   });
 }
 
+var STAT_RESET_BASE=1500,STAT_RESET_PER=100,rsArm=0,rsTimer=0;     // 스탯 일괄 초기화: 기본 요금 + 포인트 1개당 골드 (서버와 같은 값)
+function resetStats(btn,used){
+  if(invBusy)return;
+  var cost=STAT_RESET_BASE+used*STAT_RESET_PER;
+  if(!rsArm){rsArm=1;btn.textContent=cost+" G · 한 번 더";btn.classList.add("arm");clearTimeout(rsTimer);rsTimer=setTimeout(function(){rsArm=0;btn.textContent="일괄 초기화";btn.classList.remove("arm")},4000);return}
+  clearTimeout(rsTimer);rsArm=0;invBusy=true;btn.disabled=true;
+  api("POST","/api/stats/reset",{}).then(function(r){
+    invBusy=false;btn.disabled=false;
+    if(r._status===200&&r.stats){gold=r.gold;setGoldTag();statSig=($("ghn").textContent||"")+"|"+JSON.stringify(r.stats);if(r.fx)statFx=r.fx;renderStats(r.stats);$("mapmsg").textContent="스탯을 일괄 초기화했습니다 · 스탯포인트 "+r.points+"개를 돌려받았습니다 (골드 -"+r.cost+" G)";return}
+    btn.classList.remove("arm");btn.textContent=r.error==="no_gold"?"골드 부족 ("+r.cost+" G)":"일괄 초기화";
+    if(r.error==="no_gold")setTimeout(function(){btn.textContent="일괄 초기화"},2500);
+  });
+}
 var invBusy=false,invTab="shop";
 function investStat(k,btn){
   if(invBusy)return;invBusy=true;btn.disabled=true;
