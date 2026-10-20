@@ -185,7 +185,11 @@ main.landing{display:flex;align-items:center;justify-content:center;max-width:no
 #gchar .lbl{margin:16px 0 4px}
 .bgm{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
 .bgm-note{flex:1 1 100%;margin:0;font-size:.78rem;color:var(--sub)}
-#bgmbox{position:absolute;width:200px;height:200px;left:-9999px;top:0;overflow:hidden}
+.sbgm-mq{overflow:hidden;white-space:nowrap;margin-top:4px;opacity:.5;font-size:.7rem;line-height:1.4;color:var(--sub)}
+.sbgm-mq span{display:inline-block;padding-left:100%;animation:sbmq 14s linear infinite}
+@keyframes sbmq{to{transform:translateX(-100%)}}
+@media (prefers-reduced-motion:reduce){.sbgm-mq span{animation:none;padding-left:0}}
+#bgmbox,#sbgmbox{position:absolute;width:200px;height:200px;left:-9999px;top:0;overflow:hidden}
 .bgm input[type=url],.todo-add input{flex:1;min-width:0;padding:7px 8px;background:var(--field);color:var(--text);border:1px solid var(--line);font:inherit;font-size:.85rem;border-radius:0}
 .bgm button,.todo-add button{padding:7px 12px;background:var(--field);color:var(--text);border:1px solid var(--line);font:inherit;font-size:.82rem;cursor:pointer;border-radius:0;min-height:36px}
 .bgm button:hover,.todo-add button:hover{border-color:var(--red2)}
@@ -727,6 +731,13 @@ input[type=checkbox]:focus-visible{outline:2px solid var(--deep);outline-offset:
 .ex-fl{display:grid;grid-template-columns:repeat(10,1fr);gap:3px}
 .ex-fl i.boss{border-color:#f0b93a;color:#f0b93a}.ex-fl i.boss.on{color:#fff}
 .ex-from{display:flex;align-items:center;gap:6px;font-size:.8rem;color:var(--sub)}.ex-from select{background:var(--field);color:var(--text);border:1px solid var(--line);padding:4px 6px}
+.ex-tn{display:flex;align-items:center;gap:8px;font-size:.78rem;color:var(--sub)}
+.ex-tb{flex:1;height:10px;background:var(--field);border:1px solid var(--line);overflow:hidden}
+.ex-tb i{display:block;height:100%;width:0;background:linear-gradient(90deg,#7a3bb8,#c0398f);transition:width .4s}
+.ex-tn.warn .ex-tb i{background:linear-gradient(90deg,#c0398f,#e0662a)}
+.ex-tn.danger .ex-tb i{background:linear-gradient(90deg,#e0662a,#ff3b3b)}
+.ex-tn.danger b{color:#ff6b6b}
+.ex-tn b{min-width:3.4em;text-align:right;font:700 .78rem/1 "Share Tech Mono",monospace;color:#fff}
 .ex-odds{color:var(--sub);font-size:.76rem;line-height:1.5}
 .ex-fl i{display:flex;align-items:center;justify-content:center;height:24px;font:700 .68rem/1 "Share Tech Mono",monospace;font-style:normal;color:var(--sub);background:var(--field);border:1px solid var(--line)}
 .ex-fl i.on{color:#fff;background:linear-gradient(135deg,#a8202c,#5a0f16);border-color:var(--red2)}
@@ -748,11 +759,13 @@ input[type=checkbox]:focus-visible{outline:2px solid var(--deep);outline-offset:
 .todo li input[type=checkbox]{width:18px;height:18px;border-radius:5px}
 .todo li input[type=checkbox]::after{width:8px;height:4px}
 </style>
+<!-- [THEME:HALLOWEEN] 할로윈 테마: 이벤트 중에만 켜집니다. 오리지널 화면으로만 쓰려면 아래 한 줄을 지우세요. -->
+<script src="/halloween.js"></script>
 </head>
 <body>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
 <symbol id="i-heart" viewBox="0 0 7 7"><path d="M3 0h1v1H3zM2 1h3v1H2zM1 2h5v1H1zM0 3h7v1H0zM1 4h5v1H1zM2 5h3v1H2zM3 6h1v1H3z"/></symbol>
-<symbol id="i-star" viewBox="0 0 7 7"><path d="M3 0h1v7H3zM0 3h7v1H0zM2 2h3v3H2z"/></symbol>
+<symbol id="i-hlw" viewBox="0 0 7 7"><path d="M2 0h3v1H2zM1 1h5v1H1zM0 2h2v1H0zM3 2h1v1H3zM5 2h2v1H5zM0 3h7v1H0zM0 4h7v1H0zM0 5h7v1H0zM0 6h1v1H0zM2 6h1v1H2zM4 6h1v1H4zM6 6h1v1H6z"/></symbol><symbol id="i-star" viewBox="0 0 7 7"><path d="M3 0h1v7H3zM0 3h7v1H0zM2 2h3v3H2z"/></symbol>
 <symbol id="i-person" viewBox="0 0 8 8"><path d="M3 0h2v1H3zM2 1h4v2H2zM3 3h2v1H3zM1 4h6v1H1zM0 5h8v3H0z"/></symbol>
 <symbol id="i-chat" viewBox="0 0 8 7"><path d="M0 0h8v5H0zM1 5h2v1H1zM1 6h1v1H1z"/></symbol>
 <symbol id="i-plus" viewBox="0 0 8 8"><path d="M3 0h2v8H3zM0 3h8v2H0z"/></symbol>
@@ -834,6 +847,16 @@ input[type=checkbox]:focus-visible{outline:2px solid var(--deep);outline-offset:
           <label class="privrow"><input type="checkbox" id="gpriv"><span>비공개 유저</span></label>
           <div class="bioBox"><p class="lbl">프로필 소개글</p><textarea id="gbio" maxlength="200" rows="3" placeholder="친구 프로필에 보일 소개글을 적어보세요. (최대 200자)" aria-label="프로필 소개글"></textarea>
             <div class="bio-r"><small id="gbiomsg" role="status">친구에게 보입니다.</small><button type="button" id="gbiosave">저장</button></div></div>
+          <div id="sbgmrow" hidden>
+            <p class="lbl">서버 BGM</p>
+            <div class="bgm">
+              <button type="button" id="sbgmbtn" aria-pressed="true">❚❚ 정지</button>
+              <input type="range" id="sbgmvol" min="0" max="100" value="40" aria-label="서버 BGM 볼륨">
+              <p class="bgm-note" id="sbgmnote" role="status">운영진이 정한 BGM입니다. 켜고 끄기·볼륨은 내 화면에만 적용됩니다.</p>
+            </div>
+            <div id="sbgmbox" aria-hidden="true"></div>
+            <div class="sbgm-mq" aria-label="해당 BGM은 저작권 무료 음악임을 밝힙니다."><span aria-hidden="true">해당 BGM은 저작권 무료 음악임을 밝힙니다.</span></div>
+          </div>
           <p class="lbl">BGM</p>
           <form class="bgm" id="bgmf">
             <input id="bgmurl" type="url" inputmode="url" autocomplete="off" placeholder="유튜브 링크를 붙여넣으세요" aria-label="유튜브 링크">
@@ -1090,6 +1113,7 @@ input[type=checkbox]:focus-visible{outline:2px solid var(--deep);outline-offset:
 .gwdel[data-arm="1"]{border-color:var(--red);color:#ff8a93}
 .gwcs li{position:relative}
 .gwcx{display:block;margin:6px 0 0 auto;padding:4px 10px;font:500 .74rem/1.2 "Noto Sans KR",sans-serif;color:var(--sub);background:transparent;border:1px solid var(--line);border-radius:8px;cursor:pointer}
+.gwlk.on{border-color:var(--red);color:#ff8a93}
 .gwcx:hover,.gwcx[data-arm="1"]{border-color:var(--red);color:#ff8a93}
 .gwnote{margin:8px 0 0;min-height:1.2em;font-size:.84rem;color:var(--sub)}
 .gwempty{padding:24px 8px;text-align:center;color:var(--deep);font-size:.9rem}
@@ -1188,6 +1212,7 @@ input[type=checkbox]:focus-visible{outline:2px solid var(--deep);outline-offset:
         <div class="gt-ex" id="gtex" hidden role="dialog" aria-label="심층 탐험">
           <h3>심층 탐험 <button type="button" class="hud-btn" id="gtexclose">닫기</button></h3>
           <div class="ex-fl" id="gtexfl" aria-label="층 진행"></div>
+          <div class="ex-tn" id="gtextn" role="meter" aria-label="오염도" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><span>오염도</span><div class="ex-tb"><i id="gtextf"></i></div><b id="gtextv">0%</b></div>
           <p id="gtexst"></p><p class="ex-odds" id="gtexodds"></p><label class="ex-from" id="gtexfromw" hidden>시작 층 <select id="gtexfrom"></select></label><p class="ex-loot" id="gtexloot"></p><p class="ex-log" id="gtexlog" role="status"></p>
           <div class="gwrow"><button type="button" class="hud-btn" id="gtexgo">탐험 시작</button><button type="button" class="hud-btn" id="gtexback" hidden>복귀하기</button></div>
         </div></div>
@@ -1751,6 +1776,40 @@ $("bgmf").addEventListener("submit",function(e){
 });
 $("bgmbtn").addEventListener("click",function(){if(!bgm.id)return;if(bgm.on){bgmCmd("pauseVideo");bgmUi(false)}else{bgmCmd("playVideo");bgmUi(true)}});
 $("bgmvol").addEventListener("input",function(){try{localStorage.setItem("hx_bgmvol",this.value)}catch(e){}bgmVolSend()});
+// 서버 BGM: 운영진이 정한 영상을 모두가 듣습니다. 켜기·끄기·볼륨은 이 브라우저(localStorage)에만 저장되어 다른 헌터와 서버에 영향이 없습니다.
+var sb={id:"",v:0,on:false,off:false,vol:40,t:0};
+try{sb.off=localStorage.getItem("hx_sbgm_off")==="1";var sv=localStorage.getItem("hx_sbgm_vol");if(sv!==null&&!isNaN(Number(sv)))sb.vol=Math.max(0,Math.min(100,Number(sv)))}catch(e){}
+$("sbgmvol").value=String(sb.vol);
+function sbCmd(fn,args){var f=document.querySelector("#sbgmbox iframe");if(!f||!f.contentWindow)return;f.contentWindow.postMessage(JSON.stringify({event:"command",func:fn,args:args||[]}),"*")}
+function sbUi(){var b=$("sbgmbtn");b.textContent=sb.on?"❚❚ 정지":"▶ 재생";b.setAttribute("aria-pressed",sb.on?"true":"false")}
+function sbLoad(id,v){
+  sb.id=id;sb.v=v;var box=$("sbgmbox");box.innerHTML="";
+  if(!id){$("sbgmrow").hidden=true;sb.on=false;return}
+  $("sbgmrow").hidden=false;sb.on=!sb.off;sbUi();
+  var f=document.createElement("iframe");
+  f.src="https://www.youtube.com/embed/"+id+"?enablejsapi=1&autoplay="+(sb.off?0:1)+"&loop=1&playlist="+id+"&controls=0&playsinline=1&origin="+encodeURIComponent(location.origin);
+  f.allow="autoplay; encrypted-media";f.title="서버 BGM";f.referrerPolicy="strict-origin-when-cross-origin";
+  f.addEventListener("load",function(){
+    try{f.contentWindow.postMessage(JSON.stringify({event:"listening",id:1,channel:"widget"}),"*")}catch(e){}      // 영상 상태 알림 받기 (끝나면 다시 재생하려고)
+    setTimeout(function(){sbCmd("setVolume",[sb.vol]);if(!sb.off)sbCmd("playVideo")},800);
+  });
+  box.appendChild(f);
+}
+window.addEventListener("message",function(e){      // 서버 BGM 이 끝나면 처음부터 다시 재생 (유튜브 loop 설정이 먹지 않는 영상 대비). 내가 끈 경우는 제외
+  if(!sb.id||sb.off||!/(^|\.)youtube(-nocookie)?\.com$/.test(String(e.origin).replace(/^https?:\/\//,"")))return;
+  var d=e.data;if(typeof d==="string"){try{d=JSON.parse(d)}catch(x){return}}
+  if(d&&((d.event==="onStateChange"&&d.info===0)||(d.event==="infoDelivery"&&d.info&&d.info.playerState===0))){sbCmd("seekTo",[0,true]);sbCmd("playVideo")}
+});
+function sbApply(st){var id=typeof st.bgm==="string"?st.bgm:"",v=st.bgmv|0;if(id===sb.id&&v===sb.v)return;sbLoad(id,v)}
+function sbStop(){sbLoad("",0)}
+$("sbgmbtn").addEventListener("click",function(){
+  if(!sb.id)return;
+  if(sb.on){sbCmd("pauseVideo");sb.on=false;sb.off=true}else{sbCmd("setVolume",[sb.vol]);sbCmd("playVideo");sb.on=true;sb.off=false}
+  try{localStorage.setItem("hx_sbgm_off",sb.off?"1":"0")}catch(e){}sbUi();
+});
+$("sbgmvol").addEventListener("input",function(){sb.vol=Number(this.value)||0;try{localStorage.setItem("hx_sbgm_vol",String(sb.vol))}catch(e){}sbCmd("setVolume",[sb.vol])});
+// 브라우저가 소리 자동 재생을 막았을 때: 화면을 처음 누르는 순간 재생을 다시 시도합니다 (내가 끈 경우는 제외)
+document.addEventListener("pointerdown",function(){var n=Date.now();if(!sb.id||sb.off||n-sb.t<4000)return;sb.t=n;sbCmd("setVolume",[sb.vol]);sbCmd("playVideo")},true);
 function bgmRestore(){
   try{
     var vv=localStorage.getItem("hx_bgmvol");if(vv!==null)$("bgmvol").value=vv;
@@ -2046,8 +2105,8 @@ function huntAlert(a){
         a.done=true;power={lv:r.lv,exp:r.exp};renderPower(r.levelUp);
         var up=r.levelUp?" · 전투력 Lv."+power.lv+" 달성!":"";
         if(r.gold!==undefined)gold+=r.gold;
-        mm.textContent=a.mon+" 토벌 완료! 전투력 경험치 +"+r.gain+(r.gold?" · +"+r.gold+" G":"")+(r.taint?" · 오염도 +"+r.taint+"%":"")+up;
-        showHunt("ok","토벌 성공",a.mon+"을(를) 처치했습니다.","전투력 경험치 +"+r.gain+(r.gold?" · 골드 +"+r.gold+" G":"")+(r.taint?" · 오염도 +"+r.taint+"%":"")+up);
+        mm.textContent=a.mon+" 토벌 완료! 전투력 경험치 +"+r.gain+(r.gold?" · +"+r.gold+" G":"")+(r.taint?" · 오염도 +"+r.taint+"%":"")+(r.ember?" · 도깨비 불씨 +"+r.ember:"")+up;
+        showHunt("ok","토벌 성공",a.mon+"을(를) 처치했습니다.","전투력 경험치 +"+r.gain+(r.gold?" · 골드 +"+r.gold+" G":"")+(r.taint?" · 오염도 +"+r.taint+"%":"")+(r.ember?" · 도깨비 불씨 +"+r.ember:"")+up);
         alertSig="";renderAlerts();
       }else{
         a.cd=r.free?0:r.until;
@@ -2092,7 +2151,7 @@ function btlEnd(r){
   if(r.outcome==="win"&&r.result){
     var x=r.result;if(a)a.done=true;power={lv:x.lv,exp:x.exp};renderPower(x.levelUp);if(x.gold!==undefined)gold+=x.gold;
     var up=x.levelUp?" · 전투력 Lv."+power.lv+" 달성!":"";
-    var t="승리! "+v.mon+"을(를) 처치했습니다. 전투력 경험치 +"+x.gain+(x.gold?" · 골드 +"+x.gold+" G":"")+(x.taint?" · 오염도 +"+x.taint+"%":"")+up;
+    var t="승리! "+v.mon+"을(를) 처치했습니다. 전투력 경험치 +"+x.gain+(x.gold?" · 골드 +"+x.gold+" G":"")+(x.taint?" · 오염도 +"+x.taint+"%":"")+(x.ember?" · 도깨비 불씨 +"+x.ember:"")+up;
     res.textContent=t;res.classList.add("win");mm.textContent=t;alertSig="";renderAlerts();
   }else if(r.outcome==="lose"&&r.result){
     var f=r.result;if(a)a.cd=f.free?0:f.until;
@@ -2317,8 +2376,8 @@ var globe=(function(){
   document.addEventListener("visibilitychange",function(){if(!document.hidden)run()});
   return {set:set,isOn:function(){return on},redraw:function(){if(on&&rm)draw()}};
 })();
-var achNew=0,questReady=0,rescueReq=0,rumorNew=0,gold=0,devApp=null,inventory=[],invSig="",invNote="";
-var APPS=[["gw","게이트웨이브","i-eye"],["msg","메신저","i-chat"],["com","커뮤니티","i-board"],["ach","업적","i-medal"],["qst","의뢰","i-star"],["eqp","장비","i-str"],["pct","계약","i-taint"],["exc","그림자 거래소","i-lock"],["rum","괴담","i-psi"],["sys","시스템 알림","i-bell"],["shop","상점","i-shop"],["inv","인벤토리","i-bag"]];
+var evInfo=null,achNew=0,questReady=0,rescueReq=0,rumorNew=0,gold=0,devApp=null,inventory=[],invSig="",invNote="";
+var APPS=[["gw","게이트웨이브","i-eye"],["msg","메신저","i-chat"],["com","커뮤니티","i-board"],["ach","업적","i-medal"],["qst","의뢰","i-star"],["eqp","장비","i-str"],["pct","계약","i-taint"],["exc","그림자 거래소","i-lock"],["rum","괴담","i-psi"],["sys","시스템 알림","i-bell"],["shop","상점","i-shop"],["inv","인벤토리","i-bag"],["hlw","할로윈","i-hlw"]];
 function devClock(){var d=new Date(),c=$("phclk");if(c)c.textContent=pad(d.getHours())+":"+pad(d.getMinutes())}
 function badgeOf(id){return id==="inv"?giftUnread:id==="sys"?unreadNotices:id==="msg"?unreadMsgs+friendReqs+rescueReq:id==="qst"?questReady:id==="rum"?rumorNew:id==="com"?Math.max(0,Math.min(99,cmLatest-cmSeen)):id==="ach"?achNew:0}
 function loadNotices(){
@@ -2473,6 +2532,7 @@ function renderDevice(){
   if(!devApp){
     var g=document.createElement("div");g.className="apps";
     APPS.forEach(function(a){
+      if(a[0]==="hlw"&&!evInfo)return;      /* [EVENT:HALLOWEEN] 이벤트 중에만 보이는 앱 */
       var b=document.createElement("button");b.type="button";b.className="app"+(a[0]==="gw"?" gw":"");b.appendChild(svgUse(a[2]));
       var t=document.createElement("span");t.textContent=a[1];b.appendChild(t);
       var bc=badgeOf(a[0]);
@@ -2540,6 +2600,7 @@ function renderDevice(){
   else if(devApp==="sys"){empty("불러오는 중…");loadNotices()}
   else if(devApp==="ach"){empty("불러오는 중…");loadAch()}
   else if(devApp==="qst"){empty("불러오는 중…");loadQuests()}
+  else if(devApp==="hlw"){empty("불러오는 중…");loadEvent()}      /* [EVENT:HALLOWEEN] */
   else if(devApp==="eqp"){empty("불러오는 중…");loadEquip()}
   else if(devApp==="pct"){empty("불러오는 중…");loadPact()}
   else if(devApp==="exc"){empty("불러오는 중…");loadExc()}
@@ -2583,6 +2644,7 @@ function renderAlerts(){
 var statSig="";
 function applyState(st,first){
   skew=st.now-Date.now();
+  if(st.user&&st.user.stats&&!$("gtex").hidden)exTaint(st.user.stats.taint);
   if(st.user&&st.user.stats){            // 운영자가 헌터명·스탯을 바꾸면 바로 반영
     var sg=st.user.hunterName+"|"+JSON.stringify(st.user.stats);
     if(sg!==statSig){if(statSig){$("ghn").textContent=st.user.hunterName||"";renderStats(st.user.stats)}statSig=sg}
@@ -2597,6 +2659,8 @@ function applyState(st,first){
   if(st.user&&typeof st.user.bio==="string"&&!bioDirty&&st.user.bio!==bioSaved){bioSaved=st.user.bio;$("gbio").value=st.user.bio}
   if(st.achNew!==undefined&&st.achNew!==achNew){achNew=st.achNew;if(!devApp&&$("phscr"))renderDevice()}
   if((st.questReady!==undefined&&st.questReady!==questReady)||(st.rescueReq!==undefined&&st.rescueReq!==rescueReq)){questReady=st.questReady|0;rescueReq=st.rescueReq|0;if(!devApp&&$("phscr"))renderDevice()}
+  if(st.bgm!==undefined)sbApply(st);      /* 서버 BGM */
+  if(st.event!==undefined){var ne=st.event||null,chg=!!ne!==!!evInfo;evInfo=ne;if(chg&&!devApp&&$("phscr"))renderDevice()}      /* [EVENT:HALLOWEEN] */
   if(st.rumorNew!==undefined&&st.rumorNew!==rumorNew){rumorNew=st.rumorNew|0;if(!devApp&&$("phscr"))renderDevice()}
   if(st.rescued&&st.rescued.length){sAutoMsg=st.rescued.map(function(x){return x.hn+"(이)가 정화 아이템으로 구해 주었습니다. 오염 폭주가 풀렸습니다 (오염도 40%)"}).join(" · ");$("mapmsg").textContent=sAutoMsg}
   if(st.user&&st.user.pinned){var psg=JSON.stringify(st.user.pinned);if(psg!==JSON.stringify(pinned)){pinned=st.user.pinned;renderPins()}}
@@ -3795,6 +3859,41 @@ document.addEventListener("keydown",function(e){if(e.key==="Escape"&&bigOpen)clo
 Array.prototype.forEach.call(document.querySelectorAll(".ph-nav .nv-back"),function(b){b.addEventListener("click",devBack)});
 $("bigapp").addEventListener("mousedown",function(e){if(e.target===this)closeBig()});
 
+/* ───── [EVENT:HALLOWEEN] 할로윈 이벤트 앱 ───── */
+function loadEvent(){
+  var scr=$("phscr");
+  api("GET","/api/event").then(function(r){
+    if(devApp!=="hlw")return;
+    if(r.error){appFail(scr,loadEvent);return}
+    var old=scr.querySelector(".app-empty,.app-list,.app-note,.app-sub");while(old){old.remove();old=scr.querySelector(".app-empty,.app-list,.app-note,.app-sub")}
+    if(!r.on){evInfo=null;var e0=document.createElement("p");e0.className="app-empty";e0.textContent="할로윈 이벤트가 끝났습니다.";scr.appendChild(e0);return}
+    function note(t){var n=document.createElement("p");n.className="app-note";n.textContent=t;scr.appendChild(n)}
+    function head(t){var h=document.createElement("p");h.className="app-sub";h.textContent=t;h.style.cssText="margin:12px 0 4px;font-weight:700;font-size:.9rem";scr.appendChild(h)}
+    var end=r.ends?new Date(r.ends):null;
+    note("할로윈 이벤트"+(end?" · "+(end.getMonth()+1)+"월 "+end.getDate()+"일까지":"")+" · 보유 "+r.emberName+" "+r.ember+"개 · 가면 장비는 장비 앱에서 조합합니다.");
+    head("백귀야행");
+    note(r.night?"지금 백귀야행이 한창입니다! 내 주위에 잡귀가 몰려옵니다. 잡귀를 처치하면 "+r.emberName+"를 줍니다.":"백귀야행은 매일 밤 "+r.nightText+"에 열립니다. 그때 접속하면 잡귀가 몰려옵니다.");
+    head("오늘의 소원 · "+r.wish.who);
+    var w=r.wish,ul=document.createElement("ul");ul.className="app-list";
+    var li=document.createElement("li");li.className="qst-li"+(w.done?" got":"");
+    var t=document.createElement("div");t.className="qst-t";t.textContent=w.say;li.appendChild(t);
+    var ok=true;
+    w.items.forEach(function(x){var sm=document.createElement("small");sm.textContent="· "+x.item+" "+x.have+" / "+x.qty;if(x.have<x.qty)ok=false;li.appendChild(sm)});
+    var info=document.createElement("small");info.textContent="보상 · 골드 · "+r.emberName+" "+w.reward.ember+"개 · 연속 "+w.streak+" / "+w.need+"일"+(w.streak<w.need?" (달성하면 "+r.emberName+" +"+w.reward.streakEmber+" · 업적 '"+w.reward.achName+"')":"");li.appendChild(info);
+    var row=document.createElement("div");row.className="rum-v";var bt=document.createElement("button");bt.type="button";bt.className="ach-btn";
+    bt.textContent=w.done?"오늘의 소원 완료":"소원 들어주기";bt.disabled=w.done||!ok;
+    bt.addEventListener("click",function(){
+      bt.disabled=true;
+      api("POST","/api/event/wish",{}).then(function(x){
+        if(x.ok){$("mapmsg").textContent="소원을 들어주었습니다 · 골드 +"+x.gold+" G · "+r.emberName+" +"+x.ember+(x.ach?" · 업적 '"+x.ach+"' 달성!":"");pollState(false);loadEvent()}
+        else{bt.disabled=false;bt.textContent=x.error==="no_mats"?"재료가 부족합니다":x.error==="already_done"?"이미 완료했습니다":"할 수 없습니다";setTimeout(function(){loadEvent()},1400)}
+      });
+    });
+    row.appendChild(bt);li.appendChild(row);ul.appendChild(li);scr.appendChild(ul);
+    note("소원은 매일 한국 시간 0시에 새로 바뀝니다 (남은 시간 "+Math.floor(r.resetIn/3600000)+"시간 "+Math.floor(r.resetIn%3600000/60000)+"분). 재료는 적월문에서 조사하면 얻을 수 있습니다.");
+  });
+}
+
 /* ───── 그림자 거래소 ───── */
 var excNote="";
 function hm(ms){var h=Math.floor(ms/3600000),m=Math.floor(ms%3600000/60000);return h+"시간 "+m+"분"}
@@ -3875,11 +3974,11 @@ function drawEquip(){
     li.appendChild(t);li.appendChild(d);li.appendChild(bar);li.appendChild(row);ul.appendChild(li);
   });
   scr.appendChild(ul);
-  head("장비 조합법 (20)");
+  head("장비 조합법 ("+r.defs.length+")");
   var ul2=document.createElement("ul");ul2.className="app-list";
   r.defs.forEach(function(e){
     var li=document.createElement("li");li.className="qst-li";
-    var t=document.createElement("div");t.className="qst-t";t.textContent="["+e.grade+"] "+e.name;
+    var t=document.createElement("div");t.className="qst-t";t.textContent="["+e.grade+"] "+e.name+(e.ev?" · 할로윈 한정":"");
     var d=document.createElement("small");d.textContent=e.slotKo+" · "+eqFx(e)+" · 내구도 "+e.maxDur+" · 수리 "+e.repair+" G · "+e.desc;
     var ok=true,m=document.createElement("small");m.textContent="재료 · "+e.mats.map(function(x){if(x.have<x.qty)ok=false;return x.item+" "+x.have+"/"+x.qty}).join(", ");
     var row=document.createElement("div");row.className="rum-v";var bt=document.createElement("button");bt.type="button";bt.className="ach-btn";bt.textContent="조합";bt.disabled=!ok;
@@ -3977,8 +4076,14 @@ var exRun=null,exBusy=false,exCdAt=0,exTick=0;
 function exLootText(l,g){var k=Object.keys(l||{});return "모은 것 · "+(k.length?k.map(function(n){return n+" ×"+l[n]}).join(", "):"재료 없음")+" · 골드 "+(g||0)+" G"}
 function pc(x){var v=x*100;return (v>=10?Math.round(v):Math.round(v*10)/10)+"%"}
 var TIER_KO={c:"일반",r:"희귀",e:"영웅",l:"전설"};
+function exTaint(t){      // 심층 탐험 창의 오염도 게이지 (탐험 응답과 10초마다 오는 상태 확인에서 갱신)
+  t=Math.max(0,Math.min(100,Number(t)||0));var n=$("gtextn");
+  $("gtextf").style.width=t+"%";$("gtextv").textContent=(Math.round(t*10)/10)+"%";n.setAttribute("aria-valuenow",String(t));
+  n.classList.toggle("warn",t>=60&&t<85);n.classList.toggle("danger",t>=85);
+}
 function exRender(){
   var r=exRun;if(!r)return;
+  if(r.taint!==undefined)exTaint(r.taint);
   var fl=$("gtexfl");fl.innerHTML="";
   for(var i=1;i<=r.max;i++){var c=document.createElement("i");c.textContent=i;if(i%10===0)c.classList.add("boss");if(r.active&&i<=r.floor)c.classList.add("on");if(i===r.best)c.classList.add("best");if(r.active&&i===r.floor)c.classList.add("cur");fl.appendChild(c)}
   var go=$("gtexgo"),bk=$("gtexback"),cd=Math.max(0,exCdAt-Date.now()),fw=$("gtexfromw"),od=$("gtexodds");
@@ -4129,8 +4234,8 @@ function gwPing(force){
     });
   }catch(e){}
 }
-function gwToast(text){
-  var el=$("gwtoast");el.textContent=text;el.hidden=false;clearTimeout(gwToastT);gwToastT=setTimeout(function(){el.hidden=true},3800);
+function gwToast(text,ms){
+  var el=$("gwtoast");el.textContent=text;el.hidden=false;clearTimeout(gwToastT);gwToastT=setTimeout(function(){el.hidden=true},ms||3800);
 }
 function gwnPoll(){
   if($("game").hidden||!gwAny())return;
@@ -4212,7 +4317,20 @@ function gwOpenPost(id,keepScroll){
       li.appendChild(m);li.appendChild(t);
       var bar=document.createElement("div");bar.className="gwcb";
       var rb=document.createElement("button");rb.type="button";rb.className="gwcx";rb.textContent="답글";rb.setAttribute("aria-label",c.hn+"님의 댓글에 답글 쓰기");
-      rb.addEventListener("click",function(){gwReply(c)});bar.appendChild(rb);
+      rb.addEventListener("click",function(){gwReply(c)});
+      var lb=document.createElement("button");lb.type="button";lb.className="gwcx gwlk";lb.setAttribute("aria-label","댓글 좋아요");
+      function lkUi(){lb.textContent=(c.liked?"♥ ":"♡ ")+"좋아요"+(c.likes?" "+c.likes:"");lb.setAttribute("aria-pressed",c.liked?"true":"false");lb.classList.toggle("on",!!c.liked)}
+      lkUi();
+      lb.addEventListener("click",function(){
+        lb.disabled=true;
+        api("POST","/api/gw/comment/like",{id:c.id}).then(function(r){
+          lb.disabled=false;
+          if(r.error){gwToast(r.error==="rate_limited"?"너무 빨리 누르고 있어요. 잠시 후 다시 시도해주세요.":"좋아요를 누르지 못했습니다.",2000);return}
+          c.liked=r.liked;c.likes=r.likes;lkUi();
+          if(r.liked)gwToast("붐업되었습니다",1800);      // 좋아요를 누르면 잠깐 떴다가 사라짐
+        }).catch(function(){lb.disabled=false;gwToast("좋아요를 누르지 못했습니다.",2000)});
+      });
+      bar.appendChild(lb);bar.appendChild(rb);
       if(c.canDel){var x=document.createElement("button");x.type="button";x.className="gwcx";x.textContent="삭제";x.setAttribute("aria-label","댓글 삭제");
         x.addEventListener("click",function(){
           if(x.dataset.arm!=="1"){x.dataset.arm="1";x.textContent=isRe?"한 번 더":"한 번 더 (답글도 삭제)";setTimeout(function(){if(x.dataset.arm==="1"){x.dataset.arm="0";x.textContent="삭제"}},4000);return}
@@ -4284,7 +4402,7 @@ gwmodal.addEventListener("keydown",function(e){
   else if(!e.shiftKey&&document.activeElement===l){e.preventDefault();f.focus()}
 });
 function leaveGame(note){
-  bgmStop();globe.set(false);
+  bgmStop();sbStop();globe.set(false);
   clearInterval(pollTimer);clearInterval(mTimer);
   [rmodal,hmodal,mmodal,$("cmodal"),$("gwmodal"),$("gfmodal"),$("gtmodal"),ntmodal,qmodal].forEach(function(m){m.hidden=true});cmReset();document.body.style.overflow="";
   $("game").hidden=true;forceFront=false;showFront();
