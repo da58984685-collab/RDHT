@@ -76,6 +76,8 @@ const kstHour = now => new Date(now + 9 * HOUR).getUTCHours();
 const kstDay = now => new Date(now + 9 * HOUR).toISOString().slice(0, 10);
 const isNight = now => { const h = kstHour(now); return NIGHT_FROM > NIGHT_TO ? (h >= NIGHT_FROM || h < NIGHT_TO) : (h >= NIGHT_FROM && h < NIGHT_TO); };
 // 다음 밤이 시작되는 시각 (밤이 아닐 때만 의미 있음)
+// 지금 밤이면 밤이 끝날 때까지, 아니면 다음 밤이 시작될 때까지 남은 시간(ms)
+const nightLeft = now => { if (!isNight(now)) return nextNightStart(now) - now; const d = new Date(now + 9 * HOUR); d.setUTCHours(NIGHT_TO, 0, 0, 0); let t = d.getTime() - 9 * HOUR; if (t <= now) t += 24 * HOUR; return t - now; };
 const nextNightStart = now => { const d = new Date(now + 9 * HOUR); d.setUTCHours(NIGHT_FROM, 0, 0, 0); let t = d.getTime() - 9 * HOUR; if (t <= now) t += 24 * HOUR; return t; };
 // 문자열 → 0..2^32 (소원 재료를 하루 동안 고정하기 위한 간단한 해시)
 function hash(s) { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } return h >>> 0; }
@@ -187,7 +189,7 @@ function install(a) {
     const done = await db.get('SELECT done FROM ev_wish WHERE user_id = ? AND day = ?', [u.id, day]);
     const streak = await streakOf(u.id, day);
     send(res, 200, {
-      on: true, night: isNight(now), nightText: String(NIGHT_FROM) + '시 ~ 다음날 ' + String(NIGHT_TO).padStart(2, '0') + '시', ends: cache.mode === 'auto' ? END : null,
+      on: true, night: isNight(now), nightLeft: nightLeft(now), nightText: String(NIGHT_FROM) + '시 ~ 다음날 ' + String(NIGHT_TO).padStart(2, '0') + '시', ends: cache.mode === 'auto' ? END : null,
       ember: inv.get(EMBER) || 0, emberName: EMBER,
       wish: { who: w.who, say: w.say, items: w.items.map(x => ({ item: x.item, qty: x.qty, have: inv.get(x.item) || 0 })), done: !!(done && done.done), streak, need: WISH_STREAK, reward: { ember: WISH_EMBER, streakEmber: WISH_STREAK_EMBER, achName: WISH_ACH.name } },
       resetIn: 24 * HOUR - ((now + 9 * HOUR) % (24 * HOUR)),
