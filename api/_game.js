@@ -183,6 +183,30 @@ const ACH_SEED2 = [
   { id: 'st-agi', name: '바람의 발걸음', desc: '민첩이 50이 되었다.', kind: 'stat', val: 'agi:50' },
   { id: 'st-luck', name: '행운아', desc: '행운이 50이 되었다.', kind: 'stat', val: 'luck:50' },
 ];
+// 세 번째 기본 업적 묶음 (독특한 업적 20개: 앞의 15개는 꾸준히 하면 얻고, 마지막 5개는 매우 어렵습니다. 이미 운영 중인 서버에도 한 번만 추가됩니다)
+const ACH_SEED3 = [
+  { id: 'u-mush', name: '겁 없는 미식가', desc: '독버섯을 25개 수집했다. 아마 익혀 먹었을 것이다.', kind: 'collect', val: '독버섯:25' },
+  { id: 'u-pearl', name: '조개 속의 행운', desc: '진주를 3개 수집했다.', kind: 'collect', val: '진주:3' },
+  { id: 'u-clover', name: '네잎 클로버 농장주', desc: '네잎 클로버를 5개 수집했다.', kind: 'collect', val: '네잎 클로버:5' },
+  { id: 'u-dew', name: '구름 위의 이슬 한 방울', desc: '구름 이슬을 8개 수집했다.', kind: 'collect', val: '구름 이슬:8' },
+  { id: 'u-key', name: '열쇠고리 수집가', desc: '오래된 열쇠를 4개 수집했다. 어디 문인지는 아무도 모른다.', kind: 'collect', val: '오래된 열쇠:4' },
+  { id: 'u-seal', name: '문지기의 눈 밖에 난 자', desc: '수문장의 인장을 3개 모았다.', kind: 'collect', val: '수문장의 인장:3' },
+  { id: 'u-yasha', name: '야차의 악몽', desc: '야차를 15마리 처치했다.', kind: 'slay', val: '야차:15' },
+  { id: 'u-snake', name: '이무기의 천적', desc: '이무기 유체를 12마리 처치했다.', kind: 'slay', val: '이무기 유체:12' },
+  { id: 'u-fox', name: '꼬리 아홉 중 하나', desc: '구미호 분신을 15마리 처치했다.', kind: 'slay', val: '구미호 분신:15' },
+  { id: 'u-catacomb', name: '해골들의 이웃', desc: '파리 지하묘지를 25번 방문했다.', kind: 'visit', val: 'fr-catacomb:25' },
+  { id: 'u-conv', name: '심야 편의점의 상주객', desc: '편의점 골목을 40번 방문했다. 삼각김밥은 늘 같은 맛이다.', kind: 'visit', val: 'kr-conv:40' },
+  { id: 'u-sky', name: '높은 곳이 좋아', desc: '하늘정원을 30번 방문했다.', kind: 'visit', val: 'kr-sky:30' },
+  { id: 'u-arcade', name: '동전이 마르지 않는 자', desc: '아키하바라 오락실을 40번 방문했다.', kind: 'visit', val: 'jp-arcade:40' },
+  { id: 'u-craft', name: '가마솥의 주인', desc: '아이템을 100번 조합했다.', kind: 'crafts', val: '100' },
+  { id: 'u-friends', name: '인맥왕', desc: '친구를 10명 만들었다.', kind: 'friends', val: '10' },
+  // ── 어려운 업적 5개 ──
+  { id: 'u-core', name: '적월의 심장을 훔친 자', desc: '적월의 핵을 2개 모았다. 적월문 가장 깊은 곳에서만 나온다.', kind: 'collect', val: '적월의 핵:2' },
+  { id: 'u-luck100', name: '운명이 먼저 인사하는 자', desc: '행운을 100까지 끌어올렸다.', kind: 'stat', val: 'luck:100' },
+  { id: 'u-fame', name: '불멸의 이름', desc: '명성을 최대치인 1000까지 올렸다.', kind: 'fame', val: '1000' },
+  { id: 'u-rich', name: '붉은 달의 부호', desc: '골드를 100,000 G 이상 모았다.', kind: 'gold', val: '100000' },
+  { id: 'u-k1000', name: '천 번째 사냥', desc: '몬스터를 1000마리 처치했다.', kind: 'kills', val: '1000' },
+];
 // 헌터 등급 승급: F→E, E→D 는 전투력(레벨)만 오르면 됩니다. D→C 부터는 처치 기록 등 조건이 더해지고, 위로 갈수록 어려워집니다.
 //  kills: [{ min: 해당 등급 이상 몬스터, n: 처치 수 }], sTry: S급 토벌 도전 횟수, taintMax: 오염도(%) 이하여야 함
 const PROMO = {
@@ -398,6 +422,8 @@ const RUMOR_TPL = [
   { t: '{p}의 끝나지 않는 막차', mon: '막차의 승객', rank: 'B', body: '{p}에서 막차를 타면 종점에 닿지 않고 계속 달린다고 합니다.', hoax: '졸다가 종점을 지나친 취객의 이야기가 부풀려진 것이었습니다.' },
   { t: '{p}의 웃는 인형', mon: '웃는 인형', rank: 'C', body: '{p}의 오래된 가게 진열장에서 밤마다 인형의 표정이 바뀐다는 소문입니다.', hoax: '진열장 조명이 흔들려 그렇게 보인 것이었습니다.' },
 ];
+const EVENT = require('./_event');      // [EVENT:HALLOWEEN] 이벤트 데이터 (api/_event.js)
+RUMOR_TPL.push(...EVENT.RUMOR_TPL);         // [EVENT:HALLOWEEN] 이벤트 소문 (이벤트가 꺼지면 새로 만들어지지 않음)
 // 보상표: 소문에 어떻게 표를 던졌고 결과가 어떻게 되었는가
 const RUMOR_REWARD = { believeTrue: { gold: 150, exp: 30 }, doubtFalse: { gold: 80, exp: 20 }, believeFalse: { gold: -100, exp: 0 } };
 
@@ -416,6 +442,7 @@ const EQ_SLOTS = {
   head: { ko: '머리', stat: 'luck', ko_stat: '행운', v: [2, 4, 7, 11], unit: '' },
   boots: { ko: '신발', stat: 'agi', ko_stat: '민첩', v: [3, 6, 10, 16], unit: '' },
   acc: { ko: '장신구', stat: 'taintRes', ko_stat: '오염도 증가 감소', v: [8, 15, 24, 35], unit: '%' },
+  mask: EVENT.MASK_SLOT,      // [EVENT:HALLOWEEN] 가면 (능력치는 장비마다 bonus 로 지정)
 };
 const EQUIPS = [
   { id: 'e_w1', name: '회랑의 석제 단검', slot: 'weapon', grade: 'C', desc: '기둥 파편을 갈아 만든 투박한 단검.', mats: { '균열난 기둥 파편': 4, '먼지 낀 촛대': 1, '붉은 석재 조각': 3 } },
@@ -439,6 +466,7 @@ const EQUIPS = [
   { id: 'e_x1', name: '붉은 산호 목걸이', slot: 'acc', grade: 'B', desc: '오염을 걸러 주는 붉은 산호 목걸이.', mats: { '붉은 산호': 2, '물귀신의 머리카락': 2, '진주': 1, '조개껍데기': 2 } },
   { id: 'e_x2', name: '적월의 반지', slot: 'acc', grade: 'S', desc: '붉은 달빛이 오염을 밀어내는 반지.', mats: { '적월의 핵': 1, '붉은 조류의 핵': 1, '핏빛 수정': 2, '붉은 재': 4 } },
 ];
+EQUIPS.push(...EVENT.MASKS);                 // [EVENT:HALLOWEEN] 이벤트 가면 (조합 가능 여부는 이벤트 켜짐 상태에 따름)
 // 조합법: 재료를 모두 모으면 완성 아이템 1개를 만듭니다. (완성 아이템은 '사용'하면 효과가 나타남)
 const RECIPES = [
   { id: 'r_fruit', name: '열매 주스', desc: '새콤한 열매를 짜 병에 담은 주스.', mats: { '야생 열매': 3, '빈 공병': 1 }, stat: 'hp', amt: 10 },
@@ -488,7 +516,7 @@ const isTurnBased = (monRank, hunterRank) => monRank !== 'SS' && RANK_IDX[monRan
 module.exports = {
   BT, btMon, btPlayer, isTurnBased,
   SV_MARKS, MATERIALS, GATE_MATS, GATE_ZONES, EQ_GRADE, EQ_SLOTS, EQUIPS, PACTS, PACT_BACKLASH, PACT_BACKLASH_TAINT, RUMOR_NEED, RUMOR_OPEN_MS, RUMOR_GAP_MS, RUMOR_MAX_OPEN, RUMOR_TPL, RUMOR_REWARD, RECIPES, CRAFT_DEFS,
-  STAT_MAX, STAT_RESET_BASE, STAT_RESET_PER, statResetCost, FAME_MAX, rnd, chance01, SPAWN_COUNTRIES, SPAWN_REGIONS, REGIONS, REGION_BY_ID, COUNTRIES, COUNTRY_BY_ID, countryOf, placeName, placeLong, MON, TIERS, ACTIVE_MS, ACTIVE_MS_F, ACTIVE_MS_S, activeMsOf, FAME_PER_LV, FAME_PER_RANK, KILL_EXP, KILL_GOLD, KILL_TAINT, rollTaint, garble, RANK_IDX, ACH_KINDS, ACH_COMPOUND, ACH_NUM, ACH_SEED, ACH_SEED2, PROMO, ACH_PIN_MAX, rollGold, HUNT_DIFF,
+  STAT_MAX, STAT_RESET_BASE, STAT_RESET_PER, statResetCost, FAME_MAX, rnd, chance01, SPAWN_COUNTRIES, SPAWN_REGIONS, REGIONS, REGION_BY_ID, COUNTRIES, COUNTRY_BY_ID, countryOf, placeName, placeLong, MON, TIERS, ACTIVE_MS, ACTIVE_MS_F, ACTIVE_MS_S, activeMsOf, FAME_PER_LV, FAME_PER_RANK, KILL_EXP, KILL_GOLD, KILL_TAINT, rollTaint, garble, RANK_IDX, ACH_KINDS, ACH_COMPOUND, ACH_NUM, ACH_SEED, ACH_SEED2, ACH_SEED3, PROMO, ACH_PIN_MAX, rollGold, HUNT_DIFF,
   RAID_NEED, RAID_ATTEMPTS, S_MAX, S_WINDOW_MS, S_WAIT_MS, powNeed, cdOf, huntChance,
   rollRank, rollStats, PROB_CAP, STR_WIN, guardChance, freeChance, HP_START, HP_MIN, HP_DYING_MS, HP_REVIVE, hpLoss, makeCode, addExp, MIN, HOUR,
 };
