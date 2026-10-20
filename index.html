@@ -2688,7 +2688,7 @@ function applyState(st,first){
 }
 var POLL_MS=10000,pollHid=0,lastInput=Date.now();   // 상태 확인 간격(ms): 줄이면 알림이 빨라지고 DB 사용량이 늘어납니다
 ["pointerdown","keydown","touchstart","wheel"].forEach(function(ev){window.addEventListener(ev,function(){var was=Date.now()-lastInput>900000;lastInput=Date.now();if(was&&pollTimer)pollState()},{passive:true,capture:true})});
-document.addEventListener("visibilitychange",function(){if(!document.hidden&&typeof pollTimer!=="undefined"&&pollTimer)pollState()});
+document.addEventListener("visibilitychange",function(){if(!document.hidden&&typeof pollTimer!=="undefined"&&pollTimer){pollState();if(typeof gwnPoll==="function")gwnPoll()}});
 function pollState(first){
   if(polling||$("game").hidden)return;
   polling=true;
@@ -3248,7 +3248,7 @@ function openChat(f){
   api("GET","/api/messages?with="+encodeURIComponent(f.code)).then(function(r){if(mFriend===f&&r.messages)appendMsgs(r.messages);$("mmsgs").scrollTop=$("mmsgs").scrollHeight});
   $("msendt").focus();
 }
-function mTick(){if(mmodal.hidden)return;if(mFriend)pollChat();else loadFriends()}
+function mTick(){if(mmodal.hidden||document.hidden)return;if(mFriend)pollChat();else loadFriends()}
 function openMs(){
   mopener=document.activeElement;mFriend=null;pCur=null;pCache={};fReqSig="";setFTab(0);$("mlistv").classList.remove("fp-open");$("fp").setAttribute("inert","");
   $("mlistv").hidden=false;$("mchatv").hidden=true;$("maddmsg").textContent="";$("maddc").value="";
@@ -3451,7 +3451,7 @@ function enterGame(me){
   renderChar(d);renderStats(d.stats);buildCountries();buildRegions();devApp=null;renderPower(false);
   statSig="";applyState(me.state,true);
   moveTo(curRegion,true);$("mapmsg").textContent=sAutoMsg;sAutoMsg="";
-  clearInterval(pollTimer);pollTimer=setInterval(function(){var ev=document.hidden?2:(Date.now()-lastInput>900000?3:1);if(ev>1&&(++pollHid%ev))return;pollState()},POLL_MS);       // 평소 10초마다 확인. 숨은 탭은 20초, 15분 넘게 아무것도 안 만진 화면은 30초에 한 번 (서버·DB 사용량 절약)svData={};svSync();
+  clearInterval(pollTimer);pollTimer=setInterval(function(){if(document.hidden)return;var ev=(Date.now()-lastInput>900000?3:1);if(ev>1&&(++pollHid%ev))return;pollState()},POLL_MS);       // 평소 10초마다 확인. 숨은 탭은 20초, 15분 넘게 아무것도 안 만진 화면은 30초에 한 번 (서버·DB 사용량 절약)svData={};svSync();
   var h=$("hudloc");h.tabIndex=-1;h.focus();
 }
 // ── 커뮤니티 (읽기 전용) ──
@@ -3767,7 +3767,7 @@ function svReady(){
 }
 var svLoaded=false;
 function svSync(){
-  if($("game").hidden)return;
+  if($("game").hidden||document.hidden)return;
   api("GET","/api/survey").then(function(r){if(r.error||!r.marks)return;svData=r.marks;svLoaded=true;if(!gtmodal.hidden)svPlace()});
 }
 setInterval(svSync,180000);
@@ -4278,7 +4278,7 @@ function gwnPoll(){
     if(parts.length){gwPing();gwToast("게이트웨이브 · "+parts.join(" · "))}
   }).catch(function(){});
 }
-function gwnStart(){clearInterval(gwnTimer);gwnTimer=setInterval(function(){if(document.hidden&&(++pollHid%4))return;gwnPoll()},15000);setTimeout(gwnPoll,2500)}
+function gwnStart(){clearInterval(gwnTimer);gwnTimer=setInterval(function(){if(document.hidden)return;gwnPoll()},15000);setTimeout(gwnPoll,2500)}
 function gwShowSet(){
   var t=gwSettings();$("gwn-post").checked=t.post;$("gwn-cmt").checked=t.cmt;$("gwn-rep").checked=t.rep;$("gwsnote").textContent="";gwPane("gwset");
 }
