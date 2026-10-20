@@ -141,6 +141,17 @@ body{overflow-wrap:break-word}
     <p class="muted" style="margin:0 0 10px;font-size:.85rem">켜면 관리자 캐릭터를 뺀 모든 헌터의 접속(가입·로그인·게임)이 막히고, 헌터 화면에 '점검 중' 안내가 나옵니다. 데이터는 그대로 보존됩니다.</p>
     <div style="display:flex;gap:8px;flex-wrap:wrap"><input id="mtmsg" maxlength="200" placeholder="헌터에게 보여 줄 안내 문구 (비워 두면 기본 문구)" style="flex:1;min-width:200px"><button type="button" class="btn" id="mtbtn">점검 시작</button></div>
   </section>
+  <section class="card" id="bgmcard" style="margin-bottom:12px">
+    <h2 style="margin-bottom:6px">서버 BGM <span id="sbst" class="muted" style="font-size:.85rem"></span></h2>
+    <p class="muted" style="margin:0 0 10px;font-size:.85rem">유튜브 링크를 넣으면 접속 중인 모든 헌터에게 같은 BGM이 재생됩니다(최대 10초 안에 반영). 헌터는 자기 화면에서만 끄기·켜기·볼륨을 조절할 수 있고, 그것이 다른 헌터에게 영향을 주지 않습니다. 퍼가기가 막힌 영상은 재생되지 않습니다.</p>
+    <div style="display:flex;gap:8px;flex-wrap:wrap"><input id="sburl" maxlength="300" placeholder="유튜브 링크 (https://youtu.be/…)" style="flex:1;min-width:200px"><button type="button" class="btn" id="sbapply">적용</button><button type="button" class="btn" id="sboff">BGM 끄기</button></div>
+    <p id="sbmsg" class="muted" style="margin:8px 0 0;font-size:.85rem" role="status"></p>
+  </section>
+  <section class="card" id="evcard" style="margin-bottom:12px"><!-- [EVENT:HALLOWEEN] -->
+    <h2 style="margin-bottom:6px">할로윈 이벤트 <span id="evst" class="muted" style="font-size:.85rem"></span></h2>
+    <p class="muted" style="margin:0 0 10px;font-size:.85rem">백귀야행(밤 20시~02시 잡귀) · 처녀귀신의 소원 · 가면 장비 조합 · 혼령 소문, 그리고 <b>게임 화면의 할로윈 테마</b>(보라·주황, 잭오랜턴·박쥐 장식)가 함께 켜집니다. <b>자동</b>은 정해 둔 기간(10/24~11/1)에만 켜지고, <b>끄기</b>를 누르면 기존 서버로 돌아갑니다(남은 잡귀는 정리, 만든 가면은 유지, 헌터 화면은 최대 5분 안에 오리지널 색으로 복귀).</p>
+    <div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn" data-ev="on">지금 켜기</button><button type="button" class="btn" data-ev="auto">자동(기간)</button><button type="button" class="btn" data-ev="off">끄기</button></div>
+  </section>
   <section class="card" id="gacard" style="margin-bottom:12px">
     <h2 style="margin-bottom:6px">골드 일괄 지급</h2>
     <p class="muted" style="margin:0 0 10px;font-size:.85rem">가입한 모든 유저(관리자 캐릭터 포함)에게 같은 골드를 한 번에 지급합니다. 보유 골드는 최대 99,999,999 G까지만 쌓이고, 획득 내역에 '관리자 일괄 지급'으로 남습니다.</p>
@@ -263,6 +274,38 @@ function loadOnline(){
   });
 }
 setInterval(function(){if(!document.hidden&&!$("app").classList.contains("hide"))loadOnline()},15000);
+function loadSbgm(){
+  api("GET","/api/admin/bgm").then(function(r){
+    if(r._status===401||r.error)return;
+    $("sbst").textContent=r.id?"· 재생 중 ("+r.id+")":"· 꺼짐";$("sbst").style.color=r.id?"#8be28b":"";
+    if(document.activeElement!==$("sburl"))$("sburl").value=r.url||"";
+  });
+}
+function saveSbgm(url){
+  api("POST","/api/admin/bgm",{url:url}).then(function(r){
+    if(r.error){$("sbmsg").textContent=r.error==="bad_url"?"올바른 유튜브 링크가 아닙니다.":"저장하지 못했습니다.";return}
+    $("sbmsg").textContent=r.id?"적용했습니다. 접속 중인 헌터에게 곧 재생됩니다.":"서버 BGM을 껐습니다.";loadSbgm();
+  });
+}
+$("sbapply").addEventListener("click",function(){var v=$("sburl").value.trim();if(!v){$("sbmsg").textContent="유튜브 링크를 입력하세요.";return}saveSbgm(v)});
+$("sboff").addEventListener("click",function(){$("sburl").value="";saveSbgm("")});
+var evMode="auto";
+function loadEvAdmin(){
+  api("GET","/api/admin/event").then(function(r){
+    if(r._status===401||r.error)return;
+    evMode=r.mode;var f=function(t){var d=new Date(t);return (d.getMonth()+1)+"/"+d.getDate()};
+    $("evst").textContent="· "+(r.on?"진행 중":"꺼짐")+" ("+({on:"강제 켜짐",off:"강제 꺼짐",auto:"자동 "+f(r.start)+"~"+f(r.end-1)}[r.mode])+")";
+    $("evst").style.color=r.on?"#8be28b":"";
+    Array.prototype.forEach.call(document.querySelectorAll("#evcard [data-ev]"),function(b){b.style.outline=b.getAttribute("data-ev")===r.mode?"2px solid #ff8a94":""});
+  });
+}
+Array.prototype.forEach.call(document.querySelectorAll("#evcard [data-ev]"),function(b){
+  b.addEventListener("click",function(){
+    var m=b.getAttribute("data-ev");
+    if(m==="off"&&!confirm("이벤트를 끌까요? 남은 잡귀 몬스터가 삭제되고 소원·이벤트 소문·가면 조합이 중단됩니다. (이미 만든 가면과 불씨는 유지)"))return;
+    api("POST","/api/admin/event",{mode:m}).then(function(r){if(r.error){alert("저장하지 못했습니다.");return}loadEvAdmin()});
+  });
+});
 var maintOn=false;
 function loadMaint(){
   api("GET","/api/admin/maintenance").then(function(r){
@@ -782,7 +825,7 @@ function pollInq(){
   });
 }
 setInterval(pollInq,10000);pollInq();
-function loadAll(){loadOnline();loadMaint();loadInq();loadInv();loadOverview();loadS();loadRec();loadBoard();loadAchDefs();if(!document.activeElement||!/^(sn|sd|sp|ss|sam|sname|sdesc|sprice|sstat|samt)$/.test(document.activeElement.className||document.activeElement.id))loadShop();loadList();if(selCode&&!dirty)loadDetail();var d=new Date(),p=function(n){return String(n).padStart(2,"0")};$("last").textContent="갱신 "+p(d.getHours())+":"+p(d.getMinutes())+":"+p(d.getSeconds())}
+function loadAll(){loadOnline();loadMaint();loadEvAdmin();loadSbgm();loadInq();loadInv();loadOverview();loadS();loadRec();loadBoard();loadAchDefs();if(!document.activeElement||!/^(sn|sd|sp|ss|sam|sname|sdesc|sprice|sstat|samt)$/.test(document.activeElement.className||document.activeElement.id))loadShop();loadList();if(selCode&&!dirty)loadDetail();var d=new Date(),p=function(n){return String(n).padStart(2,"0")};$("last").textContent="갱신 "+p(d.getHours())+":"+p(d.getMinutes())+":"+p(d.getSeconds())}
 // 1분마다 데이터만 다시 불러옵니다. 선택한 헌터·탭·검색어·작성 중인 알림은 그대로 유지됩니다.
 setInterval(function(){if($("auto").checked&&!document.hidden&&!$("app").classList.contains("hide"))loadAll()},60000);
 document.addEventListener("visibilitychange",function(){if(!document.hidden&&$("auto").checked&&!$("app").classList.contains("hide"))loadAll()});
