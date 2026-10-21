@@ -183,6 +183,7 @@ function install(a) {
   };
   const claimDown = (uid, key, add) => db.run('UPDATE ev_claims SET n = MAX(0, n - ?) WHERE user_id = ? AND key = ?', [add || 1, uid, key]);
   let cache = { at: 0, mode: 'auto' };
+  let houseDaily = HOUSE_DAILY;      // 하루 귀신의 집 횟수 (관리자 창에서 바꿀 수 있음, 설정 'ev_house_daily')
 
   const modeNow = () => cache.mode;
   async function refresh(force) {
@@ -192,6 +193,9 @@ function install(a) {
     try {
       const r = await db.get("SELECT value FROM settings WHERE key = 'ev_hlw'");
       cache.mode = r && (r.value === 'on' || r.value === 'off') ? r.value : 'auto';
+      const hd = await db.get("SELECT value FROM settings WHERE key = 'ev_house_daily'");
+      const hv = hd ? Number(hd.value) : NaN;
+      houseDaily = Number.isInteger(hv) && hv >= 0 && hv <= 20 ? hv : HOUSE_DAILY;
     } catch (_) { /* 설정을 못 읽으면 직전 값 유지 */ }
   }
   // 지금 이벤트가 켜져 있는가 (동기. refresh() 가 5초마다 설정을 새로 읽어 옵니다)
@@ -496,7 +500,7 @@ function install(a) {
     await db.run('DELETE FROM ev_house_chat WHERE house_id IN (SELECT id FROM ev_house WHERE upd < ?)', [now - 24 * HOUR]).catch(() => {});
     await db.run('DELETE FROM ev_house WHERE upd < ?', [now - 24 * HOUR]).catch(() => {});
   }
-  const houseLeft = async (uid, now) => { const r = await db.get('SELECT n FROM ev_claims WHERE user_id = ? AND key = ?', [uid, dayKeyH(now)]); return Math.max(0, HOUSE_DAILY - (r ? Number(r.n) : 0)); };
+  const houseLeft = async (uid, now) => { const r = await db.get('SELECT n FROM ev_claims WHERE user_id = ? AND key = ?', [uid, dayKeyH(now)]); return Math.max(0, houseDaily - (r ? Number(r.n) : 0)); };
 
   route('GET', '/api/event/house', async (req, res, ctx) => {
     await refresh();
@@ -505,7 +509,7 @@ function install(a) {
     const uid = ctx.user.id;
     housePrune(now);
     const h = await houseOf(uid, now);
-    const out = { on: true, left: await houseLeft(uid, now), max: HOUSE_DAILY, rooms: HOUSE_ROOMS.length, emberName: EMBER, house: null, invite: null };
+    const out = { on: true, left: await houseLeft(uid, now), max: houseDaily, rooms: HOUSE_ROOMS.length, emberName: EMBER, house: null, invite: null };
     if (h) {
       if (h.status === 'wait' && h.guest_id === uid) out.invite = { id: h.id, from: { hn: h.hhn, rank: h.hrk } };
       else {
@@ -564,8 +568,8 @@ function install(a) {
     const uid = ctx.user.id, h = await houseById(String(ctx.body.id || ''));
     if (!h || h.guest_id !== uid || h.status !== 'wait' || h.upd <= now - HOUSE_WAIT_MS) return fail(res, 404, 'no_invite');
     // 두 사람 모두 오늘 남은 횟수가 있어야 시작합니다 (시작할 때 한 번씩 차감)
-    if (!(await claimUp(h.host_id, dayKeyH(now), HOUSE_DAILY, now))) return fail(res, 409, 'limit_friend');
-    if (!(await claimUp(uid, dayKeyH(now), HOUSE_DAILY, now))) { await claimDown(h.host_id, dayKeyH(now)); return fail(res, 409, 'limit_me'); }
+    if (!(await claimUp(h.host_id, dayKeyH(now), houseDaily, now))) return fail(res, 409, 'limit_friend');
+    if (!(await claimUp(uid, dayKeyH(now), houseDaily, now))) { await claimDown(h.host_id, dayKeyH(now)); return fail(res, 409, 'limit_me'); }
     const c = await db.run("UPDATE ev_house SET status = 'run', room = 0, ca = -1, cb = -1, upd = ? WHERE id = ? AND status = 'wait' AND guest_id = ?", [now, h.id, uid]);
     if (c.changes !== 1) { await claimDown(h.host_id, dayKeyH(now)); await claimDown(uid, dayKeyH(now)); return fail(res, 409, 'no_invite'); }
     send(res, 200, { ok: true });
@@ -642,6 +646,47 @@ function install(a) {
     nextAt.clear();
     if (!on(Date.now())) await cleanup(true);
     send(res, 200, { mode, on: on(Date.now()) });
+  }, { auth: false, admin: true });
+
+
+  // 관리자: 귀신의 집 하루 횟수 조작
+  //  GET  ?code=      → 그 헌터의 오늘 남은 횟수 / 하루 기본 횟수
+  //  POST {code, left} → 그 헌터의 오늘 남은 횟수를 정함 (0~20)
+  //  POST {max}        → 모든 헌터의 하루 기본 횟수를 정함 (0~20, 기본 2)
+  //  POST {resetAll:true} → 오늘 모든 헌터의 사용 횟수를 지워 기본 횟수로 되돌림
+  route('GET', '/api/admin/event/house', async (req, res) => {
+    await refresh(true);
+    const code = normCode(new URL(req.url, 'http://x').searchParams.get('code') || '');
+    const out = { max: houseDaily, def: HOUSE_DAILY };
+    if (code) {
+      const u = await userByCode(code);
+      if (!u) return fail(res, 404, 'no_user');
+      out.hn = u.hunter_name; out.code = u.code; out.left = await houseLeft(u.id, Date.now());
+    }
+    send(res, 200, out);
+  }, { auth: false, admin: true });
+  route('POST', '/api/admin/event/house', async (req, res, ctx) => {
+    const now = Date.now(), b = ctx.body;
+    if (b.resetAll === true) {
+      await db.run('DELETE FROM ev_claims WHERE key = ?', [dayKeyH(now)]);
+      return send(res, 200, { ok: true, max: houseDaily });
+    }
+    if (b.max !== undefined) {
+      const m = Number(b.max);
+      if (!Number.isInteger(m) || m < 0 || m > 20) return fail(res, 400, 'bad_max');
+      await db.run("INSERT INTO settings (key, value) VALUES ('ev_house_daily', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value", [String(m)]);
+      houseDaily = m;
+      return send(res, 200, { ok: true, max: m });
+    }
+    const left = Number(b.left);
+    if (!Number.isInteger(left) || left < 0 || left > 20) return fail(res, 400, 'bad_left');
+    const u = await userByCode(normCode(String(b.code || '')));
+    if (!u) return fail(res, 404, 'no_user');
+    await refresh(true);
+    const used = houseDaily - left;      // 기본 횟수보다 많이 주려면 사용 횟수를 음수로 둡니다
+    await db.run('INSERT OR IGNORE INTO ev_claims (user_id, key, n, at) VALUES (?, ?, 0, 0)', [u.id, dayKeyH(now)]);
+    await db.run('UPDATE ev_claims SET n = ?, at = ? WHERE user_id = ? AND key = ?', [used, now, u.id, dayKeyH(now)]);
+    send(res, 200, { ok: true, hn: u.hunter_name, left: await houseLeft(u.id, now), max: houseDaily });
   }, { auth: false, admin: true });
 
   // 잡귀가 절대 나오면 안 되는 곳: 적월문(게이트) 안쪽 지역 전부
