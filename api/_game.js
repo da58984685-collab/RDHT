@@ -500,9 +500,27 @@ const BT = {
   mHeavy: 1.7, mHeavyChance: 0.25,       // 몬스터 강공(예고됨)
 };
 const BT_REF = { F: 2, E: 7, D: 14, C: 22, B: 32, A: 44, S: 60, SS: 80 };      // 등급마다 '보통 헌터'의 전투력 레벨 (근력은 레벨의 0.8배로 가정)
-const btMon = rank => {
+const btMon = (rank, name, pl) => {
+  // 오염 사냥꾼: 헌터의 체력·공격력에 맞춰 강하게 — 한 번 맞을 때 최대 체력의 약 12% (강공 약 20%), 체력은 헌터 공격력의 8배
+  if (name === '오염 사냥꾼' && pl) return { hp: Math.ceil(pl.atk * 8), atk: Math.max(5, Math.round(pl.max * 0.12)) };
   const L = BT_REF[rank] || 2, atkRef = 6 + 1.2 * L + 0.8 * (L * 0.8);
   return { hp: Math.round(atkRef * 4), atk: Math.max(3, Math.round((40 + 5 * L) * 0.22)) };
+};
+// ── 오염 단계: 오염도가 오를수록 불이익이 하나씩 붙습니다 (100%는 기존대로 '폭주') ──
+//   1단계 30~59%: 상점 가격 +10%
+//   2단계 60~79%: 상점 가격 +20% · 토벌에 실패하면 골드를 잃음 · 오염 사냥꾼이 나타날 수 있음
+//   3단계 80~99%: 상점 가격 +30% · 위험 지역(B·A급 지역)에 들어갈 수 없음 · 오염 사냥꾼이 더 자주 나타남 · 위험 구간 한정 몬스터가 아주 드물게 나타남
+const taintStage = t => { t = Number(t) || 0; return t >= 100 ? 3 : t >= 80 ? 3 : t >= 60 ? 2 : t >= 30 ? 1 : 0; };
+const TAINT_SHOP_PCT = [0, 10, 20, 30];
+const TAINT_BAN_DANGER = new Set(['B', 'A']);
+const taintPrice = (price, stage) => (price > 0 ? Math.ceil(price * (100 + TAINT_SHOP_PCT[stage || 0]) / 100) : price);
+const TAINT_LOSE_GOLD_MUL = 1.5;                                       // 2단계부터 토벌에 실패하면, 그 등급 평균 토벌 골드의 1.5배를 잃음 (가진 골드가 한도)
+const HUNTER_CHANCE = [0, 0, 0.06, 0.12];                              // 오염 사냥꾼: 30분마다 한 번 굴림 (단계별 확률)
+const RARE_CHANCE = 0.02;                                              // 위험 구간(80~99%)에서 한정 몬스터: 30분마다 한 번, 2%
+// 오염 몬스터 둘: 이름으로 구분합니다. 이 둘은 항상 턴제 전투로 싸우고, 보상은 등급 보상에 배수가 붙습니다.
+const SPECIAL_MON = {
+  '오염 사냥꾼': { kind: 'hunter', exp: 2, gold: 2, purge: 8, minRounds: 5 },     // 처치하면 오염도 -8%. 5라운드가 지나기 전에는 쓰러지지 않음
+  '혈월의 잔영': { kind: 'rare', exp: 4, gold: 5, drop: ['월식의 조각', 1] },       // 위험 구간 한정. 처치 보상이 큼 (오염도는 보통대로 오름)
 };
 const btPlayer = (lv, st) => ({
   max: 40 + (Number(lv) || 1) * 5,
@@ -514,7 +532,7 @@ const btPlayer = (lv, st) => ({
 const isTurnBased = (monRank, hunterRank) => monRank !== 'SS' && RANK_IDX[monRank] !== undefined && RANK_IDX[monRank] >= (RANK_IDX[hunterRank] || 0);
 
 module.exports = {
-  BT, btMon, btPlayer, isTurnBased,
+  BT, btMon, btPlayer, isTurnBased, taintStage, TAINT_SHOP_PCT, TAINT_BAN_DANGER, taintPrice, TAINT_LOSE_GOLD_MUL, HUNTER_CHANCE, RARE_CHANCE, SPECIAL_MON,
   SV_MARKS, MATERIALS, GATE_MATS, GATE_ZONES, EQ_GRADE, EQ_SLOTS, EQUIPS, PACTS, PACT_BACKLASH, PACT_BACKLASH_TAINT, RUMOR_NEED, RUMOR_OPEN_MS, RUMOR_GAP_MS, RUMOR_MAX_OPEN, RUMOR_TPL, RUMOR_REWARD, RECIPES, CRAFT_DEFS,
   STAT_MAX, STAT_RESET_BASE, STAT_RESET_PER, statResetCost, FAME_MAX, rnd, chance01, SPAWN_COUNTRIES, SPAWN_REGIONS, REGIONS, REGION_BY_ID, COUNTRIES, COUNTRY_BY_ID, countryOf, placeName, placeLong, MON, TIERS, ACTIVE_MS, ACTIVE_MS_F, ACTIVE_MS_S, activeMsOf, FAME_PER_LV, FAME_PER_RANK, KILL_EXP, KILL_GOLD, KILL_TAINT, rollTaint, garble, RANK_IDX, ACH_KINDS, ACH_COMPOUND, ACH_NUM, ACH_SEED, ACH_SEED2, ACH_SEED3, PROMO, ACH_PIN_MAX, rollGold, HUNT_DIFF,
   RAID_NEED, RAID_ATTEMPTS, S_MAX, S_WINDOW_MS, S_WAIT_MS, powNeed, cdOf, huntChance,
