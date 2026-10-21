@@ -1935,7 +1935,8 @@ function renderPower(up){
 /* ───── 오염 단계 경고 (30 · 60 · 80%) ───── */
 var TAINT_MSG=["","오염 1단계 (30%~) · 상점 가격 +10%","오염 2단계 (60%~) · 상점 가격 +20% · 토벌에 실패하면 골드를 잃음 · 오염 사냥꾼이 나타날 수 있음","오염 3단계 (80%~) · 상점 가격 +30% · 위험 지역(B·A급) 출입 불가 · 오염 사냥꾼이 자주 나타남 · 오염도 100%가 되면 폭주"];
 var TAINT_TOAST=["","오염도가 30%를 넘었습니다. 상점 가격이 10% 오릅니다.","오염도가 60%를 넘었습니다. 토벌에 실패하면 골드를 잃고, 오염 사냥꾼이 나타날 수 있습니다.","오염도가 80%를 넘었습니다! 위험 지역에 들어갈 수 없고, 오염 사냥꾼이 자주 나타납니다."];
-var TAINT_BAN_MSG="오염도가 80% 이상이라 위험 지역(B·A급)에는 들어갈 수 없습니다.";
+var TAINT_BAN_MSG="오염도가 높아 해당 지역에 출입할 수 없습니다.";
+function taintBanned(id){var rg=regionById(id);return !!rg&&taintStg>=3&&(rg.danger==="B"||rg.danger==="A")}
 var taintStg=0,taintStgInit=false;
 function taintFx(v){
   var s=v>=80?3:v>=60?2:v>=30?1:0,prev=taintStg;taintStg=s;
@@ -2127,7 +2128,7 @@ function huntErr(a,r){
   switch(r.error){
     case "expired":return a.mon+"은(는) 이미 사라졌습니다.";
     case "already_done":return a.mon+"은(는) 이미 토벌했습니다.";
-    case "wrong_region":return (r.rname||a.rname)+"(으)로 이동해야 "+a.mon+"을(를) 토벌할 수 있습니다.";
+    case "wrong_region":if(taintBanned(a.region))return TAINT_BAN_MSG;return (r.rname||a.rname)+"(으)로 이동해야 "+a.mon+"을(를) 토벌할 수 있습니다.";
     case "blocked":blockedBits|=1;return "운영자에 의해 토벌이 제한되었습니다.";
     case "corrupted":corruptUntil=r.until;updDying();return "오염이 폭주해 "+mmss(r.until-nowS())+" 동안 활동할 수 없습니다.";
     case "tainted":taintedNow=true;updDying();return "오염도가 100%입니다. 오염도를 줄여야 토벌에 참여할 수 있습니다.";
@@ -2144,7 +2145,7 @@ function huntAlert(a){
   function say(t){mm.textContent=t;if(!rmodal.hidden)$("rmsg").textContent=t}
   if(a.done||hBusy)return;
   if(!isActive(a)){say(a.mon+"은(는) 이미 사라졌습니다.");return}
-  if(!inPlace(a)){say(a.rname+"(으)로 이동해야 "+a.mon+"을(를) 토벌할 수 있습니다.");return}
+  if(!inPlace(a)){say(taintBanned(a.region)?TAINT_BAN_MSG:a.rname+"(으)로 이동해야 "+a.mon+"을(를) 토벌할 수 있습니다.");return}
   var isS=a.r==="SS"&&!a.c;
   if(blockedBits&1){say("운영자에 의해 토벌이 제한되었습니다.");return}
   if(isCorrupt()){say("오염이 폭주해 "+mmss(corruptUntil-now)+" 동안 활동할 수 없습니다.");return}
