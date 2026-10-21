@@ -24,6 +24,15 @@ const hashPw = async (pw, salt) => (await scrypt(pw, salt, 64)).toString('hex');
 
 function send(res, status, obj, headers) {
   const body = JSON.stringify(obj);
+  // 조회(GET) 응답에 ETag 를 붙입니다. 내용이 그대로면 브라우저가 보낸 If-None-Match 와 같아서 본문 없이 304 로 답합니다 (전송량 절약).
+  // 헌터마다 다른 내용이므로 'private, no-cache'(저장은 하되 매번 확인)로 두고, 관리자 창 응답은 그대로 no-store 입니다.
+  const rq = res.req;
+  if (status === 200 && rq && rq.method === 'GET' && !headers && body.length >= 200 && !String(rq.url || '').startsWith('/api/admin')) {
+    const et = 'W/"' + crypto.createHash('sha1').update(body).digest('base64url').slice(0, 20) + '"';
+    if (rq.headers['if-none-match'] === et) { res.writeHead(304, { ETag: et, 'Cache-Control': 'private, no-cache' }); return res.end(); }
+    res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'private, no-cache', ETag: et, 'Content-Length': Buffer.byteLength(body) });
+    return res.end(body);
+  }
   res.writeHead(status, Object.assign({
     'Content-Type': 'application/json; charset=utf-8',
     'Cache-Control': 'no-store',
@@ -124,6 +133,25 @@ async function tickSpawns() {
   }
 }
 
+// 오염 몬스터 두 종류 (30분에 한 번만 굴리므로 DB 를 거의 쓰지 않습니다)
+//  · 오염 사냥꾼: 오염 2단계(60%~) 6%, 3단계(80%~) 12% — 강한 공격력으로 5라운드 이상 이어지는 전투
+//  · 혈월의 잔영: 위험 구간(80~99%)에서만 2% — 보상이 큰 한정 몬스터
+async function taintMonsters(uid, now) {
+  const u = await db.get('SELECT stats, region, rank FROM users WHERE id = ?', [uid]);
+  if (!u) return null;
+  const t = taintOf(u), stg = G.taintStage(t);
+  if (stg < 2 || t >= 100) return null;
+  const wantH = G.chance01() < G.HUNTER_CHANCE[stg], wantR = t >= 80 && G.chance01() < G.RARE_CHANCE;
+  if (!wantH && !wantR) return null;
+  const live = await db.all('SELECT name FROM monsters WHERE owner_id = ? AND name IN (?, ?) AND spawned_at > ?', [uid, '오염 사냥꾼', '혈월의 잔영', now - G.ACTIVE_MS]);
+  const have = new Set(live.map(x => x.name));
+  const rk = ['F', 'E', 'D', 'C', 'B', 'A'].includes(u.rank) ? u.rank : 'A';
+  const reg = () => (G.SPAWN_REGIONS.some(r => r.id === u.region) ? u.region : G.SPAWN_REGIONS[G.rnd(0, G.SPAWN_REGIONS.length - 1)].id);      // 적월문 안은 안전 지역이므로 바깥 지역에 나타남
+  const mk = name => ['INSERT INTO monsters (region, name, rank, spawned_at, owner_id) VALUES (?, ?, ?, ?, ?)', [reg(), name, rk, now, uid]];
+  const a = wantH && !have.has('오염 사냥꾼') ? mk('오염 사냥꾼') : null, b = wantR && !have.has('혈월의 잔영') ? mk('혈월의 잔영') : null;
+  return a ? { a, b } : b ? { a: b, b: null } : null;
+}
+
 // F~A급 몬스터는 헌터마다 따로 출몰합니다. 그 헌터가 접속해 요청할 때 밀린 만큼 따라잡아 만듭니다.
 const spawnNext = new Map();       // 헌터별 '다음 출몰 시각' (이 시각 전에는 DB 를 읽지 않음). 다른 인스턴스가 앞당길 일이 없어 안전합니다.
 async function tickPersonal(uid, now) {
@@ -154,6 +182,7 @@ async function tickPersonal(uid, now) {
     }
     const claim = await db.run('UPDATE user_spawn SET next_at = ? WHERE user_id = ? AND tier = ? AND next_at = ?', [next, uid, t.k, from]);
     if (claim.changes === 1) minNext = Math.min(minNext, next); else certain = false;
+    if (claim.changes === 1 && t.k === 'mid' && list.length) { const ex = await taintMonsters(uid, now); if (ex) list.push(ex.a); if (ex && ex.b) list.push(ex.b); }
     if (claim.changes === 1 && list.length) await db.batch(list);
   }
   if (PERF && certain && minNext !== Infinity) spawnNext.set(uid, minNext);
@@ -311,6 +340,8 @@ async function resolveDue() {
 const CORRUPT_MS = G.HOUR;                 // 오염 폭주로 활동하지 못하는 시간
 const CORRUPT_MON_MS = 30 * G.MIN;         // 오염된 유저 몬스터가 출몰 알림에 남아 있는 시간
 // 폭주 잠금: 잠금 시간이 남아 있어도 오염도가 100 아래로 내려가면 풀립니다.
+const taintOf = row => { try { return Number(JSON.parse(row.stats).taint) || 0; } catch (_) { return 0; } };
+const stageOf = row => G.taintStage(taintOf(row));      // 오염 단계 0~3 (30·60·80%)
 const corruptLock = (row, now) => row.corrupt_until > now && (Number(JSON.parse(row.stats).taint) || 0) >= 100;
 // row 를 넘기면(방금 읽은 유저 행) 다시 읽지 않습니다. 값을 바꿨으면 true 를 돌려줍니다.
 async function corruptCheck(userId, row) {
@@ -659,8 +690,8 @@ async function buildState(u, now) {
     WHERE ${vis} AND (spawned_at > ? OR (rank = 'SS' AND spawned_at > ?) OR (corrupt_of IS NOT NULL AND spawned_at > ?) OR id IN (SELECT id FROM monsters WHERE ${vis} ORDER BY id DESC LIMIT 6))
       AND id NOT IN (SELECT monster_id FROM s_close WHERE ok = 0)
       AND NOT (rank = 'F' AND corrupt_of IS NULL AND spawned_at < ${now - G.ACTIVE_MS_F} AND id NOT IN (SELECT monster_id FROM kills WHERE user_id = ?))
-      AND (corrupt_of IS NULL OR corrupt_of <> ?)
-    ORDER BY spawned_at DESC, id DESC LIMIT 40`, [u.id, now - G.ACTIVE_MS, now - G.ACTIVE_MS_S, now - CORRUPT_MON_MS, u.id, u.id, u.id]);
+      AND (corrupt_of IS NULL OR corrupt_of <> ?)${EV.GATE_GHOST_SQL}
+    ORDER BY spawned_at DESC, id DESC LIMIT 40`, [u.id, now - G.ACTIVE_MS, now - G.ACTIVE_MS_S, now - CORRUPT_MON_MS, u.id, u.id, u.id].concat(EV.GATE_GHOST_ARGS));      // [EVENT:HALLOWEEN] 적월문 안의 잡귀는 어떤 경우에도 보이지 않음
   const minId = mons.length ? Math.min.apply(null, mons.map(m => m.id)) : 0;
   const [kills, cds, parts, si, pending, results] = await Promise.all([
     db.all('SELECT monster_id FROM kills WHERE user_id = ? AND monster_id >= ?', [u.id, minId]),
@@ -1232,7 +1263,9 @@ route('POST', '/api/quests/claim', async (req, res, ctx) => {
 const EXC = { fee: 0.10, maxListings: 8, ms: 24 * 3600000, buyTaint: 2, maxPrice: 9999999 };
 const giveItem = (uid, item, qty) => db.run('INSERT INTO inventory (user_id, item, qty) VALUES (?, ?, ?) ON CONFLICT(user_id, item) DO UPDATE SET qty = MIN(9999, qty + excluded.qty)', [uid, item, qty]);
 // [EVENT:HALLOWEEN] 이벤트 모듈 연결 (끄려면 관리자 페이지에서 '끄기' — 코드 수정 불필요)
-const EV = EVT.install({ db, G, route, send, fail, limited, userById, grantGold, logAcquire, giveItem, achReset: () => { achCache.defs = null; } });
+const EV = EVT.install({ db, G, route, send, fail, limited, userById, grantGold, logAcquire, giveItem, isFriend, userByCode, normCode, applyItemEffect, achReset: () => { achCache.defs = null; } });
+// 사냥 도감 · 주간 리포트 · 명예의 전당 · 지명 수배
+require('./_extra').install({ db, G, route, send, fail, userById, grantGold, grantExp, logAcquire, PERF });
 let lastExcSweep = 0;
 async function sweepExchange(force) {
   const now = Date.now();
@@ -1840,7 +1873,9 @@ route('POST', '/api/move', async (req, res, ctx) => {
   if (typeof id !== 'string' || !G.REGION_BY_ID[id]) return fail(res, 400, 'bad_region');
   // 게이트 구역(적월문): 밖에서 들어올 때는 어느 지역을 골라도 안쪽 지역 중 무작위 한 곳으로 이동합니다.
   const dest = G.COUNTRY_BY_ID[G.countryOf(id)];
-  if (dest.gate && G.countryOf(ctx.user.region) !== dest.id) id = dest.regions[G.rnd(0, dest.regions.length - 1)].id;
+  const banned = r => stageOf(ctx.user) >= 3 && G.TAINT_BAN_DANGER.has(r.danger);      // 오염도 80% 이상: 위험 지역(B·A급 지역)에는 들어갈 수 없음
+  if (dest.gate && G.countryOf(ctx.user.region) !== dest.id) { const ok = dest.regions.filter(r => !banned(r)); id = (ok.length ? ok : dest.regions)[G.rnd(0, (ok.length ? ok : dest.regions).length - 1)].id; }
+  if (banned(G.REGION_BY_ID[id]) && id !== ctx.user.region) return fail(res, 409, 'taint_ban', { region: id, rname: G.placeName(id) });
   if (ctx.user.block_flags & 2) return fail(res, 403, 'blocked', { what: 'move' });
   if (corruptLock(ctx.user, Date.now())) return fail(res, 409, 'corrupted', { until: ctx.user.corrupt_until });
   if (G.countryOf(ctx.user.region) === 'GT' && G.countryOf(id) !== 'GT') await gateAutoRetreat(ctx.user.id);
@@ -1857,6 +1892,7 @@ route('POST', '/api/hunt', async (req, res, ctx) => {
   if (cur.block_flags & 1) return fail(res, 403, 'blocked', { what: 'hunt' });      // 운영자가 토벌을 막아 둠
   const m = await db.get('SELECT id, region, name, rank, spawned_at, owner_id, rumor_id, corrupt_of FROM monsters WHERE id = ?', [Number(ctx.body.id)]);
   if (!m) return fail(res, 410, 'expired');
+  if (EV.isGhostInGate(m)) return fail(res, 404, 'no_monster');      // [EVENT:HALLOWEEN] 적월문 안의 잡귀는 상대할 수 없음
   if ((m.owner_id != null && m.owner_id !== cur.id) || (m.owner_id == null && m.rank !== 'SS' && m.corrupt_of == null && m.rumor_id == null)) return fail(res, 404, 'no_monster');
   const cm = m.corrupt_of != null;
   if (corruptLock(cur, now)) return fail(res, 409, 'corrupted', { until: cur.corrupt_until });   // 오염도 100: 1시간 활동 불가
@@ -1897,7 +1933,7 @@ route('POST', '/api/hunt', async (req, res, ctx) => {
   const cd = cm ? null : await db.get('SELECT until FROM fail_cd WHERE user_id = ? AND monster_id = ?', [cur.id, m.id]);
   if (cd && cd.until > now) return fail(res, 429, 'cooldown', { until: cd.until });
   // 내 등급과 같거나 높은 몬스터는 턴제 전투로 진행합니다 (오염 몬스터는 예전처럼 바로 처치)
-  if (!cm && G.isTurnBased(m.rank, cur.rank)) {
+  if (!cm && (G.SPECIAL_MON[m.name] || G.isTurnBased(m.rank, cur.rank))) {      // 오염 사냥꾼·혈월의 잔영은 등급과 상관없이 항상 턴제 전투
     const bv = await battleStart(cur, m, myStats, now);
     if (bv.error) return fail(res, 409, bv.error, { battle: bv.view });
     return send(res, 200, { result: 'battle', battle: bv.view });
@@ -1914,17 +1950,26 @@ route('POST', '/api/hunt', async (req, res, ctx) => {
 async function huntWin(cur, m, eb, now) {
   const k = await db.run('INSERT OR IGNORE INTO kills (user_id, monster_id, at) VALUES (?, ?, ?)', [cur.id, m.id, now]);
   if (k.changes !== 1) return { err: 'already_done' };
-  const gain = G.KILL_EXP[m.rank];
+  const sp = G.SPECIAL_MON[m.name];      // 오염 사냥꾼·혈월의 잔영: 보상 배수, 정화, 아이템
+  const gain = G.KILL_EXP[m.rank] * (sp ? sp.exp : 1);
   const r = await grantExp(cur.id, gain);
-  const gold = G.rollGold(m.rank); await grantGold(cur.id, gold);
-  const taint = eqTaint(G.rollTaint(m.rank), eb), taintNow = await grantTaint(cur.id, taint);
+  const gold = G.rollGold(m.rank) * (sp ? sp.gold : 1); await grantGold(cur.id, gold);
+  let taint = 0, taintNow = null, note = '';
+  if (sp && sp.purge) {
+    const pr = await applyItemEffect(cur.id, 'taint', -sp.purge, now);
+    taintNow = pr ? pr.after : null; note = '오염도 -' + sp.purge + '% 정화';
+  } else { taint = eqTaint(G.rollTaint(m.rank), eb); taintNow = await grantTaint(cur.id, taint); }
+  if (sp && sp.drop) {
+    await giveItem(cur.id, sp.drop[0], sp.drop[1]); await logAcquire(cur.id, 'item', sp.drop[0], sp.drop[1], m.name + ' 토벌', now);
+    note = sp.drop[0] + ' ×' + sp.drop[1] + ' 획득';
+  }
   await equipWear(cur.id);
   await logHunt(cur.id, m, 'success', gain, now);
   await logAcquire(cur.id, 'exp', '경험치', gain, m.name + ' 토벌', now);
   await logAcquire(cur.id, 'gold', '골드', gold, m.name + ' 토벌', now);
   await questProg(cur, 'kill', 1, G.RANK_IDX[m.rank]);
   const ember = await EV.onKill(cur, m, now);      // [EVENT:HALLOWEEN] 잡귀 처치 시 도깨비 불씨
-  return { payload: { result: 'success', gain, gold, taint, taintNow, levelUp: r.up, lv: r.lv, exp: r.exp, ember: ember || undefined } };
+  return { payload: { result: 'success', gain, gold, taint, taintNow, levelUp: r.up, lv: r.lv, exp: r.exp, ember: ember || undefined, note: note || undefined } };
 }
 // 토벌 실패 처리
 async function huntLose(cur, m, myStats, eb, now) {
@@ -1937,7 +1982,14 @@ async function huntLose(cur, m, myStats, eb, now) {
   await db.run(`INSERT INTO fail_cd (user_id, monster_id, until, free) VALUES (?, ?, ?, ?)
                 ON CONFLICT(user_id, monster_id) DO UPDATE SET until = excluded.until, free = excluded.free`, [cur.id, m.id, until, free ? 1 : 0]);
   const hp = await applyHpLoss(cur.id, m.rank, now, eb);
-  return { result: 'fail', until, free, hpLoss: hp.loss, prevented: hp.prevented, hpNow: hp.hp, dying: hp.dying, dyingUntil: hp.dying ? hp.until : 0 };
+  // 오염 2단계(60%)부터: 토벌에 실패하면 골드를 잃습니다 (그 등급 평균 토벌 골드의 1.5배, 가진 만큼까지)
+  let goldLoss = 0;
+  if (stageOf(cur) >= 2) {
+    const kg = G.KILL_GOLD[m.rank] || [0, 0], g0 = await db.get('SELECT gold FROM users WHERE id = ?', [cur.id]);
+    goldLoss = Math.min(Number(g0 && g0.gold) || 0, Math.round((kg[0] + kg[1]) / 2 * G.TAINT_LOSE_GOLD_MUL));
+    if (goldLoss > 0) { await db.run('UPDATE users SET gold = MAX(0, gold - ?) WHERE id = ?', [goldLoss, cur.id]); }
+  }
+  return { result: 'fail', goldLoss: goldLoss || undefined, until, free, hpLoss: hp.loss, prevented: hp.prevented, hpNow: hp.hp, dying: hp.dying, dyingUntil: hp.dying ? hp.until : 0 };
 }
 
 // ═════════════ 턴제 전투 ═════════════
@@ -1958,7 +2010,7 @@ async function battleLive(uid, now) {
 async function battleStart(cur, m, myStats, now) {
   const have = await battleLive(cur.id, now);
   if (have) return have.monster_id === m.id ? { view: btView(have) } : { error: 'in_battle', view: btView(have) };
-  const mo = G.btMon(m.rank), pl = G.btPlayer(cur.lv, myStats);
+  const pl = G.btPlayer(cur.lv, myStats), mo = G.btMon(m.rank, m.name, pl);
   const log = JSON.stringify([m.name + '이(가) 나타났다! 전투 시작.']);
   const ins = await db.run('INSERT OR IGNORE INTO battles (user_id, monster_id, mname, mrank, mhp, mmax, php, pmax, round, intent, cd_heavy, buff, log, ver, started, upd) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, 0, 0, ?, 0, ?, ?)',
     [cur.id, m.id, m.name, m.rank, mo.hp, mo.hp, pl.max, pl.max, 'atk', log, now, now]);
@@ -1981,7 +2033,7 @@ route('POST', '/api/battle/act', async (req, res, ctx) => {
   if (action === 'heavy' && b.cd_heavy > 0) return fail(res, 409, 'heavy_cd', { battle: btView(b) });
   const m = await db.get('SELECT id, region, name, rank, spawned_at, owner_id, rumor_id, corrupt_of FROM monsters WHERE id = ?', [b.monster_id]);
   const eb = await equipBonus(cur.id), myStats = withEq(JSON.parse(cur.stats), eb);
-  const pl = G.btPlayer(cur.lv, myStats), mo = G.btMon(b.mrank), BT = G.BT;
+  const pl = G.btPlayer(cur.lv, myStats), mo = G.btMon(b.mrank, b.mname, pl), BT = G.BT;
   const log = [];
   let mhp = b.mhp, php = b.php, buff = b.buff, cd = Math.max(0, b.cd_heavy - 1), outcome = null;
   const rr = (lo, hi) => lo + Math.random() * (hi - lo);
@@ -2001,7 +2053,11 @@ route('POST', '/api/battle/act', async (req, res, ctx) => {
       const crit = Math.random() < pl.crit; if (crit) dmg *= 1.8;
       dmg = Math.max(1, Math.round(dmg));
       mhp = Math.max(0, mhp - dmg);
+      const sp = G.SPECIAL_MON[b.mname];
+      const held = !!(sp && sp.minRounds && mhp <= 0 && b.round < sp.minRounds);      // 오염 사냥꾼: 5라운드가 지나기 전에는 쓰러지지 않음
+      if (held) mhp = 1;
       log.push((action === 'heavy' ? '강타! ' : '공격! ') + b.mname + '에게 ' + dmg + ' 피해' + (crit ? ' (치명타!)' : '') + '.');
+      if (held) log.push(b.mname + '은(는) 쓰러지지 않고 버텨냈다!');
     }
   }
   const guarding = action === 'guard';
@@ -2189,7 +2245,7 @@ route('GET', '/api/notices', async (req, res, ctx) => {
     FROM notices n WHERE NOT EXISTS (SELECT 1 FROM notice_del d WHERE d.user_id = ? AND d.notice_id = n.id) ORDER BY n.id DESC LIMIT 50`, [ctx.user.id, ctx.user.id]);
   // 아이템은 알림이 발송된 뒤에 가입한 헌터에게는 지급되지 않습니다
   send(res, 200, { notices: rows.map(n => ({ id: n.id, title: n.title || '', text: n.text, ts: n.created_at,
-    item: n.item || '', qty: n.item ? n.qty : 0, claimed: !!n.claimed, can: !!n.item && ctx.user.created_at < n.created_at })), seen: ctx.user.notice_seen });
+    item: n.item || '', qty: n.item ? n.qty : 0, claimed: !!n.claimed, can: !!n.item && ctx.user.created_at < n.created_at && (n.item !== EV.EMBER || EV.on()) })), seen: ctx.user.notice_seen });
 });
 
 // 알림에 첨부된 아이템 수령 (헌터당 알림 1회)
@@ -2199,6 +2255,7 @@ route('POST', '/api/notices/claim', async (req, res, ctx) => {
   if (!n) return fail(res, 404, 'no_notice');
   if (!n.item) return fail(res, 400, 'no_item');
   if (!(ctx.user.created_at < n.created_at)) return fail(res, 403, 'not_eligible');
+  if (n.item === EV.EMBER && !EV.on()) return fail(res, 403, 'event_off');      // 이벤트가 꺼진 뒤에는 도깨비 불씨 수령 불가
   const now = Date.now();
   const eq = EQ_BY_NAME.get(n.item);       // 첨부 아이템이 장비이면 장비 보관함으로 지급 (장비는 개당 내구도를 가짐)
   if (eq) {
@@ -2517,7 +2574,8 @@ route('POST', '/api/admin/player/item/delete', async (req, res, ctx) => {
 // ───────────── 상점 ─────────────
 route('GET', '/api/shop', async (req, res, ctx) => {
   const items = await db.all('SELECT id, name, descr, price, eff_stat, eff_amt FROM shop_items ORDER BY id');
-  send(res, 200, { gold: ctx.user.gold, items: items.map(i => ({ id: i.id, name: i.name, desc: i.descr, price: i.price, eff: i.eff_stat ? { stat: i.eff_stat, amt: i.eff_amt } : null })) });
+  const stg = stageOf(ctx.user);       // 오염 단계가 오르면 상점 가격이 오릅니다
+  send(res, 200, { gold: ctx.user.gold, markup: G.TAINT_SHOP_PCT[stg], items: items.map(i => ({ id: i.id, name: i.name, desc: i.descr, price: G.taintPrice(i.price, stg), eff: i.eff_stat ? { stat: i.eff_stat, amt: i.eff_amt } : null })) });
 });
 
 route('POST', '/api/shop/buy', async (req, res, ctx) => {
@@ -2531,7 +2589,7 @@ route('POST', '/api/shop/buy', async (req, res, ctx) => {
   const cur = await db.get('SELECT qty FROM inventory WHERE user_id = ? AND item = ?', [ctx.user.id, it.name]);
   const have = cur ? Number(cur.qty) : 0;
   if (have + qty > 9999) return fail(res, 400, 'max_qty', { room: Math.max(0, 9999 - have) });
-  const total = it.price * qty;
+  const total = G.taintPrice(it.price, stageOf(ctx.user)) * qty;
   if (total > 0) {      // 잔액이 충분할 때만 원자적으로 차감
     const pay = await db.run('UPDATE users SET gold = gold - ? WHERE id = ? AND gold >= ?', [total, ctx.user.id, total]);
     if (pay.changes !== 1) return fail(res, 402, 'no_gold');
@@ -2707,7 +2765,8 @@ route('POST', '/api/inventory/use', async (req, res, ctx) => {
 route('GET', '/api/admin/shop', async (req, res) => {
   const items = await db.all('SELECT id, name, descr, price, eff_stat, eff_amt FROM shop_items ORDER BY id');
   send(res, 200, { items: items.map(i => ({ id: i.id, name: i.name, desc: i.descr, price: i.price, stat: i.eff_stat, amt: i.eff_amt })),
-    equips: G.EQUIPS.map(e => ({ name: e.name, grade: e.grade, slot: e.slot })) });
+    equips: G.EQUIPS.map(e => ({ name: e.name, grade: e.grade, slot: e.slot })),
+    special: [{ name: EV.EMBER, note: '할로윈 이벤트 아이템 · 이벤트를 끄면 사라짐' }] });
 }, { auth: false, admin: true });
 
 route('POST', '/api/admin/shop/save', async (req, res, ctx) => {
