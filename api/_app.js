@@ -4,6 +4,7 @@ const crypto = require('node:crypto');
 const { promisify } = require('node:util');
 const db = require('./_db');
 const G = require('./_game');
+const SYSMSG = require('./_sysmsg');
 const EVT = require('./_event');      // [EVENT:HALLOWEEN] 할로윈 이벤트 (api/_event.js)
 const B = require('./_board');
 
@@ -681,8 +682,9 @@ async function buildState(u, now) {
     (SELECT COUNT(*) FROM daily_quests WHERE user_id = ? AND day = ? AND claimed = 0 AND prog >= need) AS qrdy,
     (SELECT COUNT(*) FROM friends f JOIN users x ON x.id = f.friend_id WHERE f.user_id = ? AND x.corrupt_flag = 1) AS resq,
     (SELECT COUNT(*) FROM gifts WHERE to_id = ? AND seen = 0) AS gift,
-    (SELECT COALESCE(MAX(id), 0) FROM board_posts) AS board`,
-    [u.id, Number(u.ach_seen), u.notice_seen, u.id, u.id, now, u.id, u.id, kstDay(now), u.id, u.id]);
+    (SELECT COALESCE(MAX(id), 0) FROM board_posts) AS board,
+    ${SYSMSG.NEXT_SQL}`,
+    [u.id, Number(u.ach_seen), u.notice_seen, u.id, u.id, now, u.id, u.id, kstDay(now), u.id, u.id, now - SYSMSG.LIVE_MS, u.id]);
   const achNew = Number(cnt.ach);
   // 보이는 몬스터: 서버 공통 S급 + 내 몬스터(F~A). 예전 공통 F~A 몬스터는 보이지 않습니다.
   const vis = "((owner_id IS NULL AND (rank = 'SS' OR corrupt_of IS NOT NULL OR rumor_id IS NOT NULL)) OR owner_id = ?)";
@@ -740,6 +742,7 @@ async function buildState(u, now) {
     pending: pending.map(p => ({ id: p.id, mon: p.name, at: p.resolve_at })),
     results: results.map(r => ({ id: r.id, mon: r.name, success: !!r.success, exp: r.exp_gain, gold: r.gold_gain, taint: r.taint_gain, levelUp: !!r.level_up, hpLoss: r.hp_loss })),
     unreadNotices: Number(cnt.un),
+    sp: cnt.sp || null,
     achNew,
     giftUnread: Number(cnt.gift),
     unreadMsgs: Number(cnt.um),
@@ -1264,8 +1267,7 @@ const EXC = { fee: 0.10, maxListings: 8, ms: 24 * 3600000, buyTaint: 2, maxPrice
 const giveItem = (uid, item, qty) => db.run('INSERT INTO inventory (user_id, item, qty) VALUES (?, ?, ?) ON CONFLICT(user_id, item) DO UPDATE SET qty = MIN(9999, qty + excluded.qty)', [uid, item, qty]);
 // [EVENT:HALLOWEEN] 이벤트 모듈 연결 (끄려면 관리자 페이지에서 '끄기' — 코드 수정 불필요)
 const EV = EVT.install({ db, G, route, send, fail, limited, userById, grantGold, logAcquire, giveItem, isFriend, userByCode, normCode, applyItemEffect, achReset: () => { achCache.defs = null; } });
-// 사냥 도감 · 주간 리포트 · 명예의 전당 · 지명 수배
-require('./_extra').install({ db, G, route, send, fail, userById, grantGold, grantExp, logAcquire, PERF });
+require('./_sysmsg').install({ db, route, send, fail });      // 시스템 팝업 (관리자 → 전체 헌터)
 let lastExcSweep = 0;
 async function sweepExchange(force) {
   const now = Date.now();
