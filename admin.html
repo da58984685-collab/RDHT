@@ -153,6 +153,11 @@ body{overflow-wrap:break-word}
     <h2 style="margin-bottom:6px">할로윈 이벤트 <span id="evst" class="muted" style="font-size:.85rem"></span></h2>
     <p class="muted" style="margin:0 0 10px;font-size:.85rem">백귀야행(밤 20시~02시 잡귀) · 처녀귀신의 소원 · 가면 장비 조합 · 혼령 소문, 그리고 <b>게임 화면의 할로윈 테마</b>(보라·주황, 잭오랜턴·박쥐 장식)가 함께 켜집니다. <b>자동</b>은 정해 둔 기간(10/24~11/1)에만 켜지고, <b>끄기</b>를 누르면 기존 서버로 돌아갑니다(남은 잡귀는 정리, 만든 가면은 유지, 헌터가 가진 도깨비 불씨는 모두 사라짐, 헌터 화면은 최대 5분 안에 오리지널 색으로 복귀).</p>
     <div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn" data-ev="on">지금 켜기</button><button type="button" class="btn" data-ev="auto">자동(기간)</button><button type="button" class="btn" data-ev="off">끄기</button></div>
+    <h3 style="margin:14px 0 6px;font-size:1rem">귀신의 집 출입 횟수</h3>
+    <p class="muted" style="margin:0 0 8px;font-size:.85rem">하루 기본 횟수는 한 사람이 하루(한국 시간)에 귀신의 집을 시작할 수 있는 횟수입니다(기본 2회). 특정 헌터의 오늘 남은 횟수만 따로 정할 수도 있고(기본보다 많게도 가능), 오늘 횟수를 모두에게 되돌릴 수도 있습니다.</p>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px"><span class="muted">하루 기본 횟수</span><input id="hhmax" type="number" min="0" max="20" step="1" style="max-width:90px"><button type="button" class="btn" id="hhmaxbtn">적용</button><button type="button" class="btn dbtn" id="hhreset">오늘 횟수 전체 되돌리기</button></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><input id="hhcode" maxlength="20" placeholder="헌터 고유 코드" style="flex:1;min-width:150px"><button type="button" class="btn ghost" id="hhlook">조회</button><input id="hhleft" type="number" min="0" max="20" step="1" placeholder="남은 횟수" style="max-width:110px"><button type="button" class="btn" id="hhset">이 헌터에게 적용</button></div>
+    <p id="hhmsg" class="muted" style="margin:8px 0 0;font-size:.85rem" role="status"></p>
   </section>
   <section class="card" id="spcard" style="margin-bottom:12px">
     <h2 style="margin-bottom:6px">시스템 팝업 <span id="spst" class="muted" style="font-size:.85rem"></span></h2>
@@ -327,6 +332,31 @@ Array.prototype.forEach.call(document.querySelectorAll("#evcard [data-ev]"),func
     api("POST","/api/admin/event",{mode:m}).then(function(r){if(r.error){alert("저장하지 못했습니다.");return}loadEvAdmin()});
   });
 });
+// ── 귀신의 집 출입 횟수 ──
+function hhLoad(){api("GET","/api/admin/event/house").then(function(r){if(r&&r.max!==undefined&&document.activeElement!==$("hhmax"))$("hhmax").value=r.max})}
+function hhErr(r){return r.error==="no_user"?"그 코드의 헌터가 없습니다.":r.error==="bad_left"||r.error==="bad_max"?"0~20 사이 정수를 넣으세요.":"처리하지 못했습니다."}
+$("hhmaxbtn").addEventListener("click",function(){
+  var v=Number($("hhmax").value);if(!Number.isInteger(v)||v<0||v>20){$("hhmsg").textContent="0~20 사이 정수를 넣으세요.";return}
+  api("POST","/api/admin/event/house",{max:v}).then(function(r){$("hhmsg").textContent=r.ok?"하루 기본 횟수를 "+r.max+"회로 바꿨습니다.":hhErr(r)});
+});
+$("hhreset").addEventListener("click",function(){
+  if(!confirm("오늘 모든 헌터의 귀신의 집 사용 횟수를 지우고 기본 횟수로 되돌릴까요?"))return;
+  api("POST","/api/admin/event/house",{resetAll:true}).then(function(r){$("hhmsg").textContent=r.ok?"오늘 횟수를 모두 되돌렸습니다.":hhErr(r)});
+});
+$("hhlook").addEventListener("click",function(){
+  var c=$("hhcode").value.trim();if(!c){$("hhmsg").textContent="고유 코드를 입력하세요.";return}
+  api("GET","/api/admin/event/house?code="+encodeURIComponent(c)).then(function(r){
+    if(r.error){$("hhmsg").textContent=hhErr(r);return}
+    $("hhleft").value=r.left;$("hhmsg").textContent=r.hn+" · 오늘 남은 횟수 "+r.left+"회 (하루 기본 "+r.max+"회)";
+  });
+});
+$("hhset").addEventListener("click",function(){
+  var c=$("hhcode").value.trim(),v=Number($("hhleft").value);
+  if(!c){$("hhmsg").textContent="고유 코드를 입력하세요.";return}
+  if($("hhleft").value===""||!Number.isInteger(v)||v<0||v>20){$("hhmsg").textContent="남은 횟수는 0~20 사이 정수여야 합니다.";return}
+  api("POST","/api/admin/event/house",{code:c,left:v}).then(function(r){$("hhmsg").textContent=r.ok?r.hn+"님의 오늘 남은 횟수를 "+r.left+"회로 정했습니다.":hhErr(r)});
+});
+hhLoad();
 var maintOn=false;
 function loadMaint(){
   api("GET","/api/admin/maintenance").then(function(r){
@@ -941,7 +971,7 @@ function pollInq(){
   });
 }
 setInterval(pollInq,10000);pollInq();
-function loadAll(){loadNHist();loadSp();loadOnline();loadMaint();loadEvAdmin();loadSbgm();loadInq();loadInv();loadOverview();loadS();loadRec();loadBoard();loadAchDefs();if(!document.activeElement||!/^(sn|sd|sp|ss|sam|sname|sdesc|sprice|sstat|samt)$/.test(document.activeElement.className||document.activeElement.id))loadShop();loadList();if(selCode&&!dirty)loadDetail();var d=new Date(),p=function(n){return String(n).padStart(2,"0")};$("last").textContent="갱신 "+p(d.getHours())+":"+p(d.getMinutes())+":"+p(d.getSeconds())}
+function loadAll(){hhLoad();loadNHist();loadSp();loadOnline();loadMaint();loadEvAdmin();loadSbgm();loadInq();loadInv();loadOverview();loadS();loadRec();loadBoard();loadAchDefs();if(!document.activeElement||!/^(sn|sd|sp|ss|sam|sname|sdesc|sprice|sstat|samt)$/.test(document.activeElement.className||document.activeElement.id))loadShop();loadList();if(selCode&&!dirty)loadDetail();var d=new Date(),p=function(n){return String(n).padStart(2,"0")};$("last").textContent="갱신 "+p(d.getHours())+":"+p(d.getMinutes())+":"+p(d.getSeconds())}
 // 1분마다 데이터만 다시 불러옵니다. 선택한 헌터·탭·검색어·작성 중인 알림은 그대로 유지됩니다.
 setInterval(function(){if($("auto").checked&&!document.hidden&&!$("app").classList.contains("hide"))loadAll()},60000);
 document.addEventListener("visibilitychange",function(){if(!document.hidden&&$("auto").checked&&!$("app").classList.contains("hide"))loadAll()});
