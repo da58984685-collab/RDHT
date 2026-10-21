@@ -228,6 +228,12 @@ main.landing{display:flex;align-items:center;justify-content:center;max-width:no
 .ach-li.got{border-color:rgba(240,185,58,.5);background:linear-gradient(100deg,rgba(240,185,58,.12),rgba(212,32,46,.08))}
 .ach-li.got b{font-family:"Noto Serif KR","Nanum Myeongjo",serif;background:linear-gradient(90deg,#f0b93a,#fff3c4,#f0b93a);background-size:200% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;animation:achtext 5s linear infinite}
 .ach-btn{padding:6px 12px;font:700 .74rem/1 "Noto Sans KR",sans-serif;color:#1a0a0c;background:linear-gradient(135deg,#fff3c4,#f0b93a 60%,#b9791a);border:0;border-radius:999px;cursor:pointer;white-space:nowrap}
+.ev-cl{list-style:none;margin:6px 0;padding:8px;display:flex;flex-direction:column;gap:6px;max-height:180px;min-height:48px;overflow-y:auto;background:var(--field);border:1px solid var(--line)}
+.ev-cl li{max-width:82%;padding:6px 10px;font-size:.85rem;line-height:1.4;overflow-wrap:anywhere;align-self:flex-start;background:#1c1416;border:1px solid var(--line)}
+.ev-cl li.me{align-self:flex-end;background:#2a1a0c;border-color:var(--red2)}
+.ev-ce{margin:0 0 8px;font-size:.78rem;color:var(--sub)}
+.ev-ci{display:flex;gap:6px}
+.ev-ci input{flex:1;min-width:0;min-height:40px;padding:0 10px;color:var(--text);background:var(--field);border:1px solid var(--line);font:inherit;font-size:16px}
 .ach-btn.off{color:#e0b25a;background:none;border:1px solid rgba(240,185,58,.45)}
 .ach-btn:disabled{opacity:.5;cursor:default}
 .fx-off .ach-pin,.fx-off .ach-pin::after,.fx-off .ach-pin .st,.fx-off .ach-pin .tx,.fx-off .ach-none,.fx-off .ach-li.got b{animation:none}
@@ -281,6 +287,13 @@ main.landing{display:flex;align-items:center;justify-content:center;max-width:no
 .inv-tier.t-c{color:#9a8f93}.inv-tier.t-r{color:#6fb4ff}.inv-tier.t-e{color:#c58bff}.inv-tier.t-l{color:#ffc857}
 .app-note{margin:0 0 10px;padding:8px 10px;border:1px solid var(--line);border-radius:10px;font-size:.82rem;color:var(--text)}
 .statfx{margin:12px 0 0;font-size:.76rem;line-height:1.6;color:var(--deep)}
+.twarn{margin:10px 0 0;padding:9px 12px;border:1px solid #8a4a1a;border-radius:10px;background:rgba(200,110,30,.12);font-size:.8rem;font-weight:700;line-height:1.5;color:#ffbe85}
+.twarn[data-s="2"]{border-color:#b83a1c;background:rgba(200,60,25,.14);color:#ff9d7a}
+.twarn[data-s="3"]{border-color:var(--red);background:rgba(212,32,46,.16);color:#ff8a93;animation:twp 1.6s ease-in-out infinite alternate}
+@keyframes twp{from{box-shadow:0 0 0 rgba(212,32,46,0)}to{box-shadow:0 0 14px rgba(212,32,46,.55)}}
+body.tn1 .rwrap{filter:sepia(.2) saturate(1.2) hue-rotate(-10deg)}
+body.tn2 .rwrap{filter:sepia(.35) saturate(1.5) hue-rotate(-25deg)}
+body.tn3 .rwrap{filter:sepia(.5) saturate(2) hue-rotate(-40deg);box-shadow:0 0 26px rgba(212,32,46,.45)}
 .dying-note{margin:10px 0 0;padding:9px 12px;border:1px solid var(--red);border-radius:10px;background:rgba(212,32,46,.12);font-size:.82rem;font-weight:700;color:#ff8a93}
 /* 스탯 투자 */
 .sprow{margin:0 0 12px;padding:7px 11px;display:flex;align-items:center;justify-content:space-between;background:var(--field);border:1px solid var(--line);border-radius:10px;font-size:.85rem;color:var(--sub)}
@@ -695,6 +708,8 @@ input[type=checkbox]:focus-visible{outline:2px solid var(--deep);outline-offset:
 .qst-r{display:flex;align-items:center;gap:8px;font-size:.78rem;color:var(--sub)}.qst-r span{flex:1}
 .qst-li.done{border-color:rgba(240,185,58,.5)}
 .qst-li.got{opacity:.55}
+.ev-body{margin-top:8px}
+.wk-bars{display:flex;gap:6px;align-items:flex-end;margin:4px 0 12px;padding:8px 6px 6px;border:1px solid var(--line);border-radius:10px}.wk-bar{flex:1;min-width:0;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:3px;font-size:.72rem;color:var(--muted,#b9a);}.wk-bar i{display:block;width:100%;max-width:26px;background:linear-gradient(180deg,#f0b93a,#b9791a);border-radius:3px 3px 0 0}.wk-bar.now i{background:linear-gradient(180deg,#ff8a1f,#d4421a)}.wk-bar.now span:last-child{font-weight:700;color:var(--text)}
 .btl{position:fixed;inset:0;z-index:600;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(0,0,0,.85)}
 .btl[hidden]{display:none}
 .btl-p{width:min(560px,100%);max-height:94vh;overflow-y:auto;padding:18px;background:#0b0708;border:1px solid var(--red2);border-radius:10px;box-shadow:0 0 40px rgba(0,0,0,.8)}
@@ -766,7 +781,7 @@ input[type=checkbox]:focus-visible{outline:2px solid var(--deep);outline-offset:
 <body>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
 <symbol id="i-heart" viewBox="0 0 7 7"><path d="M3 0h1v1H3zM2 1h3v1H2zM1 2h5v1H1zM0 3h7v1H0zM1 4h5v1H1zM2 5h3v1H2zM3 6h1v1H3z"/></symbol>
-<symbol id="i-hlw" viewBox="0 0 7 7"><path d="M2 0h3v1H2zM1 1h5v1H1zM0 2h2v1H0zM3 2h1v1H3zM5 2h2v1H5zM0 3h7v1H0zM0 4h7v1H0zM0 5h7v1H0zM0 6h1v1H0zM2 6h1v1H2zM4 6h1v1H4zM6 6h1v1H6z"/></symbol><symbol id="i-star" viewBox="0 0 7 7"><path d="M3 0h1v7H3zM0 3h7v1H0zM2 2h3v3H2z"/></symbol>
+<symbol id="i-dex" viewBox="0 0 7 7"><path d="M0 0h6v1H0zM0 1h1v5H0zM2 2h3v1H2zM2 4h3v1H2zM0 6h7v1H0zM6 1h1v5H6z"/></symbol><symbol id="i-wkr" viewBox="0 0 7 7"><path d="M0 6h7v1H0zM1 3h1v3H1zM3 1h1v5H3zM5 4h1v2H5z"/></symbol><symbol id="i-hof" viewBox="0 0 7 7"><path d="M1 0h5v1H1zM0 1h1v2H0zM6 1h1v2H6zM1 1h5v3H1zM3 4h1v1H3zM2 5h3v1H2zM1 6h5v1H1z"/></symbol><symbol id="i-wnt" viewBox="0 0 7 7"><path d="M3 0h1v2H3zM3 5h1v2H3zM0 3h2v1H0zM5 3h2v1H5zM3 3h1v1H3z"/></symbol><symbol id="i-hlw" viewBox="0 0 7 7"><path d="M2 0h3v1H2zM1 1h5v1H1zM0 2h2v1H0zM3 2h1v1H3zM5 2h2v1H5zM0 3h7v1H0zM0 4h7v1H0zM0 5h7v1H0zM0 6h1v1H0zM2 6h1v1H2zM4 6h1v1H4zM6 6h1v1H6z"/></symbol><symbol id="i-star" viewBox="0 0 7 7"><path d="M3 0h1v7H3zM0 3h7v1H0zM2 2h3v3H2z"/></symbol>
 <symbol id="i-person" viewBox="0 0 8 8"><path d="M3 0h2v1H3zM2 1h4v2H2zM3 3h2v1H3zM1 4h6v1H1zM0 5h8v3H0z"/></symbol>
 <symbol id="i-chat" viewBox="0 0 8 7"><path d="M0 0h8v5H0zM1 5h2v1H1zM1 6h1v1H1z"/></symbol>
 <symbol id="i-plus" viewBox="0 0 8 8"><path d="M3 0h2v8H3zM0 3h8v2H0z"/></symbol>
@@ -876,7 +891,7 @@ input[type=checkbox]:focus-visible{outline:2px solid var(--deep);outline-offset:
       </section>
       <section id="gstat">
         <h2><svg class="ic"><use href="#i-star"/></svg>스탯</h2>
-        <div class="body"><div class="pow" id="gpow"></div><p class="sprow" id="gsp" hidden></p><ul class="stats" id="gstats"></ul><p class="dying-note" id="dyingnote" role="status" hidden></p></div>
+        <div class="body"><div class="pow" id="gpow"></div><p class="sprow" id="gsp" hidden></p><ul class="stats" id="gstats"></ul><p class="dying-note" id="dyingnote" role="status" hidden></p><p class="twarn" id="twarn" role="status" hidden></p></div>
       </section>
     </div>
     <div class="g-col">
@@ -1864,7 +1879,20 @@ function renderPower(up){
   $("powfill").style.transform="scaleX("+Math.min(1,power.exp/need)+")";
   $("powx").textContent=power.exp+" / "+need;
 }
+/* ───── 오염 단계 경고 (30 · 60 · 80%) ───── */
+var TAINT_MSG=["","오염 1단계 (30%~) · 상점 가격 +10%","오염 2단계 (60%~) · 상점 가격 +20% · 토벌에 실패하면 골드를 잃음 · 오염 사냥꾼이 나타날 수 있음","오염 3단계 (80%~) · 상점 가격 +30% · 위험 지역(B·A급) 출입 불가 · 오염 사냥꾼이 자주 나타남 · 오염도 100%가 되면 폭주"];
+var TAINT_TOAST=["","오염도가 30%를 넘었습니다. 상점 가격이 10% 오릅니다.","오염도가 60%를 넘었습니다. 토벌에 실패하면 골드를 잃고, 오염 사냥꾼이 나타날 수 있습니다.","오염도가 80%를 넘었습니다! 위험 지역에 들어갈 수 없고, 오염 사냥꾼이 자주 나타납니다."];
+var TAINT_BAN_MSG="오염도가 80% 이상이라 위험 지역(B·A급)에는 들어갈 수 없습니다.";
+var taintStg=0,taintStgInit=false;
+function taintFx(v){
+  var s=v>=80?3:v>=60?2:v>=30?1:0,prev=taintStg;taintStg=s;
+  var b=document.body;b.classList.remove("tn1","tn2","tn3");if(s)b.classList.add("tn"+s);
+  var w=$("twarn");if(w){w.hidden=!s;w.textContent=TAINT_MSG[s];w.dataset.s=String(s)}
+  if(taintStgInit&&s>prev&&typeof gwToast==="function")gwToast("⚠ "+TAINT_TOAST[s],5200);
+  taintStgInit=true;
+}
 function renderStats(st){
+  taintFx(Number(st.taint)||0);
   var ul=$("gstats");ul.innerHTML="";
   var sp=Math.max(0,Math.floor(Number(st.sp)||0)),spb=$("gsp");
   if(spb){spb.hidden=false;spb.className="sprow"+(sp>0?" has":"");spb.innerHTML="";var t1=document.createElement("span");t1.textContent="스탯포인트";var t2=document.createElement("b");t2.textContent=String(sp);spb.appendChild(t1);spb.appendChild(t2);
@@ -2106,12 +2134,13 @@ function huntAlert(a){
         a.done=true;power={lv:r.lv,exp:r.exp};renderPower(r.levelUp);
         var up=r.levelUp?" · 전투력 Lv."+power.lv+" 달성!":"";
         if(r.gold!==undefined)gold+=r.gold;
-        mm.textContent=a.mon+" 토벌 완료! 전투력 경험치 +"+r.gain+(r.gold?" · +"+r.gold+" G":"")+(r.taint?" · 오염도 +"+r.taint+"%":"")+(r.ember?" · 도깨비 불씨 +"+r.ember:"")+up;
-        showHunt("ok","토벌 성공",a.mon+"을(를) 처치했습니다.","전투력 경험치 +"+r.gain+(r.gold?" · 골드 +"+r.gold+" G":"")+(r.taint?" · 오염도 +"+r.taint+"%":"")+(r.ember?" · 도깨비 불씨 +"+r.ember:"")+up);
+        mm.textContent=a.mon+" 토벌 완료! 전투력 경험치 +"+r.gain+(r.gold?" · +"+r.gold+" G":"")+(r.taint?" · 오염도 +"+r.taint+"%":"")+(r.ember?" · 도깨비 불씨 +"+r.ember:"")+(r.note?" · "+r.note:"")+up;
+        showHunt("ok","토벌 성공",a.mon+"을(를) 처치했습니다.","전투력 경험치 +"+r.gain+(r.gold?" · 골드 +"+r.gold+" G":"")+(r.taint?" · 오염도 +"+r.taint+"%":"")+(r.ember?" · 도깨비 불씨 +"+r.ember:"")+(r.note?" · "+r.note:"")+up);
         alertSig="";renderAlerts();
       }else{
         a.cd=r.free?0:r.until;
         var hpT=r.prevented?"민첩 발동 · 체력이 깎이지 않았습니다":r.hpLoss?"체력 -"+r.hpLoss+" (남은 체력 "+r.hpNow+")":"";
+        if(r.goldLoss){hpT+=(hpT?" · ":"")+"오염 때문에 골드 -"+r.goldLoss+" G";gold=Math.max(0,gold-r.goldLoss)}
         if(r.dying){dyingUntil=r.dyingUntil;updDying()}
         var nxt=r.dying?"빈사 상태 · "+mmss(r.dyingUntil-nowS())+" 동안 토벌할 수 없습니다":r.free?"행운 발동 · 시간 제한 없이 바로 재토벌할 수 있습니다":mmss(r.until-nowS())+" 후 다시 토벌할 수 있습니다";
         mm.textContent=a.mon+" 토벌에 실패했습니다."+(hpT?" "+hpT+".":"");
@@ -2152,11 +2181,12 @@ function btlEnd(r){
   if(r.outcome==="win"&&r.result){
     var x=r.result;if(a)a.done=true;power={lv:x.lv,exp:x.exp};renderPower(x.levelUp);if(x.gold!==undefined)gold+=x.gold;
     var up=x.levelUp?" · 전투력 Lv."+power.lv+" 달성!":"";
-    var t="승리! "+v.mon+"을(를) 처치했습니다. 전투력 경험치 +"+x.gain+(x.gold?" · 골드 +"+x.gold+" G":"")+(x.taint?" · 오염도 +"+x.taint+"%":"")+(x.ember?" · 도깨비 불씨 +"+x.ember:"")+up;
+    var t="승리! "+v.mon+"을(를) 처치했습니다. 전투력 경험치 +"+x.gain+(x.gold?" · 골드 +"+x.gold+" G":"")+(x.taint?" · 오염도 +"+x.taint+"%":"")+(x.ember?" · 도깨비 불씨 +"+x.ember:"")+(x.note?" · "+x.note:"")+up;
     res.textContent=t;res.classList.add("win");mm.textContent=t;alertSig="";renderAlerts();
   }else if(r.outcome==="lose"&&r.result){
     var f=r.result;if(a)a.cd=f.free?0:f.until;
     var hpT=f.prevented?"민첩 발동 · 체력이 깎이지 않았습니다":f.hpLoss?"체력 -"+f.hpLoss+" (남은 체력 "+f.hpNow+")":"";
+    if(f.goldLoss){hpT+=(hpT?" · ":"")+"오염 때문에 골드 -"+f.goldLoss+" G";gold=Math.max(0,gold-f.goldLoss)}
     if(f.dying){dyingUntil=f.dyingUntil;updDying()}
     var nx=f.dying?"빈사 상태 · "+mmss(f.dyingUntil-nowS())+" 동안 토벌할 수 없습니다":f.free?"행운 발동 · 시간 제한 없이 바로 재도전할 수 있습니다":mmss(f.until-nowS())+" 후 다시 도전할 수 있습니다";
     var t2="패배… "+v.mon+"에게 쓰러졌습니다."+(hpT?" "+hpT+".":"")+" "+nx;
@@ -2378,7 +2408,7 @@ var globe=(function(){
   return {set:set,isOn:function(){return on},redraw:function(){if(on&&rm)draw()}};
 })();
 var evInfo=null,achNew=0,questReady=0,rescueReq=0,rumorNew=0,gold=0,devApp=null,inventory=[],invSig="",invNote="";
-var APPS=[["gw","게이트웨이브","i-eye"],["msg","메신저","i-chat"],["com","커뮤니티","i-board"],["ach","업적","i-medal"],["qst","의뢰","i-star"],["eqp","장비","i-str"],["pct","계약","i-taint"],["exc","그림자 거래소","i-lock"],["rum","괴담","i-psi"],["sys","시스템 알림","i-bell"],["shop","상점","i-shop"],["inv","인벤토리","i-bag"],["hlw","할로윈","i-hlw"]];
+var APPS=[["gw","게이트웨이브","i-eye"],["msg","메신저","i-chat"],["com","커뮤니티","i-board"],["ach","업적","i-medal"],["qst","의뢰","i-star"],["eqp","장비","i-str"],["pct","계약","i-taint"],["exc","그림자 거래소","i-lock"],["rum","괴담","i-psi"],["sys","시스템 알림","i-bell"],["shop","상점","i-shop"],["inv","인벤토리","i-bag"],["dex","사냥 도감","i-dex"],["wkr","주간 리포트","i-wkr"],["hof","명예의 전당","i-hof"],["wnt","지명 수배","i-wnt"],["hlw","할로윈","i-hlw"]];
 function devClock(){var d=new Date(),c=$("phclk");if(c)c.textContent=pad(d.getHours())+":"+pad(d.getMinutes())}
 function badgeOf(id){return id==="inv"?giftUnread:id==="sys"?unreadNotices:id==="msg"?unreadMsgs+friendReqs+rescueReq:id==="qst"?questReady:id==="rum"?rumorNew:id==="com"?Math.max(0,Math.min(99,cmLatest-cmSeen)):id==="ach"?achNew:0}
 function loadNotices(){
@@ -2492,6 +2522,7 @@ function loadShop(){
     var box=scr.querySelector(".app-empty,.app-list");if(box)box.remove();
     var list=(r.items||[]).slice().sort(function(a,b){return String(a.name).localeCompare(String(b.name),"ko")});if(r.gold!==undefined){gold=r.gold;setGoldTag()}      // 가나다 순
     if(!list.length){var p=document.createElement("p");p.className="app-empty";p.textContent="판매 중인 물품이 없습니다.";scr.appendChild(p);return}
+    if(r.markup){var mk=document.createElement("p");mk.className="app-note";mk.textContent="오염도가 높아 상점 가격이 "+r.markup+"% 올라 있습니다. (아래 가격에 이미 반영됨)";scr.appendChild(mk)}      /* 오염 단계 */
     var ul=document.createElement("ul");ul.className="app-list";
     list.forEach(function(it){
       var li=document.createElement("li");li.textContent=it.name;
@@ -2601,7 +2632,11 @@ function renderDevice(){
   else if(devApp==="sys"){empty("불러오는 중…");loadNotices()}
   else if(devApp==="ach"){empty("불러오는 중…");loadAch()}
   else if(devApp==="qst"){empty("불러오는 중…");loadQuests()}
-  else if(devApp==="hlw"){empty("불러오는 중…");loadEvent()}      /* [EVENT:HALLOWEEN] */
+  else if(devApp==="hlw"){empty("불러오는 중…");loadEvent()}
+  else if(devApp==="dex"){empty("불러오는 중…");loadDex()}
+  else if(devApp==="wkr"){empty("불러오는 중…");loadWeekly()}
+  else if(devApp==="hof"){empty("불러오는 중…");loadHof()}
+  else if(devApp==="wnt"){empty("불러오는 중…");loadWanted()}      /* [EVENT:HALLOWEEN] */
   else if(devApp==="eqp"){empty("불러오는 중…");loadEquip()}
   else if(devApp==="pct"){empty("불러오는 중…");loadPact()}
   else if(devApp==="exc"){empty("불러오는 중…");loadExc()}
@@ -2702,6 +2737,7 @@ function pollState(first){
 }
 function moveTo(id,silent){
   var rg=regionById(id);if(!rg)return;
+  if(!silent&&taintStg>=3&&(rg.danger==="B"||rg.danger==="A")&&id!==curRegion){$("mapmsg").textContent=TAINT_BAN_MSG;return}      /* 오염 3단계: 위험 지역 출입 불가 */
   var before=curCountry;curRegion=id;curCountry=rg.country;
   if(viewCountry!==curCountry||before!==curCountry){viewCountry=COUNTRY_BY_ID[curCountry].gate?"KR":curCountry;buildCountries();buildRegions()}
   drawRadar();drawScene();
@@ -2709,7 +2745,7 @@ function moveTo(id,silent){
   document.querySelectorAll("#ctabs .ct").forEach(function(b){b.setAttribute("aria-current",b.dataset.id===curCountry?"true":"false")});
   $("hudloc").textContent="현재 위치 · "+placeLong(id);
   if(!silent){
-    api("POST","/api/move",{region:id}).then(function(r){if(r.error)$("mapmsg").textContent=r.error==="blocked"?"운영자에 의해 이동이 제한되었습니다.":r.error==="corrupted"?"오염이 폭주해 "+mmss(r.until-nowS())+" 동안 이동할 수 없습니다.":"이동하지 못했어요. 잠시 후 다시 시도해주세요."});
+    api("POST","/api/move",{region:id}).then(function(r){if(r.error)$("mapmsg").textContent=r.error==="blocked"?"운영자에 의해 이동이 제한되었습니다.":r.error==="corrupted"?"오염이 폭주해 "+mmss(r.until-nowS())+" 동안 이동할 수 없습니다.":r.error==="taint_ban"?TAINT_BAN_MSG:"이동하지 못했어요. 잠시 후 다시 시도해주세요."});
     var hot=alerts.some(function(a){return isActive(a)&&((a.r==="SS"&&!a.c)?a.region===curCountry:a.region===id)});
     $("mapmsg").textContent=(before!==curCountry?COUNTRY_BY_ID[curCountry].name+" ":"")+rg.name+"(으)로 이동했어요."+(hot?" 이곳에서 몬스터가 출몰 중이에요!":"");
     markRegions();
@@ -3449,7 +3485,7 @@ function enterGame(me){
   alerts=[];seenIds={};alertSig="";paused=false;
   var pb=$("pausebtn");pb.textContent="알림 멈춤";pb.setAttribute("aria-pressed","false");
   $("game").hidden=false;markLogin(d.hunterName);showFront();window.scrollTo(0,0);
-  renderChar(d);renderStats(d.stats);buildCountries();buildRegions();devApp=null;renderPower(false);
+  taintStgInit=false;renderChar(d);renderStats(d.stats);buildCountries();buildRegions();devApp=null;renderPower(false);
   statSig="";applyState(me.state,true);
   moveTo(curRegion,true);$("mapmsg").textContent=sAutoMsg;sAutoMsg="";
   clearInterval(pollTimer);pollTimer=setInterval(function(){if(document.hidden)return;var ev=(Date.now()-lastInput>900000?3:1);if(ev>1&&(++pollHid%ev))return;pollState()},POLL_MS);       // 평소 10초마다 확인. 숨은 탭은 20초, 15분 넘게 아무것도 안 만진 화면은 30초에 한 번 (서버·DB 사용량 절약)svData={};svSync();
@@ -3687,7 +3723,7 @@ function gtLoad(text,req,minMs){      // 요청이 너무 빨리 끝나도 애�
 
 /* ───── 적월문 팝업 ───── */
 var gtmodal=$("gtmodal"),gtOpener=null,gtBusy=false;
-function gtErr(r){return r.error==="blocked"?"운영자에 의해 이동이 제한되었습니다.":r.error==="corrupted"?"오염이 폭주해 "+mmss(r.until-nowS())+" 동안 이동할 수 없습니다.":"이동하지 못했어요. 잠시 후 다시 시도해주세요."}
+function gtErr(r){return r.error==="blocked"?"운영자에 의해 이동이 제한되었습니다.":r.error==="corrupted"?"오염이 폭주해 "+mmss(r.until-nowS())+" 동안 이동할 수 없습니다.":r.error==="taint_ban"?TAINT_BAN_MSG:"이동하지 못했어요. 잠시 후 다시 시도해주세요."}
 function gtRender(){
   var gc=COUNTRY_BY_ID.GT,inside=!!gc&&curCountry==="GT";
   $("gtout").hidden=inside;$("gtin").hidden=!inside;
@@ -3845,16 +3881,18 @@ function loadQuests(){
 
 
 /* ───── 큰 팝업으로 여는 앱 (상점·의뢰·괴담·그림자 거래소) ───── */
-var BIG={shop:1,pct:1,rum:1,exc:1,eqp:1,hlw:1},bigOpen=false;
+var BIG={shop:1,pct:1,rum:1,exc:1,eqp:1,hlw:1,dex:1,wkr:1,hof:1,wnt:1},bigOpen=false;
 function openBig(id){
   if(bigOpen)return;
   var home=$("phscr"),body=$("bigbody");if(!home||!body)return;
+  if(id==="hlw"){evTab="main";evHouseStop()}
   bigOpen=true;home.id="phscr_home";body.id="phscr";$("bigapp").hidden=false;document.body.style.overflow="hidden";
   devApp=id;invNote="";renderDevice();
   var x=$("phscr").querySelector(".app-h button");if(x)x.focus();
 }
 function closeBig(){
   if(!bigOpen)return;
+  evHouseStop();
   bigOpen=false;$("bigapp").hidden=true;document.body.style.overflow="";
   var b=$("phscr");b.id="bigbody";b.innerHTML="";$("phscr_home").id="phscr";
   devApp=null;renderDevice();
@@ -3863,12 +3901,210 @@ document.addEventListener("keydown",function(e){if(e.key==="Escape"&&bigOpen)clo
 Array.prototype.forEach.call(document.querySelectorAll(".ph-nav .nv-back"),function(b){b.addEventListener("click",devBack)});
 $("bigapp").addEventListener("mousedown",function(e){if(e.target===this)closeBig()});
 
+/* ───── [EVENT:HALLOWEEN] 메뉴(소원 · 백귀 도감 · 도깨비 장터 · 귀신의 집) ───── */
+var evTab="main",evHT=null,evHSig="",evHDis="",evFr=null,evFrAt=0,evMkNote="",evDexNote="",evHNote="";
+function evTabsBar(root){
+  var bar=root.querySelector(".ev-tabs");
+  if(bar){Array.prototype.forEach.call(bar.children,function(b){b.setAttribute("aria-selected",b.getAttribute("data-t")===evTab?"true":"false")});return}
+  bar=document.createElement("div");bar.className="inv-tabs ev-tabs";bar.setAttribute("role","tablist");bar.setAttribute("aria-label","할로윈 메뉴");
+  [["main","소원"],["dex","도감"],["mk","장터"],["house","귀신의 집"]].forEach(function(t){
+    var b=document.createElement("button");b.type="button";b.setAttribute("data-t",t[0]);b.setAttribute("role","tab");b.textContent=t[1];b.setAttribute("aria-selected",t[0]===evTab?"true":"false");
+    b.addEventListener("click",function(){if(evTab===t[0])return;evTab=t[0];evHouseStop();loadEvent()});
+    bar.appendChild(b);
+  });
+  root.appendChild(bar);
+}
+var evChat={after:"",msgs:[],id:"",list:null,wrap:null};
+function evHouseStop(){clearInterval(evHT);evHT=null;evHSig="";evChat={after:"",msgs:[],id:"",list:null,wrap:null}}
+/* 귀신의 집 둘만의 채팅: 새 글만 받아 와 목록 끝에 붙입니다 (화면을 다시 그려도 입력 중인 글이 지워지지 않도록 따로 관리) */
+function evChatLine(m){var li=document.createElement("li");li.className=m.me?"me":"";li.textContent=m.t;return li}
+function evChatAdd(msgs){
+  if(!msgs||!msgs.length)return;
+  msgs.forEach(function(m){if(m.k>evChat.after){evChat.after=m.k;evChat.msgs.push(m)}});
+  if(evChat.msgs.length>30)evChat.msgs=evChat.msgs.slice(-30);
+  var l=evChat.list;if(!l||!l.isConnected)return;
+  var near=l.scrollHeight-l.scrollTop-l.clientHeight<40;
+  l.textContent="";evChat.msgs.forEach(function(m){l.appendChild(evChatLine(m))});
+  if(near)l.scrollTop=l.scrollHeight;
+}
+function evChatMount(wrap,h,sendFn){
+  if(evChat.id!==h.id){evChat.id=h.id}
+  xpHead(wrap,"둘만의 대화");
+  var l=document.createElement("ul");l.className="ev-cl";l.setAttribute("aria-live","polite");l.setAttribute("aria-label","귀신의 집 대화");
+  evChat.msgs.forEach(function(m){l.appendChild(evChatLine(m))});
+  wrap.appendChild(l);evChat.list=l;l.scrollTop=l.scrollHeight;
+  if(!evChat.msgs.length){var e=document.createElement("p");e.className="ev-ce";e.textContent="같이 들어간 친구와만 나누는 대화입니다. 집을 나가면 대화는 사라집니다.";wrap.appendChild(e)}
+  if(h.status!=="run")return;
+  var row=document.createElement("div");row.className="ev-ci";
+  var inp=document.createElement("input");inp.type="text";inp.maxLength=100;inp.placeholder="친구에게 한마디 (100자)";inp.setAttribute("aria-label","대화 입력");inp.autocomplete="off";
+  var bt=document.createElement("button");bt.type="button";bt.className="ach-btn";bt.textContent="보내기";
+  function go(){var t=inp.value.trim();if(!t||bt.disabled)return;bt.disabled=true;sendFn(t,function(ok){bt.disabled=false;if(ok){inp.value="";inp.focus()}})}
+  bt.addEventListener("click",go);inp.addEventListener("keydown",function(e){if(e.key==="Enter"&&!e.isComposing){e.preventDefault();go()}});
+  row.appendChild(inp);row.appendChild(bt);wrap.appendChild(row);
+}
+function evLoading(box){var p=document.createElement("p");p.className="app-empty";p.textContent="불러오는 중…";box.appendChild(p)}
+function evOff(box){xpInit(box);var e=document.createElement("p");e.className="app-empty";e.textContent="할로윈 이벤트가 끝났습니다.";box.appendChild(e)}
+function loadEvent(){
+  var scr=$("phscr");if(!scr)return;
+  evTabsBar(scr);
+  Array.prototype.forEach.call(scr.querySelectorAll(":scope > .app-empty,:scope > .ev-body"),function(x){x.remove()});
+  var box=document.createElement("div");box.className="ev-body";scr.appendChild(box);evLoading(box);
+  if(evTab==="dex")evDex(box);else if(evTab==="mk")evMarket(box);else if(evTab==="house")evHouse(box);else loadEventMain(box);
+}
+function evBtn(row,label,dis,fn){var b=document.createElement("button");b.type="button";b.className="ach-btn";b.textContent=label;b.disabled=!!dis;b.addEventListener("click",fn);row.appendChild(b);return b}
+function evRow(){var r=document.createElement("div");r.className="rum-v";return r}
+/* 백귀 도감 */
+function evDex(box){
+  api("GET","/api/event/dex").then(function(r){
+    if(devApp!=="hlw"||evTab!=="dex"||!box.isConnected)return;
+    if(r.error){appFail(box,function(){evDex(box)});return}
+    if(!r.on){evOff(box);return}
+    xpInit(box);
+    xpNote(box,"발견한 잡귀 "+r.found+" / "+r.total+"종 · 백귀야행의 잡귀를 처치하면 기록됩니다.");
+    if(evDexNote)xpNote(box,evDexNote);
+    xpHead(box,"단계별 보상");
+    var ul=document.createElement("ul");ul.className="app-list";
+    r.stages.forEach(function(s){
+      var li=xpLi(ul,s.need+"종 발견 · "+r.emberName+" +"+s.ember+(s.ach?" · 칭호 '"+s.ach+"'":""),[r.found>=s.need?"조건을 달성했습니다.":"앞으로 "+(s.need-r.found)+"종 더 필요합니다."],s.claimed?"got":(s.ready?"done":""));
+      var row=evRow();evBtn(row,s.claimed?"수령 완료":(s.ready?"보상 받기":"아직 모으지 못했습니다"),!s.ready,function(){
+        api("POST","/api/event/dex/claim",{stage:s.need}).then(function(x){
+          evDexNote=x.ok?"보상을 받았습니다 · "+r.emberName+" +"+x.ember+(x.ach?" · 칭호 '"+x.ach+"' 획득!":""):"보상을 받을 수 없습니다.";
+          pollState(false);loadEvent();
+        }).catch(function(){evDexNote="보상을 받지 못했습니다.";loadEvent()});
+      });li.appendChild(row);
+    });
+    box.appendChild(ul);
+    r.tiers.forEach(function(t){
+      var n=t.list.filter(function(x){return x.name}).length;
+      xpHead(box,t.label+" "+n+" / "+t.list.length+" · 처치 시 "+r.emberName+" "+t.ember);
+      var u2=document.createElement("ul");u2.className="app-list";
+      t.list.forEach(function(m){if(m.name)xpLi(u2,m.name,["처치 "+m.kills+"회"]);else xpLi(u2,"???",["아직 만나지 못했습니다."],"got")});
+      box.appendChild(u2);
+    });
+  }).catch(function(){if(devApp==="hlw"&&evTab==="dex")appFail(box,function(){evDex(box)})});
+}
+/* 도깨비 장터 */
+function evMarket(box){
+  api("GET","/api/event/market").then(function(r){
+    if(devApp!=="hlw"||evTab!=="mk"||!box.isConnected)return;
+    if(r.error){appFail(box,function(){evMarket(box)});return}
+    if(!r.on){evOff(box);return}
+    xpInit(box);
+    xpNote(box,"보유 "+r.emberName+" "+r.ember+"개 · 지금까지 "+r.total+"번 구매 ("+r.achNeed+"번 이상이면 칭호 '"+r.achName+"')");
+    if(evMkNote)xpNote(box,evMkNote);
+    var ul=document.createElement("ul");ul.className="app-list";
+    r.items.forEach(function(it){
+      var out=it.bought>=it.limit,poor=r.ember<it.price;
+      var li=xpLi(ul,it.name,[it.desc,"가격 "+r.emberName+" "+it.price+"개 · 구매 "+it.bought+" / "+it.limit],out?"got":"");
+      var row=evRow();
+      evBtn(row,out?"모두 구매했습니다":(poor?"불씨가 모자랍니다":"구매"),out||poor,function(){
+        api("POST","/api/event/market/buy",{id:it.id}).then(function(x){
+          evMkNote=x.ok?it.name+" 구매 완료"+(x.ach?" · 칭호 '"+x.ach+"' 획득!":""):x.error==="no_ember"?"불씨가 모자랍니다.":x.error==="limit"?"더 살 수 없습니다.":"구매하지 못했습니다.";
+          pollState(false);loadEvent();
+        }).catch(function(){evMkNote="구매하지 못했습니다.";loadEvent()});
+      });li.appendChild(row);
+    });
+    box.appendChild(ul);
+  }).catch(function(){if(devApp==="hlw"&&evTab==="mk")appFail(box,function(){evMarket(box)})});
+}
+/* 귀신의 집 */
+var HOUSE_RISK={0:"안전",2:"보통",4:"위험"};
+function evHouseSig(d){var h=d.house;return JSON.stringify([d.left,d.invite&&d.invite.id,h&&[h.id,h.status,h.room,h.chosen,h.partnerChose,h.log.length],evHDis,evHNote])}
+function evHouse(box){
+  evHouseStop();
+  function fetchState(force){
+    return api("GET","/api/event/house"+(evChat.after?"?after="+encodeURIComponent(evChat.after):"")).then(function(d){
+      if(devApp!=="hlw"||evTab!=="house"||!box.isConnected){evHouseStop();return}
+      if(d.error){if(force)appFail(box,function(){evHouse(box)});return}
+      if(d.house&&evChat.id&&evChat.id!==d.house.id){evChat.msgs=[];evChat.after="";evChat.id=""}
+      if(d.chat)evChatAdd(d.chat);
+      var sig=evHouseSig(d);if(!force&&sig===evHSig)return;evHSig=sig;
+      render(d);
+    }).catch(function(){if(force&&devApp==="hlw"&&evTab==="house")appFail(box,function(){evHouse(box)})});
+  }
+  function act(path,body,after){return api("POST",path,body||{}).then(function(x){if(after)after(x);return fetchState(true)}).catch(function(){evHNote="요청하지 못했습니다.";return fetchState(true)})}
+  function sendChat(t,done){
+    var id=evChat.id;
+    api("POST","/api/event/house/chat",{id:id,text:t}).then(function(x){
+      if(x.ok){fetchState(false);done(true);return}
+      evHNote=x.error==="rate_limited"?"너무 빨리 보내고 있습니다. 잠시 후 다시 보내 주세요.":x.error==="blocked"?"지금은 메시지를 보낼 수 없습니다.":x.error==="no_house"?"이미 끝난 탐험입니다.":"보내지 못했습니다.";
+      done(false);fetchState(true);
+    }).catch(function(){done(false)});
+  }
+  function render(d){
+    xpInit(box);var keep=box.querySelector(".ev-ci input"),kv=keep?keep.value:"",kf=!!keep&&document.activeElement===keep;      /* 입력 중이던 글은 화면을 다시 그려도 유지 */
+    var old=box.querySelector(".ev-house");if(old)old.remove();
+    if(!d.on){evOff(box);return}
+    var wrap=document.createElement("div");wrap.className="ev-house";box.appendChild(wrap);
+    xpNote(wrap,"친구와 함께 방 "+d.rooms+"개를 지나갑니다 · 오늘 남은 횟수 "+d.left+" / "+d.max+" (시작할 때 두 사람 모두 1회씩 사용)");
+    if(evHNote)xpNote(wrap,evHNote);
+    var h=d.house;
+    if(d.invite){
+      var ul=document.createElement("ul");ul.className="app-list";
+      var li=xpLi(ul,d.invite.from.hn+" ["+d.invite.from.rank+"]님이 귀신의 집에 초대했습니다",["수락하면 바로 시작합니다. 10분 안에 답해 주세요."],"done");
+      var row=evRow();
+      evBtn(row,"수락",false,function(){act("/api/event/house/join",{id:d.invite.id},function(x){evHNote=x.ok?"":x.error==="limit_me"?"오늘 남은 횟수가 없습니다.":x.error==="limit_friend"?"친구의 남은 횟수가 없습니다.":"초대가 사라졌습니다."})});
+      evBtn(row,"거절",false,function(){act("/api/event/house/leave",{id:d.invite.id},function(){evHNote=""})});
+      li.appendChild(row);wrap.appendChild(ul);return;
+    }
+    if(h&&h.status==="wait"){
+      var u1=document.createElement("ul");u1.className="app-list";
+      var l1=xpLi(u1,h.partner.hn+" ["+h.partner.rank+"]님의 수락을 기다리는 중…",["10분 안에 수락하지 않으면 초대가 사라집니다."]);
+      var r1=evRow();evBtn(r1,"초대 취소",false,function(){act("/api/event/house/leave",{id:h.id},function(){evHNote=""})});l1.appendChild(r1);wrap.appendChild(u1);return;
+    }
+    if(h&&h.status==="run"){
+      var u2=document.createElement("ul");u2.className="app-list";
+      var sc=h.scene;
+      var l2=xpLi(u2,"방 "+(h.room+1)+" / "+h.total+" · "+sc.title,[sc.text,"함께하는 친구 · "+h.partner.hn+" ["+h.partner.rank+"]"]);
+      var r2=evRow();r2.style.flexWrap="wrap";
+      sc.choices.forEach(function(c,i){
+        var lab=(h.chosen===i?"✔ ":"")+c.n+" · 오염 위험 "+HOUSE_RISK[c.risk];
+        evBtn(r2,lab,h.chosen>=0,function(){act("/api/event/house/choose",{id:h.id,c:i},function(){evHNote=""})});
+      });
+      l2.appendChild(r2);
+      var st=document.createElement("small");st.textContent=h.chosen>=0?(h.partnerChose?"두 사람 모두 골랐습니다…":"친구가 고르기를 기다리는 중…"):(h.partnerChose?"친구는 이미 골랐습니다. 당신 차례입니다.":"둘이 같은 것을 고르면 공명 보너스를 받습니다.");l2.appendChild(st);
+      var r3=evRow();evBtn(r3,"포기하고 나가기",false,function(){if(window.confirm("지금 나가면 보상을 받을 수 없습니다. 나갈까요?"))act("/api/event/house/leave",{id:h.id},function(){evHNote="귀신의 집에서 나왔습니다."})});l2.appendChild(r3);
+      wrap.appendChild(u2);evChatMount(wrap,h,sendChat);var ni=wrap.querySelector(".ev-ci input");if(ni&&kv){ni.value=kv;if(kf)ni.focus()}evHouseLog(wrap,h);return;
+    }
+    if(h&&h.status==="done"&&evHDis!==h.id){
+      var u3=document.createElement("ul");u3.className="app-list";
+      var res=h.result;
+      var l3=xpLi(u3,"귀신의 집 탐험 완료!",["획득 "+d.emberName+" "+res.ember+"개 (완주 보너스 "+res.clearBonus+" 포함)","오염도 +"+res.taint+(res.taint?" (보호받은 만큼 줄었습니다)":""),"공명 "+res.matches+"회 · 함께한 친구 "+h.partner.hn],"done");
+      var r4=evRow();evBtn(r4,"확인",false,function(){evHDis=h.id;evHNote="";pollState(false);fetchState(true)});l3.appendChild(r4);
+      wrap.appendChild(u3);if(evChat.msgs.length)evChatMount(wrap,h);evHouseLog(wrap,h);return;
+    }
+    // 아무것도 하고 있지 않을 때: 친구를 골라 초대
+    xpHead(wrap,"함께할 친구 고르기");
+    var ufr=document.createElement("ul");ufr.className="app-list";wrap.appendChild(ufr);
+    function showFriends(list){
+      ufr.textContent="";
+      if(!list.length){xpLi(ufr,"친구가 없습니다.",["메신저에서 친구를 추가하면 함께 들어갈 수 있습니다."],"got");return}
+      list.forEach(function(f){
+        var li=xpLi(ufr,f.hn+" ["+f.rank+"]",[]);var row=evRow();
+        evBtn(row,d.left<1?"오늘 남은 횟수가 없습니다":"초대하기",d.left<1,function(){
+          act("/api/event/house/invite",{code:f.code},function(x){evHNote=x.ok?f.hn+"님에게 초대를 보냈습니다.":x.error==="busy"?"이미 진행 중인 탐험이 있습니다.":x.error==="friend_busy"?"친구가 다른 탐험을 하고 있습니다.":x.error==="limit_friend"?"친구의 오늘 남은 횟수가 없습니다.":x.error==="limit_me"?"오늘 남은 횟수가 없습니다.":"초대하지 못했습니다."});
+        });li.appendChild(row);
+      });
+    }
+    if(evFr&&Date.now()-evFrAt<30000)showFriends(evFr);
+    else api("GET","/api/friends").then(function(f){evFr=(f.friends||[]);evFrAt=Date.now();if(ufr.isConnected)showFriends(evFr)}).catch(function(){ufr.textContent=""});
+  }
+  fetchState(true);
+  evHT=setInterval(function(){if(document.hidden)return;if(devApp!=="hlw"||evTab!=="house"||!box.isConnected){evHouseStop();return}fetchState(false)},3000);
+}
+function evHouseLog(wrap,h){
+  if(!h.log.length)return;
+  xpHead(wrap,"지나온 방");
+  var ul=document.createElement("ul");ul.className="app-list";
+  h.log.forEach(function(x,i){xpLi(ul,(i+1)+". "+x.title+(x.match?" · 공명!":""),["나 · "+x.mine+" / 친구 · "+x.theirs,x.res,"불씨 +"+x.e+(x.t?" · 오염 +"+x.t:"")])});
+  wrap.appendChild(ul);
+}
+
 /* ───── [EVENT:HALLOWEEN] 할로윈 이벤트 앱 ───── */
 var evNote="";
-function loadEvent(){
-  var scr=$("phscr");
+function loadEventMain(scr){
   api("GET","/api/event").then(function(r){
-    if(devApp!=="hlw")return;
+    if(devApp!=="hlw"||evTab!=="main"||!scr.isConnected)return;
     if(r.error){appFail(scr,loadEvent);return}
     var old=scr.querySelector(".app-empty,.app-list,.app-note,.app-sub");while(old){old.remove();old=scr.querySelector(".app-empty,.app-list,.app-note,.app-sub")}
     if(!r.on){evInfo=null;var e0=document.createElement("p");e0.className="app-empty";e0.textContent="할로윈 이벤트가 끝났습니다.";scr.appendChild(e0);return}
@@ -3890,12 +4126,23 @@ function loadEvent(){
     bt.addEventListener("click",function(){
       bt.disabled=true;
       api("POST","/api/event/wish",{}).then(function(x){
-        if(x.ok){$("mapmsg").textContent="소원을 들어주었습니다 · 골드 +"+x.gold+" G · "+r.emberName+" +"+x.ember+(x.ach?" · 업적 '"+x.ach+"' 달성!":"");pollState(false);loadEvent()}
+        if(x.ok){$("mapmsg").textContent="소원을 들어주었습니다 · 골드 +"+x.gold+" G · "+r.emberName+" +"+x.ember+(x.ach?" · 업적 '"+x.ach+"' 달성!":"")+(x.storyEnd?" · 칭호 '"+x.storyEnd+"' 획득!":"")+(x.chapter?" · 사연 "+x.chapter.n+"번째 조각이 열렸습니다":"");pollState(false);loadEvent()}
         else{bt.disabled=false;bt.textContent=x.error==="no_mats"?"재료가 부족합니다":x.error==="already_done"?"이미 완료했습니다":"할 수 없습니다";setTimeout(function(){loadEvent()},1400)}
       });
     });
     row.appendChild(bt);li.appendChild(row);ul.appendChild(li);scr.appendChild(ul);
     note("남은 시간 "+Math.floor(r.resetIn/3600000)+"시간 "+Math.floor(r.resetIn%3600000/60000)+"분");
+    if(r.story){
+      head("처녀귀신의 사연 · "+r.story.read+" / "+r.story.total);
+      var us=document.createElement("ul");us.className="app-list";
+      r.story.chapters.forEach(function(c,i){
+        if(c.text)xpLi(us,c.n+". "+c.who,[c.text]);
+        else if(i===r.story.today)xpLi(us,c.n+". "+c.who,["오늘의 소원을 들어주면 사연이 열립니다."],"done");
+        else xpLi(us,c.n+". ???",["아직 열리지 않은 사연입니다."],"got");
+      });
+      scr.appendChild(us);
+      note("여덟 조각을 모두 모으면 "+r.emberName+" +"+r.story.allEmber+" · 칭호 '"+r.story.achName+"'");
+    }
     // 가면 조합 (도깨비 불씨 + 재료). 만든 가면은 장비 앱에서 착용합니다
     var defs=r.masks||[];
     if(defs.length){
@@ -3920,6 +4167,108 @@ function loadEvent(){
       scr.appendChild(ul2);
     }
   });
+}
+
+/* ───── 사냥 도감 · 주간 리포트 · 명예의 전당 · 지명 수배 ───── */
+function xpInit(scr){var old=scr.querySelector(".app-empty,.app-list,.app-note,.app-sub,.wk-bars");while(old){old.remove();old=scr.querySelector(".app-empty,.app-list,.app-note,.app-sub,.wk-bars")}}
+function xpNote(scr,t){var n=document.createElement("p");n.className="app-note";n.textContent=t;scr.appendChild(n);return n}
+function xpHead(scr,t){var h=document.createElement("p");h.className="app-sub";h.textContent=t;h.style.cssText="margin:12px 0 4px;font-weight:700;font-size:.9rem";scr.appendChild(h)}
+function xpLi(ul,title,lines,cls){var li=document.createElement("li");li.className="qst-li"+(cls?" "+cls:"");var t=document.createElement("div");t.className="qst-t";t.textContent=title;li.appendChild(t);(lines||[]).forEach(function(x){var s=document.createElement("small");s.textContent=x;li.appendChild(s)});ul.appendChild(li);return li}
+function xpDate(ms){var d=new Date(ms);return (d.getMonth()+1)+"월 "+d.getDate()+"일"}
+function loadDex(){
+  var scr=$("phscr");
+  api("GET","/api/dex").then(function(r){
+    if(devApp!=="dex")return;
+    if(r.error||!r.ranks){appFail(scr,loadDex);return}
+    xpInit(scr);
+    xpNote(scr,"발견한 몬스터 "+r.found+" / "+r.total+" ("+Math.round(r.found*100/Math.max(1,r.total))+"%) · 몬스터를 처치하면 기록됩니다.");
+    r.ranks.forEach(function(g){
+      xpHead(scr,"["+g.rank+"] "+g.found+" / "+g.total);
+      var ul=document.createElement("ul");ul.className="app-list";
+      g.list.forEach(function(m){
+        if(!m.found)xpLi(ul,"???",["아직 만나지 못했습니다."],"got");
+        else xpLi(ul,m.name,["처치 "+m.kills+"회 · 처음 처치 "+xpDate(m.first),"처치 보상 · 골드 "+m.gold[0]+"~"+m.gold[1]+" G · 경험치 "+m.exp]);
+      });
+      scr.appendChild(ul);
+    });
+    if(r.extra&&r.extra.length){
+      xpHead(scr,"그 밖의 몬스터");
+      var u2=document.createElement("ul");u2.className="app-list";
+      r.extra.forEach(function(m){xpLi(u2,m.name,["처치 "+m.kills+"회"])});
+      scr.appendChild(u2);
+    }
+  }).catch(function(){if(devApp==="dex")appFail(scr,loadDex)});
+}
+function loadWeekly(){
+  var scr=$("phscr");
+  api("GET","/api/weekly").then(function(r){
+    if(devApp!=="wkr")return;
+    if(r.error||!r.days){appFail(scr,loadWeekly);return}
+    xpInit(scr);
+    xpNote(scr,xpDate(r.weekStart)+"(월) 0시부터의 기록 · 다음 주까지 "+Math.floor(r.resetIn/86400000)+"일 "+Math.floor(r.resetIn%86400000/3600000)+"시간");
+    var diff=r.kills-r.lastKills;
+    var ul=document.createElement("ul");ul.className="app-list";
+    xpLi(ul,"이번 주 토벌 "+r.kills+"마리",["지난주 "+r.lastKills+"마리 · "+(diff>0?"+"+diff+"마리 늘었습니다":diff<0?(-diff)+"마리 줄었습니다":"같습니다"),"토벌 실패 "+r.fails+"회 (지난주 "+r.lastFails+"회)"]);
+    xpLi(ul,"이번 주 얻은 것",["토벌 경험치 "+r.exp,"골드 "+r.gold+" G","아이템 "+r.items+"개"]);
+    scr.appendChild(ul);
+    xpHead(scr,"요일별 토벌");
+    var max=1;r.days.forEach(function(v){if(v>max)max=v});
+    var bars=document.createElement("div");bars.className="wk-bars";
+    ["월","화","수","목","금","토","일"].forEach(function(nm,i){
+      var b=document.createElement("div");b.className="wk-bar"+(i===r.today?" now":"");
+      var v=document.createElement("span");v.textContent=String(r.days[i]);
+      var bar=document.createElement("i");bar.style.height=Math.max(2,Math.round(r.days[i]*70/max))+"px";
+      var l=document.createElement("span");l.textContent=nm;
+      b.appendChild(v);b.appendChild(bar);b.appendChild(l);bars.appendChild(b);
+    });
+    scr.appendChild(bars);
+    var ul2=document.createElement("ul");ul2.className="app-list";
+    if(r.byRank.length)xpLi(ul2,"등급별 처치",[r.byRank.map(function(x){return x.rank+"급 "+x.c}).join(" · ")]);
+    if(r.topMon)xpLi(ul2,"가장 많이 잡은 몬스터",[r.topMon.name+" "+r.topMon.c+"마리"]);
+    if(r.topRegion)xpLi(ul2,"가장 많이 사냥한 지역",[r.topRegion.name+" "+r.topRegion.c+"마리"]);
+    if(!ul2.children.length)xpLi(ul2,"아직 이번 주 토벌 기록이 없습니다.",["몬스터를 처치하면 여기에 쌓입니다."],"got");
+    scr.appendChild(ul2);
+  }).catch(function(){if(devApp==="wkr")appFail(scr,loadWeekly)});
+}
+function loadHof(){
+  var scr=$("phscr");
+  api("GET","/api/hof").then(function(r){
+    if(devApp!=="hof")return;
+    if(r.error||!r.lv){appFail(scr,loadHof);return}
+    xpInit(scr);
+    xpNote(scr,"상위 10명 · 5분마다 갱신됩니다. 비공개 헌터는 표시되지 않습니다.");
+    [["전투력 레벨","lv",function(v){return "Lv."+v}],["이번 주 토벌","week",function(v){return v+"마리"}],["누적 토벌","kills",function(v){return v+"마리"}],["달성한 업적","ach",function(v){return v+"개"}]].forEach(function(s){
+      xpHead(scr,s[0]);
+      var ul=document.createElement("ul");ul.className="app-list";
+      var rows=r[s[1]]||[];
+      if(!rows.length)xpLi(ul,"아직 기록이 없습니다.",[],"got");
+      rows.forEach(function(x){var li=xpLi(ul,x.n+"위 · "+x.hn+(x.me?" (나)":""),["["+x.rank+"] "+s[2](x.v)],x.me?"done":"")});
+      scr.appendChild(ul);
+    });
+  }).catch(function(){if(devApp==="hof")appFail(scr,loadHof)});
+}
+var wntNote="";
+function loadWanted(){
+  var scr=$("phscr");
+  api("GET","/api/wanted").then(function(r){
+    if(devApp!=="wnt")return;
+    if(r.error||!r.name){appFail(scr,loadWanted);return}
+    xpInit(scr);
+    xpNote(scr,"매일 한국 시간 0시에 바뀝니다 · 남은 시간 "+hm(r.resetIn));
+    if(wntNote)xpNote(scr,wntNote);
+    var ul=document.createElement("ul");ul.className="app-list";
+    var li=xpLi(ul,"["+r.rank+"] "+r.name,["오늘 처치 "+Math.min(r.kills,r.need)+" / "+r.need,"보상 · 골드 "+r.reward.gold+" G · 경험치 "+r.reward.exp,"평소처럼 출몰하는 이 몬스터를 오늘 처치하면 됩니다."],r.claimed?"got":(r.ready?"done":""));
+    var row=document.createElement("div");row.className="rum-v";var bt=document.createElement("button");bt.type="button";bt.className="ach-btn";
+    bt.textContent=r.claimed?"수령 완료":(r.ready?"보상 받기":"아직 처치하지 못했습니다");bt.disabled=!r.ready;
+    bt.addEventListener("click",function(){
+      bt.disabled=true;
+      api("POST","/api/wanted/claim",{}).then(function(x){
+        wntNote=x.ok?"수배 보상을 받았습니다 · 골드 +"+x.gold+" G · 경험치 +"+x.exp+(x.levelUp?" · 전투력 레벨 상승!":""):"보상을 받을 수 없습니다.";
+        pollState(false);loadWanted();
+      }).catch(function(){bt.disabled=false;wntNote="보상을 받지 못했습니다.";loadWanted()});
+    });
+    row.appendChild(bt);li.appendChild(row);scr.appendChild(ul);
+  }).catch(function(){if(devApp==="wnt")appFail(scr,loadWanted)});
 }
 
 /* ───── 그림자 거래소 ───── */
