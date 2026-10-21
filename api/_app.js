@@ -156,6 +156,7 @@ async function taintMonsters(uid, now) {
 // F~A급 몬스터는 헌터마다 따로 출몰합니다. 그 헌터가 접속해 요청할 때 밀린 만큼 따라잡아 만듭니다.
 const spawnNext = new Map();       // 헌터별 '다음 출몰 시각' (이 시각 전에는 DB 를 읽지 않음). 다른 인스턴스가 앞당길 일이 없어 안전합니다.
 async function tickPersonal(uid, now) {
+  if (EV.nightOnly(now)) { if (PERF) spawnNext.set(uid, now + 60000); return; }      // [EVENT:HALLOWEEN] 백귀야행 중에는 일반 몬스터가 새로 출몰하지 않음 (잡귀만)
   if (PERF) { const c = spawnNext.get(uid); if (c !== undefined && now < c) return; }
   let minNext = Infinity, certain = true;
   const myRegions = G.SPAWN_REGIONS;      // F~A급은 헌터가 어디 있든 모든 나라의 모든 세부 지역에서 같은 확률로 출몰
@@ -666,6 +667,7 @@ async function srvBgm() {
 }
 async function buildState(u, now) {
   await settleDying(u.id, now);
+  await EV.refresh();
   await tickPersonal(u.id, now);
   await EV.refresh(); await EV.tick(u, now);      // [EVENT:HALLOWEEN] 백귀야행
   if (await corruptCheck(u.id, u)) u = (await userById(u.id)) || u;      // 방금 읽은 유저 행을 그대로 쓰고, 값이 바뀐 때만 다시 읽음
@@ -688,12 +690,13 @@ async function buildState(u, now) {
   const achNew = Number(cnt.ach);
   // 보이는 몬스터: 서버 공통 S급 + 내 몬스터(F~A). 예전 공통 F~A 몬스터는 보이지 않습니다.
   const vis = "((owner_id IS NULL AND (rank = 'SS' OR corrupt_of IS NOT NULL OR rumor_id IS NOT NULL)) OR owner_id = ?)";
+  const NL = EV.nightListSql(now);
   const mons = await db.all(`SELECT id, region, name, rank, spawned_at, rumor_id, corrupt_of FROM monsters
     WHERE ${vis} AND (spawned_at > ? OR (rank = 'SS' AND spawned_at > ?) OR (corrupt_of IS NOT NULL AND spawned_at > ?) OR id IN (SELECT id FROM monsters WHERE ${vis} ORDER BY id DESC LIMIT 6))
       AND id NOT IN (SELECT monster_id FROM s_close WHERE ok = 0)
       AND NOT (rank = 'F' AND corrupt_of IS NULL AND spawned_at < ${now - G.ACTIVE_MS_F} AND id NOT IN (SELECT monster_id FROM kills WHERE user_id = ?))
-      AND (corrupt_of IS NULL OR corrupt_of <> ?)${EV.GATE_GHOST_SQL}
-    ORDER BY spawned_at DESC, id DESC LIMIT 40`, [u.id, now - G.ACTIVE_MS, now - G.ACTIVE_MS_S, now - CORRUPT_MON_MS, u.id, u.id, u.id].concat(EV.GATE_GHOST_ARGS));      // [EVENT:HALLOWEEN] 적월문 안의 잡귀는 어떤 경우에도 보이지 않음
+      AND (corrupt_of IS NULL OR corrupt_of <> ?)${EV.GATE_GHOST_SQL}${NL.sql}
+    ORDER BY spawned_at DESC, id DESC LIMIT 40`, [u.id, now - G.ACTIVE_MS, now - G.ACTIVE_MS_S, now - CORRUPT_MON_MS, u.id, u.id, u.id].concat(EV.GATE_GHOST_ARGS, NL.args));      // [EVENT:HALLOWEEN] 적월문 안의 잡귀는 어떤 경우에도 보이지 않음
   const minId = mons.length ? Math.min.apply(null, mons.map(m => m.id)) : 0;
   const [kills, cds, parts, si, pending, results] = await Promise.all([
     db.all('SELECT monster_id FROM kills WHERE user_id = ? AND monster_id >= ?', [u.id, minId]),
@@ -1894,6 +1897,7 @@ route('POST', '/api/hunt', async (req, res, ctx) => {
   if (cur.block_flags & 1) return fail(res, 403, 'blocked', { what: 'hunt' });      // 운영자가 토벌을 막아 둠
   const m = await db.get('SELECT id, region, name, rank, spawned_at, owner_id, rumor_id, corrupt_of FROM monsters WHERE id = ?', [Number(ctx.body.id)]);
   if (!m) return fail(res, 410, 'expired');
+  if (m.owner_id != null && EV.nightOnly(Date.now()) && !EV.GHOST_SET.has(m.name)) return fail(res, 404, 'no_monster');      // [EVENT:HALLOWEEN] 백귀야행 중에는 잡귀만 상대할 수 있음
   if (EV.isGhostInGate(m)) return fail(res, 404, 'no_monster');      // [EVENT:HALLOWEEN] 적월문 안의 잡귀는 상대할 수 없음
   if ((m.owner_id != null && m.owner_id !== cur.id) || (m.owner_id == null && m.rank !== 'SS' && m.corrupt_of == null && m.rumor_id == null)) return fail(res, 404, 'no_monster');
   const cm = m.corrupt_of != null;
@@ -2112,7 +2116,7 @@ route('POST', '/api/results/ack', async (req, res, ctx) => {
 });
 
 route('GET', '/api/friends', async (req, res, ctx) => {
-  const rows = await db.all(`SELECT u.code, u.hunter_name AS hn, u.rank, u.corrupt_flag AS cf,
+  const rows = await db.all(`SELECT u.code, u.hunter_name AS hn, u.rank, u.corrupt_flag AS cf, u.last_seen AS ls,
       (SELECT COUNT(*) FROM messages m WHERE m.from_id = f.friend_id AND m.to_id = f.user_id AND m.id > f.last_read) AS unread
     FROM friends f JOIN users u ON u.id = f.friend_id WHERE f.user_id = ? ORDER BY u.hunter_name`, [ctx.user.id]);
   const inc = await db.all(`SELECT u.code, u.hunter_name AS hn, u.rank, r.at FROM friend_requests r JOIN users u ON u.id = r.from_id
@@ -2120,7 +2124,8 @@ route('GET', '/api/friends', async (req, res, ctx) => {
   const out = await db.all(`SELECT u.code, u.hunter_name AS hn, u.rank, r.at FROM friend_requests r JOIN users u ON u.id = r.to_id
     WHERE r.from_id = ? ORDER BY r.at DESC LIMIT 100`, [ctx.user.id]);
   const mp = x => ({ code: x.code, hn: x.hn, rank: x.rank, at: x.at });
-  send(res, 200, { friends: rows.map(f => ({ code: f.code, hn: f.hn, rank: f.rank, unread: f.unread, corrupt: !!f.cf })), incoming: inc.map(mp), outgoing: out.map(mp) });
+  const nowMs = Date.now();
+  send(res, 200, { friends: rows.map(f => ({ code: f.code, hn: f.hn, rank: f.rank, unread: f.unread, corrupt: !!f.cf, on: nowMs - (Number(f.ls) || 0) < 120000 })), incoming: inc.map(mp), outgoing: out.map(mp) });
 });
 
 const makeFriends = (a, b) => db.batch([
