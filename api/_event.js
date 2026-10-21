@@ -108,8 +108,14 @@ function install(a) {
 
   // ① 백귀야행: 헌터가 접속해 요청할 때 밀린 만큼이 아니라 '지금' 한 무리를 만듭니다 (자리를 비운 사이의 잡귀는 만들지 않음)
   const nextAt = new Map();
+  let gateCleaned = false;
   async function tick(u, now) {
     if (!on(now)) return;
+    if (!gateCleaned) {          // 예전에 적월문 안쪽에 잘못 나온 잡귀를 한 번 치웁니다
+      gateCleaned = true;
+      const gids = G.REGIONS.filter(r => !G.SPAWN_REGIONS.includes(r)).map(r => r.id);
+      if (gids.length) await db.run(`DELETE FROM monsters WHERE owner_id IS NOT NULL AND name IN (${GHOSTS.map(() => '?').join(',')}) AND region IN (${gids.map(() => '?').join(',')})`, GHOSTS.concat(gids)).catch(() => { gateCleaned = false; });
+    }
     const c = nextAt.get(u.id);
     if (c !== undefined && now < c) return;
     if (!isNight(now)) { nextAt.set(u.id, Math.min(now + 5 * MIN, nextNightStart(now))); return; }
@@ -128,7 +134,8 @@ function install(a) {
     if (room <= 0) return;
     const n = Math.min(room, rnd(GHOST_BATCH[0], GHOST_BATCH[1]));
     const hi = Math.max(0, RANKS.indexOf(u.rank));
-    const here = u.region || G.SPAWN_REGIONS[rnd(0, G.SPAWN_REGIONS.length - 1)].id;      // 백귀야행은 헌터가 있는 곳으로 몰려옵니다
+    const inSpawn = u.region && G.SPAWN_REGIONS.some(r => r.id === u.region);      // 적월문(게이트 구역) 안쪽에서는 몬스터가 나오지 않으므로 제외
+    const here = inSpawn ? u.region : G.SPAWN_REGIONS[rnd(0, G.SPAWN_REGIONS.length - 1)].id;      // 백귀야행은 헌터가 있는 곳으로 몰려옵니다
     const list = [];
     for (let i = 0; i < n; i++) {
       const rank = RANKS[Math.max(0, Math.min(4, hi - rnd(1, 2)))];      // 내 등급보다 1~2단계 아래 (최대 B급)
