@@ -270,6 +270,41 @@ main.landing{display:flex;align-items:center;justify-content:center;max-width:no
 .nt-item button{flex:none;padding:8px 16px;font-size:.95rem}
 .nt-item button:disabled{opacity:.55;cursor:default}
 .nt-ok{width:100%;padding:12px 16px;font-size:1rem}
+/* 시스템 팝업: 위아래로 갈라져 걷히는 로딩 막 + 격자를 따라 흐르는 빛줄기 */
+.sp{position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;padding:20px 16px;overflow:hidden;background:rgba(6,4,10,.82);-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);--mx:-200px;--my:-200px;--e:cubic-bezier(.77,0,.18,1)}
+.sp[hidden]{display:none}
+.sp-gd,.sp-gl,.sp-cov .sp-h{background-image:linear-gradient(rgba(255,255,255,.07) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.07) 1px,transparent 1px);background-size:34px 34px;background-position:-1px -1px}
+.sp-gd,.sp-gl{position:absolute;inset:0;pointer-events:none}
+.sp-gd{-webkit-mask-image:radial-gradient(75% 70% at 50% 45%,#000,transparent);mask-image:radial-gradient(75% 70% at 50% 45%,#000,transparent)}
+.sp-gl{background-image:linear-gradient(rgba(255,90,100,.6) 1px,transparent 1px),linear-gradient(90deg,rgba(255,90,100,.6) 1px,transparent 1px);-webkit-mask-image:radial-gradient(90px 90px at var(--mx) var(--my),#000,transparent);mask-image:radial-gradient(90px 90px at var(--mx) var(--my),#000,transparent)}
+.sp-cv{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.sp-card{position:relative;width:100%;max-width:440px;overflow:hidden;text-align:center;background:linear-gradient(180deg,#130b0d,#0a0607);border:1px solid var(--red);border-radius:18px;box-shadow:0 0 40px rgba(212,32,46,.35)}
+.sp-in{position:relative;z-index:1;max-height:calc(100vh - 40px);overflow-y:auto;padding:26px 20px 18px}
+.sp-i{transition:opacity .6s ease,transform .6s cubic-bezier(.2,.8,.2,1);transition-delay:calc(.55s + var(--n,0) * .2s)}
+.sp:not(.go) .sp-i{opacity:0;transform:translateY(16px)}
+.sp-eb{margin:0 0 12px;font:400 .72rem/1 "Share Tech Mono",monospace;letter-spacing:.3em;color:var(--deep)}
+.sp-name{display:inline-block;margin:0 0 14px;padding:4px 12px;border-radius:999px;background:rgba(255,255,255,.06);box-shadow:inset 0 0 0 1px rgba(255,255,255,.14);font-size:.8rem;font-weight:800;letter-spacing:.06em;color:#ffb3ba;overflow-wrap:anywhere}
+.sp-photo{display:block;width:88px;height:88px;margin:0 auto 14px;border-radius:50%;object-fit:cover;animation:spglow 2.6s ease-in-out infinite alternate}
+@keyframes spglow{from{box-shadow:0 0 6px 1px rgba(255,59,74,.28),0 0 14px rgba(255,59,74,.18)}to{box-shadow:0 0 14px 3px rgba(255,59,74,.62),0 0 30px rgba(255,59,74,.34)}}
+.sp-title{margin:0 0 10px;padding:0;background:none;border:0;font-size:1.4rem;line-height:1.35;font-weight:900;letter-spacing:-.02em;color:var(--text);overflow-wrap:anywhere;word-break:keep-all}
+.sp-body{margin:0 0 18px;padding-top:12px;border-top:1px solid var(--line);font-size:1rem;line-height:1.75;text-align:left;color:var(--text);white-space:pre-wrap;overflow-wrap:anywhere;word-break:keep-all;max-height:40vh;overflow-y:auto}
+.sp-ok{width:100%;padding:12px 16px;font-size:1rem}
+.sp-cov{position:absolute;inset:0;z-index:2;pointer-events:auto}
+.sp-cov .sp-h{position:absolute;left:0;right:0;height:50%;overflow:hidden;background-color:#07040a;transition:transform .9s var(--e)}
+.sp-t{top:0;box-shadow:0 1px 0 rgba(255,59,74,.7)}
+.sp-b{bottom:0;box-shadow:0 -1px 0 rgba(255,59,74,.7)}
+.sp-hi{position:absolute;left:0;right:0;height:200%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;text-align:center}
+.sp-t .sp-hi{top:0}.sp-b .sp-hi{bottom:0}
+.sp-hi b{font:400 1.5rem/1 "Share Tech Mono",monospace;letter-spacing:.5em;padding-left:.5em;color:#fff;text-shadow:0 0 18px rgba(255,59,74,.8)}
+.sp-hi i{font-style:normal;font-size:.8rem;letter-spacing:.12em;color:var(--sub)}
+.sp-seam{position:absolute;left:0;right:0;top:50%;height:2px;margin-top:-1px;z-index:3;background:linear-gradient(90deg,transparent,var(--red2),#fff,var(--red2),transparent);transform-origin:center;animation:spseam 1.05s ease-out both;transition:opacity .3s}
+@keyframes spseam{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+.sp.go .sp-t{transform:translateY(-101%)}
+.sp.go .sp-b{transform:translateY(101%)}
+.sp.go .sp-seam{opacity:0}
+.sp.go .sp-cov{pointer-events:none}
+.sp.out{opacity:0;transition:opacity .35s}
+@media (max-width:480px){.sp-in{padding:22px 14px 14px}.sp-title{font-size:1.25rem}}
 .use-btn{flex:none;min-height:32px;padding:0 12px;font:700 .78rem/1 "Noto Sans KR",sans-serif;color:#fff;background:linear-gradient(135deg,#a8202c,#5a0f16);border:1px solid var(--red2);border-radius:8px;cursor:pointer}
 .use-btn:disabled{opacity:.5;cursor:not-allowed}
 .inv-act{display:flex;gap:6px;flex:none;align-items:flex-start}
@@ -1039,6 +1074,22 @@ input[type=checkbox]:focus-visible{outline:2px solid var(--deep);outline-offset:
       <p class="pwnote" id="qnote"></p>
     </div>
   </div>
+</div>
+<div class="sp" id="sp" hidden>
+  <div class="sp-card" id="spcard" role="dialog" aria-modal="true" aria-labelledby="sptitle">
+    <div class="sp-gd" aria-hidden="true"></div><div class="sp-gl" aria-hidden="true"></div><canvas class="sp-cv" id="spcv" aria-hidden="true"></canvas>
+    <div class="sp-in" id="spin">
+    <p class="sp-eb sp-i" style="--n:0">SYSTEM MESSAGE</p>
+    <span class="sp-name sp-i" id="spname" style="--n:0"></span>
+    <img class="sp-photo sp-i" id="spphoto" alt="" src="/sysmsg-eye.png" width="88" height="88" style="--n:1">
+    <h2 class="sp-title sp-i" id="sptitle" style="--n:2"></h2>
+    <p class="sp-body sp-i" id="spbody" style="--n:3"></p>
+    <button type="button" class="nt-ok sp-ok sp-i" id="spok" style="--n:4">확인</button>
+    </div>
+  </div>
+  <div class="sp-cov" id="spcov" aria-hidden="true"><div class="sp-seam"></div>
+    <div class="sp-h sp-t"><div class="sp-hi"><b>SYSTEM</b><i>메시지를 불러오는 중</i></div></div>
+    <div class="sp-h sp-b"><div class="sp-hi"><b>SYSTEM</b><i>메시지를 불러오는 중</i></div></div></div>
 </div>
 <div class="modal" id="ntmodal" hidden style="z-index:12;align-items:center">
   <div class="dialog small ntd" role="dialog" aria-modal="true" aria-labelledby="nttitle">
@@ -2408,7 +2459,7 @@ var globe=(function(){
   return {set:set,isOn:function(){return on},redraw:function(){if(on&&rm)draw()}};
 })();
 var evInfo=null,achNew=0,questReady=0,rescueReq=0,rumorNew=0,gold=0,devApp=null,inventory=[],invSig="",invNote="";
-var APPS=[["gw","게이트웨이브","i-eye"],["msg","메신저","i-chat"],["com","커뮤니티","i-board"],["ach","업적","i-medal"],["qst","의뢰","i-star"],["eqp","장비","i-str"],["pct","계약","i-taint"],["exc","그림자 거래소","i-lock"],["rum","괴담","i-psi"],["sys","시스템 알림","i-bell"],["shop","상점","i-shop"],["inv","인벤토리","i-bag"],["dex","사냥 도감","i-dex"],["wkr","주간 리포트","i-wkr"],["hof","명예의 전당","i-hof"],["wnt","지명 수배","i-wnt"],["hlw","할로윈","i-hlw"]];
+var APPS=[["gw","게이트웨이브","i-eye"],["msg","메신저","i-chat"],["com","커뮤니티","i-board"],["ach","업적","i-medal"],["qst","의뢰","i-star"],["eqp","장비","i-str"],["pct","계약","i-taint"],["exc","그림자 거래소","i-lock"],["rum","괴담","i-psi"],["sys","시스템 알림","i-bell"],["shop","상점","i-shop"],["inv","인벤토리","i-bag"],["hlw","할로윈","i-hlw"]];
 function devClock(){var d=new Date(),c=$("phclk");if(c)c.textContent=pad(d.getHours())+":"+pad(d.getMinutes())}
 function badgeOf(id){return id==="inv"?giftUnread:id==="sys"?unreadNotices:id==="msg"?unreadMsgs+friendReqs+rescueReq:id==="qst"?questReady:id==="rum"?rumorNew:id==="com"?Math.max(0,Math.min(99,cmLatest-cmSeen)):id==="ach"?achNew:0}
 function loadNotices(){
@@ -2472,6 +2523,86 @@ $("ntclose").addEventListener("click",closeNt);
 $("ntok").addEventListener("click",closeNt);
 ntmodal.addEventListener("mousedown",function(e){if(e.target===ntmodal)closeNt()});
 document.addEventListener("keydown",function(e){if(e.key==="Escape"&&!ntmodal.hidden)closeNt()});
+/* ── 시스템 팝업 (관리자 전체 전송) ── */
+var spEl=$("sp"),spCur=null,spOpen=false,spTok=0,spDone={},spRaf=0,spTimers=[],spBeams=[],spOpener=null;
+var spRM=window.matchMedia&&window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+function spCheck(id){
+  if(id&&spDone[id])id=null;
+  if(spCur&&id!==spCur){                                   /* 보낸 사람이 전송을 취소했거나 다른 팝업으로 바뀜 */
+    var was=spOpen;spClose(true);if(was&&typeof gwToast==="function")gwToast("운영자가 보낸 메시지가 회수되었어요.",4200);
+  }
+  if(id&&!spCur)spShow(id);
+}
+function spShow(id){
+  spCur=id;var tok=++spTok;
+  api("GET","/api/sysmsg?id="+encodeURIComponent(id)).then(function(r){
+    if(tok!==spTok)return;
+    if(!r||r.error){if(r&&r.error==="gone")spDone[id]=1;spCur=null;return}
+    $("spname").textContent=r.name||"운영자";$("sptitle").textContent=r.title||"";$("spbody").textContent=r.body||"";
+    var im=$("spphoto");im.src=(r.img&&/^data:image\//.test(r.img))?r.img:"/sysmsg-eye.png";      /* 사진을 따로 붙이지 않으면 눈 문양 */
+    spOpener=document.activeElement;spOpen=true;
+    spEl.classList.remove("go","out");spEl.hidden=false;document.body.style.overflow="hidden";$("spin").scrollTop=0;
+    spBeamsStart();
+    if(spRM){spEl.classList.add("go");$("spok").focus();return}
+    spTimers.push(setTimeout(function(){spEl.classList.add("go")},1150));                 /* 로딩 막이 위아래로 갈라짐 */
+    spTimers.push(setTimeout(function(){$("spok").focus()},2300));
+  });
+}
+function spClose(silent){
+  spTok++;spTimers.forEach(clearTimeout);spTimers=[];spBeamsStop();
+  var was=spOpen;spOpen=false;spCur=null;
+  if(was){document.body.style.overflow="";if(spOpener&&spOpener.focus&&document.contains(spOpener))try{spOpener.focus()}catch(e){}}
+  spEl.hidden=true;spEl.classList.remove("go","out");
+}
+function spAck(){
+  var id=spCur;if(!id||!spOpen)return;spDone[id]=1;$("spok").disabled=true;
+  spEl.classList.add("out");
+  setTimeout(function(){spClose();$("spok").disabled=false},spRM?0:340);
+  api("POST","/api/sysmsg/ack",{id:id}).then(function(r){if(r&&r.next&&!spDone[r.next])setTimeout(function(){if(!spCur)spShow(r.next)},500)});
+}
+$("spok").addEventListener("click",spAck);
+document.addEventListener("keydown",function(e){
+  if(!spOpen)return;
+  if(e.key==="Escape"&&spEl.classList.contains("go")){e.preventDefault();spAck()}
+  else if(e.key==="Tab"){e.preventDefault();if(spEl.classList.contains("go"))$("spok").focus()}
+},true);
+var spCardEl=$("spcard");
+spCardEl.addEventListener("pointermove",function(e){var r=spCardEl.getBoundingClientRect();spCardEl.style.setProperty("--mx",(e.clientX-r.left).toFixed(0)+"px");spCardEl.style.setProperty("--my",(e.clientY-r.top).toFixed(0)+"px")});
+spCardEl.addEventListener("pointerleave",function(){spCardEl.style.setProperty("--mx","-200px");spCardEl.style.setProperty("--my","-200px")});
+/* 격자선을 따라 흐르는 빛줄기 */
+function spBeamsStart(){
+  var cv=$("spcv"),cx=cv.getContext("2d"),C=34,dpr=Math.min(2,window.devicePixelRatio||1),W=0,H=0,acc=0,last=performance.now(),COL=["255,59,74","255,128,112","255,214,200"];
+  spBeams=[];
+  var cd=$("spcard");function size(){W=cd.clientWidth;H=cd.clientHeight;if(!W||!H)return;cv.width=W*dpr;cv.height=H*dpr;cx.setTransform(dpr,0,0,dpr,0,0)}
+  size();if(window.ResizeObserver){if(spEl._ro)spEl._ro.disconnect();spEl._ro=new ResizeObserver(function(){if(spOpen)size()});spEl._ro.observe(cd)}
+  function spawn(){var v=Math.random()<.5,line=(1+Math.floor(Math.random()*((v?W:H)/C-1)))*C-1,dir=Math.random()<.5?1:-1;
+    spBeams.push({v:v,l:line,p:dir>0?-60:(v?H:W)+60,d:dir,sp:130+Math.random()*110,len:60+Math.random()*60,c:COL[Math.floor(Math.random()*3)]})}
+  function draw(){
+    cx.clearRect(0,0,W,H);
+    spBeams.forEach(function(b){
+      var x0=b.v?b.l:b.p-b.d*b.len,y0=b.v?b.p-b.d*b.len:b.l,x1=b.v?b.l:b.p,y1=b.v?b.p:b.l;
+      var g=cx.createLinearGradient(x0,y0,x1,y1);g.addColorStop(0,"rgba("+b.c+",0)");g.addColorStop(1,"rgba("+b.c+",.95)");
+      cx.strokeStyle=g;cx.lineWidth=1.6;cx.beginPath();cx.moveTo(x0+.5,y0+.5);cx.lineTo(x1+.5,y1+.5);cx.stroke();
+      cx.fillStyle="rgba("+b.c+",1)";cx.shadowColor="rgba("+b.c+",1)";cx.shadowBlur=8;cx.beginPath();cx.arc(x1+.5,y1+.5,1.8,0,6.2832);cx.fill();cx.shadowBlur=0;
+    });
+  }
+  for(var i=0;i<5;i++){spawn();spBeams[i].p=(spBeams[i].v?H:W)*(.15+i*.17)}
+  draw();
+  if(spRM)return;                                          /* 동작 줄이기: 빛줄기는 멈춘 모습으로만 */
+  function frame(now){
+    spRaf=0;if(!spOpen)return;
+    if(document.hidden){spRaf=requestAnimationFrame(frame);last=now;return}
+    var dt=Math.min(.05,Math.max(0,(now-last)/1000));last=now;
+    acc+=dt;if(acc>.35&&spBeams.length<12){acc=0;spawn()}
+    spBeams.forEach(function(b){b.p+=b.d*b.sp*dt});
+    spBeams=spBeams.filter(function(b){var lim=(b.v?H:W)+80;return b.d>0?b.p<lim:b.p>-80});
+    draw();spRaf=requestAnimationFrame(frame);
+  }
+  spRaf=requestAnimationFrame(frame);
+  spEl._rs=function(){if(spOpen)size()};
+}
+function spBeamsStop(){if(spRaf){cancelAnimationFrame(spRaf);spRaf=0}if(spEl._ro){spEl._ro.disconnect();spEl._ro=null}spBeams=[]}
+window.addEventListener("resize",function(){if(spEl._rs)spEl._rs()});
 // ── 업적: 캐릭터 창 맨 위에 달아두기 ──
 var pinned=[];
 function renderPins(){
@@ -2633,10 +2764,6 @@ function renderDevice(){
   else if(devApp==="ach"){empty("불러오는 중…");loadAch()}
   else if(devApp==="qst"){empty("불러오는 중…");loadQuests()}
   else if(devApp==="hlw"){empty("불러오는 중…");loadEvent()}
-  else if(devApp==="dex"){empty("불러오는 중…");loadDex()}
-  else if(devApp==="wkr"){empty("불러오는 중…");loadWeekly()}
-  else if(devApp==="hof"){empty("불러오는 중…");loadHof()}
-  else if(devApp==="wnt"){empty("불러오는 중…");loadWanted()}      /* [EVENT:HALLOWEEN] */
   else if(devApp==="eqp"){empty("불러오는 중…");loadEquip()}
   else if(devApp==="pct"){empty("불러오는 중…");loadPact()}
   else if(devApp==="exc"){empty("불러오는 중…");loadExc()}
@@ -2679,6 +2806,7 @@ function renderAlerts(){
 }
 var statSig="";
 function applyState(st,first){
+  spCheck(st.sp||null);
   skew=st.now-Date.now();
   if(st.user&&st.user.stats&&!$("gtex").hidden)exTaint(st.user.stats.taint);
   if(st.user&&st.user.stats){            // 운영자가 헌터명·스탯을 바꾸면 바로 반영
@@ -4169,107 +4297,12 @@ function loadEventMain(scr){
   });
 }
 
-/* ───── 사냥 도감 · 주간 리포트 · 명예의 전당 · 지명 수배 ───── */
+/* ───── 앱 공용 도우미 (할로윈 도감·장터·귀신의 집이 함께 씁니다) ───── */
 function xpInit(scr){var old=scr.querySelector(".app-empty,.app-list,.app-note,.app-sub,.wk-bars");while(old){old.remove();old=scr.querySelector(".app-empty,.app-list,.app-note,.app-sub,.wk-bars")}}
 function xpNote(scr,t){var n=document.createElement("p");n.className="app-note";n.textContent=t;scr.appendChild(n);return n}
 function xpHead(scr,t){var h=document.createElement("p");h.className="app-sub";h.textContent=t;h.style.cssText="margin:12px 0 4px;font-weight:700;font-size:.9rem";scr.appendChild(h)}
 function xpLi(ul,title,lines,cls){var li=document.createElement("li");li.className="qst-li"+(cls?" "+cls:"");var t=document.createElement("div");t.className="qst-t";t.textContent=title;li.appendChild(t);(lines||[]).forEach(function(x){var s=document.createElement("small");s.textContent=x;li.appendChild(s)});ul.appendChild(li);return li}
 function xpDate(ms){var d=new Date(ms);return (d.getMonth()+1)+"월 "+d.getDate()+"일"}
-function loadDex(){
-  var scr=$("phscr");
-  api("GET","/api/dex").then(function(r){
-    if(devApp!=="dex")return;
-    if(r.error||!r.ranks){appFail(scr,loadDex);return}
-    xpInit(scr);
-    xpNote(scr,"발견한 몬스터 "+r.found+" / "+r.total+" ("+Math.round(r.found*100/Math.max(1,r.total))+"%) · 몬스터를 처치하면 기록됩니다.");
-    r.ranks.forEach(function(g){
-      xpHead(scr,"["+g.rank+"] "+g.found+" / "+g.total);
-      var ul=document.createElement("ul");ul.className="app-list";
-      g.list.forEach(function(m){
-        if(!m.found)xpLi(ul,"???",["아직 만나지 못했습니다."],"got");
-        else xpLi(ul,m.name,["처치 "+m.kills+"회 · 처음 처치 "+xpDate(m.first),"처치 보상 · 골드 "+m.gold[0]+"~"+m.gold[1]+" G · 경험치 "+m.exp]);
-      });
-      scr.appendChild(ul);
-    });
-    if(r.extra&&r.extra.length){
-      xpHead(scr,"그 밖의 몬스터");
-      var u2=document.createElement("ul");u2.className="app-list";
-      r.extra.forEach(function(m){xpLi(u2,m.name,["처치 "+m.kills+"회"])});
-      scr.appendChild(u2);
-    }
-  }).catch(function(){if(devApp==="dex")appFail(scr,loadDex)});
-}
-function loadWeekly(){
-  var scr=$("phscr");
-  api("GET","/api/weekly").then(function(r){
-    if(devApp!=="wkr")return;
-    if(r.error||!r.days){appFail(scr,loadWeekly);return}
-    xpInit(scr);
-    xpNote(scr,xpDate(r.weekStart)+"(월) 0시부터의 기록 · 다음 주까지 "+Math.floor(r.resetIn/86400000)+"일 "+Math.floor(r.resetIn%86400000/3600000)+"시간");
-    var diff=r.kills-r.lastKills;
-    var ul=document.createElement("ul");ul.className="app-list";
-    xpLi(ul,"이번 주 토벌 "+r.kills+"마리",["지난주 "+r.lastKills+"마리 · "+(diff>0?"+"+diff+"마리 늘었습니다":diff<0?(-diff)+"마리 줄었습니다":"같습니다"),"토벌 실패 "+r.fails+"회 (지난주 "+r.lastFails+"회)"]);
-    xpLi(ul,"이번 주 얻은 것",["토벌 경험치 "+r.exp,"골드 "+r.gold+" G","아이템 "+r.items+"개"]);
-    scr.appendChild(ul);
-    xpHead(scr,"요일별 토벌");
-    var max=1;r.days.forEach(function(v){if(v>max)max=v});
-    var bars=document.createElement("div");bars.className="wk-bars";
-    ["월","화","수","목","금","토","일"].forEach(function(nm,i){
-      var b=document.createElement("div");b.className="wk-bar"+(i===r.today?" now":"");
-      var v=document.createElement("span");v.textContent=String(r.days[i]);
-      var bar=document.createElement("i");bar.style.height=Math.max(2,Math.round(r.days[i]*70/max))+"px";
-      var l=document.createElement("span");l.textContent=nm;
-      b.appendChild(v);b.appendChild(bar);b.appendChild(l);bars.appendChild(b);
-    });
-    scr.appendChild(bars);
-    var ul2=document.createElement("ul");ul2.className="app-list";
-    if(r.byRank.length)xpLi(ul2,"등급별 처치",[r.byRank.map(function(x){return x.rank+"급 "+x.c}).join(" · ")]);
-    if(r.topMon)xpLi(ul2,"가장 많이 잡은 몬스터",[r.topMon.name+" "+r.topMon.c+"마리"]);
-    if(r.topRegion)xpLi(ul2,"가장 많이 사냥한 지역",[r.topRegion.name+" "+r.topRegion.c+"마리"]);
-    if(!ul2.children.length)xpLi(ul2,"아직 이번 주 토벌 기록이 없습니다.",["몬스터를 처치하면 여기에 쌓입니다."],"got");
-    scr.appendChild(ul2);
-  }).catch(function(){if(devApp==="wkr")appFail(scr,loadWeekly)});
-}
-function loadHof(){
-  var scr=$("phscr");
-  api("GET","/api/hof").then(function(r){
-    if(devApp!=="hof")return;
-    if(r.error||!r.lv){appFail(scr,loadHof);return}
-    xpInit(scr);
-    xpNote(scr,"상위 10명 · 5분마다 갱신됩니다. 비공개 헌터는 표시되지 않습니다.");
-    [["전투력 레벨","lv",function(v){return "Lv."+v}],["이번 주 토벌","week",function(v){return v+"마리"}],["누적 토벌","kills",function(v){return v+"마리"}],["달성한 업적","ach",function(v){return v+"개"}]].forEach(function(s){
-      xpHead(scr,s[0]);
-      var ul=document.createElement("ul");ul.className="app-list";
-      var rows=r[s[1]]||[];
-      if(!rows.length)xpLi(ul,"아직 기록이 없습니다.",[],"got");
-      rows.forEach(function(x){var li=xpLi(ul,x.n+"위 · "+x.hn+(x.me?" (나)":""),["["+x.rank+"] "+s[2](x.v)],x.me?"done":"")});
-      scr.appendChild(ul);
-    });
-  }).catch(function(){if(devApp==="hof")appFail(scr,loadHof)});
-}
-var wntNote="";
-function loadWanted(){
-  var scr=$("phscr");
-  api("GET","/api/wanted").then(function(r){
-    if(devApp!=="wnt")return;
-    if(r.error||!r.name){appFail(scr,loadWanted);return}
-    xpInit(scr);
-    xpNote(scr,"매일 한국 시간 0시에 바뀝니다 · 남은 시간 "+hm(r.resetIn));
-    if(wntNote)xpNote(scr,wntNote);
-    var ul=document.createElement("ul");ul.className="app-list";
-    var li=xpLi(ul,"["+r.rank+"] "+r.name,["오늘 처치 "+Math.min(r.kills,r.need)+" / "+r.need,"보상 · 골드 "+r.reward.gold+" G · 경험치 "+r.reward.exp,"평소처럼 출몰하는 이 몬스터를 오늘 처치하면 됩니다."],r.claimed?"got":(r.ready?"done":""));
-    var row=document.createElement("div");row.className="rum-v";var bt=document.createElement("button");bt.type="button";bt.className="ach-btn";
-    bt.textContent=r.claimed?"수령 완료":(r.ready?"보상 받기":"아직 처치하지 못했습니다");bt.disabled=!r.ready;
-    bt.addEventListener("click",function(){
-      bt.disabled=true;
-      api("POST","/api/wanted/claim",{}).then(function(x){
-        wntNote=x.ok?"수배 보상을 받았습니다 · 골드 +"+x.gold+" G · 경험치 +"+x.exp+(x.levelUp?" · 전투력 레벨 상승!":""):"보상을 받을 수 없습니다.";
-        pollState(false);loadWanted();
-      }).catch(function(){bt.disabled=false;wntNote="보상을 받지 못했습니다.";loadWanted()});
-    });
-    row.appendChild(bt);li.appendChild(row);scr.appendChild(ul);
-  }).catch(function(){if(devApp==="wnt")appFail(scr,loadWanted)});
-}
 
 /* ───── 그림자 거래소 ───── */
 var excNote="";
