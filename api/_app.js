@@ -2325,6 +2325,21 @@ route('POST', '/api/admin/notice', async (req, res, ctx) => {
   send(res, 201, { id: r.lastId });
 }, { auth: false });
 
+// 관리자: 보낸 시스템 알림 목록 · 내용 수정 (제목·본문만 고칠 수 있고, 첨부 아이템과 수령 기록은 그대로)
+route('GET', '/api/admin/notices', async (req, res) => {
+  const rows = await db.all('SELECT id, title, text, item, qty, created_at FROM notices ORDER BY id DESC LIMIT 30');
+  send(res, 200, { notices: rows.map(n => ({ id: n.id, title: n.title || '', text: n.text, item: n.item || '', qty: n.item ? n.qty : 0, ts: n.created_at })) });
+}, { auth: false, admin: true });
+route('POST', '/api/admin/notice/edit', async (req, res, ctx) => {
+  const id = Number(ctx.body.id) || 0;
+  const text = String(ctx.body.text || '').trim();
+  const title = String(ctx.body.title || '').trim();
+  if (!text || cp(text) > 300 || cp(title) > 40) return fail(res, 400, 'bad_text');
+  const r = await db.run('UPDATE notices SET title = ?, text = ? WHERE id = ?', [title, text, id]);
+  if (!r.changes) return fail(res, 404, 'no_notice');
+  send(res, 200, { ok: true });
+}, { auth: false, admin: true });
+
 // ───────────── 관리자 창 ─────────────
 route('POST', '/api/admin/login', async (req, res, ctx) => {
   if (!ADMIN_ID || !ADMIN_PASSWORD) return fail(res, 503, 'admin_disabled');
