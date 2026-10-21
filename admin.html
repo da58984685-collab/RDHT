@@ -38,7 +38,8 @@ input:focus,textarea:focus{border-color:var(--red)}
 .stat b{display:block;font-size:1.4rem}
 .stat span{color:var(--sub);font-size:.8rem}
 .cols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.2fr);gap:14px;align-items:start}
-@media(max-width:860px){.cols{grid-template-columns:1fr}}
+@media(max-width:860px){.cols{grid-template-columns:minmax(0,1fr)}}
+.cols>*{min-width:0}
 .search{display:flex;gap:8px;margin-bottom:10px}
 .tw{overflow:auto;max-height:70vh;border:1px solid var(--line);border-radius:10px}
 table{border-collapse:collapse;width:100%;font-size:.88rem}
@@ -70,6 +71,7 @@ tbody tr:hover,tbody tr.sel{background:#22101400;background:#2a1216}
 .send{margin-top:14px}
 .send textarea{min-height:70px;resize:vertical}
 .row{display:flex;gap:8px;align-items:center;margin-top:8px}
+@media(max-width:640px){.row{flex-wrap:wrap}.row>input:not([type=checkbox]),.row>select{flex:1 1 140px;min-width:0;width:auto;max-width:100%!important}}
 .note{font-size:.82rem;color:var(--sub);margin-top:8px}
 .found{display:grid;gap:8px;margin-bottom:12px}
 .fc{border:1px solid var(--red);border-radius:6px;padding:10px 12px;cursor:pointer;background:#1b0d10}
@@ -149,8 +151,25 @@ body{overflow-wrap:break-word}
   </section>
   <section class="card" id="evcard" style="margin-bottom:12px"><!-- [EVENT:HALLOWEEN] -->
     <h2 style="margin-bottom:6px">할로윈 이벤트 <span id="evst" class="muted" style="font-size:.85rem"></span></h2>
-    <p class="muted" style="margin:0 0 10px;font-size:.85rem">백귀야행(밤 20시~02시 잡귀) · 처녀귀신의 소원 · 가면 장비 조합 · 혼령 소문, 그리고 <b>게임 화면의 할로윈 테마</b>(보라·주황, 잭오랜턴·박쥐 장식)가 함께 켜집니다. <b>자동</b>은 정해 둔 기간(10/24~11/1)에만 켜지고, <b>끄기</b>를 누르면 기존 서버로 돌아갑니다(남은 잡귀는 정리, 만든 가면은 유지, 헌터 화면은 최대 5분 안에 오리지널 색으로 복귀).</p>
+    <p class="muted" style="margin:0 0 10px;font-size:.85rem">백귀야행(밤 20시~02시 잡귀) · 처녀귀신의 소원 · 가면 장비 조합 · 혼령 소문, 그리고 <b>게임 화면의 할로윈 테마</b>(보라·주황, 잭오랜턴·박쥐 장식)가 함께 켜집니다. <b>자동</b>은 정해 둔 기간(10/24~11/1)에만 켜지고, <b>끄기</b>를 누르면 기존 서버로 돌아갑니다(남은 잡귀는 정리, 만든 가면은 유지, 헌터가 가진 도깨비 불씨는 모두 사라짐, 헌터 화면은 최대 5분 안에 오리지널 색으로 복귀).</p>
     <div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn" data-ev="on">지금 켜기</button><button type="button" class="btn" data-ev="auto">자동(기간)</button><button type="button" class="btn" data-ev="off">끄기</button></div>
+  </section>
+  <section class="card" id="spcard" style="margin-bottom:12px">
+    <h2 style="margin-bottom:6px">시스템 팝업 <span id="spst" class="muted" style="font-size:.85rem"></span></h2>
+    <p class="muted" style="margin:0 0 10px;font-size:.85rem">모든 헌터의 게임 화면에 전체 화면 팝업(이름 · 사진 · 제목 · 내용)을 띄웁니다. 접속 중인 헌터는 몇 초 안에 받고, 확인을 누르면 다시 뜨지 않습니다. 접속하지 않은 헌터는 3일 안에 접속하면 받습니다. <b>전송 취소</b>를 누르면 아직 확인하지 않은 헌터에게는 뜨지 않고, 지금 열려 있는 팝업도 닫힙니다.</p>
+    <div style="display:grid;gap:8px">
+      <input id="spnm" maxlength="20" placeholder="보내는 이름 (비우면 '운영자')">
+      <input id="sptt" maxlength="40" placeholder="제목 (최대 40자)">
+      <textarea id="spbd" maxlength="500" placeholder="내용 (최대 500자)" style="min-height:90px;resize:vertical"></textarea>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+        <input id="spfile" type="file" accept="image/png,image/jpeg,image/webp" style="flex:1;min-width:200px">
+        <img id="spprev" alt="" hidden style="width:56px;height:56px;border-radius:50%;object-fit:cover;border:1px solid var(--line)">
+        <button type="button" class="btn ghost" id="spclr" hidden>사진 빼기</button>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn" id="spsend">모든 헌터에게 전송</button></div>
+    </div>
+    <p id="spmsg" class="muted" style="margin:8px 0 0;font-size:.85rem" role="status"></p>
+    <div id="splist" style="margin-top:10px;display:grid;gap:6px"></div>
   </section>
   <section class="card" id="gacard" style="margin-bottom:12px">
     <h2 style="margin-bottom:6px">골드 일괄 지급</h2>
@@ -313,6 +332,59 @@ function loadMaint(){
     maintOn=!!r.on;$("mtst").textContent=maintOn?"· 점검 중":"· 꺼짐";$("mtst").style.color=maintOn?"#ff8a94":"";
     $("mtbtn").textContent=maintOn?"점검 끝내기":"점검 시작";
     if(document.activeElement!==$("mtmsg"))$("mtmsg").value=r.message||"";
+  });
+}
+// ── 시스템 팝업 ──
+var spImg="";
+function spSetImg(u){spImg=u||"";var p=$("spprev");if(spImg){p.src=spImg;p.hidden=false;$("spclr").hidden=false}else{p.removeAttribute("src");p.hidden=true;$("spclr").hidden=true}}
+$("spclr").addEventListener("click",function(){$("spfile").value="";spSetImg("")});
+$("spfile").addEventListener("change",function(){
+  var f=this.files&&this.files[0];if(!f){spSetImg("");return}
+  if(!/^image\/(png|jpeg|webp)$/.test(f.type)){$("spmsg").textContent="PNG · JPG · WEBP 사진만 올릴 수 있어요.";this.value="";return}
+  var rd=new FileReader();
+  rd.onload=function(){var im=new Image();
+    im.onload=function(){
+      var m=480,k=Math.min(1,m/Math.max(im.width,im.height)),w=Math.max(1,Math.round(im.width*k)),h=Math.max(1,Math.round(im.height*k));
+      var cv=document.createElement("canvas");cv.width=w;cv.height=h;var cx=cv.getContext("2d");cx.fillStyle="#fff";cx.fillRect(0,0,w,h);cx.drawImage(im,0,0,w,h);
+      var q=.85,u=cv.toDataURL("image/jpeg",q);while(u.length>120000&&q>.4){q-=.1;u=cv.toDataURL("image/jpeg",q)}
+      if(u.length>120000){$("spmsg").textContent="사진이 너무 큽니다. 더 작은 사진을 골라 주세요.";spSetImg("");return}
+      $("spmsg").textContent="";spSetImg(u);
+    };
+    im.onerror=function(){$("spmsg").textContent="사진을 읽지 못했어요."};
+    im.src=rd.result};
+  rd.readAsDataURL(f);
+});
+$("spsend").addEventListener("click",function(){
+  var t=$("sptt").value.trim(),b=$("spbd").value.trim();
+  if(!t||!b){$("spmsg").textContent="제목과 내용을 입력하세요.";return}
+  if(!confirm("모든 헌터에게 시스템 팝업을 보낼까요?\n\n"+t))return;
+  $("spsend").disabled=true;
+  api("POST","/api/admin/sysmsg",{name:$("spnm").value.trim(),title:t,body:b,img:spImg}).then(function(r){
+    $("spsend").disabled=false;
+    if(r.ok){$("spmsg").textContent="전송했습니다. 잘못 보냈다면 아래 목록에서 '전송 취소'를 누르세요.";$("sptt").value="";$("spbd").value="";$("spfile").value="";spSetImg("");loadSp()}
+    else $("spmsg").textContent=({bad_title:"제목은 1~40자여야 합니다.",bad_body:"내용은 1~500자여야 합니다.",bad_name:"이름은 20자 이하여야 합니다.",bad_img:"사진을 사용할 수 없습니다."})[r.error]||"전송하지 못했습니다.";
+  });
+});
+function loadSp(){
+  api("GET","/api/admin/sysmsg").then(function(r){
+    if(!r||!r.list)return;var box=$("splist");box.innerHTML="";
+    var live=r.list.filter(function(x){return x.status==="live"&&r.now-x.at<r.liveMs}).length;
+    $("spst").textContent=live?"· 전송 중 "+live+"건":"";
+    if(!r.list.length){box.innerHTML='<p class="muted" style="margin:0;font-size:.85rem">보낸 팝업이 없습니다.</p>';return}
+    r.list.forEach(function(x){
+      var on=x.status==="live"&&r.now-x.at<r.liveMs,row=document.createElement("div");
+      row.style.cssText="display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap;padding:8px 10px;border:1px solid var(--line);border-radius:8px";
+      var tx=document.createElement("div");tx.style.cssText="min-width:0;flex:1 1 200px;overflow-wrap:anywhere";
+      var st=x.status==="recalled"?"회수됨":on?"전송 중":"기간 종료";
+      tx.innerHTML='<b>'+esc(x.title)+'</b> <span class="chip'+(on?' ok':'')+'">'+st+'</span><br><span class="muted" style="font-size:.8rem">'+esc(x.name)+(x.img?' · 사진':'')+' · '+esc(dt(x.at))+' · 확인 '+x.acks+'/'+r.users+'명</span>';
+      row.appendChild(tx);
+      if(on){var bt=document.createElement("button");bt.type="button";bt.className="btn dbtn";bt.textContent="전송 취소";
+        bt.addEventListener("click",function(){
+          if(!confirm("'"+x.title+"' 전송을 취소할까요?\n아직 확인하지 않은 헌터에게는 뜨지 않고, 열려 있는 팝업도 닫힙니다."))return;
+          bt.disabled=true;api("POST","/api/admin/sysmsg/recall",{id:x.id}).then(function(q){$("spmsg").textContent=q.ok?"전송을 취소했습니다.":"취소하지 못했습니다(이미 취소되었을 수 있어요).";loadSp()});
+        });row.appendChild(bt)}
+      box.appendChild(row);
+    });
   });
 }
 $("gabtn").addEventListener("click",function(){
@@ -705,7 +777,7 @@ function sDone(r){
 function koSort(l,k){return (l||[]).slice().sort(function(a,b){return String(a[k]).localeCompare(String(b[k]),"ko")})}      // 아이템은 가나다 순으로 자동 정렬
 function loadShop(){
   api("GET","/api/admin/shop").then(function(r){
-    var it=koSort(r.items,"name");SHOPL=it;var dl=$("shoplist");if(dl)dl.innerHTML=it.map(function(x){return'<option value="'+esc(x.name)+'">'}).join("");var nl=$("nlist");if(nl)nl.innerHTML=dl.innerHTML+(r.equips||[]).map(function(x){return'<option value="'+esc(x.name)+'">'+esc(x.grade+"급 장비 · "+x.slot)+'</option>'}).join("");
+    var it=koSort(r.items,"name");SHOPL=it;var dl=$("shoplist");if(dl)dl.innerHTML=it.map(function(x){return'<option value="'+esc(x.name)+'">'}).join("");var nl=$("nlist");if(nl)nl.innerHTML=dl.innerHTML+(r.equips||[]).map(function(x){return'<option value="'+esc(x.name)+'">'+esc(x.grade+"급 장비 · "+x.slot)+'</option>'}).join("")+(r.special||[]).map(function(x){return'<option value="'+esc(x.name)+'">'+esc(x.note)+'</option>'}).join("");
     $("slist").innerHTML=it.length?it.map(function(x){return'<tr data-id="'+x.id+'"><td><input class="sn" maxlength="30" value="'+esc(x.name)+'"></td><td><input class="sd" maxlength="100" value="'+esc(x.desc)+'"></td><td><input class="sp" type="number" min="0" max="9999999" step="1" style="max-width:100px" value="'+(x.price||0)+'"></td><td><select class="ss" style="max-width:120px">'+statOpts(x.stat)+'</select> <input class="sam" type="number" min="-999" max="999" step="1" style="max-width:90px" value="'+(x.stat?x.amt:"")+'" placeholder="변동값"></td><td><button class="btn" data-sa="save">저장</button> <button class="btn" data-sa="del">삭제</button></td></tr>'}).join(""):'<tr><td colspan="5" class="muted">등록된 상점 아이템이 없습니다.</td></tr>';
   });
 }
@@ -826,7 +898,7 @@ function pollInq(){
   });
 }
 setInterval(pollInq,10000);pollInq();
-function loadAll(){loadOnline();loadMaint();loadEvAdmin();loadSbgm();loadInq();loadInv();loadOverview();loadS();loadRec();loadBoard();loadAchDefs();if(!document.activeElement||!/^(sn|sd|sp|ss|sam|sname|sdesc|sprice|sstat|samt)$/.test(document.activeElement.className||document.activeElement.id))loadShop();loadList();if(selCode&&!dirty)loadDetail();var d=new Date(),p=function(n){return String(n).padStart(2,"0")};$("last").textContent="갱신 "+p(d.getHours())+":"+p(d.getMinutes())+":"+p(d.getSeconds())}
+function loadAll(){loadSp();loadOnline();loadMaint();loadEvAdmin();loadSbgm();loadInq();loadInv();loadOverview();loadS();loadRec();loadBoard();loadAchDefs();if(!document.activeElement||!/^(sn|sd|sp|ss|sam|sname|sdesc|sprice|sstat|samt)$/.test(document.activeElement.className||document.activeElement.id))loadShop();loadList();if(selCode&&!dirty)loadDetail();var d=new Date(),p=function(n){return String(n).padStart(2,"0")};$("last").textContent="갱신 "+p(d.getHours())+":"+p(d.getMinutes())+":"+p(d.getSeconds())}
 // 1분마다 데이터만 다시 불러옵니다. 선택한 헌터·탭·검색어·작성 중인 알림은 그대로 유지됩니다.
 setInterval(function(){if($("auto").checked&&!document.hidden&&!$("app").classList.contains("hide"))loadAll()},60000);
 document.addEventListener("visibilitychange",function(){if(!document.hidden&&$("auto").checked&&!$("app").classList.contains("hide"))loadAll()});
