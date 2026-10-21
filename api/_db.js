@@ -394,7 +394,9 @@ CREATE TABLE IF NOT EXISTS invites (
 // 예전에 만들어진 표에 새 칸을 추가합니다 (이미 있으면 무시).
 const MIGRATIONS = [
   ...require('./_event').SQL,      // [EVENT:HALLOWEEN] 이벤트 표
+  ...require('./_sysmsg').SQL,     // 시스템 팝업 표
   // 게이트웨이브 댓글·대댓글 좋아요 (한 사람이 한 댓글에 한 번)
+  'CREATE TABLE IF NOT EXISTS wanted_claims (user_id INTEGER NOT NULL, day TEXT NOT NULL, PRIMARY KEY (user_id, day))',
   'CREATE TABLE IF NOT EXISTS gw_likes (comment_id INTEGER NOT NULL, user_id INTEGER NOT NULL, PRIMARY KEY (comment_id, user_id))',
   'ALTER TABLE monsters ADD COLUMN rumor_id INTEGER',
   // 오래된 기록을 한 줄로 합칠 때 원래 몇 건이었는지 (기본 1건)
