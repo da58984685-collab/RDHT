@@ -247,6 +247,8 @@ body{overflow-wrap:break-word}
     <div class="row" style="margin-top:8px"><input id="nitem" list="nlist" maxlength="30" placeholder="첨부 아이템 (선택 · 상점 아이템·장비 선택)"><input id="nqty" type="number" min="1" max="9999" value="1" style="max-width:90px" title="수량"></div>
     <div class="muted" style="font-size:.8rem;margin:2px 0 8px">아이템을 넣으면 헌터가 알림을 열어 직접 수령합니다 (헌터당 1회, 발송 이후 가입한 헌터는 받지 못함).</div>
     <div class="row"><button class="btn" id="nsend" type="button">발송</button><span id="nmsg" class="muted"></span></div>
+    <h3 style="margin:16px 0 6px">보낸 알림 <span class="muted" style="font-weight:400;font-size:.85rem">(최근 30건 · 제목과 본문만 수정할 수 있고, 첨부 아이템은 바꿀 수 없습니다)</span></h3>
+    <div id="nhist" style="display:grid;gap:6px"></div>
   </section>
 </main>
 
@@ -797,12 +799,53 @@ $("slist").addEventListener("click",function(e){
     $("smsg").textContent=r.ok?"저장했습니다.":shopErr(r);if(r.ok)loadShop();
   });
 });
+// ── 보낸 시스템 알림 목록 · 수정 ──
+var nEditing=false;
+function loadNHist(){
+  if(nEditing)return;
+  api("GET","/api/admin/notices").then(function(r){
+    if(nEditing||!r||!r.notices)return;var box=$("nhist");box.innerHTML="";
+    if(!r.notices.length){box.innerHTML='<p class="muted" style="margin:0;font-size:.85rem">보낸 알림이 없습니다.</p>';return}
+    r.notices.forEach(function(n){
+      var row=document.createElement("div");row.style.cssText="padding:8px 10px;border:1px solid var(--line);border-radius:8px";
+      function view(){
+        row.innerHTML="";var top=document.createElement("div");top.style.cssText="display:flex;gap:8px;align-items:flex-start;justify-content:space-between;flex-wrap:wrap";
+        var tx=document.createElement("div");tx.style.cssText="min-width:0;flex:1 1 220px;overflow-wrap:anywhere";
+        tx.innerHTML='<b>'+esc(n.title||"시스템 알림")+'</b>'+(n.item?' <span class="chip">'+esc(n.item)+' ×'+n.qty+'</span>':'')+'<br><span style="white-space:pre-wrap">'+esc(n.text)+'</span><br><span class="muted" style="font-size:.8rem">'+esc(dt(n.ts))+' · #'+n.id+'</span>';
+        var bt=document.createElement("button");bt.type="button";bt.className="btn ghost";bt.textContent="수정";bt.addEventListener("click",edit);
+        top.appendChild(tx);top.appendChild(bt);row.appendChild(top);
+      }
+      function edit(){
+        nEditing=true;row.innerHTML="";
+        var ti=document.createElement("input");ti.maxLength=40;ti.value=n.title;ti.placeholder="제목 (선택, 최대 40자)";ti.style.marginBottom="6px";
+        var ta=document.createElement("textarea");ta.maxLength=300;ta.value=n.text;ta.style.minHeight="80px";
+        var rw=document.createElement("div");rw.className="row";rw.style.marginTop="6px";
+        var sv=document.createElement("button");sv.type="button";sv.className="btn";sv.textContent="저장";
+        var cn=document.createElement("button");cn.type="button";cn.className="btn ghost";cn.textContent="취소";
+        var ms=document.createElement("span");ms.className="muted";
+        rw.appendChild(sv);rw.appendChild(cn);rw.appendChild(ms);row.appendChild(ti);row.appendChild(ta);row.appendChild(rw);ta.focus();
+        cn.addEventListener("click",function(){nEditing=false;view()});
+        sv.addEventListener("click",function(){
+          var t=ta.value.trim();if(!t){ms.textContent="본문을 입력하세요.";return}
+          if(!confirm("이 알림의 내용을 수정할까요?\n이미 받은 헌터에게도 수정된 내용이 보입니다."))return;
+          sv.disabled=true;
+          api("POST","/api/admin/notice/edit",{id:n.id,title:ti.value.trim(),text:t}).then(function(q){
+            sv.disabled=false;
+            if(q.ok){n.title=ti.value.trim();n.text=t;nEditing=false;view();$("nmsg").textContent="수정했습니다."}
+            else ms.textContent=q.error==="no_notice"?"이미 없는 알림입니다.":"수정하지 못했습니다.";
+          });
+        });
+      }
+      view();box.appendChild(row);
+    });
+  });
+}
 $("nsend").addEventListener("click",function(){
   var t=$("ntext").value.trim();if(!t){$("nmsg").textContent="내용을 입력하세요.";return}
   if(!confirm("모든 헌터에게 이 알림을 발송할까요?"+($("nitem").value.trim()?"\n첨부 아이템: "+$("nitem").value.trim()+" × "+$("nqty").value:"")))return;
   var ni=$("nitem").value.trim();
   api("POST","/api/admin/notice",{title:$("ntitle").value.trim(),text:t,item:ni,qty:Number($("nqty").value)}).then(function(r){
-    if(r._status===201){$("ntext").value="";$("ntitle").value="";$("nitem").value="";$("nqty").value="1";$("nmsg").textContent="발송했습니다.";loadOverview()}
+    if(r._status===201){$("ntext").value="";$("ntitle").value="";$("nitem").value="";$("nqty").value="1";$("nmsg").textContent="발송했습니다.";loadOverview();loadNHist()}
     else $("nmsg").textContent=r.error==="bad_item"?"아이템 이름(30자 이내)과 수량(1~9999)을 확인하세요.":"발송하지 못했습니다.";
   });
 });
@@ -898,7 +941,7 @@ function pollInq(){
   });
 }
 setInterval(pollInq,10000);pollInq();
-function loadAll(){loadSp();loadOnline();loadMaint();loadEvAdmin();loadSbgm();loadInq();loadInv();loadOverview();loadS();loadRec();loadBoard();loadAchDefs();if(!document.activeElement||!/^(sn|sd|sp|ss|sam|sname|sdesc|sprice|sstat|samt)$/.test(document.activeElement.className||document.activeElement.id))loadShop();loadList();if(selCode&&!dirty)loadDetail();var d=new Date(),p=function(n){return String(n).padStart(2,"0")};$("last").textContent="갱신 "+p(d.getHours())+":"+p(d.getMinutes())+":"+p(d.getSeconds())}
+function loadAll(){loadNHist();loadSp();loadOnline();loadMaint();loadEvAdmin();loadSbgm();loadInq();loadInv();loadOverview();loadS();loadRec();loadBoard();loadAchDefs();if(!document.activeElement||!/^(sn|sd|sp|ss|sam|sname|sdesc|sprice|sstat|samt)$/.test(document.activeElement.className||document.activeElement.id))loadShop();loadList();if(selCode&&!dirty)loadDetail();var d=new Date(),p=function(n){return String(n).padStart(2,"0")};$("last").textContent="갱신 "+p(d.getHours())+":"+p(d.getMinutes())+":"+p(d.getSeconds())}
 // 1분마다 데이터만 다시 불러옵니다. 선택한 헌터·탭·검색어·작성 중인 알림은 그대로 유지됩니다.
 setInterval(function(){if($("auto").checked&&!document.hidden&&!$("app").classList.contains("hide"))loadAll()},60000);
 document.addEventListener("visibilitychange",function(){if(!document.hidden&&$("auto").checked&&!$("app").classList.contains("hide"))loadAll()});
