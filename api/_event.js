@@ -200,6 +200,8 @@ function install(a) {
     const m = cache.mode;
     return m === 'on' ? true : m === 'off' ? false : (now >= START && now < END);
   }
+  // 백귀야행(이벤트가 켜져 있는 밤 시간) 중에는 잡귀만 출몰합니다.
+  const nightOnly = now => on(now) && isNight(now);
   const brief = now => on(now) ? { name: '할로윈', night: isNight(now), ends: cache.mode === 'auto' ? END : null, ember: EMBER } : null;
 
   // ① 백귀야행: 헌터가 접속해 요청할 때 밀린 만큼이 아니라 '지금' 한 무리를 만듭니다 (자리를 비운 사이의 잡귀는 만들지 않음)
@@ -433,6 +435,32 @@ function install(a) {
   });
 
   // ⑤ 귀신의 집: 친구와 둘이서 방 5개를 지나갑니다 (진행 상태는 ev_house 한 줄. 끝난 줄은 하루 뒤 정리)
+  // 둘만의 대화 자동 검열: 지금 방의 선택지를 직접 말하면(선택지 이름 · 번호 · 위험도 등) 메신저 검열과 같은 ▒▓░ 문자로 가립니다.
+  // 둘이 같은 것을 골라야 공명 보너스를 받는 규칙이라, 대화로 답을 맞추지 못하게 하기 위함입니다.
+  const CENS_GLYPH = ['▒', '░░', '▒', '▓▓', '▓'];
+  const CENS_WEAK = new Set(['들어', '나가', '지나', '바라', '그냥', '조용', '천천', '다시', '먼저', '아무']);
+  const CENS_GENERIC = [/[1-3１-３]\s*번(째)?/g, /(첫|두|세)\s*번째/g, /(첫|둘|셋)째/g, /선택지/g,
+    /(오염\s*)?위험(도)?\s*(이|가|은|는)?\s*(낮|높|보통|제일|가장)\S*/g, /(낮은|높은|보통)\s*위험/g];
+  const censMask = w => Array.from(w).map((_, i) => CENS_GLYPH[(i * 3 + w.length) % CENS_GLYPH.length]).join('');
+  const censStems = HOUSE_ROOMS.map(rm => {
+    const ctx = rm.title + ' ' + rm.text;
+    const toks = rm.ch.map(c => c.n.split(/\s+/).map(t => t.replace(/[^가-힣]/g, '')).filter(t => t.length >= 3));
+    const stems = new Set();
+    toks.forEach((list, i) => list.forEach(t => {
+      const st = t.slice(0, 2);
+      if (CENS_WEAK.has(st) || ctx.includes(st)) return;
+      if (toks.some((o, j) => j !== i && o.some(x => x.slice(0, 2) === st))) return;      // 다른 선택지에도 나오는 흔한 말은 제외
+      stems.add(st);
+    }));
+    return Array.from(stems).map(st => new RegExp('[가-힣]*' + st + '[가-힣]*', 'g'));
+  });
+  const houseCensor = (txt, room) => {
+    let hit = false;
+    const fix = re => { txt = txt.replace(re, m => { hit = true; return censMask(m); }); };
+    (censStems[room] || []).forEach(fix);
+    CENS_GENERIC.forEach(fix);
+    return { t: txt, cens: hit };
+  };
   const houseCh = (r, c) => HOUSE_ROOMS[r].ch[c];
   const dayKeyH = now => 'house:' + kstDay(now);
   const houseView = (h, uid, now) => {
@@ -504,11 +532,12 @@ function install(a) {
     if (!txt || Array.from(txt).length > 100) return fail(res, 400, 'bad_text');
     const h = await houseById(String(ctx.body.id || ''));
     if (!h || h.status !== 'run' || (h.host_id !== uid && h.guest_id !== uid) || h.upd <= now - HOUSE_IDLE_MS) return fail(res, 404, 'no_house');
+    const cz = houseCensor(txt, Number(h.room));      // 선택지를 직접 말한 부분은 가려서 저장 (보낸 사람 화면에도 가려진 모습으로 보임)
     const id = String(now).padStart(13, '0') + require('node:crypto').randomBytes(3).toString('hex');
-    await db.run('INSERT INTO ev_house_chat (id, house_id, from_id, txt, at) VALUES (?, ?, ?, ?, ?)', [id, h.id, uid, txt, now]);
+    await db.run('INSERT INTO ev_house_chat (id, house_id, from_id, txt, at) VALUES (?, ?, ?, ?, ?)', [id, h.id, uid, cz.t, now]);
     await db.run('UPDATE ev_house SET upd = ? WHERE id = ? AND status = ?', [now, h.id, 'run']);      // 대화 중이면 자리를 비운 것으로 보지 않음
     await db.run('DELETE FROM ev_house_chat WHERE house_id = ? AND id < (SELECT MIN(id) FROM (SELECT id FROM ev_house_chat WHERE house_id = ? ORDER BY id DESC LIMIT 30) q)', [h.id, h.id]).catch(() => {});
-    send(res, 200, { ok: true, k: id });
+    send(res, 200, { ok: true, k: id, cens: cz.cens });
   });
   route('POST', '/api/event/house/invite', async (req, res, ctx) => {
     if (await limited('evh:' + ctx.user.id, 30, 60000)) return fail(res, 429, 'rate_limited');
@@ -622,7 +651,9 @@ function install(a) {
   // SQL 조각: 적월문 안의 잡귀를 목록에서 뺍니다 (몬스터 표를 읽는 쪽에서 덧붙여 사용)
   const GATE_GHOST_SQL = GATE_IDS.length ? ` AND NOT (name IN (${GHOSTS.map(() => '?').join(',')}) AND region IN (${GATE_IDS.map(() => '?').join(',')}))` : '';
   const GATE_GHOST_ARGS = GATE_IDS.length ? GHOSTS.concat(GATE_IDS) : [];
-  return { on, refresh, brief, tick, onKill, cleanup, mode: modeNow, EMBER, GHOST_SET, isGhostInGate, GATE_GHOST_SQL, GATE_GHOST_ARGS };
+  // 백귀야행 중에는 내 몬스터 중 잡귀가 아닌 것을 목록에서 뺍니다 (공통 S·SS·폭주·괴담 몬스터는 그대로)
+  const nightListSql = now => nightOnly(now) ? { sql: ` AND NOT (owner_id IS NOT NULL AND name NOT IN (${GHOSTS.map(() => '?').join(',')}))`, args: GHOSTS } : { sql: '', args: [] };
+  return { on, refresh, brief, tick, onKill, cleanup, mode: modeNow, nightOnly, nightListSql, EMBER, GHOST_SET, isGhostInGate, GATE_GHOST_SQL, GATE_GHOST_ARGS };
 }
 
 module.exports = { install, MASKS, MASK_SLOT, RUMOR_TPL, SQL, EMBER, GHOSTS, START, END };
