@@ -4233,7 +4233,7 @@ function evTabsBar(root){
   var bar=root.querySelector(".ev-tabs");
   if(bar){Array.prototype.forEach.call(bar.children,function(b){b.setAttribute("aria-selected",b.getAttribute("data-t")===evTab?"true":"false")});return}
   bar=document.createElement("div");bar.className="inv-tabs ev-tabs";bar.setAttribute("role","tablist");bar.setAttribute("aria-label","할로윈 메뉴");
-  [["main","소원"],["dex","도감"],["mk","장터"],["house","귀신의 집"],["ember","불씨 내역"]].forEach(function(t){
+  [["main","소원"],["dex","도감"],["mk","장터"],["house","귀신의 집"]].forEach(function(t){
     var b=document.createElement("button");b.type="button";b.setAttribute("data-t",t[0]);b.setAttribute("role","tab");b.textContent=t[1];b.setAttribute("aria-selected",t[0]===evTab?"true":"false");
     b.addEventListener("click",function(){if(evTab===t[0])return;evTab=t[0];evHouseStop();loadEvent()});
     bar.appendChild(b);
@@ -4276,7 +4276,7 @@ function loadEvent(){
   evTabsBar(scr);
   Array.prototype.forEach.call(scr.querySelectorAll(":scope > .app-empty,:scope > .ev-body"),function(x){x.remove()});
   var box=document.createElement("div");box.className="ev-body";scr.appendChild(box);evLoading(box);
-  if(evTab==="dex")evDex(box);else if(evTab==="ember")evEmber(box);else if(evTab==="mk")evMarket(box);else if(evTab==="house")evHouse(box);else loadEventMain(box);
+  if(evTab==="dex")evDex(box);else if(evTab==="mk")evMarket(box);else if(evTab==="house")evHouse(box);else loadEventMain(box);
 }
 function evBtn(row,label,dis,fn){var b=document.createElement("button");b.type="button";b.className="ach-btn";b.textContent=label;b.disabled=!!dis;b.addEventListener("click",fn);row.appendChild(b);return b}
 function evRow(){var r=document.createElement("div");r.className="rum-v";return r}
@@ -4309,29 +4309,6 @@ function evDex(box){
       box.appendChild(u2);
     });
   }).catch(function(){if(devApp==="hlw"&&evTab==="dex")appFail(box,function(){evDex(box)})});
-}
-/* 도깨비 불씨 내역 (내 획득·소실만 모아 보기) */
-var evEmFilter="all";
-function evEmber(box){
-  api("GET","/api/event/ember").then(function(r){
-    if(devApp!=="hlw"||evTab!=="ember"||!box.isConnected)return;
-    if(r.error){appFail(box,function(){evEmber(box)});return}
-    if(!r.on){evOff(box);return}
-    xpInit(box);
-    xpNote(box,"보유 "+r.name+" "+r.have+"개 · 최근 내역 기준 획득 +"+r.gain+" · 소실 -"+r.loss);
-    var fr=evRow();
-    [["all","전체"],["gain","획득"],["loss","소실"]].forEach(function(f){var b=evBtn(fr,f[1],false,function(){evEmFilter=f[0];evEmber(box)});if(evEmFilter===f[0]){b.disabled=true;b.setAttribute("aria-pressed","true")}});
-    box.appendChild(fr);
-    var rows=r.list.filter(function(x){return evEmFilter==="gain"?x.d>0:evEmFilter==="loss"?x.d<0:true});
-    var ul=document.createElement("ul");ul.className="app-list";
-    if(!rows.length){var e0=document.createElement("li");e0.textContent=evEmFilter==="all"?"아직 기록된 내역이 없습니다.":"해당하는 내역이 없습니다.";ul.appendChild(e0)}
-    rows.forEach(function(x){
-      var li=xpLi(ul,(x.d>0?"+":"")+x.d+" · "+x.why,[fmtTime(x.at)],x.d>0?"got":"");
-      if(x.d<0)li.firstChild.style.color="#ff8a8a";
-    });
-    box.appendChild(ul);
-    xpNote(box,"소실 내역은 업데이트 이후부터 기록됩니다. 내역은 최근 100건까지 보입니다.");
-  }).catch(function(){if(devApp==="hlw"&&evTab==="ember")appFail(box,function(){evEmber(box)})});
 }
 /* 도깨비 장터 */
 function evMarket(box){
