@@ -154,7 +154,7 @@ main.landing{display:flex;align-items:center;justify-content:center;max-width:no
 .hud-m{flex:1;min-width:0;text-align:center;font:700 .95rem/1.2 "Nanum Myeongjo",serif;letter-spacing:.06em}
 .hud-btn{flex:none;min-height:44px;padding:0 14px;font:500 .85rem/1 "Noto Sans KR",sans-serif;color:var(--text);background:var(--field);border:1px solid var(--line);border-radius:0;cursor:pointer}
 .hud-btn:hover{border-color:var(--red2)}
-.g-grid{display:grid;gap:0 16px;grid-template-columns:1fr}
+.g-grid{display:grid;gap:0 16px;grid-template-columns:minmax(0,1fr)}
 .g-col{display:contents}
 #gchar{order:1}#gradar{order:2}#galert{order:3}#gstat{order:5}#gmap{order:6}#gdev{order:4}
 @media (min-width:1100px){.g-grid{grid-template-columns:minmax(0,1.5fr) minmax(0,3fr) minmax(0,1.5fr);align-items:stretch}.g-col{display:flex;flex-direction:column;min-width:0}.g-col>section:last-child{flex:1 1 auto}}
@@ -343,7 +343,7 @@ body.tn3 .rwrap{filter:sepia(.5) saturate(2) hue-rotate(-40deg);box-shadow:0 0 2
 .st-l::after{content:attr(data-tip);position:absolute;left:0;bottom:calc(100% + 8px);z-index:20;padding:6px 10px;white-space:nowrap;font-size:.78rem;font-weight:400;color:var(--text);background:var(--card);border:1px solid var(--red2);border-radius:8px;box-shadow:0 4px 14px rgba(0,0,0,.5);opacity:0;transform:translateY(3px);pointer-events:none;transition:opacity .12s,transform .12s}
 .st-l:hover::after,.st-l:focus-visible::after{opacity:1;transform:none}
 .stats{list-style:none;margin:0;padding:0;display:grid;gap:13px}
-.st{display:grid;grid-template-columns:18px 40px 1fr 42px 26px;align-items:center;gap:8px;font-size:.88rem}
+.st{display:grid;grid-template-columns:18px 40px minmax(0,1fr) 42px 26px;align-items:center;gap:8px;font-size:.88rem}
 .st .ic{color:#fff}
 .st>span:nth-child(2),.st-v{color:#fff}
 .bar{height:10px;background:var(--field);border:1px solid var(--line);overflow:hidden}
@@ -370,7 +370,7 @@ body.tn3 .rwrap{filter:sepia(.5) saturate(2) hue-rotate(-40deg);box-shadow:0 0 2
 .al[data-r="A"] .al-r,.al[data-r="B"] .al-r{background:linear-gradient(135deg,#e5303e,#8f0f1b)}
 .al-t{margin:0;font-size:.92rem}
 .al>div{flex:1;min-width:0}
-.mgrid{display:grid;grid-template-columns:1fr;gap:16px}
+.mgrid{display:grid;grid-template-columns:minmax(0,1fr);gap:16px}
 @media (min-width:560px){.mgrid{grid-template-columns:1.2fr 1fr}}
 .mcol{padding:12px;background:var(--field);border:1px solid var(--line)}
 .mfl{list-style:none;margin:0;padding:0;display:grid;gap:6px;max-height:300px;overflow-y:auto}
@@ -429,9 +429,9 @@ body.tn3 .rwrap{filter:sepia(.5) saturate(2) hue-rotate(-40deg);box-shadow:0 0 2
 #galert h2 .ic{animation:blink 1s steps(2) infinite}
 #gmap{display:flex;flex-direction:column}
 #gmap .body{flex:1;display:flex;flex-direction:column;justify-content:center}
-.regions{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;justify-content:center}
+.regions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;justify-content:center}
 #mapmsg{text-align:center}
-@media (max-width:420px){.regions{grid-template-columns:repeat(2,1fr)}}
+@media (max-width:420px){.regions{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .rg{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:16px 6px 10px;text-align:center;color:var(--text);background:var(--field);border:1px solid var(--line);border-radius:0;cursor:pointer;transition:border-color .15s,box-shadow .15s,transform .1s}
 .rg .ic{width:28px;height:28px;color:var(--deep)}
 .rg b{font:700 .9rem/1.2 "Nanum Myeongjo",serif}
@@ -480,7 +480,7 @@ label[for="name"]::after,label[for="age"]::after,label[for="hname"]::after,#gl::
 .ph-nav .nv-back{cursor:pointer}.ph-nav .nv-back:hover,.ph-nav .nv-back:focus-visible{background:rgba(255,255,255,.12)}
 .big-p .ph-nav{margin:0;padding:6px 0 8px;background:#0b0708;border-top:1px solid var(--line)}
 .ph-scr{min-height:250px;max-height:420px;overflow-y:auto;padding:10px;background:#0b0708;border:1px solid var(--line);border-radius:8px;display:flex;flex-direction:column}
-.apps{flex:1;display:grid;grid-template-columns:1fr 1fr;gap:10px;align-content:center}
+.apps{flex:1;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px;align-content:center}
 .app{position:relative;min-height:84px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:8px 4px;color:var(--text);background:#161012;border:1px solid var(--line);border-radius:10px;font:500 .8rem/1.25 "Noto Sans KR",sans-serif;cursor:pointer;text-align:center}
 .app .ic{width:26px;height:26px;color:#fff}
 .app.gw{grid-column:1/-1;aspect-ratio:2/1;min-height:0;gap:10px;font-size:.9rem}
@@ -561,7 +561,7 @@ label[for="name"]::after,label[for="age"]::after,label[for="hname"]::after,#gl::
 @media (prefers-reduced-motion:reduce){.fp,.fp-pg,.fp-ov{transition:none!important}.fp-pg>*,.fp-kv>div,.fp-img::after{animation:none!important}}
 
 /* ── 친구 목록 / 친구 요청 슬라이더 ── */
-.ftabs{position:relative;display:grid;grid-template-columns:1fr 1fr;margin:0 0 10px;padding:3px;background:#0b0708;border:1px solid var(--line)}
+.ftabs{position:relative;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);margin:0 0 10px;padding:3px;background:#0b0708;border:1px solid var(--line)}
 .ft-th{position:absolute;top:3px;bottom:3px;left:3px;width:calc(50% - 3px);background:linear-gradient(135deg,#a8202c,#5a0f16);box-shadow:0 0 12px var(--glow);transition:transform .4s cubic-bezier(.3,1.1,.4,1)}
 .ftabs.r .ft-th{transform:translateX(100%)}
 .ft{position:relative;z-index:1;min-height:38px;display:flex;align-items:center;justify-content:center;gap:6px;padding:0 6px;font:700 .85rem/1 "Nanum Myeongjo",serif;letter-spacing:.08em;color:var(--sub);background:none;border:0;border-radius:0;cursor:pointer;transition:color .25s}
@@ -687,8 +687,8 @@ input[type=text],input[type=number],input[type=password],input[type=url],textare
 .maint-box .maint-sub{color:var(--sub);font-size:.85rem}
 .gt-vx{fill:currentColor;display:block;width:84px;height:84px;margin:6px auto 14px;color:#f2ecec}
 .gt-p{margin:0 0 14px;text-align:center;color:var(--sub);font-size:.9rem;line-height:1.55}
-.gt-rgs{display:grid;grid-template-columns:1fr;gap:8px}
-@media (max-width:720px){.gt-rgs{grid-template-columns:repeat(2,1fr)}}
+.gt-rgs{display:grid;grid-template-columns:minmax(0,1fr);gap:8px}
+@media (max-width:720px){.gt-rgs{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .gt-rgs .hud-btn[aria-current="true"]{border-color:#ff6672}
 .ct{position:relative;min-height:34px;padding:0 11px;font:600 .8rem/1 "Noto Sans KR",sans-serif;color:var(--sub);background:var(--field);border:1px solid var(--line);border-radius:999px;cursor:pointer;transition:color .2s,border-color .2s,background-color .2s}
 .ct:hover{color:var(--text);border-color:var(--red2)}
@@ -757,7 +757,7 @@ input[type=checkbox]:focus-visible{outline:2px solid var(--deep);outline-offset:
 .btl-m small{color:var(--sub)}.btl-int{margin:4px 0 0;font-size:.85rem;color:#f0b93a;font-weight:700}.btl-int.heavy{color:#ff6672}
 .btl-log{height:150px;overflow-y:auto;margin:10px 0;padding:8px 10px;background:#120b0d;border:1px solid var(--line);border-radius:6px;font-size:.84rem;line-height:1.55}
 .btl-log p{margin:0}.btl-log p.rd{color:var(--sub);margin-top:4px}
-.btl-acts{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.btl-acts{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
 .btl-acts button{min-height:44px;color:var(--text);background:var(--field);border:1px solid var(--line);border-radius:6px;font:inherit;font-weight:700;cursor:pointer}
 .btl-acts button:hover:not(:disabled){border-color:var(--red2)}.btl-acts button:disabled{opacity:.45;cursor:default}
 .btl-res{margin:10px 0;font-size:.95rem;line-height:1.55;text-align:center}.btl-res.win{color:#f0b93a}.btl-res.lose{color:#ff8a94}
@@ -771,7 +771,7 @@ input[type=checkbox]:focus-visible{outline:2px solid var(--deep);outline-offset:
 .big-p .app-h{font-size:1.05rem}
 .exc-f{display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:6px;margin:6px 0 10px}
 .exc-f select,.exc-f input{min-width:0;padding:7px 8px;color:var(--text);background:var(--field);border:1px solid var(--line);border-radius:6px;font:inherit;font-size:.88rem}
-@media (max-width:560px){.exc-f{grid-template-columns:1fr 1fr}.big-p .app-list{grid-template-columns:1fr}}
+@media (max-width:560px){.exc-f{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.big-p .app-list{grid-template-columns:minmax(0,1fr)}}
 .pct-r{display:flex;align-items:center;gap:8px;font-size:.78rem;color:var(--sub)}.pct-r span{flex:1}
 .rum-v{display:flex;gap:8px}.rum-v button{flex:1}
 .rum-res{font-size:.8rem;color:#f0b93a}.rum-res.bad{color:var(--sub)}
@@ -781,7 +781,7 @@ input[type=checkbox]:focus-visible{outline:2px solid var(--deep);outline-offset:
 .gt-ex[hidden]{display:none}
 .gt-exopen{position:absolute;left:8px;top:8px;z-index:3;min-height:32px;padding:0 12px;font-size:.8rem;background:rgba(10,4,6,.75)}
 .gt-ex h3{margin:0;font-size:1rem;color:#ff8a94;display:flex;align-items:center;gap:8px}.gt-ex h3 button{margin-left:auto}
-.ex-fl{display:grid;grid-template-columns:repeat(10,1fr);gap:3px}
+.ex-fl{display:grid;grid-template-columns:repeat(10,minmax(0,1fr));gap:3px}
 .ex-fl i.boss{border-color:#f0b93a;color:#f0b93a}.ex-fl i.boss.on{color:#fff}
 .ex-from{display:flex;align-items:center;gap:6px;font-size:.8rem;color:var(--sub)}.ex-from select{background:var(--field);color:var(--text);border:1px solid var(--line);padding:4px 6px}
 .ex-tn{display:flex;align-items:center;gap:8px;font-size:.78rem;color:var(--sub)}
@@ -817,7 +817,8 @@ input[type=checkbox]:focus-visible{outline:2px solid var(--deep);outline-offset:
 <style>
 /* iOS(Safari·인앱 브라우저): 글자 크기가 16px 보다 작은 입력칸을 누르면 화면이 자동으로 확대되어 가로로 늘어나고 UI 가 깨져 보임 → iOS 에서만 입력칸 글자를 16px 로 고정.
    (다른 기기의 모양은 그대로) 글자 크기 자동 보정도 막아 가로 모드에서 글자가 커지지 않게 함 */
-html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%;overflow-x:hidden}
+body{overflow-x:clip}      /* 어떤 요소가 넘쳐도 화면 전체가 가로로 늘어나(사파리가 자동 축소) 깨지지 않도록 */
 @supports (-webkit-touch-callout:none){
   input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=file]):not([type=hidden]),textarea,select{font-size:16px!important}
 }
