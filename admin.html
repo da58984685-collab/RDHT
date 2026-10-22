@@ -251,7 +251,19 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
       <div class="row" style="margin:10px 0 6px"><button class="btn ghost sm" id="inqback" type="button">← 목록</button><b id="inqname"></b></div>
       <div id="inqmsgs" style="display:flex;flex-direction:column;gap:6px;max-height:280px;overflow-y:auto;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--bg,#0b0708)"></div>
       <div class="row" style="margin-top:8px"><input id="inqtext" maxlength="200" placeholder="답변 (최대 200자)"><button class="btn" id="inqsend" type="button">답변 보내기</button><span id="inqmsg" class="muted"></span></div>
+      <div class="row" style="margin-top:6px"><button class="btn ghost sm" id="inqtoqna" type="button">이 대화를 Q&amp;A로 (마지막 문의 + 마지막 답변 채우기)</button></div>
     </div>
+  </section>
+  <section class="card" id="qna">
+    <h3 style="margin-bottom:8px">Q&amp;A <span class="muted" style="font-weight:400;font-size:.85rem">(문의에서 나눈 질문·답변을 정리해 올립니다 · 공개하면 헌터의 문의 창 Q&amp;A 탭에 보입니다)</span></h3>
+    <textarea id="qnq" maxlength="300" rows="2" placeholder="질문 (최대 300자 · Shift+Enter 줄바꿈)"></textarea>
+    <textarea id="qna_a" maxlength="1000" rows="3" placeholder="답변 (최대 1000자 · Shift+Enter 줄바꿈)" style="margin-top:6px"></textarea>
+    <div class="row" style="margin-top:8px;align-items:center">
+      <select id="qnpub" aria-label="공개 여부"><option value="1">공개</option><option value="0">비공개 (임시 저장)</option></select>
+      <button class="btn" id="qnsave" type="button">올리기</button><button class="btn ghost sm" id="qncancel" type="button" hidden>수정 취소</button><span id="qnmsg" class="muted"></span>
+    </div>
+    <div class="muted" style="font-size:.8rem;margin:6px 0">위 문의함에서 대화를 열면 '이 대화를 Q&amp;A로' 버튼으로 마지막 문의와 답변을 채워 넣을 수 있습니다. 헌터 이름은 Q&amp;A에 나오지 않습니다.</div>
+    <div id="qnlist"></div>
   </section>
   <section class="card send">
     <h3 style="margin-bottom:8px">시스템 알림 발송 <span class="muted" style="font-weight:400;font-size:.85rem">(서버 내 모든 헌터에게 전달)</span></h3>
@@ -915,6 +927,45 @@ $("ilist").addEventListener("click",function(e){
   else if(t.hasAttribute("data-it")){api("POST","/api/admin/invites/toggle",{code:t.getAttribute("data-it"),active:t.getAttribute("data-a")==="1"}).then(loadInv)}
   else if(t.hasAttribute("data-idel")){var c=t.getAttribute("data-idel");if(confirm("초대 코드 "+c+" 를 삭제할까요? 이미 가입한 헌터는 유지되고, 이 코드로는 더 이상 가입할 수 없습니다."))api("POST","/api/admin/invites/delete",{code:c}).then(loadInv)}
 });
+
+/* ───── Q&A ───── */
+var qnEdit=0,qnData=[];
+function qnaReset(){qnEdit=0;$("qnq").value="";$("qna_a").value="";$("qnpub").value="1";$("qnsave").textContent="올리기";$("qncancel").hidden=true}
+function loadQna(){
+  api("GET","/api/admin/qna").then(function(r){
+    if(r._status===401||!r.list)return;qnData=r.list;
+    $("qnlist").innerHTML=r.list.length?'<div class="tw" style="max-height:360px"><table><thead><tr><th>상태</th><th>질문 / 답변</th><th>시각</th><th></th></tr></thead><tbody>'+r.list.map(function(x){
+      return'<tr><td>'+(x.pub?'<b style="color:#6fd08c">공개</b>':'<span class="muted">비공개</span>')+'</td><td style="white-space:pre-wrap;overflow-wrap:anywhere"><b>Q.</b> '+esc(x.q)+'\n<b>A.</b> '+esc(x.a)+'</td><td>'+dt(x.upd||x.at)+'</td><td style="white-space:nowrap">'
+        +'<button class="btn ghost sm" data-qe="'+x.id+'" type="button">수정</button> '
+        +(x.pub?'<button class="btn ghost sm" data-qr="'+x.id+'" type="button">회수</button> ':'<button class="btn ghost sm" data-qp="'+x.id+'" type="button">공개</button> ')
+        +'<button class="btn ghost sm" data-qd="'+x.id+'" type="button">삭제</button></td></tr>'}).join("")+'</tbody></table></div>':'<p class="muted">올린 Q&A가 없습니다.</p>';
+  });
+}
+function qnMsg(t){$("qnmsg").textContent=t;setTimeout(function(){if($("qnmsg").textContent===t)$("qnmsg").textContent=""},3000)}
+function qnErr(r){return r.error==="bad_q"?"질문을 1~300자로 입력해주세요.":r.error==="bad_a"?"답변을 1~1000자로 입력해주세요.":"저장하지 못했습니다."}
+$("qnsave").addEventListener("click",function(){
+  var body={q:$("qnq").value,a:$("qna_a").value,pub:$("qnpub").value==="1"};
+  var u="/api/admin/qna";if(qnEdit){u+="/update";body.id=qnEdit}
+  api("POST",u,body).then(function(r){
+    if(r.ok){qnMsg(qnEdit?"수정했습니다.":body.pub?"공개했습니다.":"비공개로 저장했습니다.");qnaReset();loadQna()}else qnMsg(qnErr(r));
+  });
+});
+$("qncancel").addEventListener("click",qnaReset);
+["qnq","qna_a"].forEach(function(id){$(id).addEventListener("keydown",function(e){if(e.key==="Enter"&&!e.shiftKey&&!e.isComposing&&e.keyCode!==229){e.preventDefault();$("qnsave").click()}})});     // Enter 저장 · Shift+Enter 줄바꿈
+$("qnlist").addEventListener("click",function(e){
+  var t=e.target.closest("button");if(!t)return;
+  var id=Number(t.getAttribute("data-qe")||t.getAttribute("data-qr")||t.getAttribute("data-qp")||t.getAttribute("data-qd"));
+  var x=qnData.find(function(v){return v.id===id});if(!x)return;
+  if(t.hasAttribute("data-qe")){qnEdit=id;$("qnq").value=x.q;$("qna_a").value=x.a;$("qnpub").value=x.pub?"1":"0";$("qnsave").textContent="수정 저장";$("qncancel").hidden=false;$("qnq").focus();$("qna").scrollIntoView({block:"start"})}
+  else if(t.hasAttribute("data-qr")){if(confirm("이 Q&A를 회수할까요? 헌터에게는 더 이상 보이지 않으며, 내용은 비공개로 남습니다."))api("POST","/api/admin/qna/recall",{id:id}).then(function(){loadQna()})}
+  else if(t.hasAttribute("data-qp")){api("POST","/api/admin/qna/update",{id:id,q:x.q,a:x.a,pub:true}).then(function(r){if(r.ok)loadQna();else qnMsg(qnErr(r))})}
+  else if(t.hasAttribute("data-qd")){if(confirm("이 Q&A를 완전히 삭제할까요?"))api("POST","/api/admin/qna/delete",{id:id}).then(function(){if(qnEdit===id)qnaReset();loadQna()})}
+});
+var inqLast={q:"",a:""};
+$("inqtoqna").addEventListener("click",function(){
+  if(!inqLast.q&&!inqLast.a){$("inqmsg").textContent="가져올 내용이 없습니다.";return}
+  $("inqmsg").textContent="";qnaReset();$("qnq").value=inqLast.q;$("qna_a").value=inqLast.a;$("qnpub").value="0";$("qna").scrollIntoView({block:"start"});$("qna_a").focus();
+});
 var inqCode="";
 function loadInq(){
   api("GET","/api/admin/inquiries"+(inqCode?"?code="+encodeURIComponent(inqCode):"")).then(function(r){
@@ -922,6 +973,7 @@ function loadInq(){
     if(inqCode&&r.messages){
       $("inqlist").hidden=true;$("inqchat").hidden=false;$("inqname").textContent=r.hn+" ("+r.code+")";
       var b=$("inqmsgs"),near=b.scrollHeight-b.scrollTop-b.clientHeight<40,first=!b.children.length;
+      (function(){var lq="",la="";r.messages.forEach(function(m){if(m.admin)la=m.t;else lq=m.t});inqLast={q:lq,a:la}})();
       b.innerHTML=r.messages.map(function(m){return'<div style="align-self:'+(m.admin?"flex-end":"flex-start")+';max-width:80%;padding:6px 10px;border-radius:10px;border:1px solid var(--line);background:'+(m.admin?"#3a1218":"#1c1416")+';overflow-wrap:anywhere">'+esc(m.t)+'<div class="muted" style="font-size:.7rem">'+(m.admin?"관리자":esc(r.hn))+" · "+dt(m.ts)+"</div></div>"}).join("");
       if(first||near)b.scrollTop=b.scrollHeight;
     }else if(r.threads){
@@ -979,7 +1031,7 @@ function pollInq(){
   });
 }
 setInterval(pollInq,10000);pollInq();
-function loadAll(){hhLoad();loadNHist();loadSp();loadOnline();loadMaint();loadEvAdmin();loadSbgm();loadInq();loadInv();loadOverview();loadS();loadRec();loadBoard();loadAchDefs();if(!document.activeElement||!/^(sn|sd|sp|ss|sam|sname|sdesc|sprice|sstat|samt)$/.test(document.activeElement.className||document.activeElement.id))loadShop();loadList();if(selCode&&!dirty)loadDetail();var d=new Date(),p=function(n){return String(n).padStart(2,"0")};$("last").textContent="갱신 "+p(d.getHours())+":"+p(d.getMinutes())+":"+p(d.getSeconds())}
+function loadAll(){hhLoad();loadNHist();loadSp();loadOnline();loadMaint();loadEvAdmin();loadSbgm();loadInq();loadQna();loadInv();loadOverview();loadS();loadRec();loadBoard();loadAchDefs();if(!document.activeElement||!/^(sn|sd|sp|ss|sam|sname|sdesc|sprice|sstat|samt)$/.test(document.activeElement.className||document.activeElement.id))loadShop();loadList();if(selCode&&!dirty)loadDetail();var d=new Date(),p=function(n){return String(n).padStart(2,"0")};$("last").textContent="갱신 "+p(d.getHours())+":"+p(d.getMinutes())+":"+p(d.getSeconds())}
 // 1분마다 데이터만 다시 불러옵니다. 선택한 헌터·탭·검색어·작성 중인 알림은 그대로 유지됩니다.
 setInterval(function(){if($("auto").checked&&!document.hidden&&!$("app").classList.contains("hide"))loadAll()},60000);
 document.addEventListener("visibilitychange",function(){if(!document.hidden&&$("auto").checked&&!$("app").classList.contains("hide"))loadAll()});
