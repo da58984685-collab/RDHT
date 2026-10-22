@@ -269,6 +269,9 @@ main.landing{display:flex;align-items:center;justify-content:center;max-width:no
 .qna .qq::before,.qna .qa::before{display:inline-block;min-width:1.6em;font-weight:800;color:var(--red2)}
 .qna .qq::before{content:"Q."}.qna .qa::before{content:"A."}
 .qna small{display:block;margin-top:6px;font-size:.68rem;color:var(--sub)}
+#aqform #aqt{resize:none;min-height:44px;height:44px;max-height:120px;line-height:1.45;overflow-y:auto}
+.qna .qst{display:inline-block;margin-left:6px;padding:0 6px;font-size:.68rem;font-weight:700;border:1px solid var(--line);border-radius:8px;color:var(--sub)}
+.qna .qst.w{color:var(--err);border-color:var(--err)}.qna .qst.o{color:#6fd08c;border-color:#6fd08c}
 .qna .qnone{text-align:center;color:var(--sub);border-style:dashed}
 .ntd{max-width:440px}
 .ntd .eyebrow{margin:0 0 8px}
@@ -1089,6 +1092,7 @@ body{overflow-x:clip}      /* 어떤 요소가 넘쳐도 화면 전체가 가로
       <p class="desc" id="qdesc"></p>
     </div>
     <div class="qtabs" id="qtabs" role="tablist" hidden><button type="button" role="tab" id="qtab-c" aria-selected="true">문의</button><button type="button" role="tab" id="qtab-q" aria-selected="false">Q&amp;A</button></div>
+    <button type="button" class="hud-btn" id="qnaask" hidden style="width:100%;margin:0 0 10px">+ Q&amp;A 질문 보내기</button>
     <ul class="qna" id="qnalist" aria-label="자주 묻는 질문과 답변" hidden></ul>
     <ul class="qth" id="qthreads" hidden></ul>
     <div id="qchat">
@@ -1101,6 +1105,23 @@ body{overflow-x:clip}      /* 어떤 요소가 넘쳐도 화면 전체가 가로
       </form>
       <p class="pwnote" id="qnote"></p>
     </div>
+  </div>
+</div>
+<div class="modal" id="aqmodal" hidden style="z-index:14">
+  <div class="dialog small" role="dialog" aria-modal="true" aria-labelledby="aqtitle">
+    <button type="button" class="x" id="aqclose" aria-label="닫기"><svg class="ic"><use href="#i-x"/></svg></button>
+    <div class="dhead">
+      <p class="eyebrow">Q&amp;A</p>
+      <h1 id="aqtitle">Q&amp;A 질문</h1>
+      <p class="desc">궁금한 점을 보내면 관리자가 답변하고, 공개하면 Q&amp;A 탭에 올라옵니다.</p>
+    </div>
+    <ul class="qna" id="aqlist" aria-live="polite" aria-label="내가 보낸 질문"></ul>
+    <form id="aqform" class="msend" novalidate style="align-items:flex-end">
+      <label for="aqt" class="sr">질문 내용</label>
+      <textarea id="aqt" rows="1" maxlength="300" autocomplete="off" placeholder="질문을 입력하세요 (300자 이내) · Shift+Enter 줄바꿈"></textarea>
+      <button type="submit" class="hud-btn mbtn">보내기</button>
+    </form>
+    <p class="pwnote" id="aqnote"></p>
   </div>
 </div>
 <div class="sp" id="sp" hidden>
@@ -3581,7 +3602,7 @@ function qTabSet(t){
 }
 function qShow(view){
   qView=view;var inbox=qMode==="inbox",qa=!inbox&&qTab==="q";
-  $("qtabs").hidden=inbox;$("qnalist").hidden=!qa;
+  $("qtabs").hidden=inbox;$("qnalist").hidden=!qa;$("qnaask").hidden=!qa;
   $("qthreads").hidden=!(inbox&&view==="list");
   $("qchat").hidden=(inbox&&view==="list")||qa;
   $("qchh").hidden=!(inbox&&view==="chat");
@@ -3610,7 +3631,7 @@ $("qclose").addEventListener("click",closeQ);
 $("qtab-c").addEventListener("click",function(){qTabSet("c")});$("qtab-q").addEventListener("click",function(){qTabSet("q")});
 $("qback").addEventListener("click",function(){qCode="";qShow("list");qThreads()});
 qmodal.addEventListener("mousedown",function(e){if(e.target===qmodal)closeQ()});
-document.addEventListener("keydown",function(e){if(e.key==="Escape"&&!qmodal.hidden){e.stopPropagation();closeQ()}},true);
+document.addEventListener("keydown",function(e){if(e.key==="Escape"&&!qmodal.hidden&&$("aqmodal").hidden){e.stopPropagation();closeQ()}},true);
 $("qsendf").addEventListener("submit",function(e){
   e.preventDefault();var inp=$("qsendt"),t=inp.value.trim();if(!t)return;inp.value="";
   api("POST","/api/inquiry",{text:t}).then(function(r){
@@ -3618,6 +3639,46 @@ $("qsendf").addEventListener("submit",function(e){
     else{inp.value=t;$("qnote").textContent=r.error==="rate_limited"?"문의를 너무 빠르게 보내고 있어요. 잠시 후 다시 시도해주세요.":"문의를 보내지 못했어요.";setTimeout(function(){qShow(qView)},3000)}
   });
   inp.focus();
+});
+
+/* ───── Q&A 질문 보내기 (문의창처럼 별도 창) ───── */
+var aqmodal=$("aqmodal"),aqOpener=null;
+function aqLoad(){
+  api("GET","/api/qna/mine").then(function(r){
+    if(!r.list)return;var ul=$("aqlist");ul.textContent="";
+    if(!r.list.length){var e=document.createElement("li");e.className="qnone";e.textContent="아직 보낸 질문이 없습니다.";ul.appendChild(e);return}
+    r.list.forEach(function(x){
+      var li=document.createElement("li"),q=document.createElement("p");q.className="qq";q.textContent=x.q;
+      var st=document.createElement("span");st.className="qst "+(x.st==="wait"?"w":x.st==="open"?"o":"");st.textContent=x.st==="wait"?"답변 대기":x.st==="open"?"답변 공개":"처리됨";
+      q.appendChild(st);li.appendChild(q);
+      if(x.st==="open"){var a=document.createElement("p");a.className="qa";a.textContent=x.a;li.appendChild(a)}
+      var sm=document.createElement("small");sm.textContent=fmtTime(x.ts);li.appendChild(sm);ul.appendChild(li);
+    });
+  });
+}
+function aqGrow(){var i=$("aqt");i.style.height="44px";i.style.height=Math.min(120,Math.max(44,i.scrollHeight+2))+"px"}
+function openAq(opener){
+  aqOpener=opener||document.activeElement;$("aqnote").textContent="";$("aqt").value="";aqGrow();$("aqlist").textContent="";aqLoad();
+  aqmodal.hidden=false;document.body.style.overflow="hidden";aqmodal.scrollTop=0;$("aqclose").focus();
+}
+function closeAq(){
+  aqmodal.hidden=true;document.body.style.overflow=(!qmodal.hidden||!mmodal.hidden)?"hidden":"";
+  if(aqOpener&&aqOpener.focus)aqOpener.focus();
+}
+$("qnaask").addEventListener("click",function(){openAq(this)});
+$("aqclose").addEventListener("click",closeAq);
+aqmodal.addEventListener("mousedown",function(e){if(e.target===aqmodal)closeAq()});
+document.addEventListener("keydown",function(e){if(e.key==="Escape"&&!aqmodal.hidden){e.stopPropagation();closeAq()}},true);
+$("aqt").addEventListener("input",aqGrow);
+$("aqt").addEventListener("keydown",function(e){if(e.key==="Enter"&&!e.shiftKey&&!e.isComposing&&e.keyCode!==229){e.preventDefault();if($("aqform").requestSubmit)$("aqform").requestSubmit();else $("aqform").dispatchEvent(new Event("submit",{cancelable:true}))}});
+$("aqform").addEventListener("submit",function(e){
+  e.preventDefault();var i=$("aqt"),t=i.value.replace(/\r\n?/g,"\n").replace(/\n{3,}/g,"\n\n").trim();if(!t)return;
+  var btn=this.querySelector("button");btn.disabled=true;
+  api("POST","/api/qna/ask",{text:t}).then(function(r){
+    btn.disabled=false;
+    if(r._status===201){i.value="";aqGrow();$("aqnote").textContent="질문을 보냈습니다. 답변이 공개되면 Q&A 탭에 올라옵니다.";aqLoad()}
+    else $("aqnote").textContent=r.error==="rate_limited"?"하루에 보낼 수 있는 질문(10개)을 모두 보냈습니다.":r.error==="too_many"?"답변 대기 중인 질문이 너무 많습니다.":"질문을 보내지 못했습니다.";
+  }).catch(function(){btn.disabled=false;$("aqnote").textContent="질문을 보내지 못했습니다."});
 });
 var inqUnread=0,isAdminChar=false;
 function updInq(){var b=$("inqbtn");if(b)b.textContent=inqUnread?"문의 ("+inqUnread+")":"문의";var m=$("mqbtn");if(m)m.hidden=!isAdminChar}
