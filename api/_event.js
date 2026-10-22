@@ -26,8 +26,8 @@
 const HOUR = 3600000, MIN = 60000;
 
 // ── 기간 (한국 시간) ──
-const START = Date.parse('2026-10-24T00:00:00+09:00');     // '자동' 상태일 때 이 시각부터 켜짐
-const END = Date.parse('2026-11-01T00:00:00+09:00');       // '자동' 상태일 때 이 시각에 꺼짐
+const START = Date.parse('2026-10-22T00:00:00+09:00');     // '자동' 상태일 때 이 시각부터 켜짐
+const END = Date.parse('2026-11-06T18:00:00+09:00');       // '자동' 상태일 때 이 시각에 꺼짐
 
 // ── 백귀야행 ──
 const EMBER = '도깨비 불씨';
@@ -73,7 +73,7 @@ const STORY = [
 ];
 const STORY_ACH = { id: 'ev_hlw_story', name: '신부의 노리개', descr: '할로윈 밤, 여덟 귀신의 사연 조각을 모두 모아 처녀귀신의 이야기를 끝까지 들었다.' };
 const STORY_ALL_EMBER = 40, FINAL_DAY_EMBER = 10;
-const STORY_FIRST = Date.parse('2026-10-24T00:00:00Z');       // 사연 첫째 날(한국 날짜 10월 24일)
+const STORY_FIRST = Date.parse('2026-10-22T00:00:00Z');       // 사연 첫째 날(한국 날짜 10월 22일)
 const storyIdx = day => { const n = Math.floor((Date.parse(day + 'T00:00:00Z') - STORY_FIRST) / (24 * HOUR)); return ((n % STORY.length) + STORY.length) % STORY.length; };
 
 // ── 도깨비 장터: 도깨비 불씨로 사는 한정 품목. limit 은 한 사람이 이벤트 동안 살 수 있는 횟수 ──
@@ -182,21 +182,21 @@ function install(a) {
     return r.changes === 1;
   };
   const claimDown = (uid, key, add) => db.run('UPDATE ev_claims SET n = MAX(0, n - ?) WHERE user_id = ? AND key = ?', [add || 1, uid, key]);
-  let cache = { at: 0, mode: 'auto' };
+  let cache = { at: 0, mode: 'auto', ok: false };      // ok: 설정을 DB 에서 한 번이라도 제대로 읽었는가 (못 읽은 상태에서는 '꺼짐'으로 단정하지 않음)
   let houseDaily = HOUSE_DAILY;      // 하루 귀신의 집 횟수 (관리자 창에서 바꿀 수 있음, 설정 'ev_house_daily')
 
   const modeNow = () => cache.mode;
   async function refresh(force) {
     const now = Date.now();
     if (!force && now - cache.at < 5000) return;
-    cache.at = now;
     try {
       const r = await db.get("SELECT value FROM settings WHERE key = 'ev_hlw'");
       cache.mode = r && (r.value === 'on' || r.value === 'off') ? r.value : 'auto';
       const hd = await db.get("SELECT value FROM settings WHERE key = 'ev_house_daily'");
       const hv = hd ? Number(hd.value) : NaN;
       houseDaily = Number.isInteger(hv) && hv >= 0 && hv <= 20 ? hv : HOUSE_DAILY;
-    } catch (_) { /* 설정을 못 읽으면 직전 값 유지 */ }
+      cache.at = now; cache.ok = true;
+    } catch (_) { /* 설정을 못 읽으면 직전 값 유지 (다음 요청에서 바로 다시 읽음) */ }
   }
   // 지금 이벤트가 켜져 있는가 (동기. refresh() 가 5초마다 설정을 새로 읽어 옵니다)
   function on(now) {
@@ -259,11 +259,13 @@ function install(a) {
   let lastClean = 0;
   async function cleanup(force) {
     const now = Date.now();
+    if (!cache.ok) return;      // 설정을 아직 읽지 못했으면(새로 뜬 서버·DB 일시 오류) 이벤트가 꺼진 것으로 보고 정리하지 않습니다
     if (on(now) || (!force && now - lastClean < 10 * MIN)) return;
     lastClean = now;
     const ph = GHOSTS.map(() => '?').join(',');
-    // 이벤트가 꺼지면 모든 헌터의 도깨비 불씨도 함께 사라집니다 (관리자 '이벤트 끄기' 포함)
-    await db.run('DELETE FROM inventory WHERE item = ?', [EMBER]);
+    // 도깨비 불씨는 '관리자가 끄기를 눌렀을 때' 또는 '자동 기간(END)이 끝난 뒤'에만 사라집니다.
+    // 아직 시작 전(START 이전)이거나 설정을 읽는 순간의 착오로 '꺼짐'처럼 보일 때는 지우지 않습니다.
+    if (cache.mode === 'off' || (cache.mode === 'auto' && now >= END)) await db.run('DELETE FROM inventory WHERE item = ?', [EMBER]);
     const has = await db.get(`SELECT 1 AS x FROM monsters WHERE name IN (${ph}) LIMIT 1`, GHOSTS);
     if (!has) return;
     await db.batch([
@@ -642,7 +644,7 @@ function install(a) {
     if (!mode) return fail(res, 400, 'bad_mode');
     if (mode === 'auto') await db.run("DELETE FROM settings WHERE key = 'ev_hlw'");
     else await db.run("INSERT INTO settings (key, value) VALUES ('ev_hlw', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value", [mode]);
-    cache = { at: Date.now(), mode };
+    cache = { at: Date.now(), mode, ok: true };
     nextAt.clear();
     if (!on(Date.now())) await cleanup(true);
     send(res, 200, { mode, on: on(Date.now()) });
