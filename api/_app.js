@@ -1016,7 +1016,22 @@ route('GET', '/api/board', async (req, res) => {
 });
 
 // ── 게이트웨이브: 헌터들끼리 쓰는 게시판 (글 올리기·삭제, 댓글 달기) ──
-const GW_TITLE_MAX = 40, GW_BODY_MAX = 1000, GW_CMT_MAX = 200;
+const GW_TITLE_MAX = 40, GW_BODY_MAX = 1000, GW_CMT_MAX = 200, GW_MEN_MAX = 5;
+// @멘션: 글·댓글 안의 "@헌터이름" 중 '친구'인 헌터만 언급으로 저장합니다 (친구가 아니면 그냥 글자). 긴 이름부터 찾아 겹치지 않게 합니다.
+async function gwSaveMentions(authorId, text, postId, commentId, now) {
+  if (text.indexOf('@') < 0) return;
+  const fr = await db.all('SELECT u.id, u.hunter_name AS hn FROM friends f JOIN users u ON u.id = f.friend_id WHERE f.user_id = ?', [authorId]);
+  fr.sort((x, y) => y.hn.length - x.hn.length);
+  let t = text; const ids = [];
+  for (const f of fr) {
+    const key = '@' + f.hn, i = t.indexOf(key);
+    if (i < 0) continue;
+    t = t.split(key).join(' '.repeat(key.length));
+    ids.push(f.id);
+    if (ids.length >= GW_MEN_MAX) break;
+  }
+  for (const id of ids) await db.run('INSERT INTO gw_mentions (target_id, by_id, post_id, comment_id, ts) VALUES (?, ?, ?, ?, ?)', [id, authorId, postId, commentId, now]);
+}
 route('GET', '/api/gw', async (req, res, ctx) => {
   const before = Math.max(0, Number(new URL(req.url, 'http://x').searchParams.get('before')) || 0);
   const rows = await db.all(`SELECT p.id, p.user_id, p.title, p.body, p.ts, u.hunter_name AS hn, u.rank AS rk,
@@ -1034,16 +1049,23 @@ route('GET', '/api/gw/post', async (req, res, ctx) => {
   const cs = await db.all('SELECT c.id, c.user_id, c.body, c.ts, c.parent_id, c.reply_to, u.hunter_name AS hn, u.rank AS rk FROM gw_comments c LEFT JOIN users u ON u.id = c.user_id WHERE c.post_id = ? ORDER BY c.id ASC LIMIT 300', [id]);
   const lk = new Map((await db.all('SELECT comment_id AS cid, COUNT(*) AS n, SUM(CASE WHEN user_id = ? THEN 1 ELSE 0 END) AS mine FROM gw_likes WHERE comment_id IN (SELECT id FROM gw_comments WHERE post_id = ?) GROUP BY comment_id', [ctx.user.id, id])).map(r => [Number(r.cid), r]));
   const mod = !!ctx.user.admin_char;     // 관리자 전용 캐릭터는 모든 글과 댓글을 지울 수 있음
-  send(res, 200, { post: { id: p.id, title: p.title, body: p.body, hn: p.hn || '(탈퇴한 헌터)', rank: p.rk || '', mine: p.user_id === ctx.user.id, canDel: mod || p.user_id === ctx.user.id, ts: p.ts },
-    comments: cs.map(c => ({ id: c.id, parent: Number(c.parent_id) || 0, toHn: c.reply_to ? ((cs.find(x => x.id === Number(c.reply_to)) || {}).hn || '(삭제된 댓글)') : '', text: c.body, hn: c.hn || '(탈퇴한 헌터)', rank: c.rk || '', mine: c.user_id === ctx.user.id, canDel: mod || c.user_id === ctx.user.id, ts: c.ts, likes: Number((lk.get(c.id) || {}).n) || 0, liked: Number((lk.get(c.id) || {}).mine) > 0 })) });
+  const mrows = await db.all('SELECT m.comment_id AS cid, u.hunter_name AS hn FROM gw_mentions m JOIN users u ON u.id = m.target_id WHERE m.post_id = ?', [id]);
+  const menOf = cid => mrows.filter(m => Number(m.cid) === cid).map(m => m.hn);
+  send(res, 200, { post: { id: p.id, men: menOf(0), title: p.title, body: p.body, hn: p.hn || '(탈퇴한 헌터)', rank: p.rk || '', mine: p.user_id === ctx.user.id, canDel: mod || p.user_id === ctx.user.id, ts: p.ts },
+    comments: cs.map(c => ({ id: c.id, men: menOf(Number(c.id)), parent: Number(c.parent_id) || 0, toHn: c.reply_to ? ((cs.find(x => x.id === Number(c.reply_to)) || {}).hn || '(삭제된 댓글)') : '', text: c.body, hn: c.hn || '(탈퇴한 헌터)', rank: c.rk || '', mine: c.user_id === ctx.user.id, canDel: mod || c.user_id === ctx.user.id, ts: c.ts, likes: Number((lk.get(c.id) || {}).n) || 0, liked: Number((lk.get(c.id) || {}).mine) > 0 })) });
 });
 // 게이트웨이브 알림 확인: 마지막으로 확인한 글/댓글 번호(p, c) 이후에 생긴 일을 종류별로 셉니다. (번호를 안 보내면 현재 번호만 알려줌)
 route('GET', '/api/gw/notify', async (req, res, ctx) => {
   if (await limited('gwn:' + ctx.user.id, 40, 60000)) return fail(res, 429, 'rate_limited');
   const q = new URL(req.url, 'http://x').searchParams, me = ctx.user.id;
   const [mp, mc] = await Promise.all([db.get('SELECT MAX(id) AS m FROM gw_posts'), db.get('SELECT MAX(id) AS m FROM gw_comments')]);
-  const out = { maxPost: Number(mp && mp.m) || 0, maxCmt: Number(mc && mc.m) || 0, posts: 0, comments: 0, replies: 0 };
+  const mm = await db.get('SELECT MAX(id) AS m FROM gw_mentions');
+  const out = { maxPost: Number(mp && mp.m) || 0, maxCmt: Number(mc && mc.m) || 0, maxMen: Number(mm && mm.m) || 0, posts: 0, comments: 0, replies: 0, mentions: 0 };
   if (q.get('p') === null || q.get('c') === null) return send(res, 200, out);
+  if (q.get('m') !== null) {
+    const am = Math.max(0, Number(q.get('m')) || 0);
+    if (out.maxMen > am) out.mentions = Number((await db.get('SELECT COUNT(*) AS n FROM gw_mentions WHERE id > ? AND target_id = ?', [am, me])).n) || 0;
+  }
   const ap = Math.max(0, Number(q.get('p')) || 0), ac = Math.max(0, Number(q.get('c')) || 0);
   if (out.maxPost > ap) out.posts = Number((await db.get('SELECT COUNT(*) AS n FROM gw_posts WHERE id > ? AND user_id != ?', [ap, me])).n) || 0;
   if (out.maxCmt > ac) {
@@ -1054,26 +1076,50 @@ route('GET', '/api/gw/notify', async (req, res, ctx) => {
   }
   send(res, 200, out);
 });
+// 알림 벨 목록: 최근에 나와 관계된 일(새 글 / 내 글에 댓글 / 나에게 답글 / 나를 태그) 최대 40건. 읽음 표시는 기기(브라우저)에 저장합니다.
+route('GET', '/api/gw/alerts', async (req, res, ctx) => {
+  if (await limited('gwa:' + ctx.user.id, 40, 60000)) return fail(res, 429, 'rate_limited');
+  const me = ctx.user.id, snip = t => Array.from(String(t).replace(/\s+/g, ' ')).slice(0, 40).join('');
+  const [ps, cs, rs, ms] = await Promise.all([
+    db.all('SELECT p.id, p.ts, p.title AS tx, u.hunter_name AS hn, u.rank AS rk FROM gw_posts p JOIN users u ON u.id = p.user_id WHERE p.user_id != ? ORDER BY p.id DESC LIMIT 15', [me]),
+    db.all(`SELECT c.id, c.ts, c.body AS tx, c.post_id AS pid, u.hunter_name AS hn, u.rank AS rk FROM gw_comments c JOIN gw_posts p ON p.id = c.post_id JOIN users u ON u.id = c.user_id
+      WHERE c.user_id != ? AND p.user_id = ? AND NOT (c.reply_to > 0 AND c.reply_to IN (SELECT id FROM gw_comments WHERE user_id = ?)) ORDER BY c.id DESC LIMIT 15`, [me, me, me]),
+    db.all(`SELECT c.id, c.ts, c.body AS tx, c.post_id AS pid, u.hunter_name AS hn, u.rank AS rk FROM gw_comments c JOIN users u ON u.id = c.user_id
+      WHERE c.user_id != ? AND c.reply_to > 0 AND c.reply_to IN (SELECT id FROM gw_comments WHERE user_id = ?) ORDER BY c.id DESC LIMIT 15`, [me, me]),
+    db.all(`SELECT m.id, m.ts, m.post_id AS pid, m.comment_id AS cid, u.hunter_name AS hn, u.rank AS rk,
+        COALESCE((SELECT body FROM gw_comments WHERE id = m.comment_id), (SELECT title FROM gw_posts WHERE id = m.post_id), '') AS tx
+      FROM gw_mentions m JOIN users u ON u.id = m.by_id WHERE m.target_id = ? ORDER BY m.id DESC LIMIT 15`, [me]),
+  ]);
+  const al = [];
+  ps.forEach(r => al.push({ key: 'p' + r.id, kind: 'post', hn: r.hn, rank: r.rk, text: snip(r.tx), post: r.id, ts: r.ts }));
+  cs.forEach(r => al.push({ key: 'c' + r.id, kind: 'cmt', hn: r.hn, rank: r.rk, text: snip(r.tx), post: r.pid, ts: r.ts }));
+  rs.forEach(r => al.push({ key: 'r' + r.id, kind: 'rep', hn: r.hn, rank: r.rk, text: snip(r.tx), post: r.pid, ts: r.ts }));
+  ms.forEach(r => al.push({ key: 'm' + r.id, kind: 'men', hn: r.hn, rank: r.rk, text: snip(r.tx), post: r.pid, ts: r.ts, inCmt: Number(r.cid) > 0 }));
+  al.sort((x, y) => y.ts - x.ts);
+  send(res, 200, { alerts: al.slice(0, 40) });
+});
 route('POST', '/api/gw/post', async (req, res, ctx) => {
   if (await limited('gwp:' + ctx.user.id, 10, G.HOUR)) return fail(res, 429, 'rate_limited');
   const title = String(ctx.body.title == null ? '' : ctx.body.title).trim(), text = String(ctx.body.text == null ? '' : ctx.body.text).trim();
   if (!title || cp(title) > GW_TITLE_MAX) return fail(res, 400, 'bad_title');
   if (!text || cp(text) > GW_BODY_MAX) return fail(res, 400, 'bad_text');
-  const r = await db.run('INSERT INTO gw_posts (user_id, title, body, ts) VALUES (?, ?, ?, ?)', [ctx.user.id, title, text, Date.now()]);
+  const now = Date.now();
+  const r = await db.run('INSERT INTO gw_posts (user_id, title, body, ts) VALUES (?, ?, ?, ?)', [ctx.user.id, title, text, now]);
+  await gwSaveMentions(ctx.user.id, text, r.lastId, 0, now).catch(() => {});
   send(res, 201, { id: r.lastId });
 });
 route('POST', '/api/gw/post/delete', async (req, res, ctx) => {
   const id = Number(ctx.body.id) || 0;
   const p = ctx.user.admin_char ? await db.get('SELECT id FROM gw_posts WHERE id = ?', [id]) : await db.get('SELECT id FROM gw_posts WHERE id = ? AND user_id = ?', [id, ctx.user.id]);
   if (!p) return fail(res, 404, 'not_found');           // 본인 글만 지울 수 있음 (관리자 전용 캐릭터는 모두 가능)
-  await db.batch([['DELETE FROM gw_likes WHERE comment_id IN (SELECT id FROM gw_comments WHERE post_id = ?)', [id]], ['DELETE FROM gw_comments WHERE post_id = ?', [id]], ['DELETE FROM gw_posts WHERE id = ?', [id]]]);
+  await db.batch([['DELETE FROM gw_mentions WHERE post_id = ?', [id]], ['DELETE FROM gw_likes WHERE comment_id IN (SELECT id FROM gw_comments WHERE post_id = ?)', [id]], ['DELETE FROM gw_comments WHERE post_id = ?', [id]], ['DELETE FROM gw_posts WHERE id = ?', [id]]]);
   send(res, 200, { ok: true });
 });
 route('POST', '/api/gw/comment/delete', async (req, res, ctx) => {
   const id = Number(ctx.body.id) || 0;
   const c = ctx.user.admin_char ? await db.get('SELECT id FROM gw_comments WHERE id = ?', [id]) : await db.get('SELECT id FROM gw_comments WHERE id = ? AND user_id = ?', [id, ctx.user.id]);
   if (!c) return fail(res, 404, 'not_found');
-  await db.batch([['DELETE FROM gw_likes WHERE comment_id = ? OR comment_id IN (SELECT id FROM gw_comments WHERE parent_id = ?)', [id, id]], ['DELETE FROM gw_comments WHERE parent_id = ?', [id]], ['DELETE FROM gw_comments WHERE id = ?', [id]]]);      // 댓글을 지우면 그 아래 대댓글도 함께 지워집니다
+  await db.batch([['DELETE FROM gw_mentions WHERE comment_id = ? OR comment_id IN (SELECT id FROM gw_comments WHERE parent_id = ?)', [id, id]], ['DELETE FROM gw_likes WHERE comment_id = ? OR comment_id IN (SELECT id FROM gw_comments WHERE parent_id = ?)', [id, id]], ['DELETE FROM gw_comments WHERE parent_id = ?', [id]], ['DELETE FROM gw_comments WHERE id = ?', [id]]]);      // 댓글을 지우면 그 아래 대댓글도 함께 지워집니다
   send(res, 200, { ok: true });
 });
 // 댓글·대댓글 좋아요: 누르면 켜지고, 다시 누르면 취소됩니다 (한 사람이 한 댓글에 한 번)
@@ -1099,7 +1145,9 @@ route('POST', '/api/gw/comment', async (req, res, ctx) => {
     if (!t || Number(t.post_id) !== id) return fail(res, 404, 'no_parent');
     parent = Number(t.parent_id) || t.id; replyTo = t.id;
   }
-  const r = await db.run('INSERT INTO gw_comments (post_id, user_id, body, ts, parent_id, reply_to) VALUES (?, ?, ?, ?, ?, ?)', [id, ctx.user.id, text, Date.now(), parent, replyTo]);
+  const now = Date.now();
+  const r = await db.run('INSERT INTO gw_comments (post_id, user_id, body, ts, parent_id, reply_to) VALUES (?, ?, ?, ?, ?, ?)', [id, ctx.user.id, text, now, parent, replyTo]);
+  await gwSaveMentions(ctx.user.id, text, id, r.lastId, now).catch(() => {});
   send(res, 201, { id: r.lastId });
 });
 
@@ -3191,6 +3239,7 @@ route('POST', '/api/admin/player/delete', async (req, res, ctx) => {
     ['DELETE FROM messages WHERE from_id = ? OR to_id = ?', [id, id]],
     ['DELETE FROM inquiries WHERE user_id = ?', [id]],
     ['DELETE FROM qna_ask WHERE user_id = ?', [id]],
+    ['DELETE FROM gw_mentions WHERE target_id = ? OR by_id = ? OR post_id IN (SELECT id FROM gw_posts WHERE user_id = ?)', [id, id, id]],
     ['DELETE FROM gw_likes WHERE user_id = ? OR comment_id IN (SELECT id FROM gw_comments WHERE user_id = ? OR post_id IN (SELECT id FROM gw_posts WHERE user_id = ?))', [id, id, id]],
     ['DELETE FROM gw_comments WHERE user_id = ? OR post_id IN (SELECT id FROM gw_posts WHERE user_id = ?)', [id, id]],
     ['DELETE FROM gw_posts WHERE user_id = ?', [id]],
