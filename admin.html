@@ -119,6 +119,14 @@ html,body,body *{word-break:keep-all}
 body{overflow-wrap:break-word}
 .kv dd{word-break:keep-all}
 </style>
+<style>
+/* iOS(Safari·인앱 브라우저): 글자 크기가 16px 보다 작은 입력칸을 누르면 화면이 자동으로 확대되어 가로로 늘어나고 UI 가 깨져 보임 → iOS 에서만 입력칸 글자를 16px 로 고정.
+   (다른 기기의 모양은 그대로) 글자 크기 자동 보정도 막아 가로 모드에서 글자가 커지지 않게 함 */
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+@supports (-webkit-touch-callout:none){
+  input:not([type=checkbox]):not([type=radio]):not([type=range]):not([type=file]):not([type=hidden]),textarea,select{font-size:16px!important}
+}
+</style>
 </head>
 <body>
 <p id="chk" style="text-align:center;margin:30vh 0 0;color:var(--sub,#999)">로그인 상태 확인 중…</p>
