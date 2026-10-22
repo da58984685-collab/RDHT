@@ -239,7 +239,7 @@ const garble = (text, taint, id) => {
 const EXP_RATE = 0.7;
 const KILL_EXP = Object.fromEntries(Object.entries({ F: 8, E: 12, D: 20, C: 35, B: 60, A: 120, S: 200, SS: 300 }).map(([k, v]) => [k, Math.round(v * EXP_RATE)]));
 const HUNT_DIFF = { F: '쉬움', E: '쉬움', D: '쉬움', C: '보통', B: '보통', A: '어려움', S: '매우 어려움', SS: '매우 어려움' };
-const HUNT_BASE = { '쉬움': 0.85, '보통': 0.65, '어려움': 0.4, '매우 어려움': 0.25 };
+const HUNT_BASE = { '쉬움': 0.8, '보통': 0.55, '어려움': 0.25, '매우 어려움': 0.15 };
 
 const RAID_NEED = 100;                             // S급 자동 토벌 성공: 서로 다른 참여 헌터 수
 const RAID_ATTEMPTS = 300;                         // S급 자동 토벌 성공: 도전(토벌) 횟수 합계 (중복 포함)
