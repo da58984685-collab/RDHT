@@ -18,6 +18,30 @@ const SQL = [
 // 내가 아직 확인하지 않은, 가장 먼저 보낸 팝업 id (상태 조회 한 번에 함께 가져가도록 SQL 조각으로 제공)
 const NEXT_SQL = `(SELECT p.id FROM sys_popups p WHERE p.status = 'live' AND p.at > ? AND NOT EXISTS (SELECT 1 FROM sys_popup_ack a WHERE a.popup_id = p.id AND a.user_id = ?) ORDER BY p.at, p.id LIMIT 1) AS sp`;
 
+// ── 오염 사냥꾼 토벌 기록 (서버 전체) ──
+// settings: hunter_kills(토벌 횟수) · hunter_last(마지막 토벌 시각) · hunter_popup('0' 이면 자동 팝업 끔, 기본 켜짐)
+const getSet = async (db, k) => { const r = await db.get('SELECT value FROM settings WHERE key = ?', [k]); return r ? r.value : null; };
+const putSet = async (db, k, v) => { await db.run('INSERT OR IGNORE INTO settings (key, value) VALUES (?, ?)', [k, String(v)]); await db.run('UPDATE settings SET value = ? WHERE key = ?', [String(v), k]); };
+async function hunterState(db) {
+  const [k, l, p] = await Promise.all([getSet(db, 'hunter_kills'), getSet(db, 'hunter_last'), getSet(db, 'hunter_popup')]);
+  return { kills: Number(k) || 0, last: Number(l) || 0, popup: p !== '0' };
+}
+// 모든 헌터에게 시스템 팝업 보내기 (관리자 창의 '시스템 팝업'과 같은 표를 씁니다)
+async function broadcast(db, name, title, body, now) {
+  await db.run('DELETE FROM sys_popup_ack WHERE popup_id IN (SELECT id FROM sys_popups WHERE at < ?)', [now - KEEP_MS]).catch(() => {});
+  await db.run('DELETE FROM sys_popups WHERE at < ?', [now - KEEP_MS]).catch(() => {});
+  const id = crypto.randomBytes(8).toString('hex');
+  await db.run('INSERT INTO sys_popups (id, name, title, body, img, status, at) VALUES (?, ?, ?, ?, ?, ?, ?)', [id, name, title, body, '', 'live', now]);
+  return id;
+}
+// 오염 사냥꾼이 토벌될 때마다 부릅니다: 횟수 +1, 시각 기록, 켜져 있으면 자동 팝업
+async function hunterKilled(db, now) {
+  const st = await hunterState(db), kills = st.kills + 1;
+  await putSet(db, 'hunter_kills', kills); await putSet(db, 'hunter_last', now);
+  if (st.popup) await broadcast(db, '운영자', '오염 사냥꾼이 토벌되었습니다.', '오염 사냥꾼이 강화됩니다.', now).catch(() => {});
+  return { kills, last: now, popup: st.popup };
+}
+
 function install(d) {
   const { db, route, send, fail } = d;
   const pickNext = async (uid, now) => {
@@ -78,7 +102,18 @@ function install(d) {
     send(res, 200, { now: Date.now(), liveMs: LIVE_MS, users: tot.c, list: rows.map(r => ({ id: r.id, name: r.name, title: r.title, status: r.status, at: r.at, recalledAt: r.recalled_at, img: !!r.has_img, acks: Number(r.acks) })) });
   }, { auth: false, admin: true });
 
+  // 관리자: 오염 사냥꾼 현황 (토벌 횟수 · 마지막 토벌 시각 · 자동 팝업 켜기/끄기)
+  route('GET', '/api/admin/hunter', async (req, res) => {
+    const st = await hunterState(db);
+    send(res, 200, { kills: st.kills, last: st.last, popup: st.popup, lv: Math.min(st.kills, require('./_game').HUNTER_LV_MAX), max: require('./_game').HUNTER_LV_MAX });
+  }, { auth: false, admin: true });
+  route('POST', '/api/admin/hunter', async (req, res, ctx) => {
+    if (typeof ctx.body.popup !== 'boolean') return fail(res, 400, 'bad_popup');
+    await putSet(db, 'hunter_popup', ctx.body.popup ? '1' : '0');
+    send(res, 200, { ok: true, popup: ctx.body.popup });
+  }, { auth: false, admin: true });
+
   return { pickNext };
 }
 
-module.exports = { install, SQL, NEXT_SQL, LIVE_MS };
+module.exports = { install, SQL, NEXT_SQL, LIVE_MS, hunterState, hunterKilled, broadcast };
