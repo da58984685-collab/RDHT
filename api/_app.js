@@ -1270,6 +1270,7 @@ const EXC = { fee: 0.10, maxListings: 8, ms: 24 * 3600000, buyTaint: 2, maxPrice
 const giveItem = (uid, item, qty) => db.run('INSERT INTO inventory (user_id, item, qty) VALUES (?, ?, ?) ON CONFLICT(user_id, item) DO UPDATE SET qty = MIN(9999, qty + excluded.qty)', [uid, item, qty]);
 // [EVENT:HALLOWEEN] 이벤트 모듈 연결 (끄려면 관리자 페이지에서 '끄기' — 코드 수정 불필요)
 const EV = EVT.install({ db, G, route, send, fail, limited, userById, grantGold, logAcquire, giveItem, isFriend, userByCode, normCode, applyItemEffect, achReset: () => { achCache.defs = null; } });
+require('./_qna').install({ db, route, send, fail });      // Q&A (관리자가 올리고 헌터가 읽음)
 require('./_sysmsg').install({ db, route, send, fail });      // 시스템 팝업 (관리자 → 전체 헌터)
 let lastExcSweep = 0;
 async function sweepExchange(force) {
