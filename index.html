@@ -343,7 +343,7 @@ body.tn3 .rwrap{filter:sepia(.5) saturate(2) hue-rotate(-40deg);box-shadow:0 0 2
 .st-l::after{content:attr(data-tip);position:absolute;left:0;bottom:calc(100% + 8px);z-index:20;padding:6px 10px;white-space:nowrap;font-size:.78rem;font-weight:400;color:var(--text);background:var(--card);border:1px solid var(--red2);border-radius:8px;box-shadow:0 4px 14px rgba(0,0,0,.5);opacity:0;transform:translateY(3px);pointer-events:none;transition:opacity .12s,transform .12s}
 .st-l:hover::after,.st-l:focus-visible::after{opacity:1;transform:none}
 .stats{list-style:none;margin:0;padding:0;display:grid;gap:13px}
-.st{display:grid;grid-template-columns:18px 40px minmax(0,1fr) 42px 26px;align-items:center;gap:8px;font-size:.88rem}
+.st{display:grid;grid-template-columns:18px 40px minmax(0,1fr) minmax(42px,auto) 26px;align-items:center;gap:8px;font-size:.88rem}
 .st .ic{color:#fff}
 .st>span:nth-child(2),.st-v{color:#fff}
 .bar{height:10px;background:var(--field);border:1px solid var(--line);overflow:hidden}
@@ -353,6 +353,9 @@ body.tn3 .rwrap{filter:sepia(.5) saturate(2) hue-rotate(-40deg);box-shadow:0 0 2
 .st[data-k="fame"] .bar i{background:linear-gradient(90deg,#8a5a10,#f0b93a 60%,#fff3c4);box-shadow:0 0 8px rgba(240,185,58,.4)}
 .st[data-k="taint"] .bar i{background:linear-gradient(90deg,#1c0508,#5e0a14 60%,#a01020);box-shadow:none}
 .st-v{text-align:right;font:400 .95rem/1 "Share Tech Mono",monospace}
+.st-eq{margin-left:4px;color:#6fd08c;font:400 .78rem/1 "Share Tech Mono",monospace;white-space:nowrap}
+.eqsum{margin:10px 0 0;padding:8px 10px;border:1px solid var(--line);font-size:.8rem;color:var(--sub);line-height:1.5}
+.eqsum b{color:#6fd08c;font-weight:400}
 .pow{margin:0 0 16px;padding:0 0 16px;border-bottom:1px solid var(--line)}
 .pow-h{display:flex;align-items:center;gap:8px;color:var(--red2);font:700 .95rem/1 "Nanum Myeongjo",serif;letter-spacing:.08em}
 .pow-h .ic{width:18px;height:18px}
@@ -937,7 +940,7 @@ body{overflow-x:clip}      /* 어떤 요소가 넘쳐도 화면 전체가 가로
       </section>
       <section id="gstat">
         <h2><svg class="ic"><use href="#i-star"/></svg>스탯</h2>
-        <div class="body"><div class="pow" id="gpow"></div><p class="sprow" id="gsp" hidden></p><ul class="stats" id="gstats"></ul><p class="dying-note" id="dyingnote" role="status" hidden></p><p class="twarn" id="twarn" role="status" hidden></p></div>
+        <div class="body"><div class="pow" id="gpow"></div><p class="sprow" id="gsp" hidden></p><ul class="stats" id="gstats"></ul><p class="eqsum" id="geq" hidden></p><p class="dying-note" id="dyingnote" role="status" hidden></p><p class="twarn" id="twarn" role="status" hidden></p></div>
       </section>
     </div>
     <div class="g-col">
@@ -1954,7 +1957,11 @@ function taintFx(v){
   if(taintStgInit&&s>prev&&typeof gwToast==="function")gwToast("⚠ "+TAINT_TOAST[s],5200);
   taintStgInit=true;
 }
+var lastStats=null,curEq=null;
+function eqSum(){var e=curEq,p=$("geq");if(!p)return;var t=[];if(e){if(e.hpGuard)t.push("체력 피해 감소 <b>-"+e.hpGuard+"%</b>");if(e.taintRes)t.push("오염도 증가 감소 <b>-"+e.taintRes+"%</b>")}p.innerHTML=t.length?"장비 효과 · "+t.join(" · "):"";p.hidden=!t.length}
+function setEq(e){var k=JSON.stringify(e||null);if(k===JSON.stringify(curEq))return;curEq=e||null;if(lastStats)renderStats(lastStats);else eqSum()}
 function renderStats(st){
+  lastStats=st;eqSum();
   taintFx(Number(st.taint)||0);
   var ul=$("gstats");ul.innerHTML="";
   var sp=Math.max(0,Math.floor(Number(st.sp)||0)),spb=$("gsp");
@@ -1972,7 +1979,7 @@ function renderStats(st){
     bar.className="bar";bar.setAttribute("role","progressbar");bar.setAttribute("aria-label",d[1]);
     bar.setAttribute("aria-valuemin","0");bar.setAttribute("aria-valuemax",String(max));bar.setAttribute("aria-valuenow",String(v));
     bar.appendChild(f);li.appendChild(bar);
-    var n=document.createElement("span");n.className="st-v";n.textContent=d[0]==="taint"?(Math.round(v*10)/10)+"%":String(Math.round(v));li.appendChild(n);
+    var n=document.createElement("span");n.className="st-v";n.textContent=d[0]==="taint"?(Math.round(v*10)/10)+"%":String(Math.round(v));var ev=curEq&&curEq[d[0]]?Number(curEq[d[0]]):0;if(ev&&(d[0]==="str"||d[0]==="agi"||d[0]==="luck")){var ee=document.createElement("small");ee.className="st-eq";ee.textContent="+"+ev;ee.title="장비 효과";n.appendChild(ee)}li.appendChild(n);
     if(STAT_INV[d[0]]){
       var ib=document.createElement("button");ib.type="button";ib.className="st-inv";ib.textContent="+";ib.hidden=!(sp>0&&v<100);
       ib.setAttribute("aria-label",d[1]+"에 스탯포인트 1 투자");
@@ -2841,6 +2848,7 @@ function applyState(st,first){
   spCheck(st.sp||null);
   skew=st.now-Date.now();
   if(st.user&&st.user.stats&&!$("gtex").hidden)exTaint(st.user.stats.taint);
+  if(st.user&&st.user.eq!==undefined)setEq(st.user.eq);
   if(st.user&&st.user.stats){            // 운영자가 헌터명·스탯을 바꾸면 바로 반영
     var sg=st.user.hunterName+"|"+JSON.stringify(st.user.stats);
     if(sg!==statSig){if(statSig){$("ghn").textContent=st.user.hunterName||"";renderStats(st.user.stats)}statSig=sg}
@@ -4390,7 +4398,7 @@ function loadEquip(){
   api("GET","/api/equip").then(function(r){
     if(devApp!=="eqp")return;
     if(r.error||!r.defs){appFail(scr,loadEquip);return}
-    eqData=r;drawEquip();
+    eqData=r;if(r.bonus)setEq(r.bonus);drawEquip();
   });
 }
 function drawEquip(){
