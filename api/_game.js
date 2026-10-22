@@ -501,8 +501,8 @@ const BT = {
 };
 const BT_REF = { F: 2, E: 7, D: 14, C: 22, B: 32, A: 44, S: 60, SS: 80 };      // 등급마다 '보통 헌터'의 전투력 레벨 (근력은 레벨의 0.8배로 가정)
 const btMon = (rank, name, pl) => {
-  // 오염 사냥꾼: 헌터의 체력·공격력에 맞춰 강하게 — 한 번 맞을 때 최대 체력의 약 15% (강공 약 25%), 체력은 헌터 공격력의 12배
-  if (name === '오염 사냥꾼' && pl) return { hp: Math.ceil(pl.atk * 12), atk: Math.max(7, Math.round(pl.max * 0.15)) };
+  // 오염 사냥꾼: 헌터의 체력·공격력에 맞춰 강하게 — 한 번 맞을 때 최대 체력의 약 15% (강공 약 25%), 체력은 헌터 공격력의 16배
+  if (name === '오염 사냥꾼' && pl) return { hp: Math.ceil(pl.atk * 16), atk: Math.max(7, Math.round(pl.max * 0.15)) };
   const L = BT_REF[rank] || 2, atkRef = 6 + 1.2 * L + 0.8 * (L * 0.8);
   return { hp: Math.round(atkRef * 4), atk: Math.max(3, Math.round((40 + 5 * L) * 0.22)) };
 };
@@ -519,7 +519,7 @@ const HUNTER_CHANCE = [0, 0, 0.06, 0.12];                              // 오염
 const RARE_CHANCE = 0.02;                                              // 위험 구간(80~99%)에서 한정 몬스터: 30분마다 한 번, 2%
 // 오염 몬스터 둘: 이름으로 구분합니다. 이 둘은 항상 턴제 전투로 싸우고, 보상은 등급 보상에 배수가 붙습니다.
 const SPECIAL_MON = {
-  '오염 사냥꾼': { kind: 'hunter', exp: 2, gold: 2, purge: 8, minRounds: 6 },     // 처치하면 오염도 -8%. 6라운드가 지나기 전에는 쓰러지지 않음
+  '오염 사냥꾼': { kind: 'hunter', exp: 2, gold: 2, purge: 8, minRounds: 10 },     // 처치하면 오염도 -8%. 10라운드가 지나기 전에는 쓰러지지 않음
   '혈월의 잔영': { kind: 'rare', exp: 4, gold: 5, drop: ['월식의 조각', 1] },       // 위험 구간 한정. 처치 보상이 큼 (오염도는 보통대로 오름)
 };
 const btPlayer = (lv, st) => ({
