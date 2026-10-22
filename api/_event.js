@@ -73,8 +73,9 @@ const STORY = [
 ];
 const STORY_ACH = { id: 'ev_hlw_story', name: '신부의 노리개', descr: '할로윈 밤, 여덟 귀신의 사연 조각을 모두 모아 처녀귀신의 이야기를 끝까지 들었다.' };
 const STORY_ALL_EMBER = 40, FINAL_DAY_EMBER = 10;
-const STORY_FIRST = Date.parse('2026-10-22T00:00:00Z');       // 사연 첫째 날(한국 날짜 10월 22일)
-const storyIdx = day => { const n = Math.floor((Date.parse(day + 'T00:00:00Z') - STORY_FIRST) / (24 * HOUR)); return ((n % STORY.length) + STORY.length) % STORY.length; };
+const STORY_FIRST = Date.parse('2026-10-20T00:00:00Z');       // 사연 1번이 열리는 날(한국 날짜 10월 20일) → 10월 23일에 4번, 10월 27일에 마지막 8번
+const storyDayN = day => Math.floor((Date.parse(day + 'T00:00:00Z') - STORY_FIRST) / (24 * HOUR));
+const storyIdx = day => Math.max(0, Math.min(STORY.length - 1, storyDayN(day)));      // 하루에 한 편씩, 8번이 마지막 (그 뒤로는 8번 귀신이 계속 소원을 말하고 사연은 더 열리지 않음)
 
 // ── 도깨비 장터: 도깨비 불씨로 사는 한정 품목. limit 은 한 사람이 이벤트 동안 살 수 있는 횟수 ──
 const MARKET = [
@@ -358,7 +359,7 @@ function install(a) {
     const streak = await streakOf(u.id, day);
     let ember = WISH_EMBER, ach = false;
     const ci = storyIdx(day);
-    if (ci === STORY.length - 1) ember += FINAL_DAY_EMBER;       // 완결편의 날
+    if (ci === STORY.length - 1 && storyDayN(day) === STORY.length - 1) ember += FINAL_DAY_EMBER;       // 완결편이 처음 열리는 날에만
     if (streak === WISH_STREAK) {
       ember += WISH_STREAK_EMBER;
       await db.run('INSERT OR IGNORE INTO achievements (id, name, descr, kind, val, at) VALUES (?, ?, ?, ?, ?, ?)', [WISH_ACH.id, WISH_ACH.name, WISH_ACH.descr, 'manual', '', now]);
