@@ -500,9 +500,13 @@ const BT = {
   mHeavy: 1.7, mHeavyChance: 0.25,       // 몬스터 강공(예고됨)
 };
 const BT_REF = { F: 2, E: 7, D: 14, C: 22, B: 32, A: 44, S: 60, SS: 80 };      // 등급마다 '보통 헌터'의 전투력 레벨 (근력은 레벨의 0.8배로 가정)
-const btMon = (rank, name, pl) => {
+// 오염 사냥꾼 강화: 서버 전체에서 오염 사냥꾼이 토벌된 횟수(lv)만큼 강해집니다 (최대 20단계)
+//  체력 +5% · 공격력 +3% · 최소 라운드 4단계마다 +1 · 보상(경험치·골드) +8% (단계마다)
+const HUNTER_LV_MAX = 20;
+const hunterScale = lv => { const n = Math.max(0, Math.min(HUNTER_LV_MAX, Math.floor(Number(lv) || 0))); return { lv: n, hp: 1 + 0.05 * n, atk: 1 + 0.05 * n, rounds: Math.floor(n / 4), reward: 1 + 0.08 * n }; };
+const btMon = (rank, name, pl, lv) => {
   // 오염 사냥꾼: 헌터의 체력·공격력에 맞춰 강하게 — 한 번 맞을 때 최대 체력의 약 15% (강공 약 25%), 체력은 헌터 공격력의 16배
-  if (name === '오염 사냥꾼' && pl) return { hp: Math.ceil(pl.atk * 16), atk: Math.max(7, Math.round(pl.max * 0.15)) };
+  if (name === '오염 사냥꾼' && pl) { const h = hunterScale(lv); return { hp: Math.ceil(pl.atk * 16 * h.hp), atk: Math.max(7, Math.round(pl.max * 0.15 * h.atk)) }; }
   const L = BT_REF[rank] || 2, atkRef = 6 + 1.2 * L + 0.8 * (L * 0.8);
   return { hp: Math.round(atkRef * 4), atk: Math.max(3, Math.round((40 + 5 * L) * 0.22)) };
 };
@@ -532,7 +536,7 @@ const btPlayer = (lv, st) => ({
 const isTurnBased = (monRank, hunterRank) => monRank !== 'SS' && RANK_IDX[monRank] !== undefined && RANK_IDX[monRank] >= (RANK_IDX[hunterRank] || 0);
 
 module.exports = {
-  BT, btMon, btPlayer, isTurnBased, taintStage, TAINT_SHOP_PCT, TAINT_BAN_DANGER, taintPrice, TAINT_LOSE_GOLD_MUL, HUNTER_CHANCE, RARE_CHANCE, SPECIAL_MON,
+  BT, btMon, btPlayer, isTurnBased, taintStage, TAINT_SHOP_PCT, TAINT_BAN_DANGER, taintPrice, TAINT_LOSE_GOLD_MUL, HUNTER_CHANCE, HUNTER_LV_MAX, hunterScale, RARE_CHANCE, SPECIAL_MON,
   SV_MARKS, MATERIALS, GATE_MATS, GATE_ZONES, EQ_GRADE, EQ_SLOTS, EQUIPS, PACTS, PACT_BACKLASH, PACT_BACKLASH_TAINT, RUMOR_NEED, RUMOR_OPEN_MS, RUMOR_GAP_MS, RUMOR_MAX_OPEN, RUMOR_TPL, RUMOR_REWARD, RECIPES, CRAFT_DEFS,
   STAT_MAX, STAT_RESET_BASE, STAT_RESET_PER, statResetCost, FAME_MAX, rnd, chance01, SPAWN_COUNTRIES, SPAWN_REGIONS, REGIONS, REGION_BY_ID, COUNTRIES, COUNTRY_BY_ID, countryOf, placeName, placeLong, MON, TIERS, ACTIVE_MS, ACTIVE_MS_F, ACTIVE_MS_S, activeMsOf, FAME_PER_LV, FAME_PER_RANK, KILL_EXP, KILL_GOLD, KILL_TAINT, rollTaint, garble, RANK_IDX, ACH_KINDS, ACH_COMPOUND, ACH_NUM, ACH_SEED, ACH_SEED2, ACH_SEED3, PROMO, ACH_PIN_MAX, rollGold, HUNT_DIFF,
   RAID_NEED, RAID_ATTEMPTS, S_MAX, S_WINDOW_MS, S_WAIT_MS, powNeed, cdOf, huntChance,
