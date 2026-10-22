@@ -239,13 +239,17 @@ function install(a) {
     if (room <= 0) return;
     const n = Math.min(room, rnd(GHOST_BATCH[0], GHOST_BATCH[1]));
     const hi = Math.max(0, RANKS.indexOf(u.rank));
-    const inSpawn = u.region && G.SPAWN_REGIONS.some(r => r.id === u.region);      // 적월문(게이트 구역) 안쪽에서는 몬스터가 나오지 않으므로 제외
-    const here = inSpawn ? u.region : G.SPAWN_REGIONS[rnd(0, G.SPAWN_REGIONS.length - 1)].id;      // 백귀야행은 헌터가 있는 곳으로 몰려옵니다
+    // 잡귀는 한 지역에 몰리지 않고 세계의 여러 지역에 흩어져 나옵니다 (오염 80% 이상 헌터는 들어갈 수 없는 위험 지역을 뺌)
+    let tn = 0; try { tn = Number(JSON.parse(u.stats).taint) || 0; } catch (_) { /* 스탯을 못 읽으면 제한 없음 */ }
+    const banned = G.taintStage(tn) >= 3;
+    const pool = G.SPAWN_REGIONS.filter(r => !(banned && G.TAINT_BAN_DANGER.has(r.danger)));
+    const regs = pool.length ? pool : G.SPAWN_REGIONS;
+    const topIdx = Math.min(5, hi + 1);      // 내 등급보다 한 단계 위(최대 A급)까지, F급부터 고르게
     const list = [];
     for (let i = 0; i < n; i++) {
-      const rank = RANKS[Math.max(0, Math.min(4, hi - rnd(1, 2)))];      // 내 등급보다 1~2단계 아래 (최대 B급)
+      const rank = RANKS[rnd(0, topIdx)];
       list.push(['INSERT INTO monsters (region, name, rank, spawned_at, owner_id) VALUES (?, ?, ?, ?, ?)',
-        [here, pickGhost(), rank, now - i, u.id]]);
+        [regs[rnd(0, regs.length - 1)].id, pickGhost(), rank, now - i, u.id]]);
     }
     await db.batch(list);
   }
@@ -660,19 +664,29 @@ function install(a) {
   }, { auth: false, admin: true });
 
 
+  // 한 헌터의 불씨 획득(acquire_log)·소실(ember_log) 내역을 최근 순으로 합칩니다
+  async function emberHistory(uid, limit) {
+    const [inv, gains, losses] = await Promise.all([
+      db.get('SELECT qty FROM inventory WHERE user_id = ? AND item = ?', [uid, EMBER]),
+      db.all("SELECT qty, source, at FROM acquire_log WHERE user_id = ? AND kind = 'item' AND name = ? ORDER BY id DESC LIMIT ?", [uid, EMBER, limit]),
+      db.all('SELECT delta, why, at FROM ember_log WHERE user_id = ? ORDER BY id DESC LIMIT ?', [uid, limit]),
+    ]);
+    const list = gains.map(g => ({ d: Number(g.qty), why: g.source, at: Number(g.at) })).concat(losses.map(l => ({ d: Number(l.delta), why: l.why, at: Number(l.at) }))).sort((a, b) => b.at - a.at).slice(0, limit);
+    const sum = f => list.reduce((t, x) => t + (f(x) ? x.d : 0), 0);
+    return { have: inv ? Number(inv.qty) : 0, gain: sum(x => x.d > 0), loss: -sum(x => x.d < 0), list };
+  }
+  // 헌터: 내 불씨 획득·소실 내역
+  route('GET', '/api/event/ember', async (req, res, ctx) => {
+    await refresh();
+    if (!on(Date.now())) return send(res, 200, { on: false });
+    send(res, 200, Object.assign({ on: true, name: EMBER }, await emberHistory(ctx.user.id, 100)));
+  });
   // 관리자: 한 헌터의 도깨비 불씨 획득·소실 내역 (?code=헌터코드)
   route('GET', '/api/admin/event/ember', async (req, res) => {
     const code = normCode(new URL(req.url, 'http://x').searchParams.get('code') || '');
     const u = code ? await userByCode(code) : null;
     if (!u) return fail(res, 404, 'no_user');
-    const [inv, gains, losses] = await Promise.all([
-      db.get('SELECT qty FROM inventory WHERE user_id = ? AND item = ?', [u.id, EMBER]),
-      db.all("SELECT qty, source, at FROM acquire_log WHERE user_id = ? AND kind = 'item' AND name = ? ORDER BY id DESC LIMIT 300", [u.id, EMBER]),
-      db.all('SELECT delta, why, at FROM ember_log WHERE user_id = ? ORDER BY id DESC LIMIT 300', [u.id]),
-    ]);
-    const list = gains.map(g => ({ d: Number(g.qty), why: g.source, at: Number(g.at) })).concat(losses.map(l => ({ d: Number(l.delta), why: l.why, at: Number(l.at) }))).sort((a, b) => b.at - a.at).slice(0, 300);
-    const sum = (a, f) => a.reduce((t, x) => t + (f(x) ? x.d : 0), 0);
-    send(res, 200, { hn: u.hunter_name, code: u.code, have: inv ? Number(inv.qty) : 0, gain: sum(list, x => x.d > 0), loss: -sum(list, x => x.d < 0), list });
+    send(res, 200, Object.assign({ hn: u.hunter_name, code: u.code }, await emberHistory(u.id, 300)));
   }, { auth: false, admin: true });
 
   // 관리자: 귀신의 집 하루 횟수 조작
