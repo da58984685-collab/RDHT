@@ -2070,7 +2070,7 @@ async function huntLose(cur, m, myStats, eb, now) {
   await db.run(`INSERT INTO fail_cd (user_id, monster_id, until, free) VALUES (?, ?, ?, ?)
                 ON CONFLICT(user_id, monster_id) DO UPDATE SET until = excluded.until, free = excluded.free`, [cur.id, m.id, until, free ? 1 : 0]);
   const hp = await applyHpLoss(cur.id, m.rank, now, eb);
-  // 오염 2단계(60%)부터: 토벌에 실패하면 골드를 잃습니다 (그 등급 평균 토벌 골드의 1.5배, 가진 만큼까지)
+  // 오염 2단계(60%)부터: 토벌에 실패하면 골드를 잃습니다 (그 등급 평균 토벌 골드의 배수, 가진 만큼까지)
   let goldLoss = 0;
   if (stageOf(cur) >= 2) {
     const kg = G.KILL_GOLD[m.rank] || [0, 0], g0 = await db.get('SELECT gold FROM users WHERE id = ?', [cur.id]);
