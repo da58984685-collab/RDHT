@@ -258,6 +258,18 @@ main.landing{display:flex;align-items:center;justify-content:center;max-width:no
 .qth b{display:flex;align-items:center;gap:8px;font-weight:700}
 .qth .qw{font-size:.7rem;font-weight:700;color:var(--err);border:1px solid var(--err);border-radius:8px;padding:0 6px}
 .qth small{display:block;margin-top:3px;color:var(--sub);overflow-wrap:anywhere}
+.qtabs{display:flex;gap:6px;margin:0 0 10px}
+.qtabs button{flex:1;padding:8px 10px;font:inherit;font-weight:700;color:var(--sub);background:var(--field);border:1px solid var(--line);border-radius:10px;cursor:pointer}
+.qtabs button[aria-selected=true]{color:#fff;border-color:var(--red);background:#2a1014}
+.qna{list-style:none;margin:0 0 10px;padding:0;display:flex;flex-direction:column;gap:10px;max-height:420px;overflow-y:auto}
+.qna li{padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:#1c1416;overflow-wrap:anywhere}
+.qna .qq,.qna .qa{white-space:pre-wrap;line-height:1.5;font-size:.88rem;margin:0}
+.qna .qq{font-weight:700;color:#fff}
+.qna .qa{margin-top:8px;padding-top:8px;border-top:1px solid var(--line)}
+.qna .qq::before,.qna .qa::before{display:inline-block;min-width:1.6em;font-weight:800;color:var(--red2)}
+.qna .qq::before{content:"Q."}.qna .qa::before{content:"A."}
+.qna small{display:block;margin-top:6px;font-size:.68rem;color:var(--sub)}
+.qna .qnone{text-align:center;color:var(--sub);border-style:dashed}
 .ntd{max-width:440px}
 .ntd .eyebrow{margin:0 0 8px}
 .nt-ttl{margin:0 0 4px;padding-right:34px;font-size:1.25rem;font-weight:800;line-height:1.4;color:var(--text);overflow-wrap:anywhere;word-break:keep-all}
@@ -1076,6 +1088,8 @@ body{overflow-x:clip}      /* 어떤 요소가 넘쳐도 화면 전체가 가로
       <h1 id="qtitle">문의</h1>
       <p class="desc" id="qdesc"></p>
     </div>
+    <div class="qtabs" id="qtabs" role="tablist" hidden><button type="button" role="tab" id="qtab-c" aria-selected="true">문의</button><button type="button" role="tab" id="qtab-q" aria-selected="false">Q&amp;A</button></div>
+    <ul class="qna" id="qnalist" aria-label="자주 묻는 질문과 답변" hidden></ul>
     <ul class="qth" id="qthreads" hidden></ul>
     <div id="qchat">
       <div class="mchh" id="qchh" hidden><button type="button" class="hud-btn" id="qback">← 목록</button><b id="qchname"></b></div>
@@ -3509,7 +3523,7 @@ $("msendf").addEventListener("submit",function(e){
 });
 
 /* ───── 문의 (관리자에게만 보내는 메신저) ───── */
-var qmodal=$("qmodal"),qMode="user",qOpener=null,qTimer=null,qLast=0,qCode="",qView="chat";
+var qmodal=$("qmodal"),qMode="user",qOpener=null,qTimer=null,qLast=0,qCode="",qView="chat",qTab="c";
 function qAdd(m){
   var li=document.createElement("li");
   var mine=qMode==="user"?!m.admin:m.admin;if(mine)li.className="me";
@@ -3550,23 +3564,39 @@ function qThreads(){
     });
   });
 }
+function qaLoad(){
+  api("GET","/api/qna").then(function(r){
+    if(!r.list)return;var ul=$("qnalist");ul.textContent="";
+    if(!r.list.length){var e=document.createElement("li");e.className="qnone";e.textContent="아직 공개된 Q&A가 없습니다.";ul.appendChild(e);return}
+    r.list.forEach(function(x){
+      var li=document.createElement("li"),q=document.createElement("p"),a=document.createElement("p"),sm=document.createElement("small");
+      q.className="qq";q.textContent=x.q;a.className="qa";a.textContent=x.a;sm.textContent=fmtTime(x.at);
+      li.appendChild(q);li.appendChild(a);li.appendChild(sm);ul.appendChild(li);
+    });
+  });
+}
+function qTabSet(t){
+  qTab=t;var c=$("qtab-c"),q=$("qtab-q");c.setAttribute("aria-selected",t==="c"?"true":"false");q.setAttribute("aria-selected",t==="q"?"true":"false");
+  qShow(qView);if(t==="q")qaLoad();else qLoad(true);
+}
 function qShow(view){
-  qView=view;var inbox=qMode==="inbox";
+  qView=view;var inbox=qMode==="inbox",qa=!inbox&&qTab==="q";
+  $("qtabs").hidden=inbox;$("qnalist").hidden=!qa;
   $("qthreads").hidden=!(inbox&&view==="list");
-  $("qchat").hidden=inbox&&view==="list";
+  $("qchat").hidden=(inbox&&view==="list")||qa;
   $("qchh").hidden=!(inbox&&view==="chat");
   $("qsendf").hidden=inbox;
   $("qnote").textContent=inbox?"읽기 전용입니다. 답변은 관리자 창에서 보낼 수 있습니다.":"문의는 관리자에게만 전달되며, 답변도 이곳에 표시됩니다.";
 }
 function qOpenThread(t){qCode=t.code;$("qchname").textContent=t.hn;qShow("chat");$("qmsgs").textContent="";qLast=0;qLoad(true)}
 function openQ(mode,opener){
-  qOpener=opener||document.activeElement;qMode=mode;qCode="";
+  qOpener=opener||document.activeElement;qMode=mode;qCode="";qTab="c";$("qtab-c").setAttribute("aria-selected","true");$("qtab-q").setAttribute("aria-selected","false");
   $("qtitle").textContent=mode==="inbox"?"문의함":"문의";
   $("qdesc").textContent=mode==="inbox"?"헌터들이 관리자에게 보낸 문의입니다.":"관리자에게만 메시지를 보낼 수 있습니다.";
   $("qmsgs").textContent="";qLast=0;$("qsendt").value="";
   if(mode==="inbox"){qShow("list");qThreads()}else{qShow("chat");qLoad(true)}
   qmodal.hidden=false;document.body.style.overflow="hidden";qmodal.scrollTop=0;$("qclose").focus();
-  clearInterval(qTimer);qTimer=setInterval(function(){qLoad(false)},4000);
+  clearInterval(qTimer);qTimer=setInterval(function(){if(qMode==="user"&&qTab==="q")return;qLoad(false)},4000);
 }
 function closeQ(){
   qmodal.hidden=true;clearInterval(qTimer);
@@ -3576,6 +3606,7 @@ function closeQ(){
 $("inqbtn").addEventListener("click",function(){openQ("user",this)});
 $("mqbtn").addEventListener("click",function(){openQ("inbox",this)});
 $("qclose").addEventListener("click",closeQ);
+$("qtab-c").addEventListener("click",function(){qTabSet("c")});$("qtab-q").addEventListener("click",function(){qTabSet("q")});
 $("qback").addEventListener("click",function(){qCode="";qShow("list");qThreads()});
 qmodal.addEventListener("mousedown",function(e){if(e.target===qmodal)closeQ()});
 document.addEventListener("keydown",function(e){if(e.key==="Escape"&&!qmodal.hidden){e.stopPropagation();closeQ()}},true);
