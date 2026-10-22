@@ -38,7 +38,7 @@ async function broadcast(db, name, title, body, now) {
 async function hunterKilled(db, now) {
   const st = await hunterState(db), kills = st.kills + 1;
   await putSet(db, 'hunter_kills', kills); await putSet(db, 'hunter_last', now);
-  if (st.popup) await broadcast(db, '운영자', '오염 사냥꾼이 토벌되었습니다.', '오염 사냥꾼이 강화됩니다.', now).catch(() => {});
+  if (st.popup) await broadcast(db, 'SYSTEM', '오염 사냥꾼이 토벌되었습니다.', '오염 사냥꾼이 강화됩니다.', now).catch(() => {});
   return { kills, last: now, popup: st.popup };
 }
 
