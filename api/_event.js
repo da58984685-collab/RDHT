@@ -45,9 +45,9 @@ const pickGhost = () => { const r = Math.random(), a = r < 0.6 ? GH_C : r < 0.92
 const DEX_STAGES = [[8, 10], [16, 20], [24, 40], [32, 70]];
 const DEX_ACH = { id: 'ev_hlw_dex', name: '백귀 수집가', descr: '할로윈 밤, 백귀야행의 잡귀 32종을 모두 처치해 도감을 채웠다.' };
 const NIGHT_FROM = 20, NIGHT_TO = 2;                        // 한국 시간 20시 ~ 다음날 02시
-const GHOST_GAP = [6, 12];                                   // 몇 분마다 한 무리가 나오는가
-const GHOST_BATCH = [2, 3];                                  // 한 무리의 마리 수
-const GHOST_CAP = 10;                                        // 헌터 한 명에게 동시에 떠 있는 잡귀 수 상한
+// 잡귀 출몰 주기 (분). 평소 몬스터(G.TIERS)와 같되 C·B와 A만 이벤트용으로 짧게 조정
+const GHOST_GAP_MIN = { f: 1, low: 5, mid: 10, high: 30 };
+const GHOST_CAP = 20;                                        // 헌터 한 명에게 동시에 떠 있는 잡귀 수 상한
 
 // ── 소원 ──
 const WISH_EMBER = 6, WISH_STREAK = 7, WISH_STREAK_EMBER = 20;
@@ -221,37 +221,43 @@ function install(a) {
       const gids = G.REGIONS.filter(r => !G.SPAWN_REGIONS.includes(r)).map(r => r.id);
       if (gids.length) await db.run(`DELETE FROM monsters WHERE owner_id IS NOT NULL AND name IN (${GHOSTS.map(() => '?').join(',')}) AND region IN (${gids.map(() => '?').join(',')})`, GHOSTS.concat(gids)).catch(() => { gateCleaned = false; });
     }
+    if (!isNight(now)) { nextAt.set(u.id, Math.min(now + 5 * MIN, nextNightStart(now))); return; }
     const c = nextAt.get(u.id);
     if (c !== undefined && now < c) return;
-    if (!isNight(now)) { nextAt.set(u.id, Math.min(now + 5 * MIN, nextNightStart(now))); return; }
-    const row = await db.get("SELECT next_at FROM user_spawn WHERE user_id = ? AND tier = 'evg'", [u.id]);
-    if (!row) await db.run("INSERT OR IGNORE INTO user_spawn (user_id, tier, next_at) VALUES (?, 'evg', 0)", [u.id]);
-    const from = row ? Number(row.next_at) : 0;
-    if (from > now) { nextAt.set(u.id, from); return; }
-    const next = now + rnd(GHOST_GAP[0], GHOST_GAP[1]) * MIN;
-    const claim = await db.run("UPDATE user_spawn SET next_at = ? WHERE user_id = ? AND tier = 'evg' AND next_at = ?", [next, u.id, from]);
-    nextAt.set(u.id, next);
-    if (claim.changes !== 1) return;
-    const ph = GHOSTS.map(() => '?').join(',');
-    const live = await db.get(`SELECT COUNT(*) AS c FROM monsters WHERE owner_id = ? AND name IN (${ph}) AND spawned_at > ? AND id NOT IN (SELECT monster_id FROM kills WHERE user_id = ?)`,
-      [u.id].concat(GHOSTS, [now - G.ACTIVE_MS, u.id]));
-    const room = GHOST_CAP - Number(live.c);
-    if (room <= 0) return;
-    const n = Math.min(room, rnd(GHOST_BATCH[0], GHOST_BATCH[1]));
+    // 등급별 출몰 주기: F 1분 · E·D 5분 · C·B 10분 · A 30분 (S·SS는 잡귀로 나오지 않음)
     const hi = Math.max(0, RANKS.indexOf(u.rank));
+    const topIdx = Math.min(5, hi + 1);      // 내 등급보다 한 단계 위(최대 A급)까지
     // 잡귀는 한 지역에 몰리지 않고 세계의 여러 지역에 흩어져 나옵니다 (오염 80% 이상 헌터는 들어갈 수 없는 위험 지역을 뺌)
     let tn = 0; try { tn = Number(JSON.parse(u.stats).taint) || 0; } catch (_) { /* 스탯을 못 읽으면 제한 없음 */ }
     const banned = G.taintStage(tn) >= 3;
     const pool = G.SPAWN_REGIONS.filter(r => !(banned && G.TAINT_BAN_DANGER.has(r.danger)));
     const regs = pool.length ? pool : G.SPAWN_REGIONS;
-    const topIdx = Math.min(5, hi + 1);      // 내 등급보다 한 단계 위(최대 A급)까지, F급부터 고르게
+    const rows = await db.all("SELECT tier, next_at FROM user_spawn WHERE user_id = ? AND tier LIKE 'evg%'", [u.id]);
+    const have = new Map(rows.map(r => [r.tier, Number(r.next_at)]));
+    const ph = GHOSTS.map(() => '?').join(',');
+    const live = await db.get(`SELECT COUNT(*) AS c FROM monsters WHERE owner_id = ? AND name IN (${ph}) AND spawned_at > ?
+      AND NOT (rank = 'F' AND spawned_at < ?) AND id NOT IN (SELECT monster_id FROM kills WHERE user_id = ?)`,
+      [u.id].concat(GHOSTS, [now - G.ACTIVE_MS, now - G.ACTIVE_MS_F, u.id]));
+    let room = GHOST_CAP - Number(live.c);
     const list = [];
-    for (let i = 0; i < n; i++) {
-      const rank = RANKS[rnd(0, topIdx)];
+    let soon = Infinity;
+    for (const t of G.TIERS) {
+      const ranks = t.ranks.filter(r => r !== 'S' && r !== 'SS' && RANKS.indexOf(r) <= topIdx);
+      if (!ranks.length) continue;
+      const key = 'evg_' + t.k;
+      if (!have.has(key)) await db.run('INSERT OR IGNORE INTO user_spawn (user_id, tier, next_at) VALUES (?, ?, 0)', [u.id, key]);
+      const from = have.has(key) ? have.get(key) : 0;
+      if (from > now) { soon = Math.min(soon, from); continue; }
+      const next = now + (GHOST_GAP_MIN[t.k] || 5) * MIN;
+      const claim = await db.run('UPDATE user_spawn SET next_at = ? WHERE user_id = ? AND tier = ? AND next_at = ?', [next, u.id, key, from]);
+      soon = Math.min(soon, next);
+      if (claim.changes !== 1 || room <= 0) continue;
+      room--;
       list.push(['INSERT INTO monsters (region, name, rank, spawned_at, owner_id) VALUES (?, ?, ?, ?, ?)',
-        [regs[rnd(0, regs.length - 1)].id, pickGhost(), rank, now - i, u.id]]);
+        [regs[rnd(0, regs.length - 1)].id, pickGhost(), ranks[rnd(0, ranks.length - 1)], now - list.length, u.id]]);
     }
-    await db.batch(list);
+    nextAt.set(u.id, soon === Infinity ? now + MIN : soon);
+    if (list.length) await db.batch(list);
   }
   // 잡귀를 처치했을 때 불씨 지급. 지급한 수를 돌려줍니다 (0 이면 잡귀가 아님)
   async function onKill(cur, m, now) {
@@ -285,7 +291,7 @@ function install(a) {
       [`DELETE FROM kills WHERE monster_id IN (SELECT id FROM monsters WHERE owner_id IS NOT NULL AND name IN (${ph}))`, GHOSTS],
       [`DELETE FROM fail_cd WHERE monster_id IN (SELECT id FROM monsters WHERE owner_id IS NOT NULL AND name IN (${ph}))`, GHOSTS],
       [`DELETE FROM monsters WHERE owner_id IS NOT NULL AND name IN (${ph})`, GHOSTS],
-      ["DELETE FROM user_spawn WHERE tier = 'evg'", []],
+      ["DELETE FROM user_spawn WHERE tier LIKE 'evg%'", []],
     ]);
   }
 
