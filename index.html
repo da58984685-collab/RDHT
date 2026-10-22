@@ -1234,6 +1234,62 @@ body{overflow-x:clip}      /* 어떤 요소가 넘쳐도 화면 전체가 가로
 .gwlk.on{border-color:var(--red);color:#ff8a93}
 .gwcx:hover,.gwcx[data-arm="1"]{border-color:var(--red);color:#ff8a93}
 .gwnote{margin:8px 0 0;min-height:1.2em;font-size:.84rem;color:var(--sub)}
+/* 알림 벨과 드롭다운 — Lucian UX/UI Prompt #074 (MIT, c) 2026 Seokwoooo · 게이트웨이브에 맞게 색을 사이트 변수에 연결 */
+.gwtop{position:relative}
+.u074{--ux-page:#0a0607;--ux-surface:#1a1012;--ux-surface-2:#26141a;--ux-ink:var(--text);--ux-ink-2:var(--sub);--ux-ink-3:#9a8a88;--ux-line:var(--line);--ux-accent:var(--red2);--ux-shadow-strong:rgba(0,0,0,.75);--ux-ease:cubic-bezier(.2,.8,.2,1);--ux-spring:cubic-bezier(.34,1.45,.64,1);display:inline-block;color:var(--ux-ink);-webkit-tap-highlight-color:transparent;word-break:keep-all;overflow-wrap:break-word}
+.u074,.u074 *,.u074 *::before,.u074 *::after{box-sizing:border-box}
+.u074 button{font:inherit;color:inherit;cursor:pointer}
+.u074 [hidden]{display:none!important}
+.u074-bell{position:relative;width:44px;height:44px;border:0;padding:0;border-radius:50%;display:grid;place-items:center;background:var(--ux-surface);color:var(--ux-ink);box-shadow:0 0 0 1px var(--ux-line),0 10px 20px -14px var(--ux-shadow-strong);transition:transform .3s var(--ux-spring)}
+.u074-bell:active{transform:scale(.9)}
+.u074-bell:focus-visible{outline:2px solid var(--ux-accent);outline-offset:3px}
+.u074-bell svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;transform-origin:50% 15%}
+.u074-bell.ring svg{animation:u074-ring .9s var(--ux-ease)}
+@keyframes u074-ring{10%{transform:rotate(18deg)}25%{transform:rotate(-16deg)}40%{transform:rotate(12deg)}55%{transform:rotate(-8deg)}70%{transform:rotate(4deg)}}
+.u074-badge{position:absolute;right:2px;top:2px;min-width:20px;height:20px;padding:0 5px;border-radius:10px;background:#FF5A6E;color:#fff;font-size:11px;font-weight:850;line-height:20px;text-align:center;box-shadow:0 0 0 2.5px var(--ux-surface);font-variant-numeric:tabular-nums;transition:transform .4s var(--ux-spring)}
+.u074-badge.zero{transform:scale(0)}
+.u074-pan{position:absolute;right:0;top:calc(100% + 8px);z-index:20;width:min(340px,calc(100vw - 32px));height:min(440px,70vh);display:flex;flex-direction:column;border-radius:24px;background:var(--ux-surface);box-shadow:0 0 0 1px var(--ux-line),0 30px 50px -20px var(--ux-shadow-strong);transform-origin:calc(100% - 28px) -10px;transition:transform .45s var(--ux-spring),opacity .25s}
+.u074-pan::before{content:"";position:absolute;right:22px;top:-6px;width:14px;height:14px;border-radius:3px;background:var(--ux-surface);transform:rotate(45deg);box-shadow:-1px -1px 0 0 var(--ux-line)}
+.u074.is-closed .u074-pan{transform:scale(.4);opacity:0;pointer-events:none;transition:transform .3s var(--ux-ease),opacity .2s}
+.u074-ph{display:flex;align-items:center;gap:4px;padding:14px 14px 10px}
+.u074-tab{height:32px;padding:0 11px;border:0;border-radius:999px;background:none;font-size:13px;font-weight:750;color:var(--ux-ink-3);transition:background-color .25s,color .25s}
+.u074-tab[aria-selected="true"]{background:var(--ux-ink);color:var(--ux-page)}
+.u074-tab:focus-visible,.u074-all:focus-visible{outline:2px solid var(--ux-accent);outline-offset:2px}
+.u074-all{margin-left:auto;border:0;padding:4px 6px;background:none;font-size:12.5px;font-weight:750;color:var(--ux-accent)}
+.u074-all:disabled{color:var(--ux-ink-3);cursor:default}
+.u074-list{position:relative;flex:1;margin:0;padding:0 8px 10px;list-style:none;overflow-y:auto;overscroll-behavior:contain}
+.u074-it{display:grid;grid-template-rows:1fr;transition:grid-template-rows .45s var(--ux-ease)}
+.u074-it.new{grid-template-rows:0fr}
+.u074-it.hide{display:none}
+.u074-it>div{min-height:0;overflow:hidden}
+.u074-row{position:relative;display:flex;gap:12px;width:100%;padding:11px 26px 11px 10px;border:0;border-radius:14px;background:none;text-align:left;transition:background-color .2s,transform .5s var(--ux-spring),opacity .3s}
+.u074-row:hover{background:var(--ux-surface-2)}
+.u074-row:focus-visible{outline:2px solid var(--ux-accent);outline-offset:-2px}
+.u074-it.new .u074-row{transform:translateY(-30px);opacity:0}
+.u074-av{position:relative;width:38px;height:38px;flex:none;border-radius:50%;background:var(--g)}
+.u074-av em{position:absolute;right:-3px;bottom:-3px;width:18px;height:18px;border-radius:50%;display:grid;place-items:center;background:var(--ux-surface);font-style:normal;font-size:10px}
+.u074-tx{flex:1;min-width:0;font-size:13px;line-height:1.45;color:var(--ux-ink-2)}
+.u074-tx b{color:var(--ux-ink);font-weight:780}
+.u074-tx small{display:block;margin-top:2px;font-size:11.5px;font-weight:650;color:var(--ux-ink-3)}
+.u074-dot{position:absolute;right:10px;top:50%;width:9px;height:9px;margin-top:-4.5px;border-radius:50%;background:var(--ux-accent);transition:transform .35s var(--ux-spring),opacity .25s}
+.u074-row.read .u074-dot{transform:scale(0);opacity:0}
+.u074-row.read .u074-tx{color:var(--ux-ink-3)}
+.u074-empty{padding:28px 12px;text-align:center;font-size:13px;color:var(--ux-ink-3)}
+.u074-set{flex:1;overflow-y:auto;padding:0 12px 12px;overscroll-behavior:contain}
+.u074-set .cmn{margin:0 0 8px;font-size:12px;color:var(--ux-ink-3)}
+.u074-set .gwsl{margin:8px 0}
+.u074-set .gwsl li{border-radius:12px;background:var(--ux-surface-2);border-color:var(--ux-line)}
+.u074-set .gwsl label{padding:10px 12px;gap:10px}
+.u074-set .gwsl b{font-size:13px}
+.u074-set .gwsl small{font-size:11.5px}
+.u074-set .gwnote2{font-size:11.5px}
+.gwmen{color:var(--red2);font-weight:700}
+.gwsg{position:absolute;z-index:30;min-width:160px;max-width:min(260px,90%);margin:0;padding:4px;list-style:none;background:#1a1012;border:1px solid var(--red);border-radius:10px;box-shadow:0 10px 24px rgba(0,0,0,.6)}
+.gwsg li{padding:7px 10px;font-size:.86rem;border-radius:7px;cursor:pointer;color:var(--text)}
+.gwsg li small{margin-left:6px;color:var(--sub);font-size:.72rem}
+.gwsg li[aria-selected="true"],.gwsg li:hover{background:var(--bar1)}
+@media (prefers-reduced-motion:reduce){.u074,.u074 *,.u074 *::before,.u074 *::after{animation-duration:.001ms!important;animation-iteration-count:1!important;transition-duration:.001ms!important}}
+
 .gwempty{padding:24px 8px;text-align:center;color:var(--deep);font-size:.9rem}
 </style>
 <div class="modal" id="cmodal" hidden>
@@ -1254,6 +1310,7 @@ body{overflow-x:clip}      /* 어떤 요소가 넘쳐도 화면 전체가 가로
 <div class="modal" id="gwmodal" hidden>
   <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="gwtitle">
     <button type="button" class="x" id="gwclose" aria-label="닫기"><svg class="ic"><use href="#i-x"/></svg></button>
+    <ul class="gwsg" id="gwsg" role="listbox" aria-label="친구 언급" hidden></ul>
     <div class="dhead">
       <p class="eyebrow">GATEWAVE</p>
       <h1 id="gwtitle">게이트웨이브</h1>
@@ -1261,22 +1318,28 @@ body{overflow-x:clip}      /* 어떤 요소가 넘쳐도 화면 전체가 가로
     <div id="gwlist">
       <div class="gwtop">
         <p class="cmn">헌터들끼리만 이용하는 게시판입니다.</p>
-        <div class="gwbtns"><button type="button" class="hud-btn" id="gwset-open">알림 설정</button><button type="button" class="hud-btn" id="gwnew">글쓰기</button></div>
+        <div class="gwbtns"><button type="button" class="hud-btn" id="gwnew">글쓰기</button>
+          <div class="ux u074 is-closed" id="gwbellw">
+            <button class="u074-bell" id="gwbell" type="button" aria-expanded="false" aria-controls="gwpan" aria-label="알림"><svg viewBox="0 0 22 22" aria-hidden="true"><path d="M5.5 15V10a5.5 5.5 0 0 1 11 0v5l1.5 1.5h-14zM9 18.5a2 2 0 0 0 4 0"/></svg><span class="u074-badge zero" id="gwbadge" aria-hidden="true">0</span></button>
+            <div class="u074-pan" id="gwpan" role="region" aria-label="게이트웨이브 알림" inert>
+              <div class="u074-ph" role="tablist" aria-label="알림 종류"><button class="u074-tab" type="button" role="tab" aria-selected="true">전체</button><button class="u074-tab" type="button" role="tab" aria-selected="false">멘션</button><button class="u074-tab" type="button" role="tab" aria-selected="false">설정</button><button class="u074-all" type="button" id="gwaall">모두 읽음</button></div>
+              <ul class="u074-list" id="gwalist" aria-live="polite"></ul>
+              <div class="u074-set" id="gwaset" hidden>
+                <p class="cmn">알림은 아래 항목마다 켜고 끌 수 있습니다. 모든 알림은 같은 소리가 납니다.</p>
+                <ul class="gwsl">
+                  <li><label><input type="checkbox" id="gwn-post"><span><b>새 글이 올라올 때</b><small>다른 헌터가 새 글을 올리면 알려줍니다.</small></span></label></li>
+                  <li><label><input type="checkbox" id="gwn-cmt"><span><b>내 글에 댓글이 달릴 때</b><small>내가 쓴 글에 다른 헌터가 댓글을 달면 알려줍니다.</small></span></label></li>
+                  <li><label><input type="checkbox" id="gwn-rep"><span><b>나에게 답글이 달릴 때</b><small>내 댓글에 다른 헌터가 답글을 달면 알려줍니다.</small></span></label></li>
+                  <li><label><input type="checkbox" id="gwn-men"><span><b>나를 태그했을 때</b><small>친구가 글이나 댓글에서 @로 나를 언급하면 알려줍니다.</small></span></label></li>
+                </ul>
+                <div class="gwrow"><button type="button" class="hud-btn" id="gwn-test">알림음 들어보기</button></div>
+                <p class="gwnote2" id="gwsnote"></p>
+              </div>
+            </div>
+          </div></div>
       </div>
       <ul class="gwl" id="gwul" aria-live="polite"></ul>
       <div class="gwrow"><button type="button" class="hud-btn" id="gwmore" hidden>더 보기</button></div>
-    </div>
-    <div id="gwset" class="gwf" hidden>
-      <div class="gwtop"><button type="button" class="hud-btn" id="gwsback">← 목록</button></div>
-      <h2 class="gwsh">알림 설정</h2>
-      <p class="cmn">게이트웨이브 알림은 아래 항목마다 켜고 끌 수 있습니다. 세 알림은 같은 소리가 납니다.</p>
-      <ul class="gwsl">
-        <li><label><input type="checkbox" id="gwn-post"><span><b>새 글이 올라올 때</b><small>다른 헌터가 새 글을 올리면 알려줍니다.</small></span></label></li>
-        <li><label><input type="checkbox" id="gwn-cmt"><span><b>내 글에 댓글이 달릴 때</b><small>내가 쓴 글에 다른 헌터가 댓글을 달면 알려줍니다.</small></span></label></li>
-        <li><label><input type="checkbox" id="gwn-rep"><span><b>나에게 답글이 달릴 때</b><small>내 댓글에 다른 헌터가 답글을 달면 알려줍니다.</small></span></label></li>
-      </ul>
-      <div class="gwrow"><button type="button" class="hud-btn" id="gwn-test">알림음 들어보기</button></div>
-      <p class="gwnote2" id="gwsnote"></p>
     </div>
     <div id="gwwrite" class="gwf" hidden>
       <div class="gwtop"><button type="button" class="hud-btn" id="gwwback">← 목록</button></div>
@@ -1284,7 +1347,7 @@ body{overflow-x:clip}      /* 어떤 요소가 넘쳐도 화면 전체가 가로
         <label for="gwt">제목</label>
         <input id="gwt" type="text" autocomplete="off" maxlength="40" placeholder="제목 (40자 이내)">
         <label for="gwb">내용</label>
-        <textarea id="gwb" maxlength="1000" placeholder="내용 (1000자 이내)"></textarea>
+        <textarea id="gwb" maxlength="1000" placeholder="내용 (1000자 이내) · @를 입력하면 친구를 언급할 수 있어요"></textarea>
         <p class="gwcnt" id="gwbcnt">0 / 1000</p>
         <div class="gwrow"><button type="submit" class="hud-btn" id="gwsubmit">올리기</button></div>
       </form>
@@ -1300,7 +1363,7 @@ body{overflow-x:clip}      /* 어떤 요소가 넘쳐도 화면 전체가 가로
       <p class="gwrp" id="gwrp" hidden><span id="gwrpt"></span><button type="button" id="gwrpx">답글 취소</button></p>
       <form id="gwcform" class="msend" novalidate>
         <label for="gwct" class="sr">댓글</label>
-        <textarea id="gwct" rows="1" autocomplete="off" maxlength="200" placeholder="댓글을 입력하세요 (200자 이내) · Shift+Enter 줄바꿈"></textarea>
+        <textarea id="gwct" rows="1" autocomplete="off" maxlength="200" placeholder="댓글을 입력하세요 (200자 이내) · Shift+Enter 줄바꿈 · @로 친구 언급"></textarea>
         <button type="submit" class="hud-btn mbtn">등록</button>
       </form>
       <p class="gwnote" id="gwvnote" role="status"></p>
@@ -4170,7 +4233,7 @@ function evTabsBar(root){
   var bar=root.querySelector(".ev-tabs");
   if(bar){Array.prototype.forEach.call(bar.children,function(b){b.setAttribute("aria-selected",b.getAttribute("data-t")===evTab?"true":"false")});return}
   bar=document.createElement("div");bar.className="inv-tabs ev-tabs";bar.setAttribute("role","tablist");bar.setAttribute("aria-label","할로윈 메뉴");
-  [["main","소원"],["dex","도감"],["mk","장터"],["house","귀신의 집"]].forEach(function(t){
+  [["main","소원"],["dex","도감"],["mk","장터"],["house","귀신의 집"],["ember","불씨 내역"]].forEach(function(t){
     var b=document.createElement("button");b.type="button";b.setAttribute("data-t",t[0]);b.setAttribute("role","tab");b.textContent=t[1];b.setAttribute("aria-selected",t[0]===evTab?"true":"false");
     b.addEventListener("click",function(){if(evTab===t[0])return;evTab=t[0];evHouseStop();loadEvent()});
     bar.appendChild(b);
@@ -4213,7 +4276,7 @@ function loadEvent(){
   evTabsBar(scr);
   Array.prototype.forEach.call(scr.querySelectorAll(":scope > .app-empty,:scope > .ev-body"),function(x){x.remove()});
   var box=document.createElement("div");box.className="ev-body";scr.appendChild(box);evLoading(box);
-  if(evTab==="dex")evDex(box);else if(evTab==="mk")evMarket(box);else if(evTab==="house")evHouse(box);else loadEventMain(box);
+  if(evTab==="dex")evDex(box);else if(evTab==="ember")evEmber(box);else if(evTab==="mk")evMarket(box);else if(evTab==="house")evHouse(box);else loadEventMain(box);
 }
 function evBtn(row,label,dis,fn){var b=document.createElement("button");b.type="button";b.className="ach-btn";b.textContent=label;b.disabled=!!dis;b.addEventListener("click",fn);row.appendChild(b);return b}
 function evRow(){var r=document.createElement("div");r.className="rum-v";return r}
@@ -4246,6 +4309,29 @@ function evDex(box){
       box.appendChild(u2);
     });
   }).catch(function(){if(devApp==="hlw"&&evTab==="dex")appFail(box,function(){evDex(box)})});
+}
+/* 도깨비 불씨 내역 (내 획득·소실만 모아 보기) */
+var evEmFilter="all";
+function evEmber(box){
+  api("GET","/api/event/ember").then(function(r){
+    if(devApp!=="hlw"||evTab!=="ember"||!box.isConnected)return;
+    if(r.error){appFail(box,function(){evEmber(box)});return}
+    if(!r.on){evOff(box);return}
+    xpInit(box);
+    xpNote(box,"보유 "+r.name+" "+r.have+"개 · 최근 내역 기준 획득 +"+r.gain+" · 소실 -"+r.loss);
+    var fr=evRow();
+    [["all","전체"],["gain","획득"],["loss","소실"]].forEach(function(f){var b=evBtn(fr,f[1],false,function(){evEmFilter=f[0];evEmber(box)});if(evEmFilter===f[0]){b.disabled=true;b.setAttribute("aria-pressed","true")}});
+    box.appendChild(fr);
+    var rows=r.list.filter(function(x){return evEmFilter==="gain"?x.d>0:evEmFilter==="loss"?x.d<0:true});
+    var ul=document.createElement("ul");ul.className="app-list";
+    if(!rows.length){var e0=document.createElement("li");e0.textContent=evEmFilter==="all"?"아직 기록된 내역이 없습니다.":"해당하는 내역이 없습니다.";ul.appendChild(e0)}
+    rows.forEach(function(x){
+      var li=xpLi(ul,(x.d>0?"+":"")+x.d+" · "+x.why,[fmtTime(x.at)],x.d>0?"got":"");
+      if(x.d<0)li.firstChild.style.color="#ff8a8a";
+    });
+    box.appendChild(ul);
+    xpNote(box,"소실 내역은 업데이트 이후부터 기록됩니다. 내역은 최근 100건까지 보입니다.");
+  }).catch(function(){if(devApp==="hlw"&&evTab==="ember")appFail(box,function(){evEmber(box)})});
 }
 /* 도깨비 장터 */
 function evMarket(box){
@@ -4765,19 +4851,19 @@ function loadGifts(scr){
 }
 // ── 게이트웨이브 (헌터 전용 게시판: 글 올리기·삭제, 댓글) ──
 var gwmodal=$("gwmodal"),gwOpener=null,gwLast=0,gwPost=0;
-function gwPane(n){["gwlist","gwwrite","gwview","gwset"].forEach(function(id){$(id).hidden=id!==n});gwmodal.scrollTop=0}
-/* ───── 게이트웨이브 알림: 새 글 / 내 글에 댓글 / 나에게 답글 (항목별 켜기·끄기, 세 알림은 같은 소리) ───── */
+function gwPane(n){["gwlist","gwwrite","gwview"].forEach(function(id){$(id).hidden=id!==n});gwmodal.scrollTop=0;if(typeof gwaSetOpen==="function")gwaSetOpen(false);if(typeof gwSgClose==="function")gwSgClose()}
+/* ───── 게이트웨이브 알림: 새 글 / 내 글에 댓글 / 나에게 답글 / 나를 태그 (항목별 켜기·끄기, 모두 같은 소리) ───── */
 var gwSet=null,gwCur=null,gwnTimer=null,gwToastT=0;
 function gwsKey(){return "hx_gwn_"+myCode}
 function gwcKey(){return "hx_gwc_"+myCode}
 function gwSettings(){
   if(gwSet)return gwSet;
-  gwSet={post:true,cmt:true,rep:true};
-  try{var v=JSON.parse(localStorage.getItem(gwsKey())||"null");if(v){gwSet.post=v.post!==false;gwSet.cmt=v.cmt!==false;gwSet.rep=v.rep!==false}}catch(e){}
+  gwSet={post:true,cmt:true,rep:true,men:true};
+  try{var v=JSON.parse(localStorage.getItem(gwsKey())||"null");if(v){gwSet.post=v.post!==false;gwSet.cmt=v.cmt!==false;gwSet.rep=v.rep!==false;gwSet.men=v.men!==false}}catch(e){}
   return gwSet;
 }
 function gwSaveSet(){try{localStorage.setItem(gwsKey(),JSON.stringify(gwSet))}catch(e){}}
-function gwAny(){var t=gwSettings();return t.post||t.cmt||t.rep}
+function gwAny(){var t=gwSettings();return t.post||t.cmt||t.rep||t.men}
 // 소리: 기존 커뮤니티(높은 두 음)·시스템(낮은 세 음 하강)과 다른 '톡-톡-띠링' (같은 높이 두 번 + 높은 한 음, 사각파 섞은 짧은 소리)
 // 다른 알림음이 울리는 중이면 끝난 뒤에 이어서 냅니다.
 function gwPing(force){
@@ -4799,32 +4885,163 @@ function gwToast(text,ms){
 }
 function gwnPoll(){
   if($("game").hidden||!gwAny())return;
-  if(!gwCur){try{var v=(localStorage.getItem(gwcKey())||"").split(",");if(v.length===2&&+v[0]>=0&&+v[1]>=0&&v[0]!==""&&v[1]!=="")gwCur=[+v[0],+v[1]]}catch(e){}}
-  api("GET","/api/gw/notify"+(gwCur?"?p="+gwCur[0]+"&c="+gwCur[1]:"")).then(function(r){
+  if(!gwCur){try{var v=(localStorage.getItem(gwcKey())||"").split(",");if((v.length===2||v.length===3)&&v.every(function(x){return x!==""&&+x>=0}))gwCur=[+v[0],+v[1],v.length===3?+v[2]:null]}catch(e){}}
+  api("GET","/api/gw/notify"+(gwCur?"?p="+gwCur[0]+"&c="+gwCur[1]+(gwCur[2]!=null?"&m="+gwCur[2]:""):"")).then(function(r){
     if(r.error||typeof r.maxPost!=="number")return;
     var first=!gwCur,t=gwSettings(),parts=[];
-    gwCur=[r.maxPost,r.maxCmt];try{localStorage.setItem(gwcKey(),gwCur.join(","))}catch(e){}
-    if(first)return;                                  // 처음 켠 때는 지금까지의 것을 알리지 않고 기준만 잡습니다
+    gwCur=[r.maxPost,r.maxCmt,r.maxMen||0];try{localStorage.setItem(gwcKey(),gwCur.join(","))}catch(e){}
+    if(first){gwaLoad(false);return}                  // 처음 켠 때는 지금까지의 것을 알리지 않고 기준만 잡습니다
     if(t.post&&r.posts)parts.push("새 글 "+r.posts+"건");
     if(t.cmt&&r.comments)parts.push("내 글에 댓글 "+r.comments+"건");
     if(t.rep&&r.replies)parts.push("나에게 답글 "+r.replies+"건");
+    if(t.men&&r.mentions)parts.push("나를 태그 "+r.mentions+"건");
+    if(r.posts||r.comments||r.replies||r.mentions)gwaLoad(true);        // 벨 목록 새로고침 (새 알림이 있을 때만)
     if(parts.length){gwPing();gwToast("게이트웨이브 · "+parts.join(" · "))}
   }).catch(function(){});
 }
 function gwnStart(){clearInterval(gwnTimer);gwnTimer=setInterval(function(){if(document.hidden)return;gwnPoll()},15000);setTimeout(gwnPoll,2500)}
-function gwShowSet(){
-  var t=gwSettings();$("gwn-post").checked=t.post;$("gwn-cmt").checked=t.cmt;$("gwn-rep").checked=t.rep;$("gwsnote").textContent="";gwPane("gwset");
-}
-$("gwset-open").addEventListener("click",gwShowSet);
-$("gwsback").addEventListener("click",function(){gwPane("gwlist")});
-[["gwn-post","post"],["gwn-cmt","cmt"],["gwn-rep","rep"]].forEach(function(x){
+[["gwn-post","post"],["gwn-cmt","cmt"],["gwn-rep","rep"],["gwn-men","men"]].forEach(function(x){
   $(x[0]).addEventListener("change",function(){
     var t=gwSettings(),was=gwAny();t[x[1]]=this.checked;gwSaveSet();
     if(!was&&gwAny()){gwCur=null;try{localStorage.removeItem(gwcKey())}catch(e){}}     // 모두 꺼져 있다가 켜면 그동안 쌓인 알림은 울리지 않음
     $("gwsnote").textContent=this.checked?"알림을 켰습니다.":"알림을 껐습니다.";
+    gwaRender();
   });
 });
-$("gwn-test").addEventListener("click",function(){cmAudio();setTimeout(function(){gwPing(true)},60);$("gwsnote").textContent="이 소리가 새 글·댓글·답글 알림에 모두 사용됩니다. (소리가 안 나면 기기 음량과 음소거를 확인해 주세요.)"});
+function gwSyncSet(){var t=gwSettings();$("gwn-post").checked=t.post;$("gwn-cmt").checked=t.cmt;$("gwn-rep").checked=t.rep;$("gwn-men").checked=t.men}
+$("gwn-test").addEventListener("click",function(){cmAudio();setTimeout(function(){gwPing(true)},60);$("gwsnote").textContent="이 소리가 모든 게이트웨이브 알림에 사용됩니다. (소리가 안 나면 기기 음량과 음소거를 확인해 주세요.)"});
+/* ───── 알림 벨 (UI #074): 목록·읽음 표시·설정 탭 ───── */
+var GWA=[],gwaTab=0,gwaOpen=false,gwaKnown=null,gwaRm=window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+var GWA_ICON={post:"📝",cmt:"💬",rep:"↩",men:"＠"},GWA_TXT={post:"님이 새 글을 올렸어요",cmt:"님이 내 글에 댓글을 남겼어요",rep:"님이 내 댓글에 답했어요",men:"님이 나를 태그했어요"};
+function gwrKey(){return "hx_gwr_"+myCode}
+function gwaReadSet(){try{var v=JSON.parse(localStorage.getItem(gwrKey())||"null");if(Array.isArray(v))return v}catch(e){}return null}
+function gwaSaveRead(arr){try{localStorage.setItem(gwrKey(),JSON.stringify(arr.slice(-400)))}catch(e){}}
+function gwaKinds(){var t=gwSettings();return {post:t.post,cmt:t.cmt,rep:t.rep,men:t.men}}
+function gwaGrad(n){var h=0;for(var i=0;i<n.length;i++)h=(h*31+n.charCodeAt(i))%360;return "linear-gradient(140deg,hsl("+h+",62%,52%),hsl("+((h+50)%360)+",62%,40%))"}
+function gwaVisible(){var k=gwaKinds();return GWA.filter(function(a){return k[a.kind]})}
+function gwaCount(){
+  var rs=gwaReadSet()||[],n=gwaVisible().filter(function(a){return rs.indexOf(a.key)<0}).length,badge=$("gwbadge"),prev=Number(badge.textContent)||0;
+  badge.textContent=n>99?"99+":n;badge.classList.toggle("zero",!n);
+  $("gwbell").setAttribute("aria-label","알림, 안 읽음 "+n+"개");
+  $("gwaall").disabled=!n;
+  if(n>prev&&!gwaRm&&badge.animate)badge.animate([{transform:"scale(1)"},{transform:"scale(1.5)"},{transform:"scale(1)"}],{duration:450,easing:"cubic-bezier(.34,1.5,.64,1)"});
+}
+function gwaItem(a,isRead,isNew){
+  var li=document.createElement("li");li.className="u074-it"+(isNew?" new":"");li.setAttribute("data-m",a.kind==="men"?"1":"0");
+  li.innerHTML='<div><button class="u074-row" type="button"><span class="u074-av" aria-hidden="true"><em></em></span><span class="u074-tx"><b></b><span></span><small></small></span><span class="u074-dot" aria-hidden="true"></span></button></div>';
+  var row=li.querySelector(".u074-row");row.dataset.key=a.key;
+  li.querySelector(".u074-av").style.setProperty("--g",gwaGrad(a.hn));li.querySelector("em").textContent=GWA_ICON[a.kind];
+  li.querySelector("b").textContent=a.hn;
+  li.querySelector(".u074-tx>span").textContent=GWA_TXT[a.kind]+(a.text?": “"+a.text+"”":"");
+  li.querySelector("small").textContent=cmAgo(a.ts);
+  if(isRead)row.classList.add("read");
+  row.setAttribute("aria-label",a.hn+GWA_TXT[a.kind]+(a.text?": "+a.text:"")+(isRead?"":", 안 읽음"));
+  row.addEventListener("click",function(){
+    var rs=gwaReadSet()||[];if(rs.indexOf(a.key)<0){rs.push(a.key);gwaSaveRead(rs)}
+    row.classList.add("read");gwaCount();gwaSetOpen(false);gwOpenPost(a.post);
+  });
+  return li;
+}
+function gwaRender(newKeys){
+  var ul=$("gwalist");ul.innerHTML="";
+  var rs=gwaReadSet()||[],vis=gwaVisible().filter(function(a){return gwaTab!==1||a.kind==="men"});
+  if(!vis.length){var e=document.createElement("li");e.className="u074-empty";e.textContent=gwaTab===1?"나를 태그한 글이 아직 없어요.":"새 알림이 없어요.";ul.appendChild(e)}
+  var fresh=[];
+  vis.forEach(function(a){var isNew=!!(newKeys&&newKeys.indexOf(a.key)>=0&&!gwaRm),li=gwaItem(a,rs.indexOf(a.key)>=0,isNew);ul.appendChild(li);if(isNew)fresh.push(li)});
+  if(fresh.length){void ul.offsetWidth;fresh.forEach(function(li){li.classList.remove("new")})}
+  gwaCount();
+}
+// 서버에서 최근 알림을 받아옵니다. ring=true 이면 새로 생긴 것이 있을 때 벨을 흔듭니다. (처음 받을 때는 지금까지의 알림을 모두 읽은 것으로 기준을 잡습니다)
+function gwaLoad(ring){
+  if($("game").hidden)return;
+  api("GET","/api/gw/alerts").then(function(r){
+    if(r.error||!Array.isArray(r.alerts))return;
+    GWA=r.alerts;
+    var rs=gwaReadSet();
+    if(rs===null){rs=GWA.map(function(a){return a.key});gwaSaveRead(rs)}
+    var keys=GWA.map(function(a){return a.key}),fresh=gwaKnown?keys.filter(function(k){return gwaKnown.indexOf(k)<0}):[];
+    gwaKnown=keys;
+    var k=gwaKinds(),shown=GWA.filter(function(a){return fresh.indexOf(a.key)>=0&&k[a.kind]});
+    gwaRender(shown.map(function(a){return a.key}));
+    if(ring&&shown.length){var b=$("gwbell");b.classList.remove("ring");void b.offsetWidth;b.classList.add("ring")}
+  }).catch(function(){});
+}
+$("gwbell").addEventListener("animationend",function(){this.classList.remove("ring")});
+function gwaSetOpen(v){
+  gwaOpen=v;var w=$("gwbellw");w.classList.toggle("is-closed",!v);$("gwbell").setAttribute("aria-expanded",String(v));$("gwpan").inert=!v;
+}
+function gwaTabSet(i){
+  gwaTab=i;var tb=$("gwpan").querySelectorAll(".u074-tab");
+  tb.forEach(function(x,k){x.setAttribute("aria-selected",String(k===i))});
+  $("gwalist").hidden=i===2;$("gwaset").hidden=i!==2;$("gwaall").hidden=i===2;
+  if(i===2){gwSyncSet();$("gwsnote").textContent=""}else gwaRender();
+}
+$("gwpan").querySelectorAll(".u074-tab").forEach(function(t,i){t.addEventListener("click",function(){gwaTabSet(i)})});
+$("gwbell").addEventListener("click",function(){
+  var open=!gwaOpen;gwaSetOpen(open);
+  if(open){gwaTabSet(gwaTab);gwaLoad(false)}
+});
+// ‘모두 읽음’은 위에서부터 점을 하나씩 지웁니다
+$("gwaall").addEventListener("click",function(){
+  var rs=gwaReadSet()||[];gwaVisible().forEach(function(a){if(rs.indexOf(a.key)<0)rs.push(a.key)});gwaSaveRead(rs);
+  $("gwalist").querySelectorAll(".u074-row:not(.read)").forEach(function(r,i){setTimeout(function(){r.classList.add("read");gwaCount()},gwaRm?0:i*110)});
+  gwaCount();
+});
+$("gwbellw").addEventListener("keydown",function(e){if(e.key==="Escape"&&gwaOpen){e.stopPropagation();gwaSetOpen(false);$("gwbell").focus()}});
+document.addEventListener("click",function(e){if(gwaOpen&&!$("gwbellw").contains(e.target))gwaSetOpen(false)});
+/* ───── @멘션: 입력 중 친구 목록 자동완성, 본문에서 강조 ───── */
+var gwSgTa=null,gwSgList=[],gwSgIdx=0,gwSgStart=0;
+function gwSgClose(){var u=$("gwsg");if(u)u.hidden=true;gwSgTa=null;gwSgList=[]}
+function gwSgPaint(){
+  var u=$("gwsg");u.innerHTML="";
+  gwSgList.forEach(function(f,i){
+    var li=document.createElement("li");li.setAttribute("role","option");li.setAttribute("aria-selected",String(i===gwSgIdx));
+    li.textContent="@"+f.hn;var sm=document.createElement("small");sm.textContent=f.rank+"급";li.appendChild(sm);
+    li.addEventListener("mousedown",function(e){e.preventDefault();gwSgPick(i)});
+    u.appendChild(li);
+  });
+}
+function gwSgUpdate(ta){
+  var pos=ta.selectionStart,m=/(^|\s)@([^\s@]{0,12})$/.exec(ta.value.slice(0,pos));
+  if(!m){gwSgClose();return}
+  var q=m[2];gwSgStart=pos-q.length-1;
+  var fr=(typeof mFriends!=="undefined"&&mFriends)||[];
+  gwSgList=fr.filter(function(f){return f.hn.indexOf(q)===0}).slice(0,6);
+  if(!gwSgList.length){gwSgClose();return}
+  gwSgTa=ta;gwSgIdx=0;gwSgPaint();
+  var u=$("gwsg"),dlg=gwmodal.querySelector(".dialog"),dr=dlg.getBoundingClientRect(),tr=ta.getBoundingClientRect();
+  u.hidden=false;u.style.left=Math.max(0,tr.left-dr.left)+"px";u.style.bottom=(dr.bottom-tr.top+4)+"px";u.style.top="auto";
+}
+function gwSgPick(i){
+  var ta=gwSgTa,f=gwSgList[i];if(!ta||!f)return;
+  var ins="@"+f.hn+" ",before=ta.value.slice(0,gwSgStart),after=ta.value.slice(ta.selectionStart);
+  var v=(before+ins+after);if(ta.maxLength>0&&Array.from(v).length>ta.maxLength)v=Array.from(v).slice(0,ta.maxLength).join("");
+  ta.value=v;var p=Math.min(v.length,(before+ins).length);ta.setSelectionRange(p,p);gwSgClose();
+  ta.dispatchEvent(new Event("input",{bubbles:true}));ta.focus();
+}
+[$("gwb"),$("gwct")].forEach(function(ta){
+  ta.addEventListener("input",function(){gwSgUpdate(ta)});
+  ta.addEventListener("click",function(){gwSgUpdate(ta)});
+  ta.addEventListener("blur",function(){setTimeout(function(){if(gwSgTa===ta)gwSgClose()},120)});
+  ta.addEventListener("keydown",function(e){
+    if(gwSgTa!==ta||$("gwsg").hidden||e.isComposing)return;
+    if(e.key==="ArrowDown"||e.key==="ArrowUp"){e.preventDefault();e.stopImmediatePropagation();gwSgIdx=(gwSgIdx+(e.key==="ArrowDown"?1:gwSgList.length-1))%gwSgList.length;gwSgPaint()}
+    else if(e.key==="Enter"||e.key==="Tab"){e.preventDefault();e.stopImmediatePropagation();gwSgPick(gwSgIdx)}
+    else if(e.key==="Escape"){e.preventDefault();e.stopPropagation();e.stopImmediatePropagation();gwSgClose()}
+  },true);
+});
+// 본문에서 실제로 언급된 이름(@이름)만 강조해서 보여줍니다
+function gwRich(el,text,men){
+  el.textContent="";
+  if(!men||!men.length){el.appendChild(document.createTextNode(text));return}
+  var names=men.slice().sort(function(a,b){return b.length-a.length}).map(function(n){return n.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")});
+  var re=new RegExp("@("+names.join("|")+")","g"),last=0,m;
+  while((m=re.exec(text))){
+    if(m.index>last)el.appendChild(document.createTextNode(text.slice(last,m.index)));
+    var b=document.createElement("span");b.className="gwmen";b.textContent=m[0];el.appendChild(b);last=re.lastIndex;
+  }
+  if(last<text.length)el.appendChild(document.createTextNode(text.slice(last)));
+}
 gwnStart();
 
 function gwErr(r){return r.error==="rate_limited"?"잠시 후 다시 시도해주세요.":r.error==="bad_title"?"제목을 1~40자로 입력해주세요.":r.error==="bad_text"?"내용을 확인해주세요.":r.error==="not_found"?"글을 찾을 수 없습니다.":"처리하지 못했습니다."}
@@ -4864,7 +5081,7 @@ function gwOpenPost(id,keepScroll){
   api("GET","/api/gw/post?id="+id).then(function(r){
     if(r.error){$("gwvnote").textContent=gwErr(r);return}
     var p=r.post,mt=$("gwvmeta");mt.innerHTML="";mt.appendChild(gwMeta(p,p.ts));
-    $("gwvtitle").textContent=p.title;$("gwvbody").textContent=p.body;
+    $("gwvtitle").textContent=p.title;gwRich($("gwvbody"),p.body,p.men);
     var d=$("gwdel");d.hidden=!p.canDel;d.dataset.arm="0";d.textContent="삭제";
     $("gwch").textContent="댓글 "+r.comments.length;
     var ul=$("gwcs");ul.innerHTML="";gwReply(null);
@@ -4873,7 +5090,7 @@ function gwOpenPost(id,keepScroll){
       var m=document.createElement("p");m.className="gwm";m.appendChild(gwMeta(c,c.ts));
       var t=document.createElement("span");
       if(isRe&&c.toHn){var to=document.createElement("b");to.className="gwto";to.textContent="@"+c.toHn;t.appendChild(to)}
-      t.appendChild(document.createTextNode(c.text));
+      var ct=document.createElement("span");gwRich(ct,c.text,c.men);t.appendChild(ct);
       li.appendChild(m);li.appendChild(t);
       var bar=document.createElement("div");bar.className="gwcb";
       var rb=document.createElement("button");rb.type="button";rb.className="gwcx";rb.textContent="답글";rb.setAttribute("aria-label",c.hn+"님의 댓글에 답글 쓰기");
@@ -4911,7 +5128,7 @@ function gwOpenPost(id,keepScroll){
   }).catch(function(){$("gwvnote").textContent="불러오지 못했습니다."});
 }
 function openGw(){
-  gwOpener=document.activeElement;gwPane("gwlist");gwLoad(true);
+  gwOpener=document.activeElement;gwPane("gwlist");gwLoad(true);gwaLoad(false);if(typeof loadFriends==="function"&&(!mFriends||!mFriends.length))loadFriends().catch(function(){});
   gwmodal.hidden=false;document.body.style.overflow="hidden";$("gwclose").focus();
 }
 function closeGw(){gwmodal.hidden=true;document.body.style.overflow=(!rmodal.hidden||!mmodal.hidden)?"hidden":"";if(gwOpener&&gwOpener.focus)gwOpener.focus()}
