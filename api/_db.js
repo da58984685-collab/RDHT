@@ -399,6 +399,10 @@ const MIGRATIONS = [
   // 게이트웨이브 댓글·대댓글 좋아요 (한 사람이 한 댓글에 한 번)
   'CREATE TABLE IF NOT EXISTS wanted_claims (user_id INTEGER NOT NULL, day TEXT NOT NULL, PRIMARY KEY (user_id, day))',
   'CREATE TABLE IF NOT EXISTS gw_likes (comment_id INTEGER NOT NULL, user_id INTEGER NOT NULL, PRIMARY KEY (comment_id, user_id))',
+  // 게이트웨이브 @멘션: 글(comment_id 0) 또는 댓글에서 친구를 언급한 기록
+  'CREATE TABLE IF NOT EXISTS gw_mentions (id INTEGER PRIMARY KEY AUTOINCREMENT, target_id INTEGER NOT NULL, by_id INTEGER NOT NULL, post_id INTEGER NOT NULL, comment_id INTEGER NOT NULL DEFAULT 0, ts INTEGER NOT NULL)',
+  'CREATE INDEX IF NOT EXISTS gw_mentions_target ON gw_mentions(target_id, id)',
+  'CREATE INDEX IF NOT EXISTS gw_mentions_post ON gw_mentions(post_id)',
   'ALTER TABLE monsters ADD COLUMN rumor_id INTEGER',
   // 오래된 기록을 한 줄로 합칠 때 원래 몇 건이었는지 (기본 1건)
   'ALTER TABLE hunt_log ADD COLUMN n INTEGER NOT NULL DEFAULT 1',
