@@ -2339,6 +2339,8 @@ function btlRender(){
   Array.prototype.forEach.call($("btlacts").querySelectorAll("button"),function(b){if(b.id!=="btlheavy")b.disabled=btlBusy});
 }
 function btlOpen(v){
+  // 이미 열려 있는 같은 전투에 더 오래된(라운드가 같거나 낮은) 정보가 늦게 도착하면 덮어쓰지 않습니다. 덮어쓰면 한 대 친 뒤 전투가 처음으로 되돌아간 것처럼 보입니다.
+  if(btlActive&&btlV&&v&&btlV.id===v.id&&v.round<=btlV.round)return;
   btlV=v;btlActive=true;btlBusy=false;$("btlres").hidden=true;$("btlok").hidden=true;$("btlacts").hidden=false;$("btlint").hidden=false;
   $("btl").hidden=false;document.body.style.overflow="hidden";btlRender();
 }
@@ -2993,14 +2995,19 @@ function applyState(st,first){
 var POLL_MS=10000,pollHid=0,lastInput=Date.now();   // 상태 확인 간격(ms): 줄이면 알림이 빨라지고 DB 사용량이 늘어납니다
 ["pointerdown","keydown","touchstart","wheel"].forEach(function(ev){window.addEventListener(ev,function(){var was=Date.now()-lastInput>900000;lastInput=Date.now();if(was&&pollTimer)pollState()},{passive:true,capture:true})});
 document.addEventListener("visibilitychange",function(){if(!document.hidden&&typeof pollTimer!=="undefined"&&pollTimer){pollState();if(typeof gwnPoll==="function")gwnPoll()}});
+var pollAgain=false;
 function pollState(first){
-  if(polling||$("game").hidden)return;
+  if($("game").hidden)return;
+  // 이미 확인 중일 때 요청이 들어오면(구매·사용 직후 등) 버리지 않고, 지금 응답이 끝나자마자 한 번 더 확인합니다.
+  // (진행 중이던 확인은 구매 전 내용일 수 있어, 그대로 두면 인벤토리·스탯이 낡은 값으로 보였습니다)
+  if(polling){pollAgain=true;return}
   polling=true;
   api("GET","/api/state").then(function(r){
     polling=false;
+    var again=pollAgain;pollAgain=false;
     if(r._status===401){leaveGame("로그인이 만료되었어요. 다시 로그인해주세요.");return}
-    if(r.error)return;
-    applyState(r,false);
+    if(!r.error)applyState(r,false);
+    if(again)pollState(false);
   });
 }
 function moveTo(id,silent){
