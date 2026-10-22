@@ -167,6 +167,13 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><input id="hhcode" maxlength="20" placeholder="헌터 고유 코드" style="flex:1;min-width:150px"><button type="button" class="btn ghost" id="hhlook">조회</button><input id="hhleft" type="number" min="0" max="20" step="1" placeholder="남은 횟수" style="max-width:110px"><button type="button" class="btn" id="hhset">이 헌터에게 적용</button></div>
     <p id="hhmsg" class="muted" style="margin:8px 0 0;font-size:.85rem" role="status"></p>
   </section>
+  <section class="card" id="hncard" style="margin-bottom:12px">
+    <h2 style="margin-bottom:6px">오염 사냥꾼 현황</h2>
+    <p class="muted" style="margin:0 0 8px;font-size:.85rem">서버 전체에서 오염 사냥꾼이 토벌될 때마다 강해집니다(체력·공격력·최소 라운드·보상). 강화는 최대 단계에서 멈추지만 횟수는 계속 셉니다.</p>
+    <div id="hnst" style="margin-bottom:8px">불러오는 중…</div>
+    <label style="display:flex;align-items:center;gap:8px;cursor:pointer;justify-content:flex-start"><input type="checkbox" id="hnpop"> 토벌될 때마다 시스템 팝업 자동 전송 <span class="muted" style="font-size:.8rem">(제목 "오염 사냥꾼이 토벌되었습니다." · 내용 "오염 사냥꾼이 강화됩니다.")</span></label>
+    <p id="hnmsg" class="muted" style="margin:6px 0 0;font-size:.85rem" role="status"></p>
+  </section>
   <section class="card" id="spcard" style="margin-bottom:12px">
     <h2 style="margin-bottom:6px">시스템 팝업 <span id="spst" class="muted" style="font-size:.85rem"></span></h2>
     <p class="muted" style="margin:0 0 10px;font-size:.85rem">모든 헌터의 게임 화면에 전체 화면 팝업(이름 · 사진 · 제목 · 내용)을 띄웁니다. 접속 중인 헌터는 몇 초 안에 받고, 확인을 누르면 다시 뜨지 않습니다. 접속하지 않은 헌터는 3일 안에 접속하면 받습니다. <b>전송 취소</b>를 누르면 아직 확인하지 않은 헌터에게는 뜨지 않고, 지금 열려 있는 팝업도 닫힙니다.</p>
@@ -931,6 +938,22 @@ $("ilist").addEventListener("click",function(e){
   else if(t.hasAttribute("data-idel")){var c=t.getAttribute("data-idel");if(confirm("초대 코드 "+c+" 를 삭제할까요? 이미 가입한 헌터는 유지되고, 이 코드로는 더 이상 가입할 수 없습니다."))api("POST","/api/admin/invites/delete",{code:c}).then(loadInv)}
 });
 
+
+/* ───── 오염 사냥꾼 현황 ───── */
+function loadHn(){
+  api("GET","/api/admin/hunter").then(function(r){
+    if(r._status===401||r.kills==null)return;
+    $("hnst").innerHTML="토벌 횟수 <b>"+r.kills+"회</b> · 마지막 토벌 <b>"+(r.last?dt(r.last):"아직 없음")+"</b> · 현재 강화 단계 <b>"+r.lv+" / "+r.max+"</b>";
+    $("hnpop").checked=!!r.popup;
+  });
+}
+$("hnpop").addEventListener("change",function(){
+  var on=this.checked,box=this;
+  api("POST","/api/admin/hunter",{popup:on}).then(function(r){
+    if(r.ok){$("hnmsg").textContent=on?"자동 팝업을 켰습니다.":"자동 팝업을 껐습니다."}else{box.checked=!on;$("hnmsg").textContent="바꾸지 못했습니다."}
+  });
+});
+setInterval(function(){if(!document.hidden)loadHn()},15000);
 /* ───── Q&A ───── */
 var qnEdit=0,qnAsk=0,qnData=[],qnAsks=[];
 function qnaReset(){qnEdit=0;qnAsk=0;$("qnq").value="";$("qna_a").value="";$("qnpub").value="1";$("qnsave").textContent="올리기";$("qncancel").hidden=true}
@@ -1047,7 +1070,7 @@ function pollInq(){
   });
 }
 setInterval(pollInq,10000);pollInq();
-function loadAll(){hhLoad();loadNHist();loadSp();loadOnline();loadMaint();loadEvAdmin();loadSbgm();loadInq();loadQna();loadInv();loadOverview();loadS();loadRec();loadBoard();loadAchDefs();if(!document.activeElement||!/^(sn|sd|sp|ss|sam|sname|sdesc|sprice|sstat|samt)$/.test(document.activeElement.className||document.activeElement.id))loadShop();loadList();if(selCode&&!dirty)loadDetail();var d=new Date(),p=function(n){return String(n).padStart(2,"0")};$("last").textContent="갱신 "+p(d.getHours())+":"+p(d.getMinutes())+":"+p(d.getSeconds())}
+function loadAll(){loadHn();hhLoad();loadNHist();loadSp();loadOnline();loadMaint();loadEvAdmin();loadSbgm();loadInq();loadQna();loadInv();loadOverview();loadS();loadRec();loadBoard();loadAchDefs();if(!document.activeElement||!/^(sn|sd|sp|ss|sam|sname|sdesc|sprice|sstat|samt)$/.test(document.activeElement.className||document.activeElement.id))loadShop();loadList();if(selCode&&!dirty)loadDetail();var d=new Date(),p=function(n){return String(n).padStart(2,"0")};$("last").textContent="갱신 "+p(d.getHours())+":"+p(d.getMinutes())+":"+p(d.getSeconds())}
 // 1분마다 데이터만 다시 불러옵니다. 선택한 헌터·탭·검색어·작성 중인 알림은 그대로 유지됩니다.
 setInterval(function(){if($("auto").checked&&!document.hidden&&!$("app").classList.contains("hide"))loadAll()},60000);
 document.addEventListener("visibilitychange",function(){if(!document.hidden&&$("auto").checked&&!$("app").classList.contains("hide"))loadAll()});
