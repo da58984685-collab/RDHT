@@ -1139,6 +1139,7 @@ route('POST', '/api/gifts/send', async (req, res, ctx) => {
   catch (e) { await restore(); throw e; }
   await db.run('DELETE FROM inventory WHERE user_id = ? AND item = ? AND qty <= 0', [u.id, item]);
   await db.run('INSERT INTO gifts (from_id, to_id, kind, item, qty, ts) VALUES (?, ?, ?, ?, ?, ?)', [u.id, f.id, 'item', item, qty, now]);
+  if (item === EV.EMBER) await EV.lossLog(u.id, qty, '선물 보냄 (→ ' + f.hunter_name + ')', now);
   await logAcquire(f.id, 'item', item, qty, '선물 (' + u.hunter_name + ')', now);
   send(res, 200, { ok: true, kind, to: f.hunter_name, item, qty });
 });
@@ -1309,6 +1310,7 @@ route('POST', '/api/exchange/list', async (req, res, ctx) => {
   await db.run('DELETE FROM inventory WHERE user_id = ? AND qty <= 0', [uid]);
   try { await db.run('INSERT INTO exchange (seller_id, item, qty, price, at, ends) VALUES (?, ?, ?, ?, ?, ?)', [uid, item, qty, price, now, now + EXC.ms]); }
   catch (e) { await giveItem(uid, item, qty); throw e; }
+  if (item === EV.EMBER) await EV.lossLog(uid, qty, '거래소 등록', now);
   send(res, 200, { ok: true });
 });
 route('POST', '/api/exchange/cancel', async (req, res, ctx) => {
@@ -1613,6 +1615,7 @@ route('POST', '/api/equip/craft', async (req, res, ctx) => {
     }
     await db.run('INSERT INTO equip_inv (user_id, key, dur, equipped, at) VALUES (?, ?, ?, 0, ?)', [cur.id, e.id, G.EQ_GRADE[e.grade].dur, Date.now()]);
   } catch (err) { await restore(); throw err; }
+  if (e.mats[EV.EMBER]) await EV.lossLog(cur.id, e.mats[EV.EMBER], '장비 조합 (' + e.name + ')', Date.now());
   await db.run('DELETE FROM inventory WHERE user_id = ? AND qty <= 0', [cur.id]);
   await logAcquire(cur.id, 'item', e.name + ' (' + e.grade + '급 장비)', 1, '장비 조합', Date.now());
   send(res, 200, { ok: true, name: e.name, grade: e.grade });
@@ -2603,6 +2606,7 @@ route('POST', '/api/admin/player/item', async (req, res, ctx) => {
   await db.run('INSERT INTO inventory (user_id, item, qty) VALUES (?, ?, ?) ON CONFLICT(user_id, item) DO UPDATE SET qty = excluded.qty', [u.id, item, qty]);
   const delta = qty - (prev ? prev.qty : 0);
   if (delta > 0) await logAcquire(u.id, 'item', item, delta, '운영자 지급', Date.now());
+  if (delta < 0 && item === EV.EMBER) await EV.lossLog(u.id, -delta, '운영자 회수', Date.now());
   send(res, 200, { ok: true });
 }, { auth: false, admin: true });
 
@@ -2620,6 +2624,7 @@ route('POST', '/api/admin/gold/all', async (req, res, ctx) => {
 
 route('POST', '/api/admin/player/item/delete', async (req, res, ctx) => {
   const u = await adminTarget(ctx, res); if (!u) return;
+  if (ctx.body.all === true || String(ctx.body.item || '') === EV.EMBER) { const eq = await db.get('SELECT qty FROM inventory WHERE user_id = ? AND item = ?', [u.id, EV.EMBER]); if (eq) await EV.lossLog(u.id, eq.qty, '운영자 삭제', Date.now()); }
   if (ctx.body.all === true) await db.run('DELETE FROM inventory WHERE user_id = ?', [u.id]);
   else await db.run('DELETE FROM inventory WHERE user_id = ? AND item = ?', [u.id, String(ctx.body.item || '')]);
   send(res, 200, { ok: true });
