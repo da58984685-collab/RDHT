@@ -4498,13 +4498,21 @@ function loadEquip(){
 }
 function drawEquip(){
   var scr=$("phscr");if(devApp!=="eqp"||!eqData)return;var r=eqData;
-  var old=scr.querySelector(".app-empty,.app-list,.app-note,.app-sub");while(old){old.remove();old=scr.querySelector(".app-empty,.app-list,.app-note,.app-sub")}
+  var old=scr.querySelector(".app-empty,.app-list,.app-note,.app-sub,.eqall");while(old){old.remove();old=scr.querySelector(".app-empty,.app-list,.app-note,.app-sub,.eqall")}
   var nt=document.createElement("p");nt.className="app-note";nt.setAttribute("role","status");
   nt.textContent=(eqNote?eqNote+" · ":"")+"장비는 적월문 탑 재료로만 조합할 수 있습니다. 보유 골드 "+r.gold+" G";
   scr.appendChild(nt);
   var b=r.bonus,fx=[];if(b.str)fx.push("근력 +"+b.str);if(b.agi)fx.push("민첩 +"+b.agi);if(b.luck)fx.push("행운 +"+b.luck);if(b.hpGuard)fx.push("체력 피해 -"+b.hpGuard+"%");if(b.taintRes)fx.push("오염도 증가 -"+b.taintRes+"%");
   function head(t){var h=document.createElement("p");h.className="app-sub";h.textContent=t;h.style.cssText="margin:10px 0 4px;font-weight:700;font-size:.85rem";scr.appendChild(h)}
   head("내 장비 ("+r.mine.length+") · 현재 효과: "+(fx.length?fx.join(", "):"없음"));
+  if(r.mine.length){
+    var allc=0,allW=0,allR=0;r.mine.forEach(function(m){if(m.equipped)allW++;var ms=m.maxDur-Math.max(0,m.dur);if(ms>0){allR++;allc+=Math.max(1,Math.round(m.repair*ms/m.maxDur))}});
+    var bar0=document.createElement("div");bar0.className="rum-v eqall";bar0.style.margin="0 0 8px";
+    function bbtn(txt,off,fn){var x=document.createElement("button");x.type="button";x.className="ach-btn";x.textContent=txt;x.disabled=off;x.addEventListener("click",function(){x.disabled=true;fn()});bar0.appendChild(x)}
+    bbtn("전체 해제"+(allW?" ("+allW+")":""),!allW,function(){api("POST","/api/equip/unwear-all",{}).then(function(x){eqNote=x.ok?"착용 중이던 장비 "+x.n+"개를 모두 해제했습니다":"처리하지 못했습니다";pollState(false);loadEquip()})});
+    bbtn("전체 수리"+(allR?" ("+allR+"개 · "+allc+" G)":""),!allR,function(){api("POST","/api/equip/repair-all",{}).then(function(x){eqNote=x.ok?"장비 "+x.n+"개 수리 완료 (-"+x.cost+" G)":(x.error==="no_gold"?"골드가 부족합니다 ("+x.cost+" G 필요)":x.error==="full_dur"?"수리할 장비가 없습니다":"처리하지 못했습니다");pollState(false);loadEquip()})});
+    scr.appendChild(bar0);
+  }
   var ul=document.createElement("ul");ul.className="app-list";
   if(!r.mine.length){var li0=document.createElement("li");li0.textContent="아직 가진 장비가 없습니다. 아래에서 조합하세요.";ul.appendChild(li0)}
   r.mine.forEach(function(m){
