@@ -135,7 +135,7 @@ async function tickSpawns() {
 }
 
 // 오염 몬스터 두 종류 (30분에 한 번만 굴리므로 DB 를 거의 쓰지 않습니다)
-//  · 오염 사냥꾼: 오염 2단계(60%~) 6%, 3단계(80%~) 12% — 강한 공격력으로 5라운드 이상 이어지는 전투
+//  · 오염 사냥꾼: 오염 2단계(60%~) 6%, 3단계(80%~) 12% — 강한 공격력으로 6라운드 이상 이어지는 전투
 //  · 혈월의 잔영: 위험 구간(80~99%)에서만 2% — 보상이 큰 한정 몬스터
 async function taintMonsters(uid, now) {
   const u = await db.get('SELECT stats, region, rank FROM users WHERE id = ?', [uid]);
@@ -734,7 +734,7 @@ async function buildState(u, now) {
   const pm = new Map(parts.map(r => [r.monster_id, r.c]));
   return {
     now,
-    user: { pinned: pinnedList(u, await loadAch()), bio: u.bio || '', lv: u.lv, exp: u.exp, gold: u.gold, region: u.region, country: G.countryOf(u.region), hunterName: u.hunter_name, private: !!u.is_private, stats: statsOf(u), dyingUntil: u.dying_until > now ? u.dying_until : 0, blocked: u.block_flags | 0, adminChar: !!u.admin_char, inqUnread: (await db.get('SELECT COUNT(*) AS c FROM inquiries WHERE user_id = ? AND from_admin = 1 AND id > ?', [u.id, u.inq_read])).c, corruptUntil: corruptLock(u, now) ? u.corrupt_until : 0, tainted: (JSON.parse(u.stats).taint || 0) >= 100, fx: fxOf(JSON.parse(u.stats)) },
+    user: { pinned: pinnedList(u, await loadAch()), bio: u.bio || '', lv: u.lv, exp: u.exp, gold: u.gold, region: u.region, country: G.countryOf(u.region), hunterName: u.hunter_name, private: !!u.is_private, stats: statsOf(u), eq: await equipBonus(u.id), dyingUntil: u.dying_until > now ? u.dying_until : 0, blocked: u.block_flags | 0, adminChar: !!u.admin_char, inqUnread: (await db.get('SELECT COUNT(*) AS c FROM inquiries WHERE user_id = ? AND from_admin = 1 AND id > ?', [u.id, u.inq_read])).c, corruptUntil: corruptLock(u, now) ? u.corrupt_until : 0, tainted: (JSON.parse(u.stats).taint || 0) >= 100, fx: fxOf(JSON.parse(u.stats)) },
     monsters: mons.map(m => ({
       id: m.id, region: m.region, rname: G.placeName(m.region), mon: m.rumor_id ? '[괴담] ' + m.name : m.name, r: m.rank, ts: m.spawned_at,
       done: killed.has(m.id), cd: cdm.get(m.id) || 0,
@@ -2060,7 +2060,7 @@ route('POST', '/api/battle/act', async (req, res, ctx) => {
       dmg = Math.max(1, Math.round(dmg));
       mhp = Math.max(0, mhp - dmg);
       const sp = G.SPECIAL_MON[b.mname];
-      const held = !!(sp && sp.minRounds && mhp <= 0 && b.round < sp.minRounds);      // 오염 사냥꾼: 5라운드가 지나기 전에는 쓰러지지 않음
+      const held = !!(sp && sp.minRounds && mhp <= 0 && b.round < sp.minRounds);      // 오염 사냥꾼: 6라운드가 지나기 전에는 쓰러지지 않음
       if (held) mhp = 1;
       log.push((action === 'heavy' ? '강타! ' : '공격! ') + b.mname + '에게 ' + dmg + ' 피해' + (crit ? ' (치명타!)' : '') + '.');
       if (held) log.push(b.mname + '은(는) 쓰러지지 않고 버텨냈다!');
