@@ -518,7 +518,7 @@ const taintStage = t => { t = Number(t) || 0; return t >= 100 ? 3 : t >= 80 ? 3 
 const TAINT_SHOP_PCT = [0, 10, 20, 30];
 const TAINT_BAN_DANGER = new Set(['B', 'A']);
 const taintPrice = (price, stage) => (price > 0 ? Math.ceil(price * (100 + TAINT_SHOP_PCT[stage || 0]) / 100) : price);
-const TAINT_LOSE_GOLD_MUL = 1.5;                                       // 2단계부터 토벌에 실패하면, 그 등급 평균 토벌 골드의 1.5배를 잃음 (가진 골드가 한도)
+const TAINT_LOSE_GOLD_MUL = 10;                                        // 2단계부터 토벌에 실패하면, 그 등급 평균 토벌 골드의 10배를 잃음 (가진 골드가 한도)
 const HUNTER_CHANCE = [0, 0, 0.06, 0.12];                              // 오염 사냥꾼: 30분마다 한 번 굴림 (단계별 확률)
 const RARE_CHANCE = 0.02;                                              // 위험 구간(80~99%)에서 한정 몬스터: 30분마다 한 번, 2%
 // 오염 몬스터 둘: 이름으로 구분합니다. 이 둘은 항상 턴제 전투로 싸우고, 보상은 등급 보상에 배수가 붙습니다.
