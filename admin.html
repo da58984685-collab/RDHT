@@ -167,6 +167,13 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><input id="hhcode" maxlength="20" placeholder="헌터 고유 코드" style="flex:1;min-width:150px"><button type="button" class="btn ghost" id="hhlook">조회</button><input id="hhleft" type="number" min="0" max="20" step="1" placeholder="남은 횟수" style="max-width:110px"><button type="button" class="btn" id="hhset">이 헌터에게 적용</button></div>
     <p id="hhmsg" class="muted" style="margin:8px 0 0;font-size:.85rem" role="status"></p>
   </section>
+  <section class="card" id="emcard" style="margin-bottom:12px">
+    <h2 style="margin-bottom:6px">도깨비 불씨 내역</h2>
+    <p class="muted" style="margin:0 0 8px;font-size:.85rem">헌터 고유 코드를 넣으면 그 헌터가 불씨를 얻고 잃은 내역을 최근 순으로 보여 줍니다. 획득은 처치·귀신의 집·소원 등 기록된 모든 경로, 소실은 장터 구매·장비 조합·선물·거래소 등록·운영자 회수·이벤트 종료입니다. (소실은 이 기능이 들어간 뒤부터 기록됩니다.)</p>
+    <div class="row" style="align-items:center"><input id="emcode" maxlength="20" placeholder="헌터 고유 코드" style="flex:1;min-width:150px"><button class="btn" id="emlook" type="button">조회</button></div>
+    <div id="emsum" style="margin:8px 0"></div>
+    <div id="emlist"></div>
+  </section>
   <section class="card" id="hncard" style="margin-bottom:12px">
     <h2 style="margin-bottom:6px">오염 사냥꾼 현황</h2>
     <p class="muted" style="margin:0 0 8px;font-size:.85rem">서버 전체에서 오염 사냥꾼이 토벌될 때마다 강해집니다(체력·공격력·최소 라운드·보상). 강화는 최대 단계에서 멈추지만 횟수는 계속 셉니다.</p>
@@ -939,6 +946,19 @@ $("ilist").addEventListener("click",function(e){
 });
 
 
+
+/* ───── 도깨비 불씨 내역 ───── */
+function emLoad(){
+  var code=$("emcode").value.trim();if(!code)return;
+  api("GET","/api/admin/event/ember?code="+encodeURIComponent(code)).then(function(r){
+    if(r._status===404){$("emsum").textContent="그 코드의 헌터를 찾을 수 없습니다.";$("emlist").innerHTML="";return}
+    if(!r.list){$("emsum").textContent="불러오지 못했습니다.";return}
+    $("emsum").innerHTML=esc(r.hn)+' <span class="muted">'+esc(r.code)+'</span> · 현재 보유 <b>'+r.have+'</b> · 표시된 내역 기준 획득 <b style="color:#6fd08c">+'+r.gain+'</b> · 소실 <b style="color:#ff6b6b">-'+r.loss+'</b>';
+    $("emlist").innerHTML=r.list.length?'<div class="tw" style="max-height:360px"><table><thead><tr><th>시각</th><th>증감</th><th>내용</th></tr></thead><tbody>'+r.list.map(function(x){return'<tr><td>'+dt(x.at)+'</td><td style="font-weight:700;color:'+(x.d>0?"#6fd08c":"#ff6b6b")+'">'+(x.d>0?"+":"")+x.d+'</td><td>'+esc(x.why)+'</td></tr>'}).join("")+'</tbody></table></div>':'<p class="muted">기록된 내역이 없습니다.</p>';
+  });
+}
+$("emlook").addEventListener("click",emLoad);
+$("emcode").addEventListener("keydown",function(e){if(e.key==="Enter"&&!e.isComposing){e.preventDefault();emLoad()}});
 /* ───── 오염 사냥꾼 현황 ───── */
 function loadHn(){
   api("GET","/api/admin/hunter").then(function(r){
