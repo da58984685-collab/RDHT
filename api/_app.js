@@ -1632,6 +1632,30 @@ route('POST', '/api/equip/unwear', async (req, res, ctx) => {
   if (w.changes !== 1) return fail(res, 404, 'no_equip');
   send(res, 200, { ok: true });
 });
+// 전체 해제: 착용 중인 장비를 모두 벗습니다
+route('POST', '/api/equip/unwear-all', async (req, res, ctx) => {
+  const w = await db.run('UPDATE equip_inv SET equipped = 0 WHERE user_id = ? AND equipped = 1', [ctx.user.id]);
+  send(res, 200, { ok: true, n: w.changes || 0 });
+});
+// 전체 수리: 내구도가 모자란 장비를 모두 고치고, 비용은 한 번에 냅니다 (골드가 모자라면 아무것도 수리하지 않음)
+route('POST', '/api/equip/repair-all', async (req, res, ctx) => {
+  if (await limited('eqr:' + ctx.user.id, 40, 60000)) return fail(res, 429, 'rate_limited');
+  const rows = (await db.all('SELECT id, key, dur FROM equip_inv WHERE user_id = ?', [ctx.user.id])).filter(r => EQ_BY_ID.has(r.key));
+  const todo = [];
+  for (const r of rows) { const g = G.EQ_GRADE[EQ_BY_ID.get(r.key).grade], missing = g.dur - Math.max(0, r.dur); if (missing > 0) todo.push({ r, g, cost: Math.max(1, Math.round(g.repair * missing / g.dur)) }); }
+  if (!todo.length) return fail(res, 409, 'full_dur');
+  const total = todo.reduce((t, x) => t + x.cost, 0);
+  const pay = await db.run('UPDATE users SET gold = gold - ? WHERE id = ? AND gold >= ?', [total, ctx.user.id, total]);
+  if (pay.changes !== 1) return fail(res, 402, 'no_gold', { cost: total });
+  let paid = 0, n = 0;
+  for (const x of todo) {
+    const w = await db.run('UPDATE equip_inv SET dur = ? WHERE id = ? AND user_id = ? AND dur = ?', [x.g.dur, x.r.id, ctx.user.id, x.r.dur]);
+    if (w.changes === 1) { paid += x.cost; n++; }
+  }
+  if (paid < total) await grantGold(ctx.user.id, total - paid);      // 그 사이 바뀐 장비 몫은 돌려줌
+  if (!n) return fail(res, 409, 'busy');
+  send(res, 200, { ok: true, cost: paid, n });
+});
 // 수리: 부족한 내구도 비율만큼 골드를 냅니다 (최소 1 G)
 route('POST', '/api/equip/repair', async (req, res, ctx) => {
   if (await limited('eqr:' + ctx.user.id, 40, 60000)) return fail(res, 429, 'rate_limited');
