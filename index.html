@@ -1193,6 +1193,8 @@ body{overflow-x:clip}      /* 어떤 요소가 넘쳐도 화면 전체가 가로
 .gwch{margin:6px 0 8px;font-size:.82rem;color:var(--deep)}
 .gwdel[data-arm="1"]{border-color:var(--red);color:#ff8a93}
 .gwcs li{position:relative}
+#gwcform #gwct{resize:none;min-height:44px;height:44px;max-height:120px;line-height:1.45;overflow-y:auto}
+#gwcform{align-items:flex-end}
 .gwcx{display:block;margin:6px 0 0 auto;padding:4px 10px;font:500 .74rem/1.2 "Noto Sans KR",sans-serif;color:var(--sub);background:transparent;border:1px solid var(--line);border-radius:8px;cursor:pointer}
 .gwlk.on{border-color:var(--red);color:#ff8a93}
 .gwcx:hover,.gwcx[data-arm="1"]{border-color:var(--red);color:#ff8a93}
@@ -1263,7 +1265,7 @@ body{overflow-x:clip}      /* 어떤 요소가 넘쳐도 화면 전체가 가로
       <p class="gwrp" id="gwrp" hidden><span id="gwrpt"></span><button type="button" id="gwrpx">답글 취소</button></p>
       <form id="gwcform" class="msend" novalidate>
         <label for="gwct" class="sr">댓글</label>
-        <input id="gwct" type="text" autocomplete="off" maxlength="200" placeholder="댓글을 입력하세요 (200자 이내)">
+        <textarea id="gwct" rows="1" autocomplete="off" maxlength="200" placeholder="댓글을 입력하세요 (200자 이내) · Shift+Enter 줄바꿈"></textarea>
         <button type="submit" class="hud-btn mbtn">등록</button>
       </form>
       <p class="gwnote" id="gwvnote" role="status"></p>
@@ -4753,8 +4755,8 @@ function gwLoad(reset){
 var gwReplyTo=null;
 function gwReply(c){      // c 가 있으면 그 댓글에 답글을 씁니다 (null 이면 일반 댓글)
   gwReplyTo=c||null;var bar=$("gwrp");bar.hidden=!c;
-  if(c){$("gwrpt").textContent=c.hn+"님에게 답글 쓰는 중";$("gwct").placeholder="답글을 입력하세요 (200자 이내)";$("gwct").focus()}
-  else $("gwct").placeholder="댓글을 입력하세요 (200자 이내)";
+  if(c){$("gwrpt").textContent=c.hn+"님에게 답글 쓰는 중";$("gwct").placeholder="답글을 입력하세요 (200자 이내) · Shift+Enter 줄바꿈";$("gwct").focus()}
+  else $("gwct").placeholder="댓글을 입력하세요 (200자 이내) · Shift+Enter 줄바꿈";
 }
 function gwOpenPost(id,keepScroll){
   gwPost=id;gwPane("gwview");$("gwvnote").textContent="";
@@ -4841,13 +4843,16 @@ $("gwdel").addEventListener("click",function(){
     gwPane("gwlist");gwLoad(true);
   }).catch(function(){d.disabled=false;$("gwvnote").textContent="삭제하지 못했습니다."});
 });
+function gwGrow(){var i=$("gwct");i.style.height="44px";i.style.height=Math.min(120,Math.max(44,i.scrollHeight+2))+"px"}
+$("gwct").addEventListener("input",gwGrow);
+$("gwct").addEventListener("keydown",function(e){if(e.key==="Enter"&&!e.shiftKey&&!e.isComposing&&e.keyCode!==229){e.preventDefault();if($("gwcform").requestSubmit)$("gwcform").requestSubmit();else $("gwcform").dispatchEvent(new Event("submit",{cancelable:true}))}});
 $("gwcform").addEventListener("submit",function(e){
-  e.preventDefault();var i=$("gwct"),t=i.value.trim();if(!t)return;
+  e.preventDefault();var i=$("gwct"),t=i.value.replace(/\r\n?/g,"\n").replace(/\n{3,}/g,"\n\n").trim();if(!t)return;
   var btn=this.querySelector("button");btn.disabled=true;
   api("POST","/api/gw/comment",{id:gwPost,text:t,parent:gwReplyTo?gwReplyTo.id:0}).then(function(r){
     btn.disabled=false;
     if(r.error){$("gwvnote").textContent=gwErr(r);return}
-    i.value="";gwOpenPost(gwPost,true);
+    i.value="";gwGrow();gwOpenPost(gwPost,true);
   }).catch(function(){btn.disabled=false;$("gwvnote").textContent="등록하지 못했습니다."});
 });
 document.addEventListener("keydown",function(e){if(e.key==="Escape"&&!gwmodal.hidden&&hmodal.hidden)closeGw()});
