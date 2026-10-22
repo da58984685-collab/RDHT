@@ -263,6 +263,9 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
       <button class="btn" id="qnsave" type="button">올리기</button><button class="btn ghost sm" id="qncancel" type="button" hidden>수정 취소</button><span id="qnmsg" class="muted"></span>
     </div>
     <div class="muted" style="font-size:.8rem;margin:6px 0">위 문의함에서 대화를 열면 '이 대화를 Q&amp;A로' 버튼으로 마지막 문의와 답변을 채워 넣을 수 있습니다. 헌터 이름은 Q&amp;A에 나오지 않습니다.</div>
+    <h4 style="margin:14px 0 6px;font-size:.9rem">헌터가 보낸 질문 <span class="muted" style="font-weight:400">(답변하기를 누르면 위 입력칸에 채워집니다 · 질문 글은 고쳐서 올릴 수 있습니다)</span></h4>
+    <div id="qnasks"></div>
+    <h4 style="margin:14px 0 6px;font-size:.9rem">올린 Q&amp;A</h4>
     <div id="qnlist"></div>
   </section>
   <section class="card send">
@@ -929,9 +932,22 @@ $("ilist").addEventListener("click",function(e){
 });
 
 /* ───── Q&A ───── */
-var qnEdit=0,qnData=[];
-function qnaReset(){qnEdit=0;$("qnq").value="";$("qna_a").value="";$("qnpub").value="1";$("qnsave").textContent="올리기";$("qncancel").hidden=true}
-function loadQna(){
+var qnEdit=0,qnAsk=0,qnData=[],qnAsks=[];
+function qnaReset(){qnEdit=0;qnAsk=0;$("qnq").value="";$("qna_a").value="";$("qnpub").value="1";$("qnsave").textContent="올리기";$("qncancel").hidden=true}
+function loadQnAsks(){
+  api("GET","/api/admin/qna/asks").then(function(r){
+    if(r._status===401||!r.list)return;qnAsks=r.list;
+    $("qnasks").innerHTML=r.list.length?'<div class="tw" style="max-height:260px"><table><thead><tr><th>헌터</th><th>질문</th><th>시각</th><th></th></tr></thead><tbody>'+r.list.map(function(x){
+      return'<tr><td>'+esc(x.hn)+' <span class="muted">'+esc(x.code)+'</span></td><td style="white-space:pre-wrap;overflow-wrap:anywhere">'+esc(x.q)+'</td><td>'+dt(x.ts)+'</td><td style="white-space:nowrap"><button class="btn ghost sm" data-ka="'+x.id+'" type="button">답변하기</button> <button class="btn ghost sm" data-kd="'+x.id+'" type="button">지우기</button></td></tr>'}).join("")+'</tbody></table></div>':'<p class="muted">답변 대기 중인 질문이 없습니다.</p>';
+  });
+}
+$("qnasks").addEventListener("click",function(e){
+  var t=e.target.closest("button");if(!t)return;
+  var id=Number(t.getAttribute("data-ka")||t.getAttribute("data-kd")),x=qnAsks.find(function(v){return v.id===id});if(!x)return;
+  if(t.hasAttribute("data-ka")){qnaReset();qnAsk=id;$("qnq").value=x.q;$("qnsave").textContent="답변 올리기";$("qncancel").hidden=false;$("qna_a").focus();$("qna").scrollIntoView({block:"start"})}
+  else if(confirm("이 질문을 답변 없이 지울까요? 보낸 헌터에게는 '처리됨'으로 보입니다."))api("POST","/api/admin/qna/ask/delete",{id:id}).then(function(){if(qnAsk===id)qnaReset();loadQnAsks()});
+});
+function loadQna(){loadQnAsks();
   api("GET","/api/admin/qna").then(function(r){
     if(r._status===401||!r.list)return;qnData=r.list;
     $("qnlist").innerHTML=r.list.length?'<div class="tw" style="max-height:360px"><table><thead><tr><th>상태</th><th>질문 / 답변</th><th>시각</th><th></th></tr></thead><tbody>'+r.list.map(function(x){
@@ -945,9 +961,9 @@ function qnMsg(t){$("qnmsg").textContent=t;setTimeout(function(){if($("qnmsg").t
 function qnErr(r){return r.error==="bad_q"?"질문을 1~300자로 입력해주세요.":r.error==="bad_a"?"답변을 1~1000자로 입력해주세요.":"저장하지 못했습니다."}
 $("qnsave").addEventListener("click",function(){
   var body={q:$("qnq").value,a:$("qna_a").value,pub:$("qnpub").value==="1"};
-  var u="/api/admin/qna";if(qnEdit){u+="/update";body.id=qnEdit}
+  var u="/api/admin/qna";if(qnEdit){u+="/update";body.id=qnEdit}else if(qnAsk){u+="/ask/answer";body.id=qnAsk}
   api("POST",u,body).then(function(r){
-    if(r.ok){qnMsg(qnEdit?"수정했습니다.":body.pub?"공개했습니다.":"비공개로 저장했습니다.");qnaReset();loadQna()}else qnMsg(qnErr(r));
+    if(r.ok){qnMsg(qnEdit?"수정했습니다.":qnAsk?(body.pub?"답변을 공개했습니다.":"답변을 비공개로 저장했습니다."):body.pub?"공개했습니다.":"비공개로 저장했습니다.");qnaReset();loadQna()}else qnMsg(qnErr(r));
   });
 });
 $("qncancel").addEventListener("click",qnaReset);
@@ -956,7 +972,7 @@ $("qnlist").addEventListener("click",function(e){
   var t=e.target.closest("button");if(!t)return;
   var id=Number(t.getAttribute("data-qe")||t.getAttribute("data-qr")||t.getAttribute("data-qp")||t.getAttribute("data-qd"));
   var x=qnData.find(function(v){return v.id===id});if(!x)return;
-  if(t.hasAttribute("data-qe")){qnEdit=id;$("qnq").value=x.q;$("qna_a").value=x.a;$("qnpub").value=x.pub?"1":"0";$("qnsave").textContent="수정 저장";$("qncancel").hidden=false;$("qnq").focus();$("qna").scrollIntoView({block:"start"})}
+  if(t.hasAttribute("data-qe")){qnEdit=id;qnAsk=0;$("qnq").value=x.q;$("qna_a").value=x.a;$("qnpub").value=x.pub?"1":"0";$("qnsave").textContent="수정 저장";$("qncancel").hidden=false;$("qnq").focus();$("qna").scrollIntoView({block:"start"})}
   else if(t.hasAttribute("data-qr")){if(confirm("이 Q&A를 회수할까요? 헌터에게는 더 이상 보이지 않으며, 내용은 비공개로 남습니다."))api("POST","/api/admin/qna/recall",{id:id}).then(function(){loadQna()})}
   else if(t.hasAttribute("data-qp")){api("POST","/api/admin/qna/update",{id:id,q:x.q,a:x.a,pub:true}).then(function(r){if(r.ok)loadQna();else qnMsg(qnErr(r))})}
   else if(t.hasAttribute("data-qd")){if(confirm("이 Q&A를 완전히 삭제할까요?"))api("POST","/api/admin/qna/delete",{id:id}).then(function(){if(qnEdit===id)qnaReset();loadQna()})}
