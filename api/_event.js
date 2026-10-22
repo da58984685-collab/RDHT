@@ -149,6 +149,9 @@ const SQL = [
   // 귀신의 집 둘만의 채팅 (집마다 최근 30줄만 남기고, 집이 정리될 때 함께 지워짐)
   'CREATE TABLE IF NOT EXISTS ev_house_chat (id TEXT PRIMARY KEY, house_id TEXT NOT NULL, from_id INTEGER NOT NULL, txt TEXT NOT NULL, at INTEGER NOT NULL)',
   'CREATE INDEX IF NOT EXISTS ev_house_chat_h ON ev_house_chat(house_id, id)',
+  // 도깨비 불씨가 줄어든 내역 (늘어난 내역은 acquire_log 에 있음). delta 는 음수
+  'CREATE TABLE IF NOT EXISTS ember_log (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, delta INTEGER NOT NULL, why TEXT NOT NULL, at INTEGER NOT NULL)',
+  'CREATE INDEX IF NOT EXISTS ember_log_user ON ember_log(user_id, id)',
 ];
 
 const RANKS = ['F', 'E', 'D', 'C', 'B', 'A', 'S'];
@@ -255,6 +258,8 @@ function install(a) {
     await logAcquire(cur.id, 'item', EMBER, n, '백귀야행', now);
     return n;
   }
+  // 불씨가 줄어들 때마다 남기는 기록 (실패해도 게임 진행에는 영향 없음)
+  const lossLog = (uid, qty, why, now) => Number(qty) > 0 ? db.run('INSERT INTO ember_log (user_id, delta, why, at) VALUES (?, ?, ?, ?)', [uid, -Number(qty), String(why).slice(0, 80), now || Date.now()]).catch(() => {}) : Promise.resolve();
   // 이벤트가 꺼진 뒤 남은 잡귀 정리 (10분에 한 번)
   let lastClean = 0;
   async function cleanup(force) {
@@ -265,7 +270,10 @@ function install(a) {
     const ph = GHOSTS.map(() => '?').join(',');
     // 도깨비 불씨는 '관리자가 끄기를 눌렀을 때' 또는 '자동 기간(END)이 끝난 뒤'에만 사라집니다.
     // 아직 시작 전(START 이전)이거나 설정을 읽는 순간의 착오로 '꺼짐'처럼 보일 때는 지우지 않습니다.
-    if (cache.mode === 'off' || (cache.mode === 'auto' && now >= END)) await db.run('DELETE FROM inventory WHERE item = ?', [EMBER]);
+    if (cache.mode === 'off' || (cache.mode === 'auto' && now >= END)) {
+      await db.run("INSERT INTO ember_log (user_id, delta, why, at) SELECT user_id, -qty, ?, ? FROM inventory WHERE item = ? AND qty > 0", [cache.mode === 'off' ? '이벤트 끄기로 소멸' : '이벤트 기간 종료로 소멸', now, EMBER]).catch(() => {});
+      await db.run('DELETE FROM inventory WHERE item = ?', [EMBER]);
+    }
     const has = await db.get(`SELECT 1 AS x FROM monsters WHERE name IN (${ph}) LIMIT 1`, GHOSTS);
     if (!has) return;
     await db.batch([
@@ -434,6 +442,7 @@ function install(a) {
     } catch (err) {                                                                              // 지급에 실패하면 불씨와 한도를 되돌립니다
       await giveItem(uid, EMBER, it.price); await claimDown(uid, key); throw err;
     }
+    await lossLog(uid, it.price, '도깨비 장터 구매 (' + it.name + ')', now);
     const t = await db.get("SELECT COALESCE(SUM(n), 0) AS c FROM ev_claims WHERE user_id = ? AND key LIKE 'mk:%'", [uid]);
     let ach = '';
     if (Number(t.c) >= 10 && await grantAch(uid, MARKET_ACH, now)) ach = MARKET_ACH.name;
@@ -651,6 +660,21 @@ function install(a) {
   }, { auth: false, admin: true });
 
 
+  // 관리자: 한 헌터의 도깨비 불씨 획득·소실 내역 (?code=헌터코드)
+  route('GET', '/api/admin/event/ember', async (req, res) => {
+    const code = normCode(new URL(req.url, 'http://x').searchParams.get('code') || '');
+    const u = code ? await userByCode(code) : null;
+    if (!u) return fail(res, 404, 'no_user');
+    const [inv, gains, losses] = await Promise.all([
+      db.get('SELECT qty FROM inventory WHERE user_id = ? AND item = ?', [u.id, EMBER]),
+      db.all("SELECT qty, source, at FROM acquire_log WHERE user_id = ? AND kind = 'item' AND name = ? ORDER BY id DESC LIMIT 300", [u.id, EMBER]),
+      db.all('SELECT delta, why, at FROM ember_log WHERE user_id = ? ORDER BY id DESC LIMIT 300', [u.id]),
+    ]);
+    const list = gains.map(g => ({ d: Number(g.qty), why: g.source, at: Number(g.at) })).concat(losses.map(l => ({ d: Number(l.delta), why: l.why, at: Number(l.at) }))).sort((a, b) => b.at - a.at).slice(0, 300);
+    const sum = (a, f) => a.reduce((t, x) => t + (f(x) ? x.d : 0), 0);
+    send(res, 200, { hn: u.hunter_name, code: u.code, have: inv ? Number(inv.qty) : 0, gain: sum(list, x => x.d > 0), loss: -sum(list, x => x.d < 0), list });
+  }, { auth: false, admin: true });
+
   // 관리자: 귀신의 집 하루 횟수 조작
   //  GET  ?code=      → 그 헌터의 오늘 남은 횟수 / 하루 기본 횟수
   //  POST {code, left} → 그 헌터의 오늘 남은 횟수를 정함 (0~20)
@@ -700,7 +724,7 @@ function install(a) {
   const GATE_GHOST_ARGS = GATE_IDS.length ? GHOSTS.concat(GATE_IDS) : [];
   // 백귀야행 중에는 내 몬스터 중 잡귀가 아닌 것을 목록에서 뺍니다 (공통 S·SS·폭주·괴담 몬스터는 그대로)
   const nightListSql = now => nightOnly(now) ? { sql: ` AND NOT (owner_id IS NOT NULL AND name NOT IN (${GHOSTS.map(() => '?').join(',')}))`, args: GHOSTS } : { sql: '', args: [] };
-  return { on, refresh, brief, tick, onKill, cleanup, mode: modeNow, nightOnly, nightListSql, EMBER, GHOST_SET, isGhostInGate, GATE_GHOST_SQL, GATE_GHOST_ARGS };
+  return { on, refresh, brief, tick, onKill, cleanup, lossLog, mode: modeNow, nightOnly, nightListSql, EMBER, GHOST_SET, isGhostInGate, GATE_GHOST_SQL, GATE_GHOST_ARGS };
 }
 
 module.exports = { install, MASKS, MASK_SLOT, RUMOR_TPL, SQL, EMBER, GHOSTS, START, END };
