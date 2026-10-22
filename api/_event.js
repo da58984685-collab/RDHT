@@ -682,12 +682,6 @@ function install(a) {
     const sum = f => list.reduce((t, x) => t + (f(x) ? x.d : 0), 0);
     return { have: inv ? Number(inv.qty) : 0, gain: sum(x => x.d > 0), loss: -sum(x => x.d < 0), list };
   }
-  // 헌터: 내 불씨 획득·소실 내역
-  route('GET', '/api/event/ember', async (req, res, ctx) => {
-    await refresh();
-    if (!on(Date.now())) return send(res, 200, { on: false });
-    send(res, 200, Object.assign({ on: true, name: EMBER }, await emberHistory(ctx.user.id, 100)));
-  });
   // 관리자: 한 헌터의 도깨비 불씨 획득·소실 내역 (?code=헌터코드)
   route('GET', '/api/admin/event/ember', async (req, res) => {
     const code = normCode(new URL(req.url, 'http://x').searchParams.get('code') || '');
