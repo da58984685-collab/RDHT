@@ -135,7 +135,7 @@ async function tickSpawns() {
 }
 
 // 오염 몬스터 두 종류 (30분에 한 번만 굴리므로 DB 를 거의 쓰지 않습니다)
-//  · 오염 사냥꾼: 오염 2단계(60%~) 6%, 3단계(80%~) 12% — 강한 공격력으로 6라운드 이상 이어지는 전투
+//  · 오염 사냥꾼: 오염 2단계(60%~) 6%, 3단계(80%~) 12% — 강한 공격력으로 10라운드 이상 이어지는 전투
 //  · 혈월의 잔영: 위험 구간(80~99%)에서만 2% — 보상이 큰 한정 몬스터
 async function taintMonsters(uid, now) {
   const u = await db.get('SELECT stats, region, rank FROM users WHERE id = ?', [uid]);
@@ -1958,13 +1958,19 @@ async function huntWin(cur, m, eb, now) {
   const k = await db.run('INSERT OR IGNORE INTO kills (user_id, monster_id, at) VALUES (?, ?, ?)', [cur.id, m.id, now]);
   if (k.changes !== 1) return { err: 'already_done' };
   const sp = G.SPECIAL_MON[m.name];      // 오염 사냥꾼·혈월의 잔영: 보상 배수, 정화, 아이템
-  const gain = G.KILL_EXP[m.rank] * (sp ? sp.exp : 1);
+  // 오염 사냥꾼: 토벌할수록 강해지고 보상도 조금씩 늘어납니다
+  const hl = m.name === '오염 사냥꾼' ? await hunterLv(cur.id) : 0, hr = hl > 0 ? G.hunterScale(hl).reward : 1;
+  const gain = Math.round(G.KILL_EXP[m.rank] * (sp ? sp.exp : 1) * hr);
   const r = await grantExp(cur.id, gain);
-  const gold = G.rollGold(m.rank) * (sp ? sp.gold : 1); await grantGold(cur.id, gold);
+  const gold = Math.round(G.rollGold(m.rank) * (sp ? sp.gold : 1) * hr); await grantGold(cur.id, gold);
   let taint = 0, taintNow = null, note = '';
   if (sp && sp.purge) {
     const pr = await applyItemEffect(cur.id, 'taint', -sp.purge, now);
     taintNow = pr ? pr.after : null; note = '오염도 -' + sp.purge + '% 정화';
+    if (m.name === '오염 사냥꾼') {
+      const hs = await SYSMSG.hunterKilled(db, now);      // 서버 전체 토벌 횟수 +1 · 자동 시스템 팝업(켜져 있을 때)
+      note += ' · 오염 사냥꾼이 한층 강해졌다' + (hs.kills <= G.HUNTER_LV_MAX ? ' (' + hs.kills + '단계)' : ' (최대 단계)');
+    }
   } else { taint = eqTaint(G.rollTaint(m.rank), eb); taintNow = await grantTaint(cur.id, taint); }
   if (sp && sp.drop) {
     await giveItem(cur.id, sp.drop[0], sp.drop[1]); await logAcquire(cur.id, 'item', sp.drop[0], sp.drop[1], m.name + ' 토벌', now);
@@ -2014,11 +2020,12 @@ async function battleLive(uid, now) {
   }
   return b;
 }
+const hunterLv = async () => (await SYSMSG.hunterState(db)).kills;      // 오염 사냥꾼 강화 단계 = 서버 전체 토벌 횟수 (G.HUNTER_LV_MAX 에서 멈춤)
 async function battleStart(cur, m, myStats, now) {
   const have = await battleLive(cur.id, now);
   if (have) return have.monster_id === m.id ? { view: btView(have) } : { error: 'in_battle', view: btView(have) };
-  const pl = G.btPlayer(cur.lv, myStats), mo = G.btMon(m.rank, m.name, pl);
-  const log = JSON.stringify([m.name + '이(가) 나타났다! 전투 시작.']);
+  const pl = G.btPlayer(cur.lv, myStats), hl = m.name === '오염 사냥꾼' ? await hunterLv(cur.id) : 0, mo = G.btMon(m.rank, m.name, pl, hl);
+  const log = JSON.stringify([m.name + '이(가) 나타났다!' + (hl > 0 ? ' (강화 ' + hl + '단계)' : '') + ' 전투 시작.']);
   const ins = await db.run('INSERT OR IGNORE INTO battles (user_id, monster_id, mname, mrank, mhp, mmax, php, pmax, round, intent, cd_heavy, buff, log, ver, started, upd) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, 0, 0, ?, 0, ?, ?)',
     [cur.id, m.id, m.name, m.rank, mo.hp, mo.hp, pl.max, pl.max, 'atk', log, now, now]);
   const b = await db.get('SELECT user_id, monster_id, mname, mrank, mhp, mmax, php, pmax, round, intent, cd_heavy, buff, log, ver, started, upd FROM battles WHERE user_id = ?', [cur.id]);
@@ -2040,7 +2047,7 @@ route('POST', '/api/battle/act', async (req, res, ctx) => {
   if (action === 'heavy' && b.cd_heavy > 0) return fail(res, 409, 'heavy_cd', { battle: btView(b) });
   const m = await db.get('SELECT id, region, name, rank, spawned_at, owner_id, rumor_id, corrupt_of FROM monsters WHERE id = ?', [b.monster_id]);
   const eb = await equipBonus(cur.id), myStats = withEq(JSON.parse(cur.stats), eb);
-  const pl = G.btPlayer(cur.lv, myStats), mo = G.btMon(b.mrank, b.mname, pl), BT = G.BT;
+  const pl = G.btPlayer(cur.lv, myStats), hl = b.mname === '오염 사냥꾼' ? await hunterLv(cur.id) : 0, mo = G.btMon(b.mrank, b.mname, pl, hl), BT = G.BT;
   const log = [];
   let mhp = b.mhp, php = b.php, buff = b.buff, cd = Math.max(0, b.cd_heavy - 1), outcome = null;
   const rr = (lo, hi) => lo + Math.random() * (hi - lo);
@@ -2061,7 +2068,7 @@ route('POST', '/api/battle/act', async (req, res, ctx) => {
       dmg = Math.max(1, Math.round(dmg));
       mhp = Math.max(0, mhp - dmg);
       const sp = G.SPECIAL_MON[b.mname];
-      const held = !!(sp && sp.minRounds && mhp <= 0 && b.round < sp.minRounds);      // 오염 사냥꾼: 6라운드가 지나기 전에는 쓰러지지 않음
+      const held = !!(sp && sp.minRounds && mhp <= 0 && b.round < sp.minRounds + G.hunterScale(hl).rounds);      // 오염 사냥꾼: 10라운드가 지나기 전에는 쓰러지지 않음
       if (held) mhp = 1;
       log.push((action === 'heavy' ? '강타! ' : '공격! ') + b.mname + '에게 ' + dmg + ' 피해' + (crit ? ' (치명타!)' : '') + '.');
       if (held) log.push(b.mname + '은(는) 쓰러지지 않고 버텨냈다!');
