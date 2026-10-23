@@ -787,13 +787,9 @@ input[type=checkbox]:focus-visible{outline:2px solid var(--deep);outline-offset:
 .big-p .app-list{font-size:.95rem;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:8px}
 .big-p .app-list li{padding:10px 12px}
 .big-p .app-h{font-size:1.05rem}
-.exc-f{display:grid;grid-template-columns:2fr 1fr 1fr auto;gap:6px;margin:6px 0 10px}
-.exc-f select,.exc-f input{min-width:0;padding:7px 8px;color:var(--text);background:var(--field);border:1px solid var(--line);border-radius:6px;font:inherit;font-size:.88rem}
-@media (max-width:560px){.exc-f{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.big-p .app-list{grid-template-columns:minmax(0,1fr)}}
-.pct-r{display:flex;align-items:center;gap:8px;font-size:.78rem;color:var(--sub)}.pct-r span{flex:1}
+@media (max-width:560px){.big-p .app-list{grid-template-columns:minmax(0,1fr)}}
 .rum-v{display:flex;gap:8px}.rum-v button{flex:1}
 .rum-res{font-size:.8rem;color:#f0b93a}.rum-res.bad{color:var(--sub)}
-.pct-li.done{opacity:.55}
 
 .gt-ex{position:absolute;inset:0;z-index:4;display:flex;flex-direction:column;gap:8px;padding:12px;overflow-y:auto;background:rgba(10,4,6,.93)}
 .gt-ex[hidden]{display:none}
@@ -2654,7 +2650,7 @@ var globe=(function(){
   return {set:set,isOn:function(){return on},redraw:function(){if(on&&rm)draw()}};
 })();
 var evInfo=null,achNew=0,questReady=0,rescueReq=0,rumorNew=0,gold=0,devApp=null,inventory=[],invSig="",invNote="";
-var APPS=[["gw","게이트웨이브","i-eye"],["msg","메신저","i-chat"],["com","커뮤니티","i-board"],["ach","업적","i-medal"],["qst","의뢰","i-star"],["eqp","장비","i-str"],["pct","계약","i-taint"],["exc","그림자 거래소","i-lock"],["rum","괴담","i-psi"],["sys","시스템 알림","i-bell"],["shop","상점","i-shop"],["inv","인벤토리","i-bag"],["hlw","할로윈","i-hlw"]];
+var APPS=[["gw","게이트웨이브","i-eye"],["msg","메신저","i-chat"],["com","커뮤니티","i-board"],["ach","업적","i-medal"],["qst","의뢰","i-star"],["eqp","장비","i-str"],["rum","괴담","i-psi"],["sys","시스템 알림","i-bell"],["shop","상점","i-shop"],["inv","인벤토리","i-bag"],["hlw","할로윈","i-hlw"]];
 function devClock(){var d=new Date(),c=$("phclk");if(c)c.textContent=pad(d.getHours())+":"+pad(d.getMinutes())}
 function badgeOf(id){return id==="inv"?giftUnread:id==="sys"?unreadNotices:id==="msg"?unreadMsgs+friendReqs+rescueReq:id==="qst"?questReady:id==="rum"?rumorNew:id==="com"?Math.max(0,Math.min(99,cmLatest-cmSeen)):id==="ach"?achNew:0}
 function loadNotices(){
@@ -2980,8 +2976,6 @@ function renderDevice(){
   else if(devApp==="qst"){empty("불러오는 중…");loadQuests()}
   else if(devApp==="hlw"){empty("불러오는 중…");loadEvent()}
   else if(devApp==="eqp"){empty("불러오는 중…");loadEquip()}
-  else if(devApp==="pct"){empty("불러오는 중…");loadPact()}
-  else if(devApp==="exc"){empty("불러오는 중…");loadExc()}
   else if(devApp==="rum"){empty("불러오는 중…");loadRumors()}
 }
 function markRegions(){
@@ -4292,8 +4286,8 @@ function loadQuests(){
 }
 
 
-/* ───── 큰 팝업으로 여는 앱 (상점·의뢰·괴담·그림자 거래소) ───── */
-var BIG={shop:1,pct:1,rum:1,exc:1,eqp:1,hlw:1,dex:1,wkr:1,hof:1,wnt:1},bigOpen=false;
+/* ───── 큰 팝업으로 여는 앱 (상점·의뢰·괴담) ───── */
+var BIG={shop:1,rum:1,eqp:1,hlw:1,dex:1,wkr:1,hof:1,wnt:1},bigOpen=false;
 function openBig(id){
   if(bigOpen)return;
   var home=$("phscr"),body=$("bigbody");if(!home||!body)return;
@@ -4590,50 +4584,6 @@ function xpHead(scr,t){var h=document.createElement("p");h.className="app-sub";h
 function xpLi(ul,title,lines,cls){var li=document.createElement("li");li.className="qst-li"+(cls?" "+cls:"");var t=document.createElement("div");t.className="qst-t";t.textContent=title;li.appendChild(t);(lines||[]).forEach(function(x){var s=document.createElement("small");s.textContent=x;li.appendChild(s)});ul.appendChild(li);return li}
 function xpDate(ms){var d=new Date(ms);return (d.getMonth()+1)+"월 "+d.getDate()+"일"}
 
-/* ───── 그림자 거래소 ───── */
-var excNote="";
-function hm(ms){var h=Math.floor(ms/3600000),m=Math.floor(ms%3600000/60000);return h+"시간 "+m+"분"}
-function loadExc(){
-  var scr=$("phscr");
-  api("GET","/api/exchange").then(function(r){
-    if(devApp!=="exc")return;
-    if(r.error||!r.market){appFail(scr,loadExc);return}
-    var old=scr.querySelector(".app-empty,.app-list,.app-note,.app-sub,.exc-f,.gold-tag");while(old){old.remove();old=scr.querySelector(".app-empty,.app-list,.app-note,.app-sub,.exc-f,.gold-tag")}
-    var g=document.createElement("p");g.className="gold-tag";g.textContent="보유 "+r.gold+" G · 현재 오염도 "+r.taint+"%";scr.appendChild(g);
-    var nt=document.createElement("p");nt.className="app-note";nt.setAttribute("role","status");
-    nt.textContent=excNote;
-    if(excNote)scr.appendChild(nt);
-    function head(t){var h=document.createElement("p");h.className="app-sub";h.textContent=t;h.style.cssText="margin:12px 0 4px;font-weight:700;font-size:.9rem";scr.appendChild(h)}
-    function done(x,okTxt){excNote=x.ok?okTxt:({no_gold:"골드가 부족합니다.",no_item:"아이템이 부족합니다.",no_listing:"이미 사라진 물건입니다.",sold:"그 사이 다른 사람이 샀습니다.",too_many:"더 이상 등록할 수 없습니다.",bad_price:"가격을 확인해 주세요 (1~9,999,999 G).",bad_qty:"수량을 확인해 주세요.",max_qty:"더 가질 수 없습니다 (최대 9999개).",corrupted:"오염 폭주 중에는 거래할 수 없습니다.",own:"내가 올린 물건입니다."})[x.error]||"처리하지 못했습니다.";pollState(false);loadExc()}
-    head("판매 등록");
-    var f=document.createElement("div");f.className="exc-f";
-    var sel=document.createElement("select");sel.setAttribute("aria-label","판매할 아이템");
-    if(!r.sellable.length){var o0=document.createElement("option");o0.textContent="판매할 아이템이 없습니다";sel.appendChild(o0);sel.disabled=true}
-    r.sellable.forEach(function(x){var o=document.createElement("option");o.value=x.item;o.textContent=x.item+" (보유 "+x.qty+")";sel.appendChild(o)});
-    var q=document.createElement("input");q.type="number";q.min="1";q.value="1";q.placeholder="수량";q.setAttribute("aria-label","수량");
-    var pr=document.createElement("input");pr.type="number";pr.min="1";pr.placeholder="총 가격(G)";pr.setAttribute("aria-label","총 가격");
-    var go=document.createElement("button");go.type="button";go.className="ach-btn";go.textContent="등록";go.disabled=!r.sellable.length;
-    go.addEventListener("click",function(){go.disabled=true;api("POST","/api/exchange/list",{item:sel.value,qty:Number(q.value),price:Number(pr.value)}).then(function(x){done(x,"판매 등록 완료")})});
-    f.appendChild(sel);f.appendChild(q);f.appendChild(pr);f.appendChild(go);scr.appendChild(f);
-    head("내가 올린 물건 ("+r.mine.length+"/"+r.maxListings+")");
-    function listOf(arr,empty,mk){
-      var ul=document.createElement("ul");ul.className="app-list";
-      if(!arr.length){var li0=document.createElement("li");li0.textContent=empty;ul.appendChild(li0)}
-      arr.forEach(function(x){
-        var li=document.createElement("li");li.className="qst-li";
-        var t=document.createElement("div");t.className="qst-t";t.textContent=x.item+" ×"+x.qty;
-        var d=document.createElement("small");d.textContent=x.price+" G"+(x.qty>1?" (개당 약 "+Math.ceil(x.price/x.qty)+" G)":"")+" · 남은 시간 "+hm(x.endsIn);
-        var row=document.createElement("div");row.className="rum-v";mk(x,row);
-        li.appendChild(t);li.appendChild(d);li.appendChild(row);ul.appendChild(li);
-      });
-      scr.appendChild(ul);
-    }
-    listOf(r.mine,"올려 둔 물건이 없습니다.",function(x,row){var b=document.createElement("button");b.type="button";b.className="ach-btn";b.textContent="회수";b.addEventListener("click",function(){b.disabled=true;api("POST","/api/exchange/cancel",{id:x.id}).then(function(y){done(y,x.item+" 회수 완료")})});row.appendChild(b)});
-    head("시장 ("+r.market.length+")");
-    listOf(r.market,"지금 올라온 물건이 없습니다.",function(x,row){var b=document.createElement("button");b.type="button";b.className="ach-btn";b.textContent="구매 ("+x.price+" G)";b.disabled=x.price>r.gold;b.addEventListener("click",function(){b.disabled=true;api("POST","/api/exchange/buy",{id:x.id}).then(function(y){done(y,x.item+" ×"+x.qty+" 구매 완료 · 오염도 +"+(y.taint||0)+"%");if(y.ok&&devApp==="inv")renderDevice()})});row.appendChild(b)});
-  });
-}
-
 /* ───── 장비 (탑 재료로 조합) ───── */
 var eqNote="",eqData=null;
 function eqFx(d){return d.stat+" +"+d.val+(d.unit||"")}
@@ -4690,38 +4640,6 @@ function drawEquip(){
     row.appendChild(bt);li.appendChild(t);li.appendChild(d);li.appendChild(m);li.appendChild(row);ul2.appendChild(li);
   });
   scr.appendChild(ul2);
-}
-
-/* ───── 오염 거래(계약) ───── */
-function loadPact(){
-  var scr=$("phscr");
-  api("GET","/api/pact").then(function(r){
-    if(devApp!=="pct")return;
-    if(r.error||!r.pacts){appFail(scr,loadPact);return}
-    var old=scr.querySelector(".app-empty,.app-list,.app-note");while(old){old.remove();old=scr.querySelector(".app-empty,.app-list,.app-note")}
-    var nt=document.createElement("p");nt.className="app-note";var hh=Math.floor(r.resetIn/3600000),mm=Math.floor(r.resetIn%3600000/60000);
-    var left=r.pacts.filter(function(p){return !p.done}).length;nt.textContent="오늘 계약 가능 횟수 "+left+" / "+r.pacts.length;
-    scr.appendChild(nt);
-    var ul=document.createElement("ul");ul.className="app-list";
-    r.pacts.forEach(function(p){
-      var li=document.createElement("li");li.className="qst-li pct-li"+(p.done?" done":"");
-      var t=document.createElement("div");t.className="qst-t";t.textContent=p.name;
-      var d=document.createElement("small");d.textContent=p.desc;
-      var row=document.createElement("div");row.className="pct-r";var sp=document.createElement("span");sp.textContent="대가 오염도 +"+p.taint+"% → "+p.reward;row.appendChild(sp);
-      var bt=document.createElement("button");bt.type="button";bt.className="ach-btn";bt.textContent=p.done?"오늘은 완료":"서명";bt.disabled=p.done;
-      var sure=false;
-      bt.addEventListener("click",function(){
-        bt.disabled=true;
-        api("POST","/api/pact/sign",{id:p.id,confirm:sure}).then(function(x){
-          if(x.ok){$("mapmsg").textContent="계약 '"+x.name+"' · "+x.reward+" · 오염도 +"+x.taint+"%"+(x.backlash?" (계약의 반동!)":"")+(x.corrupted?" · 오염 폭주!":"")+(x.levelUp?" · 전투력 상승!":"");pollState(false);if(devApp==="inv")renderDevice();loadPact()}
-          else if(x.error==="will_corrupt"){sure=true;bt.disabled=false;bt.textContent="폭주해도 서명";$("mapmsg").textContent="이 계약을 맺으면 오염도가 100%를 넘어 몬스터가 될 수 있습니다. 그래도 서명하려면 한 번 더 누르세요."}
-          else{bt.disabled=false;bt.textContent=x.error==="corrupted"?"폭주 중":x.error==="tainted"?"오염도 100%":x.error==="already_done"?"오늘은 완료":"할 수 없음";if(x.error==="already_done")loadPact()}
-        });
-      });
-      row.appendChild(bt);li.appendChild(t);li.appendChild(d);li.appendChild(row);ul.appendChild(li);
-    });
-    scr.appendChild(ul);
-  });
 }
 
 /* ───── 도시 괴담 소문 ───── */
