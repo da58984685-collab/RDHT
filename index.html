@@ -919,6 +919,7 @@ body{overflow-x:clip}      /* 어떤 요소가 넘쳐도 화면 전체가 가로
             <div class="cinfo">
               <p class="chn" id="ghn"></p>
               <p class="cnm" id="gnm"></p>
+              <p class="cnm" id="gcode"></p>
               <div class="crank"><span>헌터 등급</span><b class="rk" id="grank"></b><button type="button" class="pbtn" id="gpromo" aria-label="헌터 등급 승급">승급</button></div>
             </div>
           </div>
@@ -1189,6 +1190,11 @@ body{overflow-x:clip}      /* 어떤 요소가 넘쳐도 화면 전체가 가로
 .gwi:hover{border-color:var(--red2)}
 .gwi:focus-visible{outline:2px solid var(--red2);outline-offset:2px}
 .gwm{display:flex;align-items:center;gap:8px;margin:0 0 6px;font-size:.74rem;color:var(--deep)}
+.gwcats{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 4px}
+.gwcats .hud-btn{min-height:38px;padding:0 12px}
+.gwcats .hud-btn[aria-pressed=true]{border-color:var(--red2);color:var(--deep);background:var(--bar1)}
+.gwm .gwc{padding:2px 8px;border:1px solid var(--red2);border-radius:999px;font-size:.7rem;color:var(--deep)}
+.gwcsel{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 6px}
 .gwm .gwr{padding:2px 8px;border:1px solid var(--line);border-radius:999px;font-size:.7rem;color:var(--text)}
 .gwm .gwr.s{border-color:var(--red);color:#ff8a93}
 .gwm .gww{font-family:"Share Tech Mono","Noto Sans KR",monospace}
@@ -1327,7 +1333,9 @@ body{overflow-x:clip}      /* 어떤 요소가 넘쳐도 화면 전체가 가로
               <div class="u074-set" id="gwaset" hidden>
                 <p class="cmn">알림은 아래 항목마다 켜고 끌 수 있습니다. 모든 알림은 같은 소리가 납니다.</p>
                 <ul class="gwsl">
-                  <li><label><input type="checkbox" id="gwn-post"><span><b>새 글이 올라올 때</b><small>다른 헌터가 새 글을 올리면 알려줍니다.</small></span></label></li>
+                  <li><label><input type="checkbox" id="gwn-p0"><span><b>구해요 새 글</b><small>구해요에 다른 헌터가 새 글을 올리면 알려줍니다.</small></span></label></li>
+                  <li><label><input type="checkbox" id="gwn-p1"><span><b>정보 새 글</b><small>정보에 다른 헌터가 새 글을 올리면 알려줍니다.</small></span></label></li>
+                  <li><label><input type="checkbox" id="gwn-p2"><span><b>사담</b><small>사담에 다른 헌터가 새 글을 올리면 알려줍니다.</small></span></label></li>
                   <li><label><input type="checkbox" id="gwn-cmt"><span><b>내 글에 댓글이 달릴 때</b><small>내가 쓴 글에 다른 헌터가 댓글을 달면 알려줍니다.</small></span></label></li>
                   <li><label><input type="checkbox" id="gwn-rep"><span><b>나에게 답글이 달릴 때</b><small>내 댓글에 다른 헌터가 답글을 달면 알려줍니다.</small></span></label></li>
                   <li><label><input type="checkbox" id="gwn-men"><span><b>나를 태그했을 때</b><small>친구가 글이나 댓글에서 @로 나를 언급하면 알려줍니다.</small></span></label></li>
@@ -1338,12 +1346,15 @@ body{overflow-x:clip}      /* 어떤 요소가 넘쳐도 화면 전체가 가로
             </div>
           </div></div>
       </div>
+      <div class="gwcats" id="gwcats" role="tablist" aria-label="게시글 카테고리"><button type="button" class="hud-btn" role="tab" data-c="" aria-pressed="true">전체</button><button type="button" class="hud-btn" role="tab" data-c="구해요" aria-pressed="false">구해요</button><button type="button" class="hud-btn" role="tab" data-c="정보" aria-pressed="false">정보</button><button type="button" class="hud-btn" role="tab" data-c="사담" aria-pressed="false">사담</button></div>
       <ul class="gwl" id="gwul" aria-live="polite"></ul>
       <div class="gwrow"><button type="button" class="hud-btn" id="gwmore" hidden>더 보기</button></div>
     </div>
     <div id="gwwrite" class="gwf" hidden>
       <div class="gwtop"><button type="button" class="hud-btn" id="gwwback">← 목록</button></div>
       <form id="gwform" novalidate>
+        <label id="gwcl">카테고리</label>
+        <div class="gwcsel" id="gwcsel" role="radiogroup" aria-labelledby="gwcl"><button type="button" class="hud-btn" role="radio" data-c="구해요" aria-pressed="false">구해요</button><button type="button" class="hud-btn" role="radio" data-c="정보" aria-pressed="false">정보</button><button type="button" class="hud-btn" role="radio" data-c="사담" aria-pressed="true">사담</button></div>
         <label for="gwt">제목</label>
         <input id="gwt" type="text" autocomplete="off" maxlength="40" placeholder="제목 (40자 이내)">
         <label for="gwb">내용</label>
@@ -1839,6 +1850,7 @@ function loadWorld(){
 }
 function countryOf(id){var r=regionById(id);return r?r.country:(COUNTRY_BY_ID[id]?id:"KR")}
 function placeName(id){return COUNTRY_BY_ID[id]?COUNTRY_BY_ID[id].name:(regionById(id)?regionById(id).name:id)}
+function alPlace(a){var r=regionById(a.region);return r&&COUNTRY_BY_ID[r.country]?COUNTRY_BY_ID[r.country].name+", "+r.name:a.rname}
 function placeLong(id){var r=regionById(id);return r?COUNTRY_BY_ID[r.country].name+" · "+r.name:placeName(id)}
 // SS급은 나라 단위, 나머지는 세부 지역 단위로 같은 곳에 있어야 토벌할 수 있습니다
 function inPlace(a){return (a.r==="SS"&&!a.c)?a.region===curCountry:a.region===curRegion}
@@ -2028,6 +2040,7 @@ function renderChar(d){
   else{im.removeAttribute("src");im.hidden=true;no.hidden=false}
   $("ghn").textContent=d.hunterName||d.name||"";
   $("gnm").textContent=[d.name,d.age?d.age+"세":"",d.gender].filter(Boolean).join(" · ");
+  $("gcode").textContent=d.code?"내 코드 · "+d.code:"";
   var rk=$("grank");rk.textContent=d.rank||"-";rk.dataset.r=d.rank||"";
   myCode=d.code||d.hunterName||"me";renderTodo();renderRec();pinned=[];renderPins();bioDirty=false;bioSaved="";$("gbio").value="";
 }
@@ -2927,7 +2940,7 @@ function alItem(a,withBtn){
   var box=document.createElement("div"),t=document.createElement("p"),b=document.createElement("b"),s=document.createElement("p");
   t.className="al-t";b.textContent=a.mon;t.appendChild(b);t.appendChild(document.createTextNode(" 출몰 · "+a.r+"급"));
   if(isPinS(a)){var pb=document.createElement("span");pb.className="al-pin";pb.textContent="고정";t.appendChild(pb)}
-  s.className="al-s";s.textContent=a.rname+" · "+a.time+" · 난이도 "+(HUNT_DIFF[a.r]||"");
+  s.className="al-s";s.textContent=alPlace(a)+" · "+a.time+" · 난이도 "+(HUNT_DIFF[a.r]||"");
   box.appendChild(t);box.appendChild(s);li.appendChild(r);li.appendChild(box);
   if(a.done){li.classList.add("done");var dn=document.createElement("span");dn.className="al-gain";dn.textContent="토벌 완료";li.appendChild(dn)}
   else if(withBtn&&isActive(a)){var bt=document.createElement("button");bt.type="button";bt.className="al-go";bt._a=a;bt.setAttribute("aria-label",a.mon+" 토벌");bt.addEventListener("click",function(){huntAlert(a)});refreshBtn(bt);li.appendChild(bt)}
@@ -4834,7 +4847,7 @@ function loadGifts(scr){
   }).catch(function(){});
 }
 // ── 게이트웨이브 (헌터 전용 게시판: 글 올리기·삭제, 댓글) ──
-var gwmodal=$("gwmodal"),gwOpener=null,gwLast=0,gwPost=0;
+var gwmodal=$("gwmodal"),gwOpener=null,gwLast=0,gwPost=0,gwCat="";
 function gwPane(n){["gwlist","gwwrite","gwview"].forEach(function(id){$(id).hidden=id!==n});gwmodal.scrollTop=0;if(typeof gwaSetOpen==="function")gwaSetOpen(false);if(typeof gwSgClose==="function")gwSgClose()}
 /* ───── 게이트웨이브 알림: 새 글 / 내 글에 댓글 / 나에게 답글 / 나를 태그 (항목별 켜기·끄기, 모두 같은 소리) ───── */
 var gwSet=null,gwCur=null,gwnTimer=null,gwToastT=0;
@@ -4842,12 +4855,12 @@ function gwsKey(){return "hx_gwn_"+myCode}
 function gwcKey(){return "hx_gwc_"+myCode}
 function gwSettings(){
   if(gwSet)return gwSet;
-  gwSet={post:true,cmt:true,rep:true,men:true};
-  try{var v=JSON.parse(localStorage.getItem(gwsKey())||"null");if(v){gwSet.post=v.post!==false;gwSet.cmt=v.cmt!==false;gwSet.rep=v.rep!==false;gwSet.men=v.men!==false}}catch(e){}
+  gwSet={p0:true,p1:true,p2:true,cmt:true,rep:true,men:true};
+  try{var v=JSON.parse(localStorage.getItem(gwsKey())||"null");if(v){var op=v.post!==false;gwSet.p0=v.p0===undefined?op:v.p0!==false;gwSet.p1=v.p1===undefined?op:v.p1!==false;gwSet.p2=v.p2===undefined?op:v.p2!==false;gwSet.cmt=v.cmt!==false;gwSet.rep=v.rep!==false;gwSet.men=v.men!==false}}catch(e){}
   return gwSet;
 }
 function gwSaveSet(){try{localStorage.setItem(gwsKey(),JSON.stringify(gwSet))}catch(e){}}
-function gwAny(){var t=gwSettings();return t.post||t.cmt||t.rep||t.men}
+function gwAny(){var t=gwSettings();return t.p0||t.p1||t.p2||t.cmt||t.rep||t.men}
 // 소리: 기존 커뮤니티(높은 두 음)·시스템(낮은 세 음 하강)과 다른 '톡-톡-띠링' (같은 높이 두 번 + 높은 한 음, 사각파 섞은 짧은 소리)
 // 다른 알림음이 울리는 중이면 끝난 뒤에 이어서 냅니다.
 function gwPing(force){
@@ -4875,7 +4888,7 @@ function gwnPoll(){
     var first=!gwCur,t=gwSettings(),parts=[];
     gwCur=[r.maxPost,r.maxCmt,r.maxMen||0];try{localStorage.setItem(gwcKey(),gwCur.join(","))}catch(e){}
     if(first){gwaLoad(false);return}                  // 처음 켠 때는 지금까지의 것을 알리지 않고 기준만 잡습니다
-    if(t.post&&r.posts)parts.push("새 글 "+r.posts+"건");
+    GWC.forEach(function(c,i){if(t["p"+i]&&r.postsBy&&r.postsBy[c])parts.push(c+" 새 글 "+r.postsBy[c]+"건")});
     if(t.cmt&&r.comments)parts.push("내 글에 댓글 "+r.comments+"건");
     if(t.rep&&r.replies)parts.push("나에게 답글 "+r.replies+"건");
     if(t.men&&r.mentions)parts.push("나를 태그 "+r.mentions+"건");
@@ -4884,7 +4897,7 @@ function gwnPoll(){
   }).catch(function(){});
 }
 function gwnStart(){clearInterval(gwnTimer);gwnTimer=setInterval(function(){if(document.hidden)return;gwnPoll()},15000);setTimeout(gwnPoll,2500)}
-[["gwn-post","post"],["gwn-cmt","cmt"],["gwn-rep","rep"],["gwn-men","men"]].forEach(function(x){
+[["gwn-p0","p0"],["gwn-p1","p1"],["gwn-p2","p2"],["gwn-cmt","cmt"],["gwn-rep","rep"],["gwn-men","men"]].forEach(function(x){
   $(x[0]).addEventListener("change",function(){
     var t=gwSettings(),was=gwAny();t[x[1]]=this.checked;gwSaveSet();
     if(!was&&gwAny()){gwCur=null;try{localStorage.removeItem(gwcKey())}catch(e){}}     // 모두 꺼져 있다가 켜면 그동안 쌓인 알림은 울리지 않음
@@ -4892,17 +4905,19 @@ function gwnStart(){clearInterval(gwnTimer);gwnTimer=setInterval(function(){if(d
     gwaRender();
   });
 });
-function gwSyncSet(){var t=gwSettings();$("gwn-post").checked=t.post;$("gwn-cmt").checked=t.cmt;$("gwn-rep").checked=t.rep;$("gwn-men").checked=t.men}
+function gwSyncSet(){var t=gwSettings();$("gwn-p0").checked=t.p0;$("gwn-p1").checked=t.p1;$("gwn-p2").checked=t.p2;$("gwn-cmt").checked=t.cmt;$("gwn-rep").checked=t.rep;$("gwn-men").checked=t.men}
 $("gwn-test").addEventListener("click",function(){cmAudio();setTimeout(function(){gwPing(true)},60);$("gwsnote").textContent="이 소리가 모든 게이트웨이브 알림에 사용됩니다. (소리가 안 나면 기기 음량과 음소거를 확인해 주세요.)"});
 /* ───── 알림 벨 (UI #074): 목록·읽음 표시·설정 탭 ───── */
+var GWC=["구해요","정보","사담"];
 var GWA=[],gwaTab=0,gwaOpen=false,gwaKnown=null,gwaRm=window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 var GWA_ICON={post:"📝",cmt:"💬",rep:"↩",men:"＠"},GWA_TXT={post:"님이 새 글을 올렸어요",cmt:"님이 내 글에 댓글을 남겼어요",rep:"님이 내 댓글에 답했어요",men:"님이 나를 태그했어요"};
 function gwrKey(){return "hx_gwr_"+myCode}
 function gwaReadSet(){try{var v=JSON.parse(localStorage.getItem(gwrKey())||"null");if(Array.isArray(v))return v}catch(e){}return null}
 function gwaSaveRead(arr){try{localStorage.setItem(gwrKey(),JSON.stringify(arr.slice(-400)))}catch(e){}}
-function gwaKinds(){var t=gwSettings();return {post:t.post,cmt:t.cmt,rep:t.rep,men:t.men}}
+function gwaKinds(){var t=gwSettings();return {p0:t.p0,p1:t.p1,p2:t.p2,cmt:t.cmt,rep:t.rep,men:t.men}}
+function gwaOn(a,k){return a.kind==="post"?!!k["p"+Math.max(0,GWC.indexOf(a.cat))]:!!k[a.kind]}
 function gwaGrad(n){var h=0;for(var i=0;i<n.length;i++)h=(h*31+n.charCodeAt(i))%360;return "linear-gradient(140deg,hsl("+h+",62%,52%),hsl("+((h+50)%360)+",62%,40%))"}
-function gwaVisible(){var k=gwaKinds();return GWA.filter(function(a){return k[a.kind]})}
+function gwaVisible(){var k=gwaKinds();return GWA.filter(function(a){return gwaOn(a,k)})}
 function gwaCount(){
   var rs=gwaReadSet()||[],n=gwaVisible().filter(function(a){return rs.indexOf(a.key)<0}).length,badge=$("gwbadge"),prev=Number(badge.textContent)||0;
   badge.textContent=n>99?"99+":n;badge.classList.toggle("zero",!n);
@@ -4916,10 +4931,11 @@ function gwaItem(a,isRead,isNew){
   var row=li.querySelector(".u074-row");row.dataset.key=a.key;
   li.querySelector(".u074-av").style.setProperty("--g",gwaGrad(a.hn));li.querySelector("em").textContent=GWA_ICON[a.kind];
   li.querySelector("b").textContent=a.hn;
-  li.querySelector(".u074-tx>span").textContent=GWA_TXT[a.kind]+(a.text?": “"+a.text+"”":"");
+  var tx0=a.kind==="post"&&a.cat?"님이 "+a.cat+"에 새 글을 올렸어요":GWA_TXT[a.kind];
+  li.querySelector(".u074-tx>span").textContent=tx0+(a.text?": “"+a.text+"”":"");
   li.querySelector("small").textContent=cmAgo(a.ts);
   if(isRead)row.classList.add("read");
-  row.setAttribute("aria-label",a.hn+GWA_TXT[a.kind]+(a.text?": "+a.text:"")+(isRead?"":", 안 읽음"));
+  row.setAttribute("aria-label",a.hn+tx0+(a.text?": "+a.text:"")+(isRead?"":", 안 읽음"));
   row.addEventListener("click",function(){
     var rs=gwaReadSet()||[];if(rs.indexOf(a.key)<0){rs.push(a.key);gwaSaveRead(rs)}
     row.classList.add("read");gwaCount();gwaSetOpen(false);gwOpenPost(a.post);
@@ -4928,8 +4944,8 @@ function gwaItem(a,isRead,isNew){
 }
 function gwaRender(newKeys){
   var ul=$("gwalist");ul.innerHTML="";
-  var rs=gwaReadSet()||[],vis=gwaVisible().filter(function(a){return gwaTab!==1||a.kind==="men"});
-  if(!vis.length){var e=document.createElement("li");e.className="u074-empty";e.textContent=gwaTab===1?"나를 태그한 글이 아직 없어요.":"새 알림이 없어요.";ul.appendChild(e)}
+  var rs=gwaReadSet()||[],vis=gwaVisible().filter(function(a){return gwaTab!==1||a.kind==="men"||a.kind==="rep"});
+  if(!vis.length){var e=document.createElement("li");e.className="u074-empty";e.textContent=gwaTab===1?"나를 태그한 글이나 나에게 온 답장이 아직 없어요.":"새 알림이 없어요.";ul.appendChild(e)}
   var fresh=[];
   vis.forEach(function(a){var isNew=!!(newKeys&&newKeys.indexOf(a.key)>=0&&!gwaRm),li=gwaItem(a,rs.indexOf(a.key)>=0,isNew);ul.appendChild(li);if(isNew)fresh.push(li)});
   if(fresh.length){void ul.offsetWidth;fresh.forEach(function(li){li.classList.remove("new")})}
@@ -4945,7 +4961,7 @@ function gwaLoad(ring){
     if(rs===null){rs=GWA.map(function(a){return a.key});gwaSaveRead(rs)}
     var keys=GWA.map(function(a){return a.key}),fresh=gwaKnown?keys.filter(function(k){return gwaKnown.indexOf(k)<0}):[];
     gwaKnown=keys;
-    var k=gwaKinds(),shown=GWA.filter(function(a){return fresh.indexOf(a.key)>=0&&k[a.kind]});
+    var k=gwaKinds(),shown=GWA.filter(function(a){return fresh.indexOf(a.key)>=0&&gwaOn(a,k)});
     gwaRender(shown.map(function(a){return a.key}));
     if(ring&&shown.length){var b=$("gwbell");b.classList.remove("ring");void b.offsetWidth;b.classList.add("ring")}
   }).catch(function(){});
@@ -5028,9 +5044,10 @@ function gwRich(el,text,men){
 }
 gwnStart();
 
-function gwErr(r){return r.error==="rate_limited"?"잠시 후 다시 시도해주세요.":r.error==="bad_title"?"제목을 1~40자로 입력해주세요.":r.error==="bad_text"?"내용을 확인해주세요.":r.error==="not_found"?"글을 찾을 수 없습니다.":"처리하지 못했습니다."}
+function gwErr(r){return r.error==="rate_limited"?"잠시 후 다시 시도해주세요.":r.error==="bad_title"?"제목을 1~40자로 입력해주세요.":r.error==="bad_text"?"내용을 확인해주세요.":r.error==="bad_cat"?"카테고리를 선택해주세요.":r.error==="not_found"?"글을 찾을 수 없습니다.":"처리하지 못했습니다."}
 function gwMeta(p,at){
   var m=document.createDocumentFragment();
+  if(p.cat){var cb=document.createElement("span");cb.className="gwc";cb.textContent=p.cat;m.appendChild(cb)}
   if(p.rank){var t=document.createElement("span");t.className="gwr"+((p.rank==="S"||p.rank==="SS")?" s":"");t.textContent=p.rank+"급";m.appendChild(t)}
   var w=document.createElement("span");w.className="gww";w.textContent=p.hn;m.appendChild(w);
   var a=document.createElement("span");a.className="gwat";a.textContent=cmAgo(at);m.appendChild(a);
@@ -5038,9 +5055,9 @@ function gwMeta(p,at){
 }
 function gwLoad(reset){
   var ul=$("gwul");if(reset){gwLast=0;ul.innerHTML=""}
-  api("GET","/api/gw"+(gwLast?"?before="+gwLast:"")).then(function(r){
+  api("GET","/api/gw?cat="+encodeURIComponent(gwCat)+(gwLast?"&before="+gwLast:"")).then(function(r){
     if(r.error){if(reset){ul.innerHTML="";var e=document.createElement("li");e.className="gwempty";e.textContent="글을 불러오지 못했습니다.";ul.appendChild(e)}return}
-    if(reset&&!r.posts.length){var e2=document.createElement("li");e2.className="gwempty";e2.textContent="아직 올라온 글이 없습니다. 첫 글을 올려보세요.";ul.appendChild(e2)}
+    if(reset&&!r.posts.length){var e2=document.createElement("li");e2.className="gwempty";e2.textContent=gwCat?"이 카테고리에는 아직 올라온 글이 없습니다. 첫 글을 올려보세요.":"아직 올라온 글이 없습니다. 첫 글을 올려보세요.";ul.appendChild(e2)}
     r.posts.forEach(function(p){
       var li=document.createElement("li"),b=document.createElement("button");b.type="button";b.className="gwi";
       var m=document.createElement("p");m.className="gwm";m.appendChild(gwMeta(p,p.ts));
@@ -5119,7 +5136,15 @@ function closeGw(){gwmodal.hidden=true;document.body.style.overflow=(!rmodal.hid
 $("gwclose").addEventListener("click",closeGw);
 gwmodal.addEventListener("mousedown",function(e){if(e.target===gwmodal)closeGw()});
 $("gwmore").addEventListener("click",function(){gwLoad(false)});
-$("gwnew").addEventListener("click",function(){$("gwt").value="";$("gwb").value="";$("gwbcnt").textContent="0 / 1000";$("gwwnote").textContent="";gwPane("gwwrite");$("gwt").focus()});
+$("gwcats").addEventListener("click",function(e){
+  var b=e.target.closest("button[data-c]");if(!b)return;
+  gwCat=b.dataset.c;Array.prototype.forEach.call($("gwcats").querySelectorAll("button"),function(x){x.setAttribute("aria-pressed",String(x===b))});
+  gwLoad(true);
+});
+var gwWCat="사담";
+function gwSetWCat(c){gwWCat=c;Array.prototype.forEach.call($("gwcsel").querySelectorAll("button"),function(x){x.setAttribute("aria-pressed",String(x.dataset.c===c))})}
+$("gwcsel").addEventListener("click",function(e){var b=e.target.closest("button[data-c]");if(b)gwSetWCat(b.dataset.c)});
+$("gwnew").addEventListener("click",function(){gwSetWCat(gwCat||"사담");$("gwt").value="";$("gwb").value="";$("gwbcnt").textContent="0 / 1000";$("gwwnote").textContent="";gwPane("gwwrite");$("gwt").focus()});
 $("gwwback").addEventListener("click",function(){gwPane("gwlist")});
 $("gwvback").addEventListener("click",function(){gwPane("gwlist");gwLoad(true)});
 $("gwb").addEventListener("input",function(){$("gwbcnt").textContent=Array.from(this.value).length+" / 1000"});
@@ -5128,7 +5153,7 @@ $("gwform").addEventListener("submit",function(e){
   if(!t){n.textContent="제목을 입력해주세요.";return}
   if(!b){n.textContent="내용을 입력해주세요.";return}
   btn.disabled=true;n.textContent="";
-  api("POST","/api/gw/post",{title:t,text:b}).then(function(r){
+  api("POST","/api/gw/post",{title:t,text:b,cat:gwWCat}).then(function(r){
     btn.disabled=false;
     if(r.error){n.textContent=gwErr(r);return}
     gwOpenPost(r.id);
