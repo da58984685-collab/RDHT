@@ -417,6 +417,8 @@ const MIGRATIONS = [
   "UPDATE users SET img_ver = 1 WHERE img_ver = 0 AND image <> ''",
   'ALTER TABLE gw_comments ADD COLUMN parent_id INTEGER NOT NULL DEFAULT 0',
   'ALTER TABLE gw_comments ADD COLUMN reply_to INTEGER NOT NULL DEFAULT 0',
+  // 게이트웨이브 글 카테고리 (구해요 / 정보 / 사담). 이전에 쓴 글은 사담으로 봅니다.
+  "ALTER TABLE gw_posts ADD COLUMN cat TEXT NOT NULL DEFAULT '사담'",
   // 관리자 전용 캐릭터(문의함 열람 가능) / 문의 답변 읽음 표시
   'ALTER TABLE users ADD COLUMN admin_char INTEGER NOT NULL DEFAULT 0',
   'ALTER TABLE users ADD COLUMN inq_read INTEGER NOT NULL DEFAULT 0',
