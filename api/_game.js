@@ -398,18 +398,6 @@ const GATE_MATS = [
   { name: '적월의 핵', desc: '적월의 심장 한가운데 박혀 있던 핵.', tier: 'l', zone: 4 },
 ];
 
-// ── 오염 거래(계약): 오염도를 대가로 보상을 받습니다. 하루에 계약마다 한 번. ──
-const PACTS = [
-  { id: 'p_gold1', name: '그림자 상인의 흥정', desc: '어둠 속 상인이 금화를 내미는 대신 몸 안의 탁기를 거래한다.', taint: 6, gold: 400 },
-  { id: 'p_fame', name: '명예 매매', desc: '누군가의 명성을 사 오는 대가로 오염이 쌓인다.', taint: 8, fame: 4 },
-  { id: 'p_exp', name: '피의 서약', desc: '핏빛 서약서에 이름을 쓰면 경험이 몸에 스며든다.', taint: 10, exp: 150 },
-  { id: 'p_str', name: '부패한 부적', desc: '썩은 부적을 몸에 지니면 힘이 솟는다.', taint: 12, stat: 'str', amt: 2 },
-  { id: 'p_agi', name: '그림자 걸음', desc: '그림자가 발끝을 끌어 걸음이 가벼워진다.', taint: 12, stat: 'agi', amt: 2 },
-  { id: 'p_luck', name: '심연의 속삭임', desc: '귓가의 속삭임을 따르면 운이 트인다.', taint: 12, stat: 'luck', amt: 2 },
-  { id: 'p_mat', name: '금단의 재료상', desc: '금지된 거래로 적월석 가루를 넘겨받는다.', taint: 15, item: '적월석 가루', qty: 2 },
-  { id: 'p_gold2', name: '악마의 지갑', desc: '끝없이 금화가 쏟아지는 지갑. 그만큼 깊이 오염된다.', taint: 20, gold: 1500 },
-];
-const PACT_BACKLASH = 0.2, PACT_BACKLASH_TAINT = 5;     // 계약의 반동: 20% 확률로 오염도가 추가로 5 더 오름
 // ── 도시 괴담: 소문이 돌고, 믿는 사람이 모이면 진실 여부가 가려집니다. ──
 const RUMOR_NEED = 3, RUMOR_OPEN_MS = 6 * HOUR, RUMOR_GAP_MS = 90 * MIN, RUMOR_MAX_OPEN = 2;
 const RUMOR_TPL = [
@@ -537,7 +525,7 @@ const isTurnBased = (monRank, hunterRank) => monRank !== 'SS' && RANK_IDX[monRan
 
 module.exports = {
   BT, btMon, btPlayer, isTurnBased, taintStage, TAINT_SHOP_PCT, TAINT_BAN_DANGER, taintPrice, TAINT_LOSE_GOLD_MUL, HUNTER_CHANCE, HUNTER_LV_MAX, hunterScale, RARE_CHANCE, SPECIAL_MON,
-  SV_MARKS, MATERIALS, GATE_MATS, GATE_ZONES, EQ_GRADE, EQ_SLOTS, EQUIPS, PACTS, PACT_BACKLASH, PACT_BACKLASH_TAINT, RUMOR_NEED, RUMOR_OPEN_MS, RUMOR_GAP_MS, RUMOR_MAX_OPEN, RUMOR_TPL, RUMOR_REWARD, RECIPES, CRAFT_DEFS,
+  SV_MARKS, MATERIALS, GATE_MATS, GATE_ZONES, EQ_GRADE, EQ_SLOTS, EQUIPS, RUMOR_NEED, RUMOR_OPEN_MS, RUMOR_GAP_MS, RUMOR_MAX_OPEN, RUMOR_TPL, RUMOR_REWARD, RECIPES, CRAFT_DEFS,
   STAT_MAX, STAT_RESET_BASE, STAT_RESET_PER, statResetCost, FAME_MAX, rnd, chance01, SPAWN_COUNTRIES, SPAWN_REGIONS, REGIONS, REGION_BY_ID, COUNTRIES, COUNTRY_BY_ID, countryOf, placeName, placeLong, MON, TIERS, ACTIVE_MS, ACTIVE_MS_F, ACTIVE_MS_S, activeMsOf, FAME_PER_LV, FAME_PER_RANK, KILL_EXP, KILL_GOLD, KILL_TAINT, rollTaint, garble, RANK_IDX, ACH_KINDS, ACH_COMPOUND, ACH_NUM, ACH_SEED, ACH_SEED2, ACH_SEED3, PROMO, ACH_PIN_MAX, rollGold, HUNT_DIFF,
   RAID_NEED, RAID_ATTEMPTS, S_MAX, S_WINDOW_MS, S_WAIT_MS, powNeed, cdOf, huntChance,
   rollRank, rollStats, PROB_CAP, STR_WIN, guardChance, freeChance, HP_START, HP_MIN, HP_DYING_MS, HP_REVIVE, hpLoss, makeCode, addExp, MIN, HOUR,
