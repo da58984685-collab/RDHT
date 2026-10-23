@@ -925,6 +925,7 @@ body{overflow-x:clip}      /* 어떤 요소가 넘쳐도 화면 전체가 가로
           </div>
           <div class="imgrow"><button type="button" class="hud-btn" id="gimgbtn">이미지 변경</button><button type="button" class="hud-btn" id="gimgrm">이미지 삭제</button><input type="file" id="gimgfile" accept="image/*" hidden></div>
           <p class="pwnote" id="gimgmsg" role="status"></p>
+          <button type="button" class="blkbtn" id="gtraitbtn">특징 수정</button>
           <label class="privrow"><input type="checkbox" id="gpriv"><span>비공개 유저</span></label>
           <div class="bioBox"><p class="lbl">프로필 소개글</p><textarea id="gbio" maxlength="200" rows="3" placeholder="친구 프로필에 보일 소개글을 적어보세요. (최대 200자)" aria-label="프로필 소개글"></textarea>
             <div class="bio-r"><small id="gbiomsg" role="status">친구에게 보입니다.</small><button type="button" id="gbiosave">저장</button></div></div>
@@ -1190,6 +1191,21 @@ body{overflow-x:clip}      /* 어떤 요소가 넘쳐도 화면 전체가 가로
 .gwi:hover{border-color:var(--red2)}
 .gwi:focus-visible{outline:2px solid var(--red2);outline-offset:2px}
 .gwm{display:flex;align-items:center;gap:8px;margin:0 0 6px;font-size:.74rem;color:var(--deep)}
+.fp-more,.blkbtn{display:block;width:100%;margin:10px 0 0;min-height:44px;padding:0 14px;font:500 .88rem/1 "Noto Sans KR",sans-serif;color:var(--text);background:var(--field);border:1px solid var(--line);border-radius:10px;cursor:pointer;flex:none}
+.fp-more:hover:not(:disabled),.blkbtn:hover{border-color:var(--red2)}
+.fp-more:disabled{opacity:.5;cursor:default}
+.modal.trm{z-index:40}.modal.gpf{z-index:35}
+.modal.gpf .dialog{padding-top:46px}.modal.gpf .x{z-index:5}
+.trv{list-style:none;margin:12px 0 0;padding:0;display:grid;gap:8px}
+.trv li{padding:10px 12px;background:var(--field);border:1px solid var(--line);border-radius:10px;font-size:.9rem;line-height:1.5;word-break:break-word}
+.trv li.mute{color:var(--sub);text-align:center}
+.tri{display:grid;gap:8px;margin:12px 0 0}
+.tri .tr1{display:flex;align-items:center;gap:8px}
+.tri input{flex:1;min-width:0;min-height:44px;padding:0 12px;color:var(--text);background:var(--field);border:1px solid var(--line);border-radius:8px;font:inherit;font-size:.9rem}
+.tri small{flex:none;width:52px;text-align:right;color:var(--sub);font-size:.72rem}
+.gpf-bd{position:relative;height:min(72vh,480px);margin-top:6px;overflow:hidden}
+.gwlink{background:none;border:0;padding:0;margin:0;font:inherit;color:inherit;cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px}
+.gwlink:hover{color:var(--deep)}
 .gwcats{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 4px}
 .gwcats .hud-btn{min-height:38px;padding:0 12px}
 .gwcats .hud-btn[aria-pressed=true]{border-color:var(--red2);color:var(--deep);background:var(--bar1)}
@@ -1197,6 +1213,8 @@ body{overflow-x:clip}      /* 어떤 요소가 넘쳐도 화면 전체가 가로
 .gwcsel{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 6px}
 .gwm .gwr{padding:2px 8px;border:1px solid var(--line);border-radius:999px;font-size:.7rem;color:var(--text)}
 .gwm .gwr.s{border-color:var(--red);color:#ff8a93}
+.gwav{flex:none;width:22px;height:22px;padding:0;border:0;border-radius:50%;overflow:hidden;display:inline-flex;align-items:center;justify-content:center;font:600 .68rem/1 "Noto Sans KR",sans-serif;color:#fff;cursor:pointer;background:#444}
+.gwav img{width:100%;height:100%;object-fit:cover;display:block}
 .gwm .gww{font-family:"Share Tech Mono","Noto Sans KR",monospace}
 .gwm .gwat{margin-left:auto}
 .gwi h3,.gwv h3{margin:0 0 6px;font-size:.98rem;line-height:1.45;word-break:keep-all;overflow-wrap:anywhere}
@@ -1565,6 +1583,24 @@ body{overflow-x:clip}      /* 어떤 요소가 넘쳐도 화면 전체가 가로
   </div>
   <p class="btl-res" id="btlres" hidden></p><button type="button" class="primary" id="btlok" hidden>확인</button>
 </div></div>
+<div class="modal gpf" id="gpfmodal" hidden>
+  <div class="dialog" role="dialog" aria-modal="true" aria-label="간단 프로필">
+    <button type="button" class="x" id="gpfclose" aria-label="닫기"><svg class="ic"><use href="#i-x"/></svg></button>
+    <div class="gpf-bd" id="gpfbd" aria-live="polite"></div>
+  </div>
+</div>
+<div class="modal trm" id="trmodal" hidden>
+  <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="trtitle">
+    <button type="button" class="x" id="trclose" aria-label="닫기"><svg class="ic"><use href="#i-x"/></svg></button>
+    <h2 id="trtitle" style="margin:0;font-size:1.05rem"></h2>
+    <ul class="trv" id="trview"></ul>
+    <div id="tredit">
+      <div class="tri" id="trinputs"></div>
+      <p class="gwnote" id="trnote" role="status"></p>
+      <div class="gwrow"><button type="button" class="hud-btn" id="trsave">저장</button></div>
+    </div>
+  </div>
+</div>
 <div class="bigapp" id="bigapp" hidden role="dialog" aria-modal="true" aria-label="기기 앱"><div class="big-p"><div class="ph-scr" id="bigbody"></div><div class="ph-nav" role="navigation" aria-label="기기 하단 버튼"><button type="button" class="nv nv-rec" aria-label="최근 앱 (작동하지 않음)" aria-disabled="true" tabindex="-1"><svg viewBox="0 0 16 14" aria-hidden="true"><path d="M2 1h2v12H2zM7 1h2v12H7zM12 1h2v12h-2z"/></svg></button><button type="button" class="nv nv-home" aria-label="홈 (작동하지 않음)" aria-disabled="true" tabindex="-1"><svg viewBox="0 0 16 16" aria-hidden="true"><rect x="2" y="2" width="12" height="12" rx="4" fill="none" stroke="currentColor" stroke-width="2"/></svg></button><button type="button" class="nv nv-back" aria-label="뒤로가기"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M10 2 4 8l6 6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="square"/></svg></button></div></div></div>
 <script>
 (function(){
@@ -1657,6 +1693,29 @@ function setImage(u){
   else{prev.removeAttribute("src");prev.hidden=true;ph.hidden=false;rm.hidden=true}
 }
 function bytes(d){return Math.floor((d.length-d.indexOf(",")-1)*3/4)}
+// 게이트웨이브 닉네임 옆에 쓰는 작은 프로필 사진 (64px · 수 KB). 큰 원본 대신 이것만 내려받아 목록이 가볍습니다.
+function thumbOf(src){return new Promise(function(res){
+  if(!src){res("");return}
+  var im=new Image();
+  im.onload=function(){try{
+    var s=Math.min(im.naturalWidth,im.naturalHeight),c=document.createElement("canvas");c.width=c.height=64;
+    var x=c.getContext("2d");x.fillStyle="#fff";x.fillRect(0,0,64,64);x.drawImage(im,(im.naturalWidth-s)/2,(im.naturalHeight-s)/2,s,s,0,0,64,64);
+    var q=.72,d=c.toDataURL("image/jpeg",q);while(d.length>12000&&q>.3){q-=.1;d=c.toDataURL("image/jpeg",q)}
+    res(d.length<=12000?d:"");
+  }catch(e){res("")}};
+  im.onerror=function(){res("")};im.src=src;
+})}
+var thbTried={};
+function thumbBackfill(url){      // 예전에 올린 사진에 작은 사진이 없으면 이 기기에서 한 번 만들어 올립니다
+  var m=/[?&]v=(\d+)/.exec(url||"");if(!m)return;
+  var ver=m[1],key="hx_thb_"+myCode+"_"+ver;
+  if(thbTried[ver])return;thbTried[ver]=1;
+  try{if(localStorage.getItem(key))return}catch(e){}
+  thumbOf(url).then(function(th){
+    if(!th)return;
+    api("POST","/api/me/thumb",{thumb:th,ver:Number(ver)}).then(function(r){if(r&&r.ok){try{localStorage.setItem(key,"1")}catch(e){}}});
+  });
+}
 function toSquare(img){
   var s=Math.min(img.naturalWidth,img.naturalHeight),sx=(img.naturalWidth-s)/2,sy=(img.naturalHeight-s)/2,o=Math.min(IMG_PX,s);
   var c=document.createElement("canvas");c.width=c.height=o;
@@ -1747,7 +1806,7 @@ $("f").addEventListener("submit",function(e){
   var pv=pw.value;
   if(!pv||!pwOk(pv)){pw.focus();return show("비밀번호는 영문, 숫자, 특수문자를 모두 포함해 8자 이상이어야 해요.","err")}
   busy=true;show("가입 중이에요…","ok");
-  api("POST","/api/signup",{invite:inv,name:name,gender:gender,age:age,hunterName:hn,personality:pers,traits:traits,image:image,password:pv}).then(function(r){
+  thumbOf(image).then(function(th){return api("POST","/api/signup",{invite:inv,name:name,gender:gender,age:age,hunterName:hn,personality:pers,traits:traits,image:image,thumb:th,password:pv})}).then(function(r){
     busy=false;
     if(r._status===201){
       rank=r.rank;hname=r.hunterName;pw.value="";updPw();dirty=false;created=true;
@@ -1882,7 +1941,7 @@ function isActive(a){return !a.done&&nowS()-a.ts<(a.c?1800000:activeMs(a.r))}
 function regionById(id){for(var i=0;i<REGIONS.length;i++)if(REGIONS[i].id===id)return REGIONS[i]}
 
 // ── 캐릭터 창: BGM · 할 일 · 오늘의 추천 ──
-var myCode="me";
+var myCode="me",myTraits=[];
 function hashStr(t){var h=2166136261;for(var i=0;i<t.length;i++){h^=t.charCodeAt(i);h=Math.imul(h,16777619)}return h>>>0}
 var TODO_MAX=20;
 function todoKey(){return "hx_todo_"+myCode}
@@ -2013,7 +2072,7 @@ var gImgBusy=false;
 function gImgSay(t,err){var m=$("gimgmsg");m.textContent=t;m.className="pwnote"+(err?" err":"")}
 function gImgSave(data,okMsg){
   if(gImgBusy)return;gImgBusy=true;$("gimgbtn").disabled=$("gimgrm").disabled=true;gImgSay("저장 중…");
-  api("POST","/api/me/image",{image:data}).then(function(r){
+  thumbOf(data).then(function(th){return api("POST","/api/me/image",{image:data,thumb:th})}).then(function(r){
     gImgBusy=false;$("gimgbtn").disabled=$("gimgrm").disabled=false;
     if(r.ok){var im=$("gimg"),no=$("gnoimg");if(data){im.src=data;im.hidden=false;no.hidden=true}else{im.removeAttribute("src");im.hidden=true;no.hidden=false}gImgSay(okMsg)}
     else gImgSay(r.error==="rate_limited"?"너무 자주 바꾸고 있어요. 잠시 후 다시 시도해주세요.":"이미지를 저장하지 못했어요.",true);
@@ -2041,6 +2100,8 @@ function renderChar(d){
   $("ghn").textContent=d.hunterName||d.name||"";
   $("gnm").textContent=[d.name,d.age?d.age+"세":"",d.gender].filter(Boolean).join(" · ");
   $("gcode").textContent=d.code?"내 코드 · "+d.code:"";
+  myTraits=Array.isArray(d.traits)?d.traits.slice(0,5):[];
+  thumbBackfill(d.image);
   var rk=$("grank");rk.textContent=d.rank||"-";rk.dataset.r=d.rank||"";
   myCode=d.code||d.hunterName||"me";renderTodo();renderRec();pinned=[];renderPins();bioDirty=false;bioSaved="";$("gbio").value="";
 }
@@ -3412,12 +3473,14 @@ function pBuild(f,d){
   var ab=row("대표 업적","fp-ac");
   if(!d){lb.textContent="불러오는 중…";lb.className="mute";ab.textContent="불러오는 중…";ab.className="mute"}
   else{
-    lb.textContent=d.region||"알 수 없음";
-    if(d.ach){ab.textContent=d.ach.name;var em=document.createElement("em");em.textContent=(d.ach.desc?d.ach.desc+" · ":"")+new Date(d.ach.at).toLocaleDateString("ko-KR");ab.parentNode.appendChild(em)}
+    if(d.region===null)lb.parentNode.remove();else lb.textContent=d.region||"알 수 없음";
+    if(d.priv){ab.parentNode.remove()}
+    else if(d.ach){ab.textContent=d.ach.name;var em=document.createElement("em");em.textContent=(d.ach.desc?d.ach.desc+" · ":"")+new Date(d.ach.at).toLocaleDateString("ko-KR");ab.parentNode.appendChild(em)}
     else{ab.textContent="아직 획득한 업적이 없습니다.";ab.className="mute";ab.parentNode.className=""}
   }
   var bio=document.createElement("p");bio.className="fp-bio";
   if(!d){bio.className+=" mute";bio.textContent="불러오는 중…"}
+  else if(d.priv){bio.className+=" mute";bio.textContent="비공개 유저입니다."}
   else if(d.bio)bio.textContent=d.bio;
   else{bio.className+=" mute";bio.textContent="소개글이 없습니다."}
   if(d&&d.pins&&d.pins.length){
@@ -3425,6 +3488,9 @@ function pBuild(f,d){
     d.pins.forEach(function(n){var sp=document.createElement("span");sp.textContent=n;pw.appendChild(sp)});
     pr.appendChild(ps);pr.appendChild(pw);kv.appendChild(pr);
   }
+  var mb=document.createElement("button");mb.type="button";mb.className="fp-more";mb.textContent="더보기";
+  if(!d||d.priv)mb.disabled=true;
+  mb.addEventListener("click",function(){trOpen("view",((d&&d.hn)||f.hn)+"의 특징",d&&d.traits,mb)});
   var warnEl=null;
   if(d&&d.corrupt){
     var wn=document.createElement("div");wn.className="fp-warn";
@@ -3440,7 +3506,7 @@ function pBuild(f,d){
     });
     wn.appendChild(wt);wn.appendChild(rb2);warnEl=wn;
   }
-  pg.appendChild(im);pg.appendChild(h);pg.appendChild(c);pg.appendChild(bio);if(warnEl)pg.appendChild(warnEl);pg.appendChild(kv);
+  pg.appendChild(im);pg.appendChild(h);if(f.code)pg.appendChild(c);pg.appendChild(bio);pg.appendChild(mb);if(warnEl)pg.appendChild(warnEl);pg.appendChild(kv);
   return pg;
 }
 function showP(code,dir){
@@ -4847,6 +4913,73 @@ function loadGifts(scr){
   }).catch(function(){});
 }
 // ── 게이트웨이브 (헌터 전용 게시판: 글 올리기·삭제, 댓글) ──
+/* ───── 특징 팝업 (내 특징 수정 / 다른 헌터 특징 보기) + 게이트웨이브 간단 프로필 ───── */
+var trOpener=null,trPrevOv="",trMode="view";
+(function(){
+  var box=$("trinputs");
+  for(var i=0;i<5;i++){
+    var row=document.createElement("div");row.className="tr1";
+    var inp=document.createElement("input");inp.type="text";inp.maxLength=50;inp.autocomplete="off";inp.setAttribute("aria-label","특징 "+(i+1));inp.placeholder="특징 "+(i+1);
+    var c=document.createElement("small");c.textContent="0 / 50";
+    inp.addEventListener("input",(function(inp,c){return function(){c.textContent=Array.from(inp.value).length+" / 50"}})(inp,c));
+    row.appendChild(inp);row.appendChild(c);box.appendChild(row);
+  }
+})();
+function trOpen(mode,title,list,opener){
+  trMode=mode;trOpener=opener||document.activeElement;
+  $("trtitle").textContent=title;$("trnote").textContent="";
+  $("trview").hidden=mode!=="view";$("tredit").hidden=mode!=="edit";
+  if(mode==="view"){
+    var ul=$("trview");ul.innerHTML="";
+    (list||[]).forEach(function(t){var li=document.createElement("li");li.textContent=t;ul.appendChild(li)});
+    if(!ul.children.length){var e=document.createElement("li");e.className="mute";e.textContent="작성된 특징이 없습니다.";ul.appendChild(e)}
+  }else{
+    Array.prototype.forEach.call($("trinputs").querySelectorAll(".tr1"),function(r,i){var inp=r.querySelector("input");inp.value=(list&&list[i])||"";r.querySelector("small").textContent=Array.from(inp.value).length+" / 50"});
+  }
+  if($("trmodal").hidden){trPrevOv=document.body.style.overflow;document.body.style.overflow="hidden"}
+  $("trmodal").hidden=false;$("trsave").disabled=false;
+  setTimeout(function(){(mode==="edit"?$("trinputs").querySelector("input"):$("trclose")).focus()},30);
+}
+function trClose(){
+  if($("trmodal").hidden)return;
+  $("trmodal").hidden=true;document.body.style.overflow=trPrevOv;
+  if(trOpener&&trOpener.focus&&document.body.contains(trOpener))trOpener.focus();
+}
+$("trclose").addEventListener("click",trClose);
+$("trmodal").addEventListener("mousedown",function(e){if(e.target===this)trClose()});
+$("trmodal").addEventListener("keydown",function(e){if(e.key==="Escape"){e.stopPropagation();trClose()}});
+$("gtraitbtn").addEventListener("click",function(){trOpen("edit","내 특징 수정 (최대 5개 · 칸당 50자)",myTraits,this)});
+$("trsave").addEventListener("click",function(){
+  var btn=this,list=Array.prototype.map.call($("trinputs").querySelectorAll("input"),function(i){return i.value.trim()}).filter(Boolean);
+  btn.disabled=true;$("trnote").textContent="저장 중…";
+  api("POST","/api/me/traits",{traits:list}).then(function(r){
+    btn.disabled=false;
+    if(r._status===401){leaveGame("로그인이 만료되었어요. 다시 로그인해주세요.");return}
+    if(r.ok){myTraits=r.traits;$("trnote").textContent="저장했습니다. 친구와 다른 헌터가 간단 프로필의 더보기에서 볼 수 있어요."}
+    else $("trnote").textContent=r.error==="bad_traits"?"특징은 최대 5개, 칸당 50자까지 쓸 수 있어요.":r.error==="rate_limited"?"잠시 후 다시 시도해주세요.":"저장하지 못했어요. 잠시 후 다시 시도해주세요.";
+  }).catch(function(){btn.disabled=false;$("trnote").textContent="저장하지 못했어요. 잠시 후 다시 시도해주세요."});
+});
+var gpfOpener=null,gpfPrevOv="";
+function gpfClose(){
+  if($("gpfmodal").hidden)return;
+  $("gpfmodal").hidden=true;document.body.style.overflow=gpfPrevOv;
+  if(gpfOpener&&gpfOpener.focus&&document.body.contains(gpfOpener))gpfOpener.focus();
+}
+function gwProfile(ref,opener){
+  gpfOpener=opener||document.activeElement;
+  var bd=$("gpfbd");bd.innerHTML="";
+  if($("gpfmodal").hidden){gpfPrevOv=document.body.style.overflow;document.body.style.overflow="hidden"}
+  $("gpfmodal").hidden=false;
+  var pg0=pBuild({hn:"불러오는 중…",code:"",rank:""},null);bd.appendChild(pg0);
+  setTimeout(function(){$("gpfclose").focus()},30);
+  api("GET","/api/gw/profile?"+(ref.comment?"comment="+ref.comment:"post="+ref.post)).then(function(r){
+    if(!r.profile){bd.innerHTML="";var p=document.createElement("p");p.className="fp-bio mute";p.style.margin="40px 0";p.textContent=r._status===429?"잠시 후 다시 시도해주세요.":"프로필을 불러오지 못했습니다.";bd.appendChild(p);return}
+    var d=r.profile;bd.innerHTML="";bd.appendChild(pBuild({hn:d.hn,code:"",rank:d.rank},d));
+  }).catch(function(){});
+}
+$("gpfclose").addEventListener("click",gpfClose);
+$("gpfmodal").addEventListener("mousedown",function(e){if(e.target===this)gpfClose()});
+$("gpfmodal").addEventListener("keydown",function(e){if(e.key==="Escape"&&$("trmodal").hidden){e.stopPropagation();gpfClose()}});
 var gwmodal=$("gwmodal"),gwOpener=null,gwLast=0,gwPost=0,gwCat="";
 function gwPane(n){["gwlist","gwwrite","gwview"].forEach(function(id){$(id).hidden=id!==n});gwmodal.scrollTop=0;if(typeof gwaSetOpen==="function")gwaSetOpen(false);if(typeof gwSgClose==="function")gwSgClose()}
 /* ───── 게이트웨이브 알림: 새 글 / 내 글에 댓글 / 나에게 답글 / 나를 태그 (항목별 켜기·끄기, 모두 같은 소리) ───── */
@@ -5045,11 +5178,26 @@ function gwRich(el,text,men){
 gwnStart();
 
 function gwErr(r){return r.error==="rate_limited"?"잠시 후 다시 시도해주세요.":r.error==="bad_title"?"제목을 1~40자로 입력해주세요.":r.error==="bad_text"?"내용을 확인해주세요.":r.error==="bad_cat"?"카테고리를 선택해주세요.":r.error==="not_found"?"글을 찾을 수 없습니다.":"처리하지 못했습니다."}
-function gwMeta(p,at){
+function gwMeta(p,at,ref,inBtn){
   var m=document.createDocumentFragment();
   if(p.cat){var cb=document.createElement("span");cb.className="gwc";cb.textContent=p.cat;m.appendChild(cb)}
   if(p.rank){var t=document.createElement("span");t.className="gwr"+((p.rank==="S"||p.rank==="SS")?" s":"");t.textContent=p.rank+"급";m.appendChild(t)}
-  var w=document.createElement("span");w.className="gww";w.textContent=p.hn;m.appendChild(w);
+  var linkable=ref&&p.hn&&p.hn!=="(탈퇴한 헌터)";
+  function wire(el){
+    if(!linkable)return;
+    if(!inBtn)el.type="button";else el.title="누르면 간단 프로필";
+    el.setAttribute("aria-label",p.hn+" 간단 프로필 보기");
+    el.addEventListener("click",function(e){e.stopPropagation();e.preventDefault();gwProfile(ref,el)});
+  }
+  // 닉네임 옆 작은 프로필 사진 (사진이 없으면 이니셜). 사진도 누르면 간단 프로필이 뜹니다.
+  var av=document.createElement(linkable&&!inBtn?"button":"span");av.className="gwav";av.style.background=gwaGrad(p.hn||"?");
+  var ini=function(){av.textContent=Array.from(p.hn||"?")[0]||"?"};
+  if(p.av){var ai=document.createElement("img");ai.alt="";ai.width=22;ai.height=22;ai.loading="lazy";ai.decoding="async";ai.src=p.av;ai.addEventListener("error",function(){if(ai.parentNode)ai.remove();ini()});av.appendChild(ai)}else ini();
+  if(!linkable)av.style.cursor="default";
+  wire(av);m.appendChild(av);
+  var w=document.createElement(linkable&&!inBtn?"button":"span");w.className="gww"+(linkable?" gwlink":"");w.textContent=p.hn;
+  wire(w);
+  m.appendChild(w);
   var a=document.createElement("span");a.className="gwat";a.textContent=cmAgo(at);m.appendChild(a);
   return m;
 }
@@ -5060,7 +5208,7 @@ function gwLoad(reset){
     if(reset&&!r.posts.length){var e2=document.createElement("li");e2.className="gwempty";e2.textContent=gwCat?"이 카테고리에는 아직 올라온 글이 없습니다. 첫 글을 올려보세요.":"아직 올라온 글이 없습니다. 첫 글을 올려보세요.";ul.appendChild(e2)}
     r.posts.forEach(function(p){
       var li=document.createElement("li"),b=document.createElement("button");b.type="button";b.className="gwi";
-      var m=document.createElement("p");m.className="gwm";m.appendChild(gwMeta(p,p.ts));
+      var m=document.createElement("p");m.className="gwm";m.appendChild(gwMeta(p,p.ts,{post:p.id},true));
       var h=document.createElement("h3");h.textContent=p.title;
       var pv=document.createElement("p");pv.textContent=p.preview;
       var cc=document.createElement("span");cc.className="gwcc";cc.textContent="댓글 "+p.cc;
@@ -5081,14 +5229,14 @@ function gwOpenPost(id,keepScroll){
   gwPost=id;gwPane("gwview");$("gwvnote").textContent="";
   api("GET","/api/gw/post?id="+id).then(function(r){
     if(r.error){$("gwvnote").textContent=gwErr(r);return}
-    var p=r.post,mt=$("gwvmeta");mt.innerHTML="";mt.appendChild(gwMeta(p,p.ts));
+    var p=r.post,mt=$("gwvmeta");mt.innerHTML="";mt.appendChild(gwMeta(p,p.ts,{post:p.id}));
     $("gwvtitle").textContent=p.title;gwRich($("gwvbody"),p.body,p.men);
     var d=$("gwdel");d.hidden=!p.canDel;d.dataset.arm="0";d.textContent="삭제";
     $("gwch").textContent="댓글 "+r.comments.length;
     var ul=$("gwcs");ul.innerHTML="";gwReply(null);
     function addC(c,isRe){
       var li=document.createElement("li");li.className=(c.mine?"me":"")+(isRe?" re":"");
-      var m=document.createElement("p");m.className="gwm";m.appendChild(gwMeta(c,c.ts));
+      var m=document.createElement("p");m.className="gwm";m.appendChild(gwMeta(c,c.ts,{comment:c.id}));
       var t=document.createElement("span");
       if(isRe&&c.toHn){var to=document.createElement("b");to.className="gwto";to.textContent="@"+c.toHn;t.appendChild(to)}
       var ct=document.createElement("span");gwRich(ct,c.text,c.men);t.appendChild(ct);
