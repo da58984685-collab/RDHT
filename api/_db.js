@@ -419,6 +419,8 @@ const MIGRATIONS = [
   'ALTER TABLE gw_comments ADD COLUMN reply_to INTEGER NOT NULL DEFAULT 0',
   // 게이트웨이브 글 카테고리 (구해요 / 정보 / 사담). 이전에 쓴 글은 사담으로 봅니다.
   "ALTER TABLE gw_posts ADD COLUMN cat TEXT NOT NULL DEFAULT '사담'",
+  // 게이트웨이브 닉네임 옆에 쓰는 작은 프로필 사진(64px 안팎, 수 KB). 큰 원본(image)과 따로 둬서 목록이 가볍습니다. 비어 있으면 이니셜 아이콘을 보여줍니다.
+  "ALTER TABLE users ADD COLUMN thumb TEXT NOT NULL DEFAULT ''",
   // 관리자 전용 캐릭터(문의함 열람 가능) / 문의 답변 읽음 표시
   'ALTER TABLE users ADD COLUMN admin_char INTEGER NOT NULL DEFAULT 0',
   'ALTER TABLE users ADD COLUMN inq_read INTEGER NOT NULL DEFAULT 0',
