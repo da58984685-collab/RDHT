@@ -804,7 +804,7 @@ async function userSel(prefix, withPw) {
   if (!_userCols) {
     const r = await db.get('SELECT * FROM users ORDER BY COALESCE(LENGTH(image), 0) LIMIT 1');      // 사진이 가장 작은 헌터 한 명 (열 이름만 필요하므로 큰 사진을 읽지 않도록)
     if (!r) return (prefix || '') + '*';           // 아직 가입자가 없을 때
-    _userCols = Object.keys(r).filter(k => k !== 'image' && k !== 'personality' && k !== 'traits');      // 긴 글(성격·특징)과 이미지는 필요할 때만 따로 읽습니다
+    _userCols = Object.keys(r).filter(k => k !== 'image' && k !== 'thumb' && k !== 'personality' && k !== 'traits');      // 긴 글(성격·특징)과 이미지는 필요할 때만 따로 읽습니다
   }
   // 비밀번호 해시는 로그인할 때만 필요합니다 (요청마다 읽어 오지 않음)
   return _userCols.filter(k => withPw || (k !== 'pw_salt' && k !== 'pw_hash')).map(k => (prefix || '') + k).join(', ');
@@ -817,6 +817,7 @@ const withImage = withText;
 // 캐릭터 이미지는 JSON 에 넣지 않고 주소로 내려줍니다. 주소에 버전이 들어 있어서 이미지가 바뀌지 않는 한 브라우저가 다시 받지 않습니다.
 const IMG_KEY = sha256('img:' + (process.env.IMG_SECRET || ADMIN_PASSWORD || process.env.DATABASE_URL || process.env.POSTGRES_URL || 'dev'));
 const imgSig = (id, ver) => crypto.createHmac('sha256', IMG_KEY).update(id + ':' + ver).digest('hex').slice(0, 24);
+const thumbUrl = (id, ver, has) => (has && Number(ver) > 0 ? '/api/thumb?k=' + id + '.' + imgSig('t' + id, Number(ver)) + '&v=' + Number(ver) : '');
 const imgUrl = (id, ver) => (Number(ver) > 0 ? '/api/img?k=' + id + '.' + imgSig(id, Number(ver)) + '&v=' + Number(ver) : '');
 const isFriend = async (a, b) => !!(await db.get('SELECT 1 AS x FROM friends WHERE user_id = ? AND friend_id = ?', [a, b]));
 
@@ -828,6 +829,18 @@ route('GET', '/api/img', async (req, res) => {
   if (!/^\d+$/.test(id || '') || !ver || !safeEq(sig || '', imgSig(id, ver))) return fail(res, 404, 'not_found');
   const r = await db.get('SELECT image FROM users WHERE id = ? AND img_ver = ?', [Number(id), ver]);
   const m = r && /^data:image\/jpeg;base64,(.+)$/.exec(r.image || '');
+  if (!m) return fail(res, 404, 'not_found');
+  const buf = Buffer.from(m[1], 'base64');
+  res.writeHead(200, { 'Content-Type': 'image/jpeg', 'Content-Length': buf.length, 'Cache-Control': 'public, max-age=31536000, s-maxage=31536000, immutable', 'X-Content-Type-Options': 'nosniff' });
+  res.end(buf);
+}, { auth: false });
+
+// 작은 프로필 사진: 큰 원본을 읽지 않고 이 칸만 읽습니다. 주소에 버전이 들어 있어 사진이 바뀌지 않는 한 브라우저·CDN 이 1년간 다시 받지 않습니다.
+route('GET', '/api/thumb', async (req, res) => {
+  const q = new URL(req.url, 'http://x').searchParams, [id, sig] = String(q.get('k') || '').split('.'), ver = Number(q.get('v')) || 0;
+  if (!/^\d+$/.test(id || '') || !ver || !safeEq(sig || '', imgSig('t' + id, ver))) return fail(res, 404, 'not_found');
+  const r = await db.get('SELECT thumb FROM users WHERE id = ? AND img_ver = ?', [Number(id), ver]);
+  const m = r && /^data:image\/jpeg;base64,(.+)$/.exec(r.thumb || '');
   if (!m) return fail(res, 404, 'not_found');
   const buf = Buffer.from(m[1], 'base64');
   res.writeHead(200, { 'Content-Type': 'image/jpeg', 'Content-Length': buf.length, 'Cache-Control': 'public, max-age=31536000, s-maxage=31536000, immutable', 'X-Content-Type-Options': 'nosniff' });
@@ -860,6 +873,7 @@ route('POST', '/api/signup', async (req, res, ctx) => {
   const used0 = await db.get('SELECT COUNT(*) AS c FROM users WHERE invite_code = ?', [inv]);
   if (used0.c >= iv.max_uses) return fail(res, 400, 'invite_full');
   if (image && !(image.length <= 800000 && /^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/.test(image))) return fail(res, 400, 'bad_image');
+  const thumb = image && validThumb(b.thumb) ? b.thumb : '';
 
   const salt = crypto.randomBytes(16).toString('hex');
   const hash = await hashPw(b.password, salt);
@@ -870,9 +884,9 @@ route('POST', '/api/signup', async (req, res, ctx) => {
     code = G.makeCode();
     try {
       await db.run(`INSERT INTO users
-        (code, name, gender, age, personality, traits, image, img_ver, hunter_name, rank, stats, pw_salt, pw_hash, created_at, invite_code, board_rank, intro_state)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
-        [code, name, gender, age, pers, JSON.stringify(traits), image, image ? Date.now() : 0, hn, rank, JSON.stringify(stats), salt, hash, Date.now(), inv, rank]);
+        (code, name, gender, age, personality, traits, image, thumb, img_ver, hunter_name, rank, stats, pw_salt, pw_hash, created_at, invite_code, board_rank, intro_state)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)`,
+        [code, name, gender, age, pers, JSON.stringify(traits), image, thumb, image ? Date.now() : 0, hn, rank, JSON.stringify(stats), salt, hash, Date.now(), inv, rank]);
       break;
     } catch (e) {
       if (!(/UNIQUE|duplicate key/i.test(String(e.message)) || e.code === '23505') || ++tries > 10) throw e;
@@ -1036,25 +1050,25 @@ async function gwSaveMentions(authorId, text, postId, commentId, now) {
 route('GET', '/api/gw', async (req, res, ctx) => {
   const sp = new URL(req.url, 'http://x').searchParams, before = Math.max(0, Number(sp.get('before')) || 0);
   const fcat = GW_CATS.includes(sp.get('cat')) ? sp.get('cat') : '';
-  const rows = await db.all(`SELECT p.id, p.user_id, p.title, p.body, p.ts, p.cat, u.hunter_name AS hn, u.rank AS rk,
+  const rows = await db.all(`SELECT p.id, p.user_id, p.title, p.body, p.ts, p.cat, u.hunter_name AS hn, u.rank AS rk, u.img_ver AS iv, (CASE WHEN LENGTH(u.thumb) > 0 THEN 1 ELSE 0 END) AS ht,
       (SELECT COUNT(*) FROM gw_comments c WHERE c.post_id = p.id) AS cc
     FROM gw_posts p LEFT JOIN users u ON u.id = p.user_id
     WHERE (? = 0 OR p.id < ?) AND (? = '' OR p.cat = ?) ORDER BY p.id DESC LIMIT 21`, [before, before, fcat, fcat]);
   const more = rows.length > 20;
   send(res, 200, { more, posts: rows.slice(0, 20).map(r => ({ id: r.id, cat: r.cat || '사담', title: r.title, preview: Array.from(r.body.replace(/\s+/g, ' ')).slice(0, 80).join(''),
-    hn: r.hn || '(탈퇴한 헌터)', rank: r.rk || '', mine: r.user_id === ctx.user.id, cc: Number(r.cc) || 0, ts: r.ts })) });
+    hn: r.hn || '(탈퇴한 헌터)', rank: r.rk || '', av: thumbUrl(r.user_id, r.iv, Number(r.ht) > 0), mine: r.user_id === ctx.user.id, cc: Number(r.cc) || 0, ts: r.ts })) });
 });
 route('GET', '/api/gw/post', async (req, res, ctx) => {
   const id = Number(new URL(req.url, 'http://x').searchParams.get('id')) || 0;
-  const p = await db.get('SELECT p.id, p.user_id, p.title, p.body, p.ts, p.cat, u.hunter_name AS hn, u.rank AS rk FROM gw_posts p LEFT JOIN users u ON u.id = p.user_id WHERE p.id = ?', [id]);
+  const p = await db.get('SELECT p.id, p.user_id, p.title, p.body, p.ts, p.cat, u.hunter_name AS hn, u.rank AS rk, u.img_ver AS iv, (CASE WHEN LENGTH(u.thumb) > 0 THEN 1 ELSE 0 END) AS ht FROM gw_posts p LEFT JOIN users u ON u.id = p.user_id WHERE p.id = ?', [id]);
   if (!p) return fail(res, 404, 'not_found');
-  const cs = await db.all('SELECT c.id, c.user_id, c.body, c.ts, c.parent_id, c.reply_to, u.hunter_name AS hn, u.rank AS rk FROM gw_comments c LEFT JOIN users u ON u.id = c.user_id WHERE c.post_id = ? ORDER BY c.id ASC LIMIT 300', [id]);
+  const cs = await db.all('SELECT c.id, c.user_id, c.body, c.ts, c.parent_id, c.reply_to, u.hunter_name AS hn, u.rank AS rk, u.img_ver AS iv, (CASE WHEN LENGTH(u.thumb) > 0 THEN 1 ELSE 0 END) AS ht FROM gw_comments c LEFT JOIN users u ON u.id = c.user_id WHERE c.post_id = ? ORDER BY c.id ASC LIMIT 300', [id]);
   const lk = new Map((await db.all('SELECT comment_id AS cid, COUNT(*) AS n, SUM(CASE WHEN user_id = ? THEN 1 ELSE 0 END) AS mine FROM gw_likes WHERE comment_id IN (SELECT id FROM gw_comments WHERE post_id = ?) GROUP BY comment_id', [ctx.user.id, id])).map(r => [Number(r.cid), r]));
   const mod = !!ctx.user.admin_char;     // 관리자 전용 캐릭터는 모든 글과 댓글을 지울 수 있음
   const mrows = await db.all('SELECT m.comment_id AS cid, u.hunter_name AS hn FROM gw_mentions m JOIN users u ON u.id = m.target_id WHERE m.post_id = ?', [id]);
   const menOf = cid => mrows.filter(m => Number(m.cid) === cid).map(m => m.hn);
-  send(res, 200, { post: { id: p.id, cat: p.cat || '사담', men: menOf(0), title: p.title, body: p.body, hn: p.hn || '(탈퇴한 헌터)', rank: p.rk || '', mine: p.user_id === ctx.user.id, canDel: mod || p.user_id === ctx.user.id, ts: p.ts },
-    comments: cs.map(c => ({ id: c.id, men: menOf(Number(c.id)), parent: Number(c.parent_id) || 0, toHn: c.reply_to ? ((cs.find(x => x.id === Number(c.reply_to)) || {}).hn || '(삭제된 댓글)') : '', text: c.body, hn: c.hn || '(탈퇴한 헌터)', rank: c.rk || '', mine: c.user_id === ctx.user.id, canDel: mod || c.user_id === ctx.user.id, ts: c.ts, likes: Number((lk.get(c.id) || {}).n) || 0, liked: Number((lk.get(c.id) || {}).mine) > 0 })) });
+  send(res, 200, { post: { id: p.id, cat: p.cat || '사담', men: menOf(0), title: p.title, body: p.body, hn: p.hn || '(탈퇴한 헌터)', rank: p.rk || '', av: thumbUrl(p.user_id, p.iv, Number(p.ht) > 0), mine: p.user_id === ctx.user.id, canDel: mod || p.user_id === ctx.user.id, ts: p.ts },
+    comments: cs.map(c => ({ id: c.id, men: menOf(Number(c.id)), parent: Number(c.parent_id) || 0, toHn: c.reply_to ? ((cs.find(x => x.id === Number(c.reply_to)) || {}).hn || '(삭제된 댓글)') : '', text: c.body, hn: c.hn || '(탈퇴한 헌터)', rank: c.rk || '', av: thumbUrl(c.user_id, c.iv, Number(c.ht) > 0), mine: c.user_id === ctx.user.id, canDel: mod || c.user_id === ctx.user.id, ts: c.ts, likes: Number((lk.get(c.id) || {}).n) || 0, liked: Number((lk.get(c.id) || {}).mine) > 0 })) });
 });
 // 게이트웨이브 알림 확인: 마지막으로 확인한 글/댓글 번호(p, c) 이후에 생긴 일을 종류별로 셉니다. (번호를 안 보내면 현재 번호만 알려줌)
 route('GET', '/api/gw/notify', async (req, res, ctx) => {
@@ -1106,6 +1120,23 @@ route('GET', '/api/gw/alerts', async (req, res, ctx) => {
   ms.forEach(r => al.push({ key: 'm' + r.id, kind: 'men', hn: r.hn, rank: r.rk, text: snip(r.tx), post: r.pid, ts: r.ts, inCmt: Number(r.cid) > 0 }));
   al.sort((x, y) => y.ts - x.ts);
   send(res, 200, { alerts: al.slice(0, 40) });
+});
+// 게이트웨이브 간단 프로필: 글/댓글 번호로 작성자를 찾아 보여줍니다 (헌터 코드는 내려주지 않음).
+// 친구가 아닌 헌터에게는 현재 위치를 숨기고, 비공개 유저는 이름·등급·이미지만 보여줍니다.
+route('GET', '/api/gw/profile', async (req, res, ctx) => {
+  if (await limited('gwpf:' + ctx.user.id, 60, 60000)) return fail(res, 429, 'rate_limited');
+  const q = new URL(req.url, 'http://x').searchParams, pid = Number(q.get('post')) || 0, cid = Number(q.get('comment')) || 0;
+  const row = cid ? await db.get('SELECT user_id FROM gw_comments WHERE id = ?', [cid]) : pid ? await db.get('SELECT user_id FROM gw_posts WHERE id = ?', [pid]) : null;
+  const f = row ? await userById(row.user_id) : null;
+  if (!f) return fail(res, 404, 'not_found');
+  const me = f.id === ctx.user.id, fr = me || await isFriend(ctx.user.id, f.id);
+  const base = { hn: f.hunter_name, rank: f.rank, image: imgUrl(f.id, f.img_ver), friend: fr, me };
+  if (f.is_private && !me && !fr) return send(res, 200, { profile: Object.assign(base, { priv: true, bio: '', pins: [], traits: [], ach: null }) });
+  await syncAchEarned(f, Date.now(), true);
+  const a = await db.get(`SELECT a.name, a.descr, e.at FROM ach_earned e JOIN achievements a ON a.id = e.ach_id
+    WHERE e.user_id = ? ORDER BY e.at DESC, e.rowid DESC LIMIT 1`, [f.id]);
+  send(res, 200, { profile: Object.assign(base, { region: fr ? G.placeLong(f.region) : null, ach: a ? { name: a.name, desc: a.descr, at: a.at } : null,
+    bio: f.bio || '', pins: pinnedList(f, await loadAch()).map(p => p.name), traits: traitsOf((await withText(f)).traits) }) });
 });
 route('POST', '/api/gw/post', async (req, res, ctx) => {
   if (await limited('gwp:' + ctx.user.id, 10, G.HOUR)) return fail(res, 429, 'rate_limited');
@@ -2291,6 +2322,7 @@ route('POST', '/api/friends/cancel', async (req, res, ctx) => {
 });
 
 // 친구 프로필: 이미지, 헌터 네임, 등급, 현재 위치, 소개글, 대표 업적(가장 최근 획득 1개), 등록(달아 둔) 업적
+const traitsOf = raw => { try { const a = JSON.parse(raw || '[]'); return Array.isArray(a) ? a.map(String).slice(0, 5) : []; } catch (_) { return []; } };
 route('GET', '/api/friend/profile', async (req, res, ctx) => {
   const u = ctx.user;
   const f = await userByCode(normCode(new URL(req.url, 'http://x').searchParams.get('code')));
@@ -2300,7 +2332,7 @@ route('GET', '/api/friend/profile', async (req, res, ctx) => {
     WHERE e.user_id = ? ORDER BY e.at DESC, e.rowid DESC LIMIT 1`, [f.id]);
   send(res, 200, { profile: { code: f.code, hn: f.hunter_name, rank: f.rank, image: imgUrl(f.id, f.img_ver),
     region: G.placeLong(f.region), ach: a ? { name: a.name, desc: a.descr, at: a.at } : null,
-    bio: f.bio || '', pins: pinnedList(f, await loadAch()).map(p => p.name),
+    bio: f.bio || '', pins: pinnedList(f, await loadAch()).map(p => p.name), traits: traitsOf((await withText(f)).traits),
     corrupt: !!f.corrupt_flag, canRescue: !!f.corrupt_flag && !!(await findCure(u.id)) } });
 });
 
@@ -2835,19 +2867,28 @@ route('POST', '/api/promote', async (req, res, ctx) => {
 // 비공개 유저 설정 (켜면 헌터 커뮤니티에서 언급되지 않음)
 // 캐릭터 이미지 변경 (가입 때와 같은 규격: JPEG 데이터 주소, 빈 값이면 삭제)
 const IMG_RE = /^data:image\/jpeg;base64,[A-Za-z0-9+/=]+$/;
+const validThumb = t => typeof t === 'string' && t.length > 0 && t.length <= 14000 && IMG_RE.test(t);
 const validImage = im => typeof im === 'string' && (im === '' || (im.length <= 800000 && IMG_RE.test(im)));
 route('POST', '/api/me/image', async (req, res, ctx) => {
   if (await limited('img:' + ctx.user.id, 10, 60000)) return fail(res, 429, 'rate_limited');
   const image = ctx.body.image;
   if (!validImage(image)) return fail(res, 400, 'bad_image');
   const ver = image ? Date.now() : 0;
-  await db.run('UPDATE users SET image = ?, img_ver = ? WHERE id = ?', [image, ver, ctx.user.id]);
+  const thumb = image && validThumb(ctx.body.thumb) ? ctx.body.thumb : '';      // 작은 사진이 없거나 이상하면 비워 두고, 나중에 화면이 채워 줍니다
+  await db.run('UPDATE users SET image = ?, thumb = ?, img_ver = ? WHERE id = ?', [image, thumb, ver, ctx.user.id]);
   send(res, 200, { ok: true, image: imgUrl(ctx.user.id, ver) });
-}, { limit: 1200000 });      // 이미지는 최대 약 700KB 라서 기본 요청 크기(20KB)보다 크게 허용
+}, { limit: 1200000 });
+// 예전에 올린 사진에 작은 사진이 없을 때 화면이 한 번 만들어서 올립니다 (사진 버전이 같고 아직 비어 있을 때만 저장)
+route('POST', '/api/me/thumb', async (req, res, ctx) => {
+  if (await limited('thb:' + ctx.user.id, 10, 60000)) return fail(res, 429, 'rate_limited');
+  if (!validThumb(ctx.body.thumb)) return fail(res, 400, 'bad_thumb');
+  const w = await db.run("UPDATE users SET thumb = ? WHERE id = ? AND img_ver = ? AND img_ver > 0 AND thumb = ''", [ctx.body.thumb, ctx.user.id, Number(ctx.body.ver) || -1]);
+  send(res, 200, { ok: true, saved: w.changes === 1 });
+});      // 이미지는 최대 약 700KB 라서 기본 요청 크기(20KB)보다 크게 허용
 route('POST', '/api/admin/player/image', async (req, res, ctx) => {
   const u = await adminTarget(ctx, res); if (!u) return;
   if (!validImage(ctx.body.image)) return fail(res, 400, 'bad_image');
-  await db.run('UPDATE users SET image = ?, img_ver = ? WHERE id = ?', [ctx.body.image, ctx.body.image ? Date.now() : 0, u.id]);
+  await db.run("UPDATE users SET image = ?, thumb = '', img_ver = ? WHERE id = ?", [ctx.body.image, ctx.body.image ? Date.now() : 0, u.id]);      // 작은 사진은 비우고, 그 헌터가 접속하면 화면이 다시 만듭니다
   send(res, 200, { ok: true });
 }, { auth: false, admin: true, limit: 1200000 });
 // 프로필 소개글 (최대 200자, 줄바꿈 최대 5줄) — 친구 프로필에도 보입니다
@@ -2857,6 +2898,17 @@ route('POST', '/api/me/bio', async (req, res, ctx) => {
   if (t.length > 200) t = t.slice(0, 200);
   await db.run('UPDATE users SET bio = ? WHERE id = ?', [t, ctx.user.id]);
   send(res, 200, { ok: true, bio: t });
+});
+
+// 내 특징 수정 (가입할 때와 같은 규칙: 최대 5개, 칸당 50자)
+route('POST', '/api/me/traits', async (req, res, ctx) => {
+  if (await limited('trt:' + ctx.user.id, 30, 60000)) return fail(res, 429, 'rate_limited');
+  const raw = ctx.body.traits;
+  if (!Array.isArray(raw)) return fail(res, 400, 'bad_traits');
+  const traits = raw.map(t => String(t == null ? '' : t).replace(/[\u0000-\u001F\u007F]/g, ' ').trim()).filter(Boolean);
+  if (traits.length > 5 || traits.some(t => cp(t) > 50)) return fail(res, 400, 'bad_traits');
+  await db.run('UPDATE users SET traits = ? WHERE id = ?', [JSON.stringify(traits), ctx.user.id]);
+  send(res, 200, { ok: true, traits });
 });
 
 route('POST', '/api/me/private', async (req, res, ctx) => {
