@@ -812,6 +812,8 @@ input[type=checkbox]:focus-visible{outline:2px solid var(--deep);outline-offset:
 .cw-info{display:grid;grid-template-columns:1fr auto;gap:2px 10px;align-items:center}
 .cw-info b{font-size:1rem}.cw-info #cwtn{font-size:.8rem;color:var(--sub)}
 .cw-hp{grid-column:1/-1;height:12px;border:1px solid var(--line);border-radius:6px;background:#0b0708;overflow:hidden}
+.cw-hp.me i{background:#3f8f5a}.cw-ml{font-size:.8rem;margin-top:4px}.cw-ml small{color:var(--sub)}#cwpv{font-size:.8rem;text-align:right;margin-top:4px}
+.cw-stage.hurt{animation:cwh .35s}@keyframes cwh{0%,100%{box-shadow:none}30%{box-shadow:inset 0 0 40px 8px rgba(255,59,74,.7)}}
 .cw-hp i{display:block;height:100%;width:100%;background:var(--red);transition:width .35s}
 .cw-info small{grid-column:1/-1;text-align:right;color:var(--sub);font-size:.75rem;min-height:1em}
 .cw-log{list-style:none;margin:0;padding:8px 10px;height:7.4em;overflow:auto;border:1px solid var(--line);border-radius:8px;background:#0b0708;font-size:.82rem;display:flex;flex-direction:column;gap:3px}
@@ -1532,7 +1534,8 @@ body{overflow-x:clip}      /* 어떤 요소가 넘쳐도 화면 전체가 가로
     <div class="dhead"><p class="eyebrow">GRAYWICK</p><h1 id="cwtitle">그레이윅</h1></div>
     <div class="cw-stage"><canvas id="cwscene" width="192" height="108" role="img" aria-label="그레이윅 풍경과 만난 몬스터"></canvas></div>
     <div class="cw-info"><b id="cwnm"></b><span id="cwtn"></span>
-      <div class="cw-hp" role="meter" aria-label="몬스터 체력"><i id="cwhp"></i></div><small id="cwhv"></small></div>
+      <div class="cw-hp" role="meter" aria-label="몬스터 체력"><i id="cwhp"></i></div><small id="cwhv"></small>
+      <span class="cw-ml">내 체력 <small>(그레이윅 안에서만)</small></span><span id="cwpv"></span><div class="cw-hp me" role="meter" aria-label="내 체력"><i id="cwphp"></i></div></div>
     <ol class="cw-log" id="cwlog" role="log" aria-live="polite"></ol>
     <p class="cw-note" id="cwnote" role="status"></p>
     <div class="cw-acts"><button type="button" class="hud-btn" id="cwhit">공격</button><button type="button" class="hud-btn" id="cwsm">강타</button><button type="button" class="hud-btn" id="cwleave">헤어지기</button><button type="button" class="hud-btn" id="cwdone">닫기</button></div>
@@ -4357,10 +4360,10 @@ function cwRender(){
   var s=cwSt,e=s&&s.enc,nm=$("cwnm"),bar=$("cwhp"),hv=$("cwhv"),tn=$("cwtn"),lg=$("cwlog");
   var ended=!!cwFx.end;
   if(e){
-    nm.textContent=e.mon.name+" · "+e.mon.grade+"급 · "+e.mon.size;bar.style.width=Math.max(0,e.hp/e.max*100)+"%";hv.textContent=e.hp+" / "+e.max;tn.textContent="남은 턴 "+Math.max(0,e.limit-e.turn);
+    nm.textContent=e.mon.name+" · "+e.mon.grade+"급 · "+e.mon.size;bar.style.width=Math.max(0,e.hp/e.max*100)+"%";hv.textContent=e.hp+" / "+e.max;tn.textContent="남은 턴 "+Math.max(0,e.limit-e.turn);$("cwphp").style.width=Math.max(0,e.pHp/e.pMax*100)+"%";$("cwpv").textContent=e.pHp+" / "+e.pMax;
     $("cwnote").textContent=ended?"":"체력을 0으로 만들면 자동으로 포획돼요.";
   }else{
-    nm.textContent=ended?cwFx.name||"":"만난 몬스터가 없어요";bar.style.width=cwFx.end==="caught"?"0%":(cwFx.end==="fled"&&cwFx.hp!=null?Math.max(0,cwFx.hp/cwFx.max*100)+"%":"0%");hv.textContent=ended&&cwFx.max?(cwFx.hp+" / "+cwFx.max):"";tn.textContent="";
+    nm.textContent=ended?cwFx.name||"":"만난 몬스터가 없어요";bar.style.width=cwFx.end==="caught"?"0%":(cwFx.end==="fled"&&cwFx.hp!=null?Math.max(0,cwFx.hp/cwFx.max*100)+"%":"0%");hv.textContent=ended&&cwFx.max?(cwFx.hp+" / "+cwFx.max):"";tn.textContent="";if(ended&&cwFx.pHp!=null){$("cwphp").style.width=Math.max(0,cwFx.pHp/cwFx.pMax*100)+"%";$("cwpv").textContent=cwFx.pHp+" / "+cwFx.pMax}
     var cd=s?Math.max(0,s.cd-Math.floor((Date.now()-s.at)/1000)):0;
     if(!ended)$("cwnote").textContent=s&&s.all?"모든 몬스터를 만났어요!":cd>0?"다음 입장까지 "+cwFmt(cd)+" · 다른 곳에 다녀온 뒤 다시 들어오세요.":"다른 곳에 다녀온 뒤 다시 들어오면 새로운 몬스터를 만날 수 있어요.";
   }
@@ -4375,14 +4378,15 @@ function cwAct(act){
     if(!r||r._status!==200){$("cwnote").textContent=r&&r.error==="busy"?"잠시 후 다시 눌러 주세요.":"처리하지 못했어요.";cwLoad();return}
     (r.log||[]).forEach(function(t){cwLog.push(t)});
     if(r.dmg>0)cwFx.hit=Date.now();
+    if((r.log||[]).some(function(t){return t.indexOf("피해를 입었다")>=0})){var stg=document.querySelector(".cw-stage");stg.classList.remove("hurt");void stg.offsetWidth;stg.classList.add("hurt")}
     if(r.end){
-      cwFx.end=r.end==="left"?"left":r.end;cwFx.t0=Date.now();cwFx.name=cwSt.enc.mon.name+" · "+cwSt.enc.mon.grade+"급";cwFx.hp=r.hp;cwFx.max=r.max;
-      var nt=r.end==="caught"?"포획 성공! 육성 앱에서 "+r.mon.name+"을(를) 확인해 보세요.":r.end==="fled"?"몬스터가 도망쳤어요. 다음에 다시 도전해 보세요.":"몬스터와 헤어졌어요.";
+      cwFx.end=r.end==="left"?"left":r.end;cwFx.t0=Date.now();cwFx.name=cwSt.enc.mon.name+" · "+cwSt.enc.mon.grade+"급";cwFx.hp=r.hp;cwFx.max=r.max;cwFx.pHp=r.pHp;cwFx.pMax=r.pMax;
+      var nt=r.end==="down"?"쓰러졌어요… 다음에 다시 도전해 보세요.":r.end==="caught"?"포획 성공! 육성 앱에서 "+r.mon.name+"을(를) 확인해 보세요.":r.end==="fled"?"몬스터가 도망쳤어요. 다음에 다시 도전해 보세요.":"몬스터와 헤어졌어요.";
       cwSt.enc=null;cwRender();$("cwnote").textContent=nt;
       if(r.end==="caught"&&typeof gwToast==="function")gwToast(r.mon.name+"을(를) 포획했어요!",4000);
       return;
     }
-    cwSt.enc.hp=r.hp;cwSt.enc.turn=r.turn;cwRender();
+    cwSt.enc.hp=r.hp;cwSt.enc.turn=r.turn;cwSt.enc.pHp=r.pHp;cwRender();
   }).catch(function(){cwBusy=false;cwRender()});
 }
 /* 풍경은 적월문 풍경 그림(buildScene)을 그대로 쓰고, 그 위에 몬스터 픽셀아트를 얹습니다 */
@@ -4408,6 +4412,7 @@ function cwDraw(){
     var k=Math.min(1,(now-cwFx.t0)/900);
     if(end==="caught"){var s2=1-k;a=s2;w=Math.max(1,Math.round(w*s2));h=Math.max(1,Math.round(h*s2));x=Math.round(96-w/2);y=88-h-Math.round(k*14)}
     else if(end==="fled"||end==="left"){x=Math.round(96-w/2+k*110);a=1-k*0.6}
+    else if(end==="down"){a=1-k}
   }
   c.save();c.globalAlpha=Math.max(0,a);
   c.fillStyle=RC.base;c.globalAlpha=Math.max(0,a)*0.5;c.fillRect(Math.round(96-w/2)+2,90,Math.max(w-4,1),2);c.globalAlpha=Math.max(0,a);
