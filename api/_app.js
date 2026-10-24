@@ -2219,9 +2219,10 @@ route('POST', '/api/pvp/cancel', async (req, res, ctx) => {
 });
 
 // 유저 랭킹: 승리 수가 많은 순(같으면 승률이 높은 순, 패배가 적은 순). 한 판이라도 치른 헌터만 올라옵니다.
+// 비공개 유저도 유저 랭킹에서는 닉네임·소개말·특징이 보입니다 (비공개는 커뮤니티에서만 적용)
 route('GET', '/api/pvp/rank', async (req, res, ctx) => {
-  const rows = await db.all('SELECT id, hunter_name, rank, is_private, pvp_win AS w, pvp_lose AS l FROM users WHERE pvp_win + pvp_lose > 0 ORDER BY pvp_win DESC, (pvp_win * 1.0 / (pvp_win + pvp_lose)) DESC, pvp_lose ASC, id ASC LIMIT 100');
-  const list = rows.map((r, i) => ({ no: i + 1, name: r.is_private && r.id !== ctx.user.id ? '(비공개 헌터)' : r.hunter_name, w: r.w, l: r.l, rate: Math.round(r.w * 100 / (r.w + r.l)), me: r.id === ctx.user.id }));
+  const rows = await db.all('SELECT id, hunter_name, rank, bio, traits, pvp_win AS w, pvp_lose AS l FROM users WHERE pvp_win + pvp_lose > 0 ORDER BY pvp_win DESC, (pvp_win * 1.0 / (pvp_win + pvp_lose)) DESC, pvp_lose ASC, id ASC LIMIT 100');
+  const list = rows.map((r, i) => ({ no: i + 1, name: r.hunter_name, bio: r.bio || '', traits: traitsOf(r.traits), w: r.w, l: r.l, rate: Math.round(r.w * 100 / (r.w + r.l)), me: r.id === ctx.user.id }));
   const me = await db.get('SELECT pvp_win AS w, pvp_lose AS l FROM users WHERE id = ?', [ctx.user.id]);
   let myNo = 0;
   if (me && me.w + me.l > 0) {
@@ -2269,7 +2270,7 @@ route('POST', '/api/move', async (req, res, ctx) => {
   if (corruptLock(ctx.user, Date.now())) return fail(res, 409, 'corrupted', { until: ctx.user.corrupt_until });
   if (G.countryOf(ctx.user.region) === 'GT' && G.countryOf(id) !== 'GT') await gateAutoRetreat(ctx.user.id);
   let cwNew = false;
-  if (id === CW_REGION && ctx.user.region !== CW_REGION) {      // 그레이윅은 10분에 한 번만 입장할 수 있습니다
+  if (id === CW_REGION && (ctx.user.region !== CW_REGION || !(await cwEnc(ctx.user.id, Date.now())))) {      // 그레이윅은 10분에 한 번만 입장할 수 있습니다 (이미 안에 있어도 만난 몬스터가 없으면 같은 규칙으로 다시 입장)
     const now = Date.now(), left = (Number(ctx.user.cw_enter) || 0) + CW_CD - now;
     if (left > 0) return fail(res, 409, 'cw_cd', { wait: Math.ceil(left / 1000) });
     await db.run('UPDATE users SET cw_enter = ? WHERE id = ?', [now, ctx.user.id]);
