@@ -2131,7 +2131,7 @@ route('GET', '/api/pvp/me', async (req, res, ctx) => {
   const now = Date.now(), m = await pvpMine(ctx.user.id, now);
   send(res, 200, {
     stats: { hp: m.a[0], str: m.a[1], agi: m.a[2], luck: m.a[3], taint: m.a[4] },
-    companion: m.comp, set: !!m.u.pvp_set, cost: PVP_STAT_COST, gold: ctx.user.gold, power: m.u.pvp_set ? m.power : null, win: m.u.pvp_win, lose: m.u.pvp_lose, hp: pvpHpNow(m.u.pvp_lock, now), lockLeft: Math.max(0, Math.ceil((m.u.pvp_lock - now) / 1000)),
+    companion: m.comp, set: !!m.u.pvp_set, cost: PVP_STAT_COST, gold: ctx.user.gold, win: m.u.pvp_win, lose: m.u.pvp_lose, hp: pvpHpNow(m.u.pvp_lock, now), lockLeft: Math.max(0, Math.ceil((m.u.pvp_lock - now) / 1000)),
     queued: !!(await db.get('SELECT 1 AS x FROM pvp_queue WHERE user_id = ?', [ctx.user.id])), text: G.PVP_STAT_TEXT,
   });
 });
@@ -2155,7 +2155,7 @@ route('POST', '/api/pvp/stats', async (req, res, ctx) => {
   try { await db.run('UPDATE users SET pvp_stats = ?, pvp_set = 1 WHERE id = ?', [JSON.stringify(a), ctx.user.id]); }
   catch (e) { if (cost > 0) await grantGold(ctx.user.id, cost); throw e; }
   const now = Date.now(), comp = await pvpCompanion(ctx.user.id, now), me = await db.get('SELECT gold FROM users WHERE id = ?', [ctx.user.id]);
-  send(res, 200, { ok: true, stats: b, power: G.pvpPower(a, compFx(comp)), cost, gold: me.gold });
+  send(res, 200, { ok: true, stats: b, cost, gold: me.gold });
 });
 
 // 대기열에서 나와 비슷한 수치의 상대를 찾아 전투를 진행합니다. 상대를 먼저 '내 것으로' 확보(대기열에서 삭제)한 쪽만 전투를 만듭니다.
@@ -2176,7 +2176,7 @@ async function pvpTryMatch(uid, me, now) {
     const [A, B] = Math.random() < 0.5 ? [{ id: uid, m: me }, { id: c.w.user_id, m: o }] : [{ id: c.w.user_id, m: o }, { id: uid, m: me }];
     const names = await db.all('SELECT id, hunter_name FROM users WHERE id IN (?, ?)', [A.id, B.id]);
     const nm = id => (names.find(n => n.id === id) || {}).hunter_name || '(헌터)';
-    const side = (X) => ({ name: nm(X.id), power: X.m.power, stats: X.m.a, fx: compFx(X.m.comp), comp: X.m.comp ? { name: X.m.comp.name, nick: X.m.comp.nick, grade: X.m.comp.grade, fx: X.m.comp.hungry ? '배가 고파 힘을 못 써요' : X.m.comp.pvp.name + ' · ' + X.m.comp.pvp.text } : null });
+    const side = (X) => ({ name: nm(X.id), stats: X.m.a, fx: compFx(X.m.comp), comp: X.m.comp ? { name: X.m.comp.name, nick: X.m.comp.nick, grade: X.m.comp.grade, fx: X.m.comp.hungry ? '배가 고파 힘을 못 써요' : X.m.comp.pvp.name + ' · ' + X.m.comp.pvp.text } : null });
     const info = JSON.stringify({ a: side(A), b: side(B) });
     const ins = await db.run('INSERT INTO pvp_live (a_id, b_id, hp_a, hp_b, turn, dl, info, hits, log, upd) VALUES (?, ?, ?, ?, 0, ?, ?, ?, ?, ?)',
       [A.id, B.id, PVP.HP, PVP.HP, now + PVP.TURN_MS, info, JSON.stringify({ hits: [0, 0], pool: [0, 0] }), '[]', now]);
@@ -2254,10 +2254,10 @@ async function pvpPollState(uid) {
 route('POST', '/api/pvp/queue', async (req, res, ctx) => {
   const uid = ctx.user.id, now = Date.now(), m = await pvpMine(uid, now);
   if (!m.u.pvp_set) return fail(res, 400, 'no_stats');
-  if (await pvpLiveRow(uid, now)) return send(res, 200, Object.assign({ ok: true, power: m.power }, await pvpPollState(uid)));      // 이미 진행 중인(또는 아직 못 본) 전투가 있으면 그 전투로
+  if (await pvpLiveRow(uid, now)) return send(res, 200, Object.assign({ ok: true }, await pvpPollState(uid)));      // 이미 진행 중인(또는 아직 못 본) 전투가 있으면 그 전투로
   if (m.u.pvp_lock > now) return fail(res, 400, 'recovering', { hp: pvpHpNow(m.u.pvp_lock, now), lockLeft: Math.ceil((m.u.pvp_lock - now) / 1000) });
   await db.run('INSERT INTO pvp_queue (user_id, power, joined_at, seen_at) VALUES (?, ?, ?, ?) ON CONFLICT(user_id) DO UPDATE SET power = excluded.power, seen_at = excluded.seen_at', [uid, m.power, now, now]);
-  send(res, 200, Object.assign({ ok: true, power: m.power }, await pvpPollState(uid)));
+  send(res, 200, Object.assign({ ok: true }, await pvpPollState(uid)));
 });
 route('POST', '/api/pvp/act', async (req, res, ctx) => {
   const uid = ctx.user.id, now = Date.now(), act = String(ctx.body.act || '');
