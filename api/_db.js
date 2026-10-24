@@ -227,6 +227,30 @@ CREATE TABLE IF NOT EXISTS invite_rewards (
   qty     INTEGER NOT NULL DEFAULT 0,
   at      INTEGER NOT NULL
 );
+CREATE TABLE IF NOT EXISTS user_mons (
+  user_id INTEGER NOT NULL,
+  mon_id  TEXT NOT NULL,
+  got_at  INTEGER NOT NULL,
+  PRIMARY KEY (user_id, mon_id)
+);
+CREATE TABLE IF NOT EXISTS pvp_queue (
+  user_id   INTEGER PRIMARY KEY,
+  power     INTEGER NOT NULL,
+  joined_at INTEGER NOT NULL,
+  seen_at   INTEGER NOT NULL
+);
+CREATE TABLE IF NOT EXISTS pvp_battles (
+  id        INTEGER PRIMARY KEY AUTOINCREMENT,
+  a_id      INTEGER NOT NULL,
+  b_id      INTEGER NOT NULL,
+  winner    INTEGER NOT NULL,
+  turns     INTEGER NOT NULL,
+  info      TEXT NOT NULL,
+  log       TEXT NOT NULL,
+  at        INTEGER NOT NULL,
+  a_seen    INTEGER NOT NULL DEFAULT 0,
+  b_seen    INTEGER NOT NULL DEFAULT 0
+);
 CREATE TABLE IF NOT EXISTS notice_del (
   user_id   INTEGER NOT NULL,
   notice_id INTEGER NOT NULL,
@@ -421,6 +445,26 @@ const MIGRATIONS = [
   "ALTER TABLE gw_posts ADD COLUMN cat TEXT NOT NULL DEFAULT '사담'",
   // 게이트웨이브 닉네임 옆에 쓰는 작은 프로필 사진(64px 안팎, 수 KB). 큰 원본(image)과 따로 둬서 목록이 가볍습니다. 비어 있으면 이니셜 아이콘을 보여줍니다.
   "ALTER TABLE users ADD COLUMN thumb TEXT NOT NULL DEFAULT ''",
+  // 육성: 유저가 몬스터에게 지어 준 이름
+  // PvP 스탯 [체력, 근력, 민첩, 행운, 오염도] (각 1~5, 합계 15)
+  "ALTER TABLE users ADD COLUMN pvp_stats TEXT NOT NULL DEFAULT '[3,3,3,3,3]'",
+  'ALTER TABLE users ADD COLUMN pvp_win INTEGER NOT NULL DEFAULT 0',
+  'ALTER TABLE users ADD COLUMN pvp_lose INTEGER NOT NULL DEFAULT 0',
+  'ALTER TABLE users ADD COLUMN pvp_lock INTEGER NOT NULL DEFAULT 0',
+  "ALTER TABLE user_mons ADD COLUMN nick TEXT NOT NULL DEFAULT ''",
+  // 육성: 몬스터 먹이 보유 수, 하루 친밀도 한도 계산용(날짜·오늘 올린 양)
+  "ALTER TABLE users ADD COLUMN mon_food INTEGER NOT NULL DEFAULT 0",
+  'ALTER TABLE user_mons ADD COLUMN bond_day INTEGER NOT NULL DEFAULT 0',
+  'ALTER TABLE user_mons ADD COLUMN bond_today INTEGER NOT NULL DEFAULT 0',
+  // 육성: 포만감·청결(시간이 지나면 줄어듦, 값과 기준 시각을 저장), 친밀도, 산책(동행) 시작 시각, 먹이·목욕 마지막 시각
+  "ALTER TABLE user_mons ADD COLUMN full INTEGER NOT NULL DEFAULT 70",
+  "ALTER TABLE user_mons ADD COLUMN full_at INTEGER NOT NULL DEFAULT 0",
+  "ALTER TABLE user_mons ADD COLUMN clean INTEGER NOT NULL DEFAULT 70",
+  "ALTER TABLE user_mons ADD COLUMN clean_at INTEGER NOT NULL DEFAULT 0",
+  "ALTER TABLE user_mons ADD COLUMN bond INTEGER NOT NULL DEFAULT 0",
+  "ALTER TABLE user_mons ADD COLUMN walk_at INTEGER NOT NULL DEFAULT 0",
+  "ALTER TABLE user_mons ADD COLUMN fed_last INTEGER NOT NULL DEFAULT 0",
+  "ALTER TABLE user_mons ADD COLUMN bath_last INTEGER NOT NULL DEFAULT 0",
   // 관리자 전용 캐릭터(문의함 열람 가능) / 문의 답변 읽음 표시
   'ALTER TABLE users ADD COLUMN admin_char INTEGER NOT NULL DEFAULT 0',
   'ALTER TABLE users ADD COLUMN inq_read INTEGER NOT NULL DEFAULT 0',
