@@ -859,6 +859,14 @@ input[type=checkbox]:focus-visible{outline:2px solid var(--deep);outline-offset:
 .pvb-l{list-style:none;margin:0;padding:8px 10px;height:min(34vh,260px);overflow:auto;border:1px solid var(--line);border-radius:8px;background:#0b0708;font-size:.8rem;display:flex;flex-direction:column;gap:3px}
 .pvb-l .cr{color:#ff6672;font-weight:700}.pvb-l .en{color:var(--sub)}
 .pvb-r{display:flex;flex-direction:column;gap:6px;align-items:center;text-align:center}.pvb-r b{font-size:1.4rem;letter-spacing:.2em}.pvb-r.win b{color:#8fe3b0}.pvb-r.lose b{color:#ff8a94}
+.pvb-st{text-align:center;font-size:.82rem;color:var(--sub);min-height:1.3em}
+.pvb-act{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.pvb-a{display:flex;flex-direction:column;align-items:center;gap:3px;padding:10px 4px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--text);cursor:pointer;font-family:inherit;min-width:0}
+.pvb-a b{font-size:.95rem}.pvb-a small{font-size:.68rem;line-height:1.3;color:var(--sub);text-align:center}
+.pvb-a:hover:not(:disabled){border-color:var(--red2)}.pvb-a:disabled{opacity:.55;cursor:default}.pvb-a.pick{opacity:1;border-color:var(--red2);background:#2a0a10}
+.pvb-a.smash b{color:#ff6672}.pvb-a.guard b{color:#8fc7ff}.pvb-a.flee b{color:var(--sub)}
+.pvb-l .tn{color:#f0b93a;font-weight:700;margin-top:4px}
+@media (max-width:560px){.pvb-act{grid-template-columns:1fr 1fr}}
 .pvb-skip{align-self:center;padding:7px 14px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--text);cursor:pointer}
 @media (max-width:560px){.pvb-h{grid-template-columns:1fr 1fr}.pvb-vs{display:none}.pvs-top{justify-content:center}}
 .pvp-i{display:flex;flex-direction:column;gap:3px;font-size:.78rem;color:var(--sub)}
@@ -4611,7 +4619,7 @@ function loadPvp(scr){
   }
   function battle(b){
     pvView="battle";pvBat=b;w.textContent="";w.className="pvp-w pvp-bv";
-    var A=b.a,B=b.b,me=b.me;
+    var A=b.a,B=b.b,me=b.me,cur=b,tEnd=0,shown=0,over=false,busy=false;
     var head=pvEl("div","pvb-h");
     function side(S,idx){
       var d=pvEl("div","pvb-s"+(idx===me?" me":""));
@@ -4625,53 +4633,71 @@ function loadPvp(scr){
     }
     var sa=side(A,0),sb=side(B,1);head.appendChild(sa.d);head.appendChild(pvEl("span","pvb-vs","VS"));head.appendChild(sb.d);w.appendChild(head);
     var turn=pvEl("div","pvb-t","전투 준비");w.appendChild(turn);
-    var lg=pvEl("ol","pvb-l");lg.setAttribute("aria-live","off");w.appendChild(lg);
+    var st=pvEl("div","pvb-st");st.setAttribute("role","status");w.appendChild(st);
+    var lg=pvEl("ol","pvb-l");lg.setAttribute("aria-live","polite");w.appendChild(lg);
+    var acts=pvEl("div","pvb-act");w.appendChild(acts);
+    var BT={};
+    [["attack","공격","기본 공격"],["smash","강타","빗나가기 쉽지만 성공하면 피해·오염 2배"],["guard","방어","이번 턴 받는 피해 크게 감소"],["flee","도주","확률로 탈출 · 성공하면 패배 처리"]].forEach(function(a){
+      var bt=pvEl("button","pvb-a "+a[0]);bt.type="button";bt.appendChild(pvEl("b",null,a[1]));bt.appendChild(pvEl("small",null,a[2]));
+      bt.addEventListener("click",function(){act(a[0])});acts.appendChild(bt);BT[a[0]]=bt;
+    });
     var res=pvEl("div","pvb-r");w.appendChild(res);
-    var skip=pvEl("button","pvb-skip","건너뛰기");skip.type="button";w.appendChild(skip);
-    function hp(h0,h1){
+    function hpset(h0,h1){
       sa.f.style.width=Math.max(0,h0)+"%";sb.f.style.width=Math.max(0,h1)+"%";sa.n.textContent=String(Math.ceil(Math.max(0,h0)));sb.n.textContent=String(Math.ceil(Math.max(0,h1)));
     }
-    hp(100,100);
-    var nm=[A.name,B.name];
-    function line(t,c){var li=pvEl("li",c||"",t);lg.appendChild(li);lg.scrollTop=lg.scrollHeight}
-    var steps=[];
-    b.log.forEach(function(T){
-      T.ev.forEach(function(e){steps.push({t:T.n,e:e})});
-      steps.push({t:T.n,end:T.end});
-    });
-    var i=0;
-    function finish(){
-      clearTimeout(pvPlay);pvPlay=null;skip.hidden=true;
-      var last=b.log[b.log.length-1];hp(last.end[2],last.end[3]);
-      var win=b.winner===me;
-      turn.textContent=b.turns+"턴 · 전투 종료";
+    function line(t,c){var li=pvEl("li",c||"",t);lg.appendChild(li)}
+    function tick(){
+      if(gone()||over){return}
+      var left=Math.max(0,Math.ceil((tEnd-Date.now())/1000));
+      turn.textContent=cur.turn+"턴 · 남은 시간 "+left+"초";
+      pvPlay=setTimeout(tick,250);
+    }
+    function update(v){
+      if(gone()||!v)return;
+      var newTurn=v.turn!==cur.turn||v.done!==cur.done||shown===0;
+      cur=v;pvBat=v;
+      hpset(v.hp[0],v.hp[1]);
+      for(;shown<v.log.length;shown++){
+        var T=v.log[shown];line(T.n+"턴","tn");
+        T.lines.forEach(function(l){line(l[0],l[1])});
+      }
+      lg.scrollTop=lg.scrollHeight;
+      if(v.done){finish(v);return}
+      if(newTurn){tEnd=Date.now()+v.left*1000;busy=false}
+      var chosen=!!v.mine;
+      Object.keys(BT).forEach(function(k){BT[k].disabled=chosen||busy;BT[k].classList.toggle("pick",v.mine===k)});
+      st.textContent=chosen?(v.oppReady?"결과를 계산하는 중…":"상대의 선택을 기다리는 중…"):"행동을 골라 주세요. 시간이 지나면 방어로 처리돼요.";
+    }
+    function finish(v){
+      over=true;clearTimeout(pvPlay);pvPlay=null;clearInterval(pvT);pvT=null;
+      Object.keys(BT).forEach(function(k){BT[k].disabled=true});acts.hidden=true;st.textContent="";
+      var win=v.winner===me,why=v.kind==="flee"?(win?"상대가 도주했어요.":"도주에 성공해 전투에서 빠져나왔지만 패배로 기록돼요."):v.kind==="afk"?(win?"상대가 응답하지 않아 승리했어요.":"계속 응답하지 않아 기권패 처리됐어요."):v.kind==="time"?"시간이 다 되어 남은 체력으로 승부가 갈렸어요.":"";
+      turn.textContent=(v.turn-1)+"턴 · 전투 종료";
       res.textContent="";res.className="pvb-r "+(win?"win":"lose");
       res.appendChild(pvEl("b",null,win?"승리":"패배"));
-      res.appendChild(pvEl("span",null,win?"축하해요! 전적에 승리가 기록됐어요.":"PvP 체력이 0이 되어 10분 동안 회복해야 해요."));
-      var ok=pvEl("button","pvp-bk","전장으로");ok.type="button";ok.addEventListener("click",main);res.appendChild(ok);
+      res.appendChild(pvEl("span",null,(why?why+" ":"")+(win?"전적에 승리가 기록됐어요.":"PvP 체력이 0이 되어 10분 동안 회복해야 해요.")));
+      var ok=pvEl("button","pvp-bk","전장으로");ok.type="button";ok.addEventListener("click",function(){api("POST","/api/pvp/ack").then(function(){if(!gone())main()})});res.appendChild(ok);
     }
-    function step(){
-      if(gone()){clearTimeout(pvPlay);return}
-      if(i>=steps.length){finish();return}
-      var s=steps[i++];turn.textContent=s.t+"턴";
-      if(s.e){
-        var e=s.e,at=nm[e[0]],df=nm[1-e[0]];
-        if(e[1]===0)line(at+" ▶ "+df+"  빗나감");
-        else line((e[1]===2?"치명타! ":"")+at+" ▶ "+df+"  "+e[2]+" 피해",e[1]===2?"cr":"");
-        hp(e[3],e[4]);
-      }else{
-        line("턴 끝 · 침식·반동  "+nm[0]+" -"+s.end[0]+" / "+nm[1]+" -"+s.end[1],"en");
-        hp(s.end[2],s.end[3]);
-      }
-      pvPlay=setTimeout(step,s.e?520:380);
+    function act(a){
+      if(over||busy||cur.mine)return;
+      busy=true;Object.keys(BT).forEach(function(k){BT[k].disabled=true});
+      api("POST","/api/pvp/act",{act:a,turn:cur.turn}).then(function(r){
+        busy=false;
+        if(gone())return;
+        if(!r||r._status!==200||!r.battle){st.textContent=r&&r._status===409?"진행 중인 전투가 없어요.":"선택을 보내지 못했어요. 다시 눌러 주세요.";if(!over)Object.keys(BT).forEach(function(k){BT[k].disabled=false});return}
+        update(r.battle);
+      });
     }
-    skip.addEventListener("click",function(){
-      clearTimeout(pvPlay);lg.textContent="";
-      b.log.forEach(function(T){T.ev.forEach(function(e){line((e[1]===0?"":(e[1]===2?"치명타! ":""))+nm[e[0]]+" ▶ "+nm[1-e[0]]+(e[1]===0?"  빗나감":"  "+e[2]+" 피해"),e[1]===2?"cr":"")});line("턴 끝 · 침식·반동  "+nm[0]+" -"+T.end[0]+" / "+nm[1]+" -"+T.end[1],"en")});
-      finish();
-    });
-    var reduce=window.matchMedia&&window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if(reduce)skip.click();else pvPlay=setTimeout(step,500);
+    function poll(){
+      if(gone()||over){clearInterval(pvT);pvT=null;return}
+      api("GET","/api/pvp/poll").then(function(r){
+        if(gone()||over||!r||r._status!==200)return;
+        if(r.state==="matched")update(r.battle);
+        else{over=true;clearInterval(pvT);pvT=null;clearTimeout(pvPlay);st.textContent="전투가 끝났어요.";var ok=pvEl("button","pvp-bk","전장으로");ok.type="button";ok.addEventListener("click",main);res.appendChild(ok)}
+      });
+    }
+    update(b);tick();
+    clearInterval(pvT);pvT=setInterval(poll,1200);
   }
   main();
 }
