@@ -2115,8 +2115,8 @@ const PVP_TOL = [5, 7], PVP_TOL_WAIT = 20000;    // 전투 수치 차이 5 이�
 const PVP_STALE = 15000;                         // 15초 동안 소식이 없는 대기자는 대기열에서 뺍니다
 
 async function pvpMine(uid, now) {
-  const u = await db.get('SELECT pvp_stats, pvp_win, pvp_lose, pvp_lock FROM users WHERE id = ?', [uid]);
-  const a = pvpStatsOf(u && u.pvp_stats), comp = await pvpCompanion(uid, now);
+  const u = await db.get('SELECT pvp_stats, pvp_set, pvp_win, pvp_lose, pvp_lock FROM users WHERE id = ?', [uid]);
+  const a = u && u.pvp_set ? pvpStatsOf(u.pvp_stats) : [1, 1, 1, 1, 1], comp = await pvpCompanion(uid, now);
   return { a, comp, u, power: G.pvpPower(a, compFx(comp)) };
 }
 
@@ -2124,20 +2124,30 @@ route('GET', '/api/pvp/me', async (req, res, ctx) => {
   const now = Date.now(), m = await pvpMine(ctx.user.id, now);
   send(res, 200, {
     stats: { hp: m.a[0], str: m.a[1], agi: m.a[2], luck: m.a[3], taint: m.a[4] },
-    companion: m.comp, power: m.power, win: m.u.pvp_win, lose: m.u.pvp_lose, hp: pvpHpNow(m.u.pvp_lock, now), lockLeft: Math.max(0, Math.ceil((m.u.pvp_lock - now) / 1000)),
+    companion: m.comp, set: !!m.u.pvp_set, cost: PVP_STAT_COST, gold: ctx.user.gold, power: m.u.pvp_set ? m.power : null, win: m.u.pvp_win, lose: m.u.pvp_lose, hp: pvpHpNow(m.u.pvp_lock, now), lockLeft: Math.max(0, Math.ceil((m.u.pvp_lock - now) / 1000)),
     queued: !!(await db.get('SELECT 1 AS x FROM pvp_queue WHERE user_id = ?', [ctx.user.id])), text: G.PVP_STAT_TEXT,
   });
 });
 
-// PvP 스탯 저장: 체력·근력·민첩·행운·오염도 각 1~5, 합계 15
+// PvP 스탯 저장: 체력·근력·민첩·행운·오염도 각 1~5, 합계 15. 처음 배분(모두 1에서 시작해 10포인트)은 무료이고, 그 뒤에 바꾸면 옮긴(늘어난) 포인트 1당 500 G 가 듭니다.
+const PVP_STAT_COST = 500;
 route('POST', '/api/pvp/stats', async (req, res, ctx) => {
   const b = ctx.body && ctx.body.stats;
   if (!G.pvpStatsOk(b)) return fail(res, 400, 'bad_stats');
   if (await db.get('SELECT 1 AS x FROM pvp_queue WHERE user_id = ?', [ctx.user.id])) return fail(res, 409, 'queued');
   const a = G.PVP_KEYS.map(k => b[k]);
-  await db.run('UPDATE users SET pvp_stats = ? WHERE id = ?', [JSON.stringify(a), ctx.user.id]);
-  const now = Date.now(), comp = await pvpCompanion(ctx.user.id, now);
-  send(res, 200, { ok: true, stats: b, power: G.pvpPower(a, compFx(comp)) });
+  const u = await db.get('SELECT pvp_stats, pvp_set FROM users WHERE id = ?', [ctx.user.id]);
+  const old = u.pvp_set ? pvpStatsOf(u.pvp_stats) : null;
+  const moved = old ? a.reduce((t, v, i) => t + Math.max(0, v - old[i]), 0) : 0, cost = moved * PVP_STAT_COST;
+  if (old && moved === 0) return fail(res, 400, 'same');      // 바뀐 게 없으면 저장도, 요금도 없음
+  if (cost > 0) {
+    const pay = await db.run('UPDATE users SET gold = gold - ? WHERE id = ? AND gold >= ?', [cost, ctx.user.id, cost]);      // 잔액이 충분할 때만 원자적으로 차감
+    if (pay.changes !== 1) return fail(res, 402, 'no_gold', { cost });
+  }
+  try { await db.run('UPDATE users SET pvp_stats = ?, pvp_set = 1 WHERE id = ?', [JSON.stringify(a), ctx.user.id]); }
+  catch (e) { if (cost > 0) await grantGold(ctx.user.id, cost); throw e; }
+  const now = Date.now(), comp = await pvpCompanion(ctx.user.id, now), me = await db.get('SELECT gold FROM users WHERE id = ?', [ctx.user.id]);
+  send(res, 200, { ok: true, stats: b, power: G.pvpPower(a, compFx(comp)), cost, gold: me.gold });
 });
 
 // 대기열에서 나와 비슷한 수치의 상대를 찾아 전투를 진행합니다. 상대를 먼저 '내 것으로' 확보(대기열에서 삭제)한 쪽만 전투를 만듭니다.
@@ -2197,6 +2207,7 @@ async function pvpPollState(uid) {
 }
 route('POST', '/api/pvp/queue', async (req, res, ctx) => {
   const uid = ctx.user.id, now = Date.now(), m = await pvpMine(uid, now);
+  if (!m.u.pvp_set) return fail(res, 400, 'no_stats');
   if (m.u.pvp_lock > now) return fail(res, 400, 'recovering', { hp: pvpHpNow(m.u.pvp_lock, now), lockLeft: Math.ceil((m.u.pvp_lock - now) / 1000) });
   await db.run('INSERT INTO pvp_queue (user_id, power, joined_at, seen_at) VALUES (?, ?, ?, ?) ON CONFLICT(user_id) DO UPDATE SET power = excluded.power, seen_at = excluded.seen_at', [uid, m.power, now, now]);
   send(res, 200, Object.assign({ ok: true, power: m.power }, await pvpPollState(uid)));
