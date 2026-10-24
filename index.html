@@ -4556,7 +4556,7 @@ function loadPvp(scr){
     rk.addEventListener("click",function(){leave();rank()});
     function setWait(on,sec,range){
       waiting=on;bt.textContent=on?"매칭 취소":"매칭";bt.classList.toggle("on",on);
-      msg.textContent=on?"비슷한 수치의 상대를 찾는 중… "+sec+"초 (수치 차이 "+range+" 이내)":"";
+      msg.textContent=on?"비슷한 실력의 상대를 찾는 중… "+sec+"초":"";
     }
     function poll(){
       api("GET","/api/pvp/poll").then(function(r){
@@ -4728,7 +4728,7 @@ function pvsDraw(w){
   var top=pvEl("div","pvs-top");top.appendChild(sv);
   var side=pvEl("div","pvs-side");
   side.appendChild(pvEl("p","pvs-pt","남은 포인트 "+left+" / 10"));
-  side.appendChild(pvEl("p","pvs-sub",pvsInfo.set?"전투 수치 "+pvsInfo.power+" / 100 (저장된 스탯과 동행 몬스터 기준)":"아직 스탯을 배분하지 않았어요. 처음 배분은 무료예요."));
+  if(!pvsInfo.set)side.appendChild(pvEl("p","pvs-sub","아직 스탯을 배분하지 않았어요. 처음 배분은 무료예요."));
   side.appendChild(pvEl("p","pvs-sub",(pvsInfo.set?"바꾼 포인트 1당 "+pvsInfo.cost+" G가 들어요. 이번 변경 "+moved+"포인트 = "+cost+" G":"배분을 저장한 뒤에는 바꾼 포인트 1당 "+pvsInfo.cost+" G가 들어요.")+" (보유 "+pvsInfo.gold+" G)"));side.appendChild(pvEl("p","pvs-sub","PVP 스탯은 전장에서만 적용돼요. 장비와 레벨, 등급은 PVP에 영향을 주지 않아요."));
   top.appendChild(side);w.appendChild(top);
   var ul=pvEl("ul","pvs-ls");
@@ -4749,7 +4749,7 @@ function pvsDraw(w){
     sv2.disabled=true;var b={};PVS_K.forEach(function(k,i){b[k]=pvsVal[i]});
     api("POST","/api/pvp/stats",{stats:b}).then(function(r){
       if(!w.isConnected)return;
-      if(r&&r._status===200){pvsSaved=pvsVal.slice();pvsInfo.power=r.power;pvsInfo.gold=r.gold;gold=r.gold;if(typeof setGoldTag==="function")setGoldTag();pvsInfo.set=true;pvsNote=r.cost>0?"저장했어요. "+r.cost+" G를 썼어요.":"저장했어요."}
+      if(r&&r._status===200){pvsSaved=pvsVal.slice();pvsInfo.gold=r.gold;gold=r.gold;if(typeof setGoldTag==="function")setGoldTag();pvsInfo.set=true;pvsNote=r.cost>0?"저장했어요. "+r.cost+" G를 썼어요.":"저장했어요."}
       else pvsNote=r&&r.error==="no_gold"?"골드가 부족해요. (필요 "+r.cost+" G)":r&&r.error==="queued"?"매칭 중에는 바꿀 수 없어요. 매칭을 취소해 주세요.":"저장하지 못했어요.";
       pvsDraw(w);
     });
