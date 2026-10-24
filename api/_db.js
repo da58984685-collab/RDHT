@@ -251,6 +251,14 @@ CREATE TABLE IF NOT EXISTS pvp_battles (
   a_seen    INTEGER NOT NULL DEFAULT 0,
   b_seen    INTEGER NOT NULL DEFAULT 0
 );
+CREATE TABLE IF NOT EXISTS cw_enc (
+  user_id INTEGER PRIMARY KEY,
+  mon_id  TEXT NOT NULL,
+  hp      INTEGER NOT NULL,
+  hp_max  INTEGER NOT NULL,
+  turn    INTEGER NOT NULL DEFAULT 0,
+  at      INTEGER NOT NULL
+);
 CREATE TABLE IF NOT EXISTS notice_del (
   user_id   INTEGER NOT NULL,
   notice_id INTEGER NOT NULL,
@@ -448,6 +456,7 @@ const MIGRATIONS = [
   // 육성: 유저가 몬스터에게 지어 준 이름
   // PvP 스탯 [체력, 근력, 민첩, 행운, 오염도] (각 1~5, 합계 15)
   "ALTER TABLE users ADD COLUMN pvp_stats TEXT NOT NULL DEFAULT '[3,3,3,3,3]'",
+  'ALTER TABLE users ADD COLUMN cw_enter INTEGER NOT NULL DEFAULT 0',
   'ALTER TABLE users ADD COLUMN pvp_win INTEGER NOT NULL DEFAULT 0',
   'ALTER TABLE users ADD COLUMN pvp_lose INTEGER NOT NULL DEFAULT 0',
   'ALTER TABLE users ADD COLUMN pvp_lock INTEGER NOT NULL DEFAULT 0',
