@@ -4585,7 +4585,7 @@ function loadPvp(scr){
       var s=r.stats,c=r.companion;
       info.appendChild(pvEl("div",null,!r.set?"스탯  아직 배분하지 않았어요 (스탯 카드의 PVP 스탯에서 먼저 배분해 주세요)":"스탯  체력 "+s.hp+" · 근력 "+s.str+" · 민첩 "+s.agi+" · 행운 "+s.luck+" · 오염도 "+s.taint));
       info.appendChild(pvEl("div",null,"동행 몬스터  "+(c?(c.nick?c.nick+" ("+c.name+")":c.name)+" · "+c.grade+"급"+(c.hungry?" · 배고픔(효과 없음)":""):"없음")));
-      info.appendChild(pvEl("div",null,(r.set?"전투 수치  "+r.power+" / 100 · 전적 ":"전적 ")+r.win+"승 "+r.lose+"패"));
+      info.appendChild(pvEl("div",null,"전적  "+r.win+"승 "+r.lose+"패"));
       if(r.hp<100)info.appendChild(pvEl("div","pvp-warn","PvP 체력 회복 중  "+r.hp+" / 100 (약 "+Math.ceil(r.lockLeft/60)+"분 뒤 참가 가능)"));
     });
     /* 창을 닫았다 다시 열었을 때: 아직 못 본 전투나 계속되는 대기 상태 이어서 보여 주기 */
@@ -4624,7 +4624,6 @@ function loadPvp(scr){
     function side(S,idx){
       var d=pvEl("div","pvb-s"+(idx===me?" me":""));
       d.appendChild(pvEl("b",null,S.name+(idx===me?" (나)":"")));
-      d.appendChild(pvEl("small",null,"전투 수치 "+S.power));
       d.appendChild(pvEl("small",null,"체 "+S.stats[0]+" 근 "+S.stats[1]+" 민 "+S.stats[2]+" 운 "+S.stats[3]+" 오 "+S.stats[4]));
       d.appendChild(pvEl("small",null,S.comp?(S.comp.nick||S.comp.name)+" · "+S.comp.fx:"동행 몬스터 없음"));
       var tr=pvEl("div","pvb-bar"),f=pvEl("i");tr.appendChild(f);d.appendChild(tr);
