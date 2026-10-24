@@ -1887,7 +1887,7 @@ async function removeOldTestAccount() {
 // 육성 규칙: 포만감은 1시간에 4, 청결은 1시간에 2씩 줄어듭니다(0 아래로는 안 내려감). 먹이 +30(30분에 한 번), 목욕 +40(1시간에 한 번), 먹이는 '몬스터 먹이' 아이템이 있어야 줄 수 있고(일반 재료 30개로 1개 조합) 친밀도 +2, 목욕은 친밀도 +1. 친밀도는 몬스터마다 하루(한국 시간) 최대 +20까지만 오릅니다(최소 5일).
 // 동행 = 몬스터를 곁에 데리고 다닙니다. 동행은 한 번에 한 마리뿐이고(PvP 에서 파트너 몬스터가 됩니다), 동행을 해제할 때 20분마다 친밀도 +1(한 번에 최대 +4). 포만감이 0이면 동행할 수 없고, 동행 중에 0이 되면 PvP 효과가 붙지 않습니다.
 const RAISE = { FULL_DECAY: 4, CLEAN_DECAY: 2, FEED: 30, BATH: 40, FEED_CD: 30 * 60000, BATH_CD: 60 * 60000, WALK_PER: 20 * 60000, WALK_MAX: 4, FEED_BOND: 2, BATH_BOND: 1, BOND_DAY: 20, FOOD_NEED: 30, START: 70, BOND_MAX: 100 };
-const RAISE_COLS = 'mon_id, nick, got_at, full, full_at, clean, clean_at, bond, walk_at, fed_last, bath_last, bond_day, bond_today';
+const RAISE_COLS = 'mon_id, nick, got_at, sat AS full, sat_at AS full_at, clean, clean_at, bond, walk_at, fed_last, bath_last, bond_day, bond_today';
 const raiDay = now => Math.floor((now + 9 * 3600000) / 86400000);
 const bondRoom = (r, now) => Math.max(0, RAISE.BOND_DAY - (r.bond_day === raiDay(now) ? r.bond_today : 0));
 const decayed = (v, at, rate, now) => at ? Math.max(0, Math.min(100, Math.round((v - (now - at) / 3600000 * rate) * 10) / 10)) : RAISE.START;
@@ -1915,7 +1915,7 @@ async function addBond(uid, monId, row, want, now) {
 // 전체 몬스터 이름·등급과, 내가 얻은 몬스터를 돌려줍니다. (얻는 방법은 아직 없음 — 얻은 기록이 user_mons 에 쌓이면 버튼이 켜집니다)
 route('GET', '/api/raise', async (req, res, ctx) => {
   const now = Date.now();
-  await db.run('UPDATE user_mons SET full_at = ?, clean_at = ? WHERE user_id = ? AND (full_at = 0 OR clean_at = 0)', [now, now, ctx.user.id]);   // 처음 보는 몬스터는 이때부터 시간이 흐릅니다
+  await db.run('UPDATE user_mons SET sat_at = ?, clean_at = ? WHERE user_id = ? AND (sat_at = 0 OR clean_at = 0)', [now, now, ctx.user.id]);   // 처음 보는 몬스터는 이때부터 시간이 흐릅니다
   const rows = await db.all('SELECT ' + RAISE_COLS + ' FROM user_mons WHERE user_id = ?', [ctx.user.id]);
   const own = new Map(rows.map(r => [r.mon_id, r]));
   const walk = rows.find(r => r.walk_at > 0);
@@ -1945,7 +1945,7 @@ route('POST', '/api/raise/act', async (req, res, ctx) => {
     if (st.full >= 100) return fail(res, 400, 'full');
     const t = await db.run('UPDATE users SET mon_food = mon_food - 1 WHERE id = ? AND mon_food >= 1', [uid]);       // 먹이가 있어야만 줄 수 있습니다
     if (t.changes !== 1) return fail(res, 400, 'no_food');
-    await db.run('UPDATE user_mons SET full = ?, full_at = ?, fed_last = ? WHERE user_id = ? AND mon_id = ?', [Math.min(100, st.full + RAISE.FEED), now, now, uid, id]);
+    await db.run('UPDATE user_mons SET sat = ?, sat_at = ?, fed_last = ? WHERE user_id = ? AND mon_id = ?', [Math.min(100, st.full + RAISE.FEED), now, now, uid, id]);
     const gain = await addBond(uid, id, row, RAISE.FEED_BOND, now);
     return out({ gain, want: RAISE.FEED_BOND });
   }
@@ -2008,7 +2008,7 @@ function pvpStatsOf(raw) {
 }
 // 동행 몬스터의 PvP 효과. 배가 고파(포만감 0) 힘을 못 쓰면 효과가 붙지 않습니다.
 async function pvpCompanion(uid, now) {
-  const w = await db.get('SELECT mon_id, nick, bond, full, full_at FROM user_mons WHERE user_id = ? AND walk_at > 0', [uid]);
+  const w = await db.get('SELECT mon_id, nick, bond, sat AS full, sat_at AS full_at FROM user_mons WHERE user_id = ? AND walk_at > 0', [uid]);
   const m = w && G.FRIENDLY_MON.find(x => x.id === w.mon_id);
   if (!m) return null;
   const fx = G.friendFx(m, w.bond), hungry = Math.floor(decayed(w.full, w.full_at, RAISE.FULL_DECAY, now)) <= 0;
