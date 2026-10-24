@@ -865,7 +865,7 @@ function loadShop(){
     $("slist").innerHTML=it.length?it.map(function(x){return'<tr data-id="'+x.id+'"><td><input class="sn" maxlength="30" value="'+esc(x.name)+'"></td><td><input class="sd" maxlength="100" value="'+esc(x.desc)+'"></td><td><input class="sp" type="number" min="0" max="9999999" step="1" style="max-width:100px" value="'+(x.price||0)+'"></td><td><select class="ss" style="max-width:120px">'+statOpts(x.stat)+'</select> <input class="sam" type="number" min="-999" max="999" step="1" style="max-width:90px" value="'+(x.stat?x.amt:"")+'" placeholder="변동값"></td><td><button class="btn" data-sa="save">저장</button> <button class="btn" data-sa="del">삭제</button></td></tr>'}).join(""):'<tr><td colspan="5" class="muted">등록된 상점 아이템이 없습니다.</td></tr>';
   });
 }
-function statOpts(sel){return[["","효과 없음"],["hp","체력"],["str","근력"],["agi","민첩"],["luck","행운"],["taint","오염도"]].map(function(o){return'<option value="'+o[0]+'"'+(o[0]===(sel||"")?" selected":"")+">"+o[1]+"</option>"}).join("")}
+function statOpts(sel){return[["","효과 없음"],["hp","체력"],["str","근력"],["agi","민첩"],["luck","행운"],["taint","오염도"],["pvp_hp","PVP 체력 전체 회복"]].map(function(o){return'<option value="'+o[0]+'"'+(o[0]===(sel||"")?" selected":"")+">"+o[1]+"</option>"}).join("")}
 function shopErr(r){return r.error==="duplicate"?"이미 같은 이름이 있습니다.":r.error==="bad_item"?"이름을 확인하세요.":r.error==="bad_price"?"가격은 0 이상의 정수여야 합니다.":r.error==="bad_amt"?"효과 변동값은 0이 아닌 -999~999 정수여야 합니다.":r.error==="bad_stat"?"효과 스탯 값이 올바르지 않습니다.":"처리하지 못했습니다."}
 $("sadd").addEventListener("click",function(){
   api("POST","/api/admin/shop/save",{name:$("sname").value,desc:$("sdesc").value,price:$("sprice").value,stat:$("sstat").value,amt:$("samt").value}).then(function(r){
