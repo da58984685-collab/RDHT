@@ -1874,8 +1874,269 @@ route('POST', '/api/gifts/seen', async (req, res, ctx) => {
 });
 
 // 세계 지도(나라와 세부 지역)
+// ───────────── 예전 테스트 계정 정리 ─────────────
+// 이전에 임시로 열어 두었던 테스트 계정(AAAA-AA11)은 없앴습니다. 이미 만들어져 있던 계정이 있으면 서버가 켜진 뒤 처음 요청 때 한 번 지웁니다.
+let oldTestGone = false;
+async function removeOldTestAccount() {
+  if (oldTestGone) return; oldTestGone = true;
+  const u = await userByCode('AAAA-AA11');
+  if (u && u.hunter_name === '테스트헌터' && !u.admin_char) await purgeUser(u.id);
+}
+
+// ───────────── 몬스터 육성 ─────────────
+// 육성 규칙: 포만감은 1시간에 4, 청결은 1시간에 2씩 줄어듭니다(0 아래로는 안 내려감). 먹이 +30(30분에 한 번), 목욕 +40(1시간에 한 번), 먹이는 '몬스터 먹이' 아이템이 있어야 줄 수 있고(일반 재료 30개로 1개 조합) 친밀도 +2, 목욕은 친밀도 +1. 친밀도는 몬스터마다 하루(한국 시간) 최대 +20까지만 오릅니다(최소 5일).
+// 동행 = 몬스터를 곁에 데리고 다닙니다. 동행은 한 번에 한 마리뿐이고(PvP 에서 파트너 몬스터가 됩니다), 동행을 해제할 때 20분마다 친밀도 +1(한 번에 최대 +4). 포만감이 0이면 동행할 수 없고, 동행 중에 0이 되면 PvP 효과가 붙지 않습니다.
+const RAISE = { FULL_DECAY: 4, CLEAN_DECAY: 2, FEED: 30, BATH: 40, FEED_CD: 30 * 60000, BATH_CD: 60 * 60000, WALK_PER: 20 * 60000, WALK_MAX: 4, FEED_BOND: 2, BATH_BOND: 1, BOND_DAY: 20, FOOD_NEED: 30, START: 70, BOND_MAX: 100 };
+const RAISE_COLS = 'mon_id, nick, got_at, full, full_at, clean, clean_at, bond, walk_at, fed_last, bath_last, bond_day, bond_today';
+const raiDay = now => Math.floor((now + 9 * 3600000) / 86400000);
+const bondRoom = (r, now) => Math.max(0, RAISE.BOND_DAY - (r.bond_day === raiDay(now) ? r.bond_today : 0));
+const decayed = (v, at, rate, now) => at ? Math.max(0, Math.min(100, Math.round((v - (now - at) / 3600000 * rate) * 10) / 10)) : RAISE.START;
+function raiseState(r, now) {
+  return {
+    full: Math.floor(decayed(r.full, r.full_at, RAISE.FULL_DECAY, now)), clean: Math.floor(decayed(r.clean, r.clean_at, RAISE.CLEAN_DECAY, now)), bond: r.bond,
+    walking: r.walk_at > 0, walkSince: r.walk_at, bondToday: RAISE.BOND_DAY - bondRoom(r, now), bondLimit: RAISE.BOND_DAY,
+    feedIn: Math.max(0, Math.ceil((r.fed_last + RAISE.FEED_CD - now) / 1000)), bathIn: Math.max(0, Math.ceil((r.bath_last + RAISE.BATH_CD - now) / 1000)),
+  };
+}
+const walkGain = (since, now) => Math.min(RAISE.WALK_MAX, Math.floor((now - since) / RAISE.WALK_PER));
+function raiseFull(m, r, now) {      // 얻은 몬스터에게만 보내는 자세한 정보
+  const f = G.friendFx(m, r.bond);
+  return Object.assign({ nick: r.nick || '', got: r.got_at, appearance: m.appearance, trait: m.trait, stage: f.stage, mul: f.mul, hunt: { name: f.hunt.name, text: f.hunt.text }, pvp: { name: f.pvp.name, text: f.pvp.text } }, raiseState(r, now));
+}
+
+// 친밀도를 올립니다(하루 한도 적용). 실제로 오른 양을 돌려줍니다.
+async function addBond(uid, monId, row, want, now) {
+  const got = Math.max(0, Math.min(want, bondRoom(row, now), RAISE.BOND_MAX - row.bond));
+  const same = row.bond_day === raiDay(now);
+  await db.run('UPDATE user_mons SET bond = bond + ?, bond_day = ?, bond_today = ? WHERE user_id = ? AND mon_id = ?', [got, raiDay(now), (same ? row.bond_today : 0) + got, uid, monId]);
+  return got;
+}
+
+// 전체 몬스터 이름·등급과, 내가 얻은 몬스터를 돌려줍니다. (얻는 방법은 아직 없음 — 얻은 기록이 user_mons 에 쌓이면 버튼이 켜집니다)
+route('GET', '/api/raise', async (req, res, ctx) => {
+  const now = Date.now();
+  await db.run('UPDATE user_mons SET full_at = ?, clean_at = ? WHERE user_id = ? AND (full_at = 0 OR clean_at = 0)', [now, now, ctx.user.id]);   // 처음 보는 몬스터는 이때부터 시간이 흐릅니다
+  const rows = await db.all('SELECT ' + RAISE_COLS + ' FROM user_mons WHERE user_id = ?', [ctx.user.id]);
+  const own = new Map(rows.map(r => [r.mon_id, r]));
+  const walk = rows.find(r => r.walk_at > 0);
+  const fu = await db.get('SELECT mon_food FROM users WHERE id = ?', [ctx.user.id]);
+  send(res, 200, { companion: walk ? walk.mon_id : null, food: fu ? fu.mon_food : 0, mons: G.FRIENDLY_MON.map(m => {
+    const o = own.get(m.id);
+    const base = { id: m.id, name: m.name, grade: m.grade, cm: m.cm, owned: !!o };
+    return o ? Object.assign(base, raiseFull(m, o, now)) : base;
+  }) });
+});
+
+// 동행(시작·해제) · 먹이 · 목욕 · 방생
+route('POST', '/api/raise/act', async (req, res, ctx) => {
+  const id = String(ctx.body.id || ''), act = String(ctx.body.act || ''), uid = ctx.user.id, now = Date.now();
+  const m = G.FRIENDLY_MON.find(x => x.id === id);
+  const row = m && await db.get('SELECT ' + RAISE_COLS + ' FROM user_mons WHERE user_id = ? AND mon_id = ?', [uid, id]);
+  if (!row) return fail(res, 404, 'not_found');
+  const st = raiseState(row, now);
+  const out = async extra => {
+    const r = await db.get('SELECT ' + RAISE_COLS + ' FROM user_mons WHERE user_id = ? AND mon_id = ?', [uid, id]);
+    const w = await db.get('SELECT mon_id FROM user_mons WHERE user_id = ? AND walk_at > 0', [uid]);
+    const fu = await db.get('SELECT mon_food FROM users WHERE id = ?', [uid]);
+    send(res, 200, Object.assign({ ok: true, companion: w ? w.mon_id : null, food: fu ? fu.mon_food : 0, mon: raiseFull(m, r, now) }, extra || {}));
+  };
+  if (act === 'feed') {
+    if (st.feedIn > 0) return fail(res, 400, 'cooldown', { wait: st.feedIn });
+    if (st.full >= 100) return fail(res, 400, 'full');
+    const t = await db.run('UPDATE users SET mon_food = mon_food - 1 WHERE id = ? AND mon_food >= 1', [uid]);       // 먹이가 있어야만 줄 수 있습니다
+    if (t.changes !== 1) return fail(res, 400, 'no_food');
+    await db.run('UPDATE user_mons SET full = ?, full_at = ?, fed_last = ? WHERE user_id = ? AND mon_id = ?', [Math.min(100, st.full + RAISE.FEED), now, now, uid, id]);
+    const gain = await addBond(uid, id, row, RAISE.FEED_BOND, now);
+    return out({ gain, want: RAISE.FEED_BOND });
+  }
+  if (act === 'bath') {
+    if (st.bathIn > 0) return fail(res, 400, 'cooldown', { wait: st.bathIn });
+    if (st.clean >= 100) return fail(res, 400, 'clean');
+    await db.run('UPDATE user_mons SET clean = ?, clean_at = ?, bath_last = ? WHERE user_id = ? AND mon_id = ?', [Math.min(100, st.clean + RAISE.BATH), now, now, uid, id]);
+    const gain = await addBond(uid, id, row, RAISE.BATH_BOND, now);
+    return out({ gain, want: RAISE.BATH_BOND });
+  }
+  if (act === 'walk') {
+    if (row.walk_at > 0) {          // 동행 해제
+      await db.run('UPDATE user_mons SET walk_at = 0 WHERE user_id = ? AND mon_id = ?', [uid, id]);
+      const want = walkGain(row.walk_at, now), gain = await addBond(uid, id, row, want, now);
+      return out({ gain, want });
+    }
+    if (st.full <= 0) return fail(res, 400, 'hungry');
+    const other = await db.all('SELECT ' + RAISE_COLS + ' FROM user_mons WHERE user_id = ? AND walk_at > 0 AND mon_id <> ?', [uid, id]);   // 동행은 한 마리뿐: 이전 동행은 마침
+    for (const o of other) { await db.run('UPDATE user_mons SET walk_at = 0 WHERE user_id = ? AND mon_id = ?', [uid, o.mon_id]); await addBond(uid, o.mon_id, o, walkGain(o.walk_at, now), now); }
+    await db.run('UPDATE user_mons SET walk_at = ? WHERE user_id = ? AND mon_id = ?', [now, uid, id]);
+    return out({ gain: 0, swapped: other.map(o => o.mon_id) });
+  }
+  if (act === 'release') {
+    await db.run('DELETE FROM user_mons WHERE user_id = ? AND mon_id = ?', [uid, id]);
+    return send(res, 200, { ok: true, released: id });
+  }
+  fail(res, 400, 'bad_act');
+});
+
+// 먹이 조합: 필요 없는 '일반' 재료 30개(직접 고름)로 몬스터 먹이 1개를 만듭니다. 희귀 이상 재료와 상점 아이템은 쓸 수 없습니다.
+route('POST', '/api/raise/craft', async (req, res, ctx) => {
+  const uid = ctx.user.id, raw = ctx.body.items;
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return fail(res, 400, 'bad_items');
+  const list = Object.entries(raw).map(([k, v]) => [String(k), Number(v)]).filter(([k, v]) => v !== 0 || true);
+  if (!list.length || list.length > 40 || list.some(([k, v]) => !Number.isInteger(v) || v < 1)) return fail(res, 400, 'bad_items');
+  if (list.reduce((a, [k, v]) => a + v, 0) !== RAISE.FOOD_NEED) return fail(res, 400, 'need_' + RAISE.FOOD_NEED);
+  if (list.some(([k]) => !MAT_NAMES.has(k) || MAT_TIER.get(k) !== 'c')) return fail(res, 400, 'not_allowed');
+  const taken = [];
+  const restore = async () => { for (const [k, v] of taken) await db.run('INSERT INTO inventory (user_id, item, qty) VALUES (?, ?, ?) ON CONFLICT(user_id, item) DO UPDATE SET qty = MIN(9999, qty + excluded.qty)', [uid, k, v]); };
+  try {
+    for (const [k, v] of list) {
+      const d = await db.run('UPDATE inventory SET qty = qty - ? WHERE user_id = ? AND item = ? AND qty >= ?', [v, uid, k, v]);
+      if (d.changes !== 1) { await restore(); return fail(res, 400, 'no_mats', { item: k }); }
+      taken.push([k, v]);
+    }
+    await db.run('UPDATE users SET mon_food = MIN(99, mon_food + 1) WHERE id = ?', [uid]);
+  } catch (e) { await restore(); throw e; }
+  await db.run('DELETE FROM inventory WHERE user_id = ? AND qty <= 0', [uid]);
+  const fu = await db.get('SELECT mon_food FROM users WHERE id = ?', [uid]);
+  send(res, 200, { ok: true, food: fu.mon_food });
+});
+
+// ───────────── 전장 (PvP) 화면용 정보 ─────────────
+// PvP 스탯 [체력, 근력, 민첩, 행운, 오염도]: 각 1~5, 합계 15. 기본은 모두 3입니다(스탯을 직접 나누는 화면은 아직 없음).
+const PVP_DEFAULT = [3, 3, 3, 3, 3];
+function pvpStatsOf(raw) {
+  let a; try { a = JSON.parse(raw); } catch (e) { a = null; }
+  const ok = Array.isArray(a) && a.length === 5 && a.every(n => Number.isInteger(n) && n >= 1 && n <= 5) && a.reduce((x, y) => x + y, 0) === 15;
+  return ok ? a : PVP_DEFAULT.slice();
+}
+// 동행 몬스터의 PvP 효과. 배가 고파(포만감 0) 힘을 못 쓰면 효과가 붙지 않습니다.
+async function pvpCompanion(uid, now) {
+  const w = await db.get('SELECT mon_id, nick, bond, full, full_at FROM user_mons WHERE user_id = ? AND walk_at > 0', [uid]);
+  const m = w && G.FRIENDLY_MON.find(x => x.id === w.mon_id);
+  if (!m) return null;
+  const fx = G.friendFx(m, w.bond), hungry = Math.floor(decayed(w.full, w.full_at, RAISE.FULL_DECAY, now)) <= 0;
+  return { id: m.id, name: m.name, nick: w.nick || '', grade: m.grade, stage: fx.stage, hungry, pvp: { name: fx.pvp.name, text: fx.pvp.text, k: fx.pvp.k, v: fx.pvp.v } };
+}
+const compFx = c => c && !c.hungry ? { k: c.pvp.k, v: c.pvp.v } : null;
+const PVP_LOCK_MS = 10 * 60000;                  // 패배하면 PvP 체력이 0이 되고, 10분에 걸쳐 100으로 돌아옵니다
+const pvpHpNow = (lock, now) => lock > now ? Math.max(0, Math.floor(100 - (lock - now) / PVP_LOCK_MS * 100)) : 100;
+const PVP_TOL = [5, 7], PVP_TOL_WAIT = 20000;    // 전투 수치 차이 5 이내, 20초 넘게 기다리면 7 이내까지
+const PVP_STALE = 15000;                         // 15초 동안 소식이 없는 대기자는 대기열에서 뺍니다
+
+async function pvpMine(uid, now) {
+  const u = await db.get('SELECT pvp_stats, pvp_win, pvp_lose, pvp_lock FROM users WHERE id = ?', [uid]);
+  const a = pvpStatsOf(u && u.pvp_stats), comp = await pvpCompanion(uid, now);
+  return { a, comp, u, power: G.pvpPower(a, compFx(comp)) };
+}
+
+route('GET', '/api/pvp/me', async (req, res, ctx) => {
+  const now = Date.now(), m = await pvpMine(ctx.user.id, now);
+  send(res, 200, {
+    stats: { hp: m.a[0], str: m.a[1], agi: m.a[2], luck: m.a[3], taint: m.a[4] },
+    companion: m.comp, power: m.power, win: m.u.pvp_win, lose: m.u.pvp_lose, hp: pvpHpNow(m.u.pvp_lock, now), lockLeft: Math.max(0, Math.ceil((m.u.pvp_lock - now) / 1000)),
+    queued: !!(await db.get('SELECT 1 AS x FROM pvp_queue WHERE user_id = ?', [ctx.user.id])), text: G.PVP_STAT_TEXT,
+  });
+});
+
+// PvP 스탯 저장: 체력·근력·민첩·행운·오염도 각 1~5, 합계 15
+route('POST', '/api/pvp/stats', async (req, res, ctx) => {
+  const b = ctx.body && ctx.body.stats;
+  if (!G.pvpStatsOk(b)) return fail(res, 400, 'bad_stats');
+  if (await db.get('SELECT 1 AS x FROM pvp_queue WHERE user_id = ?', [ctx.user.id])) return fail(res, 409, 'queued');
+  const a = G.PVP_KEYS.map(k => b[k]);
+  await db.run('UPDATE users SET pvp_stats = ? WHERE id = ?', [JSON.stringify(a), ctx.user.id]);
+  const now = Date.now(), comp = await pvpCompanion(ctx.user.id, now);
+  send(res, 200, { ok: true, stats: b, power: G.pvpPower(a, compFx(comp)) });
+});
+
+// 대기열에서 나와 비슷한 수치의 상대를 찾아 전투를 진행합니다. 상대를 먼저 '내 것으로' 확보(대기열에서 삭제)한 쪽만 전투를 만듭니다.
+async function pvpTryMatch(uid, me, now) {
+  const q = await db.get('SELECT joined_at FROM pvp_queue WHERE user_id = ?', [uid]);
+  if (!q) return null;
+  await db.run('DELETE FROM pvp_queue WHERE seen_at < ?', [now - PVP_STALE]);
+  const waits = await db.all('SELECT user_id, power, joined_at FROM pvp_queue WHERE user_id <> ?', [uid]);
+  const mine = now - q.joined_at;
+  const cand = waits.map(w => ({ w, d: Math.abs(w.power - me.power), tol: Math.max(mine, now - w.joined_at) >= PVP_TOL_WAIT ? PVP_TOL[1] : PVP_TOL[0] }))
+    .filter(c => c.d <= c.tol).sort((x, y) => x.d - y.d || x.w.joined_at - y.w.joined_at);
+  for (const c of cand) {
+    const got = await db.run('DELETE FROM pvp_queue WHERE user_id = ?', [c.w.user_id]);
+    if (got.changes !== 1) continue;                       // 다른 사람이 먼저 데려감
+    const mine2 = await db.run('DELETE FROM pvp_queue WHERE user_id = ?', [uid]);
+    if (mine2.changes !== 1) { await db.run('INSERT INTO pvp_queue (user_id, power, joined_at, seen_at) VALUES (?, ?, ?, ?) ON CONFLICT(user_id) DO NOTHING', [c.w.user_id, c.w.power, c.w.joined_at, now]); return null; }
+    const o = await pvpMine(c.w.user_id, now);
+    const rnd = G.mulberry32((Math.random() * 4294967296) >>> 0);
+    const [A, B] = rnd() < 0.5 ? [{ id: uid, m: me }, { id: c.w.user_id, m: o }] : [{ id: c.w.user_id, m: o }, { id: uid, m: me }];
+    const r = G.pvpBattle(A.m.a, compFx(A.m.comp), B.m.a, compFx(B.m.comp), rnd);
+    const names = await db.all('SELECT id, hunter_name FROM users WHERE id IN (?, ?)', [A.id, B.id]);
+    const nm = id => (names.find(n => n.id === id) || {}).hunter_name || '(헌터)';
+    const side = (X) => ({ name: nm(X.id), power: X.m.power, stats: X.m.a, comp: X.m.comp ? { name: X.m.comp.name, nick: X.m.comp.nick, grade: X.m.comp.grade, fx: X.m.comp.hungry ? '배가 고파 힘을 못 써요' : X.m.comp.pvp.name + ' · ' + X.m.comp.pvp.text } : null });
+    const info = JSON.stringify({ a: side(A), b: side(B) });
+    const ins = await db.run('INSERT INTO pvp_battles (a_id, b_id, winner, turns, info, log, at) VALUES (?, ?, ?, ?, ?, ?, ?)', [A.id, B.id, r.winner, r.turns, info, JSON.stringify(r.log), now]);
+    const win = r.winner === 0 ? A.id : B.id, lose = r.winner === 0 ? B.id : A.id;
+    await db.batch([
+      ['UPDATE users SET pvp_win = pvp_win + 1 WHERE id = ?', [win]],
+      ['UPDATE users SET pvp_lose = pvp_lose + 1, pvp_lock = ? WHERE id = ?', [now + PVP_LOCK_MS, lose]],
+    ]);
+    return ins.lastId;
+  }
+  return null;
+}
+
+async function pvpBattleFor(uid) {
+  const b = await db.get('SELECT * FROM pvp_battles WHERE at > ? AND ((a_id = ? AND a_seen = 0) OR (b_id = ? AND b_seen = 0)) ORDER BY id DESC LIMIT 1', [Date.now() - 5 * 60000, uid, uid]);
+  if (!b) return null;
+  const meSide = b.a_id === uid ? 0 : 1;
+  await db.run(meSide === 0 ? 'UPDATE pvp_battles SET a_seen = 1 WHERE id = ?' : 'UPDATE pvp_battles SET b_seen = 1 WHERE id = ?', [b.id]);
+  const info = JSON.parse(b.info);
+  return { id: b.id, me: meSide, winner: b.winner, turns: b.turns, a: info.a, b: info.b, log: JSON.parse(b.log), hp: PVP.HP };
+}
+const PVP = G.PVP;
+
+// 대기 상태 확인(2~3초마다 호출): 대기열에 있으면 상대를 찾아보고, 끝난 전투가 있으면 돌려줍니다.
+async function pvpPollState(uid) {
+  const now = Date.now();
+  const q = await db.get('SELECT joined_at FROM pvp_queue WHERE user_id = ?', [uid]);
+  if (q) {
+    await db.run('UPDATE pvp_queue SET seen_at = ? WHERE user_id = ?', [now, uid]);
+    await pvpTryMatch(uid, await pvpMine(uid, now), now);
+  }
+  const battle = await pvpBattleFor(uid);
+  const q2 = battle ? null : await db.get('SELECT joined_at, power FROM pvp_queue WHERE user_id = ?', [uid]);
+  return { state: battle ? 'matched' : q2 ? 'waiting' : 'idle', waited: q2 ? Math.floor((now - q2.joined_at) / 1000) : 0, range: q2 && now - q2.joined_at >= PVP_TOL_WAIT ? PVP_TOL[1] : PVP_TOL[0], battle };
+}
+route('POST', '/api/pvp/queue', async (req, res, ctx) => {
+  const uid = ctx.user.id, now = Date.now(), m = await pvpMine(uid, now);
+  if (m.u.pvp_lock > now) return fail(res, 400, 'recovering', { hp: pvpHpNow(m.u.pvp_lock, now), lockLeft: Math.ceil((m.u.pvp_lock - now) / 1000) });
+  await db.run('INSERT INTO pvp_queue (user_id, power, joined_at, seen_at) VALUES (?, ?, ?, ?) ON CONFLICT(user_id) DO UPDATE SET power = excluded.power, seen_at = excluded.seen_at', [uid, m.power, now, now]);
+  send(res, 200, Object.assign({ ok: true, power: m.power }, await pvpPollState(uid)));
+});
+route('GET', '/api/pvp/poll', async (req, res, ctx) => { send(res, 200, await pvpPollState(ctx.user.id)); });
+route('POST', '/api/pvp/cancel', async (req, res, ctx) => {
+  await db.run('DELETE FROM pvp_queue WHERE user_id = ?', [ctx.user.id]);
+  send(res, 200, { ok: true });
+});
+
+// 유저 랭킹: 승리 수가 많은 순(같으면 승률이 높은 순, 패배가 적은 순). 한 판이라도 치른 헌터만 올라옵니다.
+route('GET', '/api/pvp/rank', async (req, res, ctx) => {
+  const rows = await db.all('SELECT id, hunter_name, rank, is_private, pvp_win AS w, pvp_lose AS l FROM users WHERE pvp_win + pvp_lose > 0 ORDER BY pvp_win DESC, (pvp_win * 1.0 / (pvp_win + pvp_lose)) DESC, pvp_lose ASC, id ASC LIMIT 100');
+  const list = rows.map((r, i) => ({ no: i + 1, name: r.is_private && r.id !== ctx.user.id ? '(비공개 헌터)' : r.hunter_name, w: r.w, l: r.l, rate: Math.round(r.w * 100 / (r.w + r.l)), me: r.id === ctx.user.id }));
+  const me = await db.get('SELECT pvp_win AS w, pvp_lose AS l FROM users WHERE id = ?', [ctx.user.id]);
+  let myNo = 0;
+  if (me && me.w + me.l > 0) {
+    const better = await db.get('SELECT COUNT(*) AS c FROM users WHERE pvp_win + pvp_lose > 0 AND (pvp_win > ? OR (pvp_win = ? AND (pvp_win * 1.0 / (pvp_win + pvp_lose)) > ?) OR (pvp_win = ? AND (pvp_win * 1.0 / (pvp_win + pvp_lose)) = ? AND pvp_lose < ?))', [me.w, me.w, me.w / (me.w + me.l), me.w, me.w / (me.w + me.l), me.l]);
+    myNo = better.c + 1;
+  }
+  send(res, 200, { list, me: { no: myNo, w: me ? me.w : 0, l: me ? me.l : 0 } });
+});
+
+// 몬스터에게 이름을 지어 줍니다(12자까지, 비우면 이름 지우기).
+route('POST', '/api/raise/name', async (req, res, ctx) => {
+  const id = String(ctx.body.id || ''), nick = String(ctx.body.name == null ? '' : ctx.body.name).trim();
+  if (/[\u0000-\u001f\u007f]/.test(nick) || cp(nick) > 12) return fail(res, 400, 'bad_name');
+  const r = await db.run('UPDATE user_mons SET nick = ? WHERE user_id = ? AND mon_id = ?', [nick, ctx.user.id, id]);
+  if (!(r && (r.changes == null || r.changes > 0))) return fail(res, 404, 'not_found');
+  send(res, 200, { ok: true, name: nick });
+});
+
 route('GET', '/api/world', async (req, res) => {
-  send(res, 200, { countries: G.COUNTRIES.map(c => ({ id: c.id, name: c.name, lat: c.lat, lon: c.lon, gate: !!c.gate,
+  send(res, 200, { countries: G.COUNTRIES.map(c => ({ id: c.id, name: c.name, lat: c.lat, lon: c.lon, gate: !!c.gate, safe: !!c.safe,
     regions: c.regions.map(r => ({ id: r.id, name: r.name, sub: r.sub, icon: r.icon, danger: r.danger, pos: r.pos })) })) });
 });
 
@@ -2622,24 +2883,36 @@ route('POST', '/api/admin/player/item/delete', async (req, res, ctx) => {
 }, { auth: false, admin: true });
 
 // ───────────── 상점 ─────────────
+// 기본 상품: PVP 체력 전체 회복 포션(2000 G, 오염 단계에 따른 가격 인상 없음). 서버를 처음 쓸 때 한 번만 등록하며, 관리자가 지우면 다시 만들지 않습니다.
+const PVP_POTION = 'PVP 회복 포션', PVP_POTION_PRICE = 2000;
+let potionSeeded = false;
+async function seedPvpPotion() {
+  if (potionSeeded) return; potionSeeded = true;
+  const done = await db.get("SELECT value FROM settings WHERE key = 'pvp_potion_seeded'");
+  if (done) return;
+  await db.run("INSERT INTO settings (key, value) VALUES ('pvp_potion_seeded', '1') ON CONFLICT(key) DO NOTHING");
+  await db.run('INSERT INTO shop_items (name, descr, price, at, eff_stat, eff_amt) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(name) DO NOTHING', [PVP_POTION, 'PVP 체력을 한 번에 100까지 전부 회복합니다. 패배 후 기다리지 않고 바로 다시 전장에 설 수 있어요.', PVP_POTION_PRICE, Date.now(), 'pvp_hp', 100]);
+}
+const shopPrice = (it, stg) => it.eff_stat === 'pvp_hp' ? it.price : G.taintPrice(it.price, stg);
 route('GET', '/api/shop', async (req, res, ctx) => {
+  await seedPvpPotion().catch(() => { potionSeeded = false; });
   const items = await db.all('SELECT id, name, descr, price, eff_stat, eff_amt FROM shop_items ORDER BY id');
   const stg = stageOf(ctx.user);       // 오염 단계가 오르면 상점 가격이 오릅니다
-  send(res, 200, { gold: ctx.user.gold, markup: G.TAINT_SHOP_PCT[stg], items: items.map(i => ({ id: i.id, name: i.name, desc: i.descr, price: G.taintPrice(i.price, stg), eff: i.eff_stat ? { stat: i.eff_stat, amt: i.eff_amt } : null })) });
+  send(res, 200, { gold: ctx.user.gold, markup: G.TAINT_SHOP_PCT[stg], items: items.map(i => ({ id: i.id, name: i.name, desc: i.descr, price: shopPrice(i, stg), eff: i.eff_stat ? { stat: i.eff_stat, amt: i.eff_amt } : null })) });
 });
 
 route('POST', '/api/shop/buy', async (req, res, ctx) => {
   if (await limited('buy:' + ctx.user.id, 60, G.HOUR)) return fail(res, 429, 'rate_limited');
   if (ctx.user.block_flags & 4) return fail(res, 403, 'blocked', { what: 'shop' });
   if (corruptLock(ctx.user, Date.now())) return fail(res, 409, 'corrupted', { until: ctx.user.corrupt_until });
-  const it = await db.get('SELECT id, name, price FROM shop_items WHERE id = ?', [Number(ctx.body.id) || 0]);
+  const it = await db.get('SELECT id, name, price, eff_stat FROM shop_items WHERE id = ?', [Number(ctx.body.id) || 0]);
   if (!it) return fail(res, 404, 'no_item');
   const qty = ctx.body.qty === undefined ? 1 : Number(ctx.body.qty);          // 한 번에 여러 개 구매 (1~9999)
   if (!Number.isInteger(qty) || qty < 1 || qty > 9999) return fail(res, 400, 'bad_qty');
   const cur = await db.get('SELECT qty FROM inventory WHERE user_id = ? AND item = ?', [ctx.user.id, it.name]);
   const have = cur ? Number(cur.qty) : 0;
   if (have + qty > 9999) return fail(res, 400, 'max_qty', { room: Math.max(0, 9999 - have) });
-  const total = G.taintPrice(it.price, stageOf(ctx.user)) * qty;
+  const total = shopPrice(it, stageOf(ctx.user)) * qty;
   if (total > 0) {      // 잔액이 충분할 때만 원자적으로 차감
     const pay = await db.run('UPDATE users SET gold = gold - ? WHERE id = ? AND gold >= ?', [total, ctx.user.id, total]);
     if (pay.changes !== 1) return fail(res, 402, 'no_gold');
@@ -2656,7 +2929,7 @@ route('POST', '/api/shop/buy', async (req, res, ctx) => {
 });
 
 // 아이템 사용: 상점에 등록된 아이템의 효과대로 스탯이 바뀝니다 (예: 회복 포션 = 체력 +10)
-const STAT_KO = { hp: '체력', str: '근력', agi: '민첩', luck: '행운', taint: '오염도' };
+const STAT_KO = { pvp_hp: 'PVP 체력', hp: '체력', str: '근력', agi: '민첩', luck: '행운', taint: '오염도' };
 async function applyItemEffect(userId, stat, amt, now) {
   for (let i = 0; i < 6; i++) {
     const u = await db.get('SELECT stats, dying_until FROM users WHERE id = ?', [userId]);
@@ -2823,6 +3096,15 @@ route('POST', '/api/inventory/use', async (req, res, ctx) => {
   let it = await db.get('SELECT eff_stat, eff_amt FROM shop_items WHERE name = ?', [name]);
   if ((!it || !it.eff_stat) && G.CRAFT_DEFS[name]) it = { eff_stat: G.CRAFT_DEFS[name].stat, eff_amt: G.CRAFT_DEFS[name].amt };
   if (!it || !it.eff_stat) return fail(res, 400, 'no_effect');
+  if (it.eff_stat === 'pvp_hp') {     // PVP 체력 전체 회복: 회복이 필요할 때만 쓸 수 있고, 매칭 대기 중에도 쓸 수 있습니다
+    const now = Date.now(), lk = await db.get('SELECT pvp_lock FROM users WHERE id = ?', [ctx.user.id]);
+    if (!lk || lk.pvp_lock <= now) return fail(res, 400, 'pvp_full');
+    const dec = await db.run('UPDATE inventory SET qty = qty - 1 WHERE user_id = ? AND item = ? AND qty > 0', [ctx.user.id, name]);
+    if (dec.changes !== 1) return fail(res, 404, 'no_item');
+    await db.run('UPDATE users SET pvp_lock = 0 WHERE id = ?', [ctx.user.id]);
+    await db.run('DELETE FROM inventory WHERE user_id = ? AND item = ? AND qty <= 0', [ctx.user.id, name]);
+    return send(res, 200, { ok: true, item: name, stat: 'pvp_hp', label: 'PVP 체력', amt: 100, before: pvpHpNow(lk.pvp_lock, now), after: 100, dyingUntil: 0 });
+  }
   const dec = await db.run('UPDATE inventory SET qty = qty - 1 WHERE user_id = ? AND item = ? AND qty > 0', [ctx.user.id, name]);
   if (dec.changes !== 1) return fail(res, 404, 'no_item');
   let r;
@@ -2848,7 +3130,7 @@ route('POST', '/api/admin/shop/save', async (req, res, ctx) => {
   if (!Number.isInteger(price) || price < 0 || price > 9999999) return fail(res, 400, 'bad_price');
   const stat = String(ctx.body.stat == null ? '' : ctx.body.stat);
   const amt = stat ? Number(ctx.body.amt) : 0;
-  if (!['', 'hp', 'str', 'agi', 'luck', 'taint'].includes(stat)) return fail(res, 400, 'bad_stat');
+  if (!['', 'hp', 'str', 'agi', 'luck', 'taint', 'pvp_hp'].includes(stat)) return fail(res, 400, 'bad_stat');
   if (stat && (!Number.isInteger(amt) || amt === 0 || amt < -999 || amt > 999)) return fail(res, 400, 'bad_amt');
   const id = Number(ctx.body.id) || 0;
   const dup = await db.get('SELECT id FROM shop_items WHERE name = ? AND id != ?', [name, id]);
@@ -2926,7 +3208,7 @@ route('POST', '/api/admin/s/spawn', async (req, res, ctx) => {
   const name = String(ctx.body.name || '');
   if (!G.MON.SS.includes(name)) return fail(res, 400, 'bad_name');
   let region = String(ctx.body.region || '');
-  if (region && (!G.COUNTRY_BY_ID[region] || G.COUNTRY_BY_ID[region].gate)) return fail(res, 400, 'bad_region');      // S급은 나라 단위로만 출현
+  if (region && (!G.COUNTRY_BY_ID[region] || G.COUNTRY_BY_ID[region].gate || G.COUNTRY_BY_ID[region].safe)) return fail(res, 400, 'bad_region');      // S급은 나라 단위로만 출현
   const now = Date.now();
   if (!region) region = pickSCountry(await liveSCountries(now));
   const live = await db.get("SELECT COUNT(*) AS c FROM monsters WHERE rank = 'SS' AND owner_id IS NULL AND corrupt_of IS NULL AND spawned_at > ?", [now - G.ACTIVE_MS_S]);
@@ -3185,12 +3467,8 @@ route('POST', '/api/admin/player/hunt/delete', async (req, res, ctx) => {
   send(res, 200, { ok: true });
 }, { auth: false, admin: true });
 
-// 강제 탈퇴: 캐릭터와 관련 데이터를 모두 삭제합니다. (확인용으로 헌터 네임을 정확히 보내야 합니다)
-route('POST', '/api/admin/player/delete', async (req, res, ctx) => {
-  const u = await userByCode(normCode(ctx.body.code));
-  if (!u) return fail(res, 404, 'not_found');
-  if (String(ctx.body.confirm || '') !== u.hunter_name) return fail(res, 400, 'confirm_mismatch');
-  const id = u.id;
+// 캐릭터와 관련 데이터를 모두 지웁니다.
+async function purgeUser(id) {
   await db.batch([
     ['DELETE FROM sessions WHERE user_id = ?', [id]],
     ['DELETE FROM kills WHERE user_id = ?', [id]],
@@ -3227,8 +3505,20 @@ route('POST', '/api/admin/player/delete', async (req, res, ctx) => {
     ['DELETE FROM ach_grants WHERE user_id = ?', [id]],
     ['DELETE FROM user_spawn WHERE user_id = ?', [id]],
     ['DELETE FROM monsters WHERE owner_id = ?', [id]],
+    ['DELETE FROM user_mons WHERE user_id = ?', [id]],
+    ['DELETE FROM pvp_queue WHERE user_id = ?', [id]],
+    ['DELETE FROM pvp_battles WHERE a_id = ? OR b_id = ?', [id, id]],
     ['DELETE FROM users WHERE id = ?', [id]],
   ]);
+}
+
+// 강제 탈퇴: 캐릭터와 관련 데이터를 모두 삭제합니다. (확인용으로 헌터 네임을 정확히 보내야 합니다)
+route('POST', '/api/admin/player/delete', async (req, res, ctx) => {
+  const u = await userByCode(normCode(ctx.body.code));
+  if (!u) return fail(res, 404, 'not_found');
+  if (String(ctx.body.confirm || '') !== u.hunter_name) return fail(res, 400, 'confirm_mismatch');
+  const id = u.id;
+  await purgeUser(id);
   send(res, 200, { ok: true });
 }, { auth: false, admin: true });
 
@@ -3363,6 +3653,7 @@ async function handle(req, res) {
     const pathname = new URL(req.url, 'http://x').pathname.replace(/\/+$/, '') || '/';
     const r = routes[req.method + ' ' + pathname];
     if (!r) return fail(res, 404, 'not_found');
+    await removeOldTestAccount().catch(() => {});
     if (req.method !== 'GET') {
       const origin = req.headers.origin;
       if (origin) { let ok = false; try { ok = new URL(origin).host === req.headers.host; } catch (_) {} if (!ok) return fail(res, 403, 'bad_origin'); }
