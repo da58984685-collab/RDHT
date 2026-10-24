@@ -2004,6 +2004,8 @@ route('POST', '/api/raise/craft', async (req, res, ctx) => {
 const CW_REGION = 'cw-isle', CW_CD = 10 * 60000, CW_TURNS = 12, CW_EXPIRE = 30 * 60000;
 const CW_HP = { E: 40, D: 60, C: 90, B: 130, A: 180, S: 250 };
 const CW_ODDS = { E: 34, D: 32, C: 20, B: 12.5, A: 1.2, S: 0.3 };     // 등급별 출현 확률(%): E·D 가 가장 많고 A 는 5% 미만, S 는 0.5% 미만
+const CW_ATK = { E: 3, D: 5, C: 8, B: 12, A: 17, S: 24 };       // 몬스터가 한 번 공격할 때의 피해(등급별). 그레이윅 안에서만 쓰는 체력이라 실제 체력·토벌에는 영향이 없습니다.
+const CW_PHP = 100, CW_FLEE_AT = 0.3, CW_FLEE_P = 25;           // 내 체력 / 몬스터 체력이 30% 이하면 매 턴 25%로 도주
 const CW_ACT = ['몸을 낮추고 이쪽을 살핀다', '주위를 맴돌며 눈치를 본다', '슬금슬금 거리를 벌린다', '꼬리를 흔들며 경계한다', '숨을 고르며 버틴다'];
 async function cwSpawn(uid, now) {
   const own = new Set((await db.all('SELECT mon_id FROM user_mons WHERE user_id = ?', [uid])).map(r => r.mon_id));
@@ -2015,15 +2017,15 @@ async function cwSpawn(uid, now) {
   for (const g of gs) { r -= CW_ODDS[g]; if (r < 0) { grade = g; break; } }
   const m = left[grade][G.rnd(0, left[grade].length - 1)], hp = CW_HP[grade];
   await db.run('DELETE FROM cw_enc WHERE user_id = ?', [uid]);
-  await db.run('INSERT INTO cw_enc (user_id, mon_id, hp, hp_max, turn, at) VALUES (?, ?, ?, ?, 0, ?)', [uid, m.id, hp, hp, now]);
+  await db.run('INSERT INTO cw_enc (user_id, mon_id, hp, hp_max, turn, at, p_hp) VALUES (?, ?, ?, ?, 0, ?, ?)', [uid, m.id, hp, hp, now, CW_PHP]);
   return true;
 }
 function cwView(e) {
   const m = G.FRIENDLY_MON.find(x => x.id === e.mon_id);
-  return { mon: { id: m.id, name: m.name, grade: m.grade, cm: m.cm, size: m.size, appearance: m.appearance }, hp: e.hp, max: e.hp_max, turn: e.turn, limit: CW_TURNS };
+  return { mon: { id: m.id, name: m.name, grade: m.grade, cm: m.cm, size: m.size, appearance: m.appearance }, hp: e.hp, max: e.hp_max, turn: e.turn, limit: CW_TURNS, pHp: e.p_hp, pMax: CW_PHP };
 }
 async function cwEnc(uid, now) {
-  const e = await db.get('SELECT mon_id, hp, hp_max, turn, at FROM cw_enc WHERE user_id = ?', [uid]);
+  const e = await db.get('SELECT mon_id, hp, hp_max, turn, at, p_hp FROM cw_enc WHERE user_id = ?', [uid]);
   if (e && now - e.at > CW_EXPIRE) { await db.run('DELETE FROM cw_enc WHERE user_id = ?', [uid]); return null; }
   return e || null;
 }
@@ -2060,13 +2062,34 @@ route('POST', '/api/cw/act', async (req, res, ctx) => {
     log.push(nm + '을(를) 포획했다!');
     return send(res, 200, { ok: true, end: 'caught', hp: 0, max: e.hp_max, turn, limit: CW_TURNS, dmg, log, mon: v.mon });
   }
+  // 몬스터의 차례: 체력이 30% 이하이면 도망칠 때가 있고, 아니면 공격해 옵니다.
+  let pHp = e.p_hp;
+  const out = { ok: true, hp, max: e.hp_max, turn, limit: CW_TURNS, dmg, pMax: CW_PHP, mon: v.mon };
+  if (hp / e.hp_max <= CW_FLEE_AT && Math.random() * 100 < CW_FLEE_P) {
+    await db.run('DELETE FROM cw_enc WHERE user_id = ?', [uid]);
+    log.push(nm + '은(는) 겁을 먹고 몸을 돌려 도망쳤다!');
+    return send(res, 200, Object.assign(out, { end: 'fled', pHp, log }));
+  }
+  const agi = Number(st.agi) || 0;
+  if (Math.random() * 100 < Math.min(30, agi * 0.3)) log.push(nm + '의 공격을 가볍게 피했다');
+  else if (Math.random() * 100 < 80) {
+    const md = Math.max(1, Math.round(CW_ATK[v.mon.grade] * (0.8 + Math.random() * 0.4)));
+    pHp = Math.max(0, pHp - md);
+    await db.run('UPDATE cw_enc SET p_hp = ? WHERE user_id = ?', [pHp, uid]);
+    log.push(nm + '의 공격! ' + md + ' 피해를 입었다');
+  } else log.push(nm + '의 공격이 빗나갔다');
+  if (pHp <= 0) {
+    await db.run('DELETE FROM cw_enc WHERE user_id = ?', [uid]);
+    log.push('쓰러졌다… ' + nm + '은(는) 유유히 사라졌다.');
+    return send(res, 200, Object.assign(out, { end: 'down', pHp, log }));
+  }
   if (turn >= CW_TURNS) {
     await db.run('DELETE FROM cw_enc WHERE user_id = ?', [uid]);
     log.push(nm + '은(는) 지쳐서 수풀 속으로 사라졌다...');
-    return send(res, 200, { ok: true, end: 'fled', hp, max: e.hp_max, turn, limit: CW_TURNS, dmg, log, mon: v.mon });
+    return send(res, 200, Object.assign(out, { end: 'fled', pHp, log }));
   }
   log.push(nm + '은(는) ' + CW_ACT[G.rnd(0, CW_ACT.length - 1)]);
-  send(res, 200, { ok: true, end: '', hp, max: e.hp_max, turn, limit: CW_TURNS, dmg, log, mon: v.mon });
+  return send(res, 200, Object.assign(out, { end: '', pHp, log }));
 });
 
 // ───────────── 전장 (PvP) 화면용 정보 ─────────────
