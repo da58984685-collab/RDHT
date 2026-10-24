@@ -806,6 +806,18 @@ input[type=checkbox]:focus-visible{outline:2px solid var(--deep);outline-offset:
 .pvp-w{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;min-height:min(66vh,540px);text-align:center}
 .pvp-go{min-width:min(60%,260px);padding:18px 24px;border:1px solid var(--red2);border-radius:10px;background:linear-gradient(180deg,#3a0a11,#1a0709);color:#f3e9e7;font:700 1.3rem/1 "Noto Sans KR",sans-serif;letter-spacing:.3em;text-indent:.3em;cursor:pointer;box-shadow:0 0 18px rgba(212,32,46,.35)}
 .pvp-msg{margin:0;min-height:1.2em;font-size:.82rem;color:#f0b93a}
+.dialog.cw-dlg{width:min(560px,94vw);margin:auto;display:flex;flex-direction:column;gap:8px;padding:16px 18px 14px}
+.cw-stage{border:1px solid var(--line);border-radius:6px;overflow:hidden;background:#000;aspect-ratio:16/9}
+.cw-stage canvas{display:block;width:100%;height:100%;image-rendering:pixelated}
+.cw-info{display:grid;grid-template-columns:1fr auto;gap:2px 10px;align-items:center}
+.cw-info b{font-size:1rem}.cw-info #cwtn{font-size:.8rem;color:var(--sub)}
+.cw-hp{grid-column:1/-1;height:12px;border:1px solid var(--line);border-radius:6px;background:#0b0708;overflow:hidden}
+.cw-hp i{display:block;height:100%;width:100%;background:var(--red);transition:width .35s}
+.cw-info small{grid-column:1/-1;text-align:right;color:var(--sub);font-size:.75rem;min-height:1em}
+.cw-log{list-style:none;margin:0;padding:8px 10px;height:7.4em;overflow:auto;border:1px solid var(--line);border-radius:8px;background:#0b0708;font-size:.82rem;display:flex;flex-direction:column;gap:3px}
+.cw-note{margin:0;min-height:1.3em;font-size:.82rem;color:#f0b93a}
+.cw-acts{display:flex;gap:8px;flex-wrap:wrap}.cw-acts .hud-btn{flex:1;min-width:70px;padding:10px 8px}.cw-acts .hud-btn:disabled{opacity:.4}
+#cwopen{margin-left:8px}
 .pvs-open{display:block;width:100%;margin:10px 0 4px;padding:9px 12px;border:1px solid var(--red2);border-radius:8px;background:linear-gradient(180deg,#3a0a11,#1a0709);color:var(--text);font:600 .9rem "Noto Sans KR",sans-serif;cursor:pointer}
 .pvs-hint{margin:2px 0 0;font-size:.74rem;color:var(--sub);line-height:1.4}
 .pvs-w{display:flex;flex-direction:column;gap:12px}
@@ -1012,7 +1024,7 @@ body{overflow-x:clip}      /* 어떤 요소가 넘쳐도 화면 전체가 가로
   <h1 class="sr">적월협인 게임 화면</h1>
   <header class="hud">
     <span class="hud-l"><svg class="ic"><use href="#i-heart"/></svg>HUNTER SYSTEM</span>
-    <span class="hud-m" id="hudloc" role="status"></span>
+    <span class="hud-m" id="hudloc" role="status"></span><button type="button" class="hud-btn" id="cwopen" hidden>그레이윅 만남</button>
     <div class="hud-r"><button type="button" class="hud-btn" data-fx aria-pressed="false">배경 효과 끄기</button><button type="button" class="hud-btn" id="inqbtn">문의</button><button type="button" class="hud-btn" id="qnabtn">Q&amp;A</button><button type="button" class="hud-btn" id="logout">로그아웃</button></div>
   </header>
   <div class="g-grid">
@@ -1512,6 +1524,18 @@ body{overflow-x:clip}      /* 어떤 요소가 넘쳐도 화면 전체가 가로
     <h1 id="mainth">점검 중</h1>
     <p id="maintmsg"></p>
     <p class="maint-sub">점검이 끝나면 이 화면이 자동으로 바뀝니다.</p>
+  </div>
+</div>
+<div class="modal" id="cwmodal" hidden style="z-index:11">
+  <div class="dialog cw-dlg" role="dialog" aria-modal="true" aria-labelledby="cwtitle">
+    <button type="button" class="x" id="cwclose" aria-label="닫기"><svg class="ic"><use href="#i-x"/></svg></button>
+    <div class="dhead"><p class="eyebrow">GRAYWICK</p><h1 id="cwtitle">그레이윅</h1></div>
+    <div class="cw-stage"><canvas id="cwscene" width="192" height="108" role="img" aria-label="그레이윅 풍경과 만난 몬스터"></canvas></div>
+    <div class="cw-info"><b id="cwnm"></b><span id="cwtn"></span>
+      <div class="cw-hp" role="meter" aria-label="몬스터 체력"><i id="cwhp"></i></div><small id="cwhv"></small></div>
+    <ol class="cw-log" id="cwlog" role="log" aria-live="polite"></ol>
+    <p class="cw-note" id="cwnote" role="status"></p>
+    <div class="cw-acts"><button type="button" class="hud-btn" id="cwhit">공격</button><button type="button" class="hud-btn" id="cwsm">강타</button><button type="button" class="hud-btn" id="cwleave">헤어지기</button><button type="button" class="hud-btn" id="cwdone">닫기</button></div>
   </div>
 </div>
 <div class="modal" id="gtmodal" hidden style="z-index:11">
@@ -3194,13 +3218,20 @@ function pollState(first){
 }
 function moveTo(id,silent){
   var rg=regionById(id);if(!rg)return;
+  if(!silent&&id==="cw-isle"&&curRegion!=="cw-isle"){      /* 그레이윅은 10분에 한 번만 입장: 서버 확인이 끝난 뒤에 이동합니다 */
+    api("POST","/api/move",{region:id}).then(function(r){
+      if(r.error){$("mapmsg").textContent=r.error==="cw_cd"?"그레이윅은 10분에 한 번만 들어갈 수 있어요. "+cwFmt(r.wait)+" 뒤에 다시 와 주세요.":r.error==="blocked"?"운영자에 의해 이동이 제한되었습니다.":r.error==="corrupted"?"오염이 폭주해 "+mmss(r.until-nowS())+" 동안 이동할 수 없습니다.":r.error==="taint_ban"?TAINT_BAN_MSG:"이동하지 못했어요. 잠시 후 다시 시도해주세요.";return}
+      moveTo(id,true);markRegions();$("mapmsg").textContent="그레이윅에 도착했어요.";cwOpen();
+    }).catch(function(){$("mapmsg").textContent="이동하지 못했어요. 잠시 후 다시 시도해주세요."});
+    return;
+  }
   if(!silent&&taintStg>=3&&(rg.danger==="B"||rg.danger==="A")&&id!==curRegion){$("mapmsg").textContent=TAINT_BAN_MSG;return}      /* 오염 3단계: 위험 지역 출입 불가 */
   var before=curCountry;curRegion=id;curCountry=rg.country;
   if(viewCountry!==curCountry||before!==curCountry){viewCountry=COUNTRY_BY_ID[curCountry].gate?"KR":curCountry;buildCountries();buildRegions()}
   drawRadar();drawScene();
   document.querySelectorAll("#regions .rg").forEach(function(b){b.setAttribute("aria-current",b.dataset.id===id?"true":"false")});
   document.querySelectorAll("#ctabs .ct").forEach(function(b){b.setAttribute("aria-current",b.dataset.id===curCountry?"true":"false")});
-  $("hudloc").textContent="현재 위치 · "+placeLong(id);
+  $("hudloc").textContent="현재 위치 · "+placeLong(id);cwUpdateBtn();
   if(!silent){
     api("POST","/api/move",{region:id}).then(function(r){if(r.error)$("mapmsg").textContent=r.error==="blocked"?"운영자에 의해 이동이 제한되었습니다.":r.error==="corrupted"?"오염이 폭주해 "+mmss(r.until-nowS())+" 동안 이동할 수 없습니다.":r.error==="taint_ban"?TAINT_BAN_MSG:"이동하지 못했어요. 잠시 후 다시 시도해주세요."});
     var hot=alerts.some(function(a){return isActive(a)&&((a.r==="SS"&&!a.c)?a.region===curCountry:a.region===id)});
@@ -4001,7 +4032,7 @@ $("genter").addEventListener("click",function(){
 $("gother").addEventListener("click",function(){forceFront=true;showFront()});
 function enterGame(me){
   var d=me.user;if(!bgm.id)bgmRestore();
-  power={lv:d.lv||1,exp:d.exp||0};curRegion=regionById(d.region)?d.region:"city";curCountry=countryOf(curRegion);viewCountry=COUNTRY_BY_ID[curCountry].gate?"KR":curCountry;
+  power={lv:d.lv||1,exp:d.exp||0};curRegion=regionById(d.region)?d.region:"city";curCountry=countryOf(curRegion);setTimeout(cwUpdateBtn,0);viewCountry=COUNTRY_BY_ID[curCountry].gate?"KR":curCountry;
   alerts=[];seenIds={};alertSig="";paused=false;
   var pb=$("pausebtn");pb.textContent="알림 멈춤";pb.setAttribute("aria-pressed","false");
   $("game").hidden=false;markLogin(d.hunterName);showFront();window.scrollTo(0,0);
@@ -4305,6 +4336,89 @@ gtmodal.addEventListener("keydown",function(e){
   if(e.shiftKey&&document.activeElement===f){e.preventDefault();l.focus()}
   else if(!e.shiftKey&&document.activeElement===l){e.preventDefault();f.focus()}
 });
+
+/* ───── 그레이윅: 적월문과 같은 풍경 그림 위에 몬스터가 나타나고, 아래 턴제 전투로 체력을 0으로 만들면 자동 포획 ───── */
+var cwm=$("cwmodal"),cwSt=null,cwBusy=false,cwFx={hit:0,end:"",t0:0},cwTimer=null,cwSpr=null,cwLog=[],cwCdT=null,cwScn=null;
+function cwFmt(s){s=Math.max(0,Math.floor(s));return Math.floor(s/60)+":"+("0"+(s%60)).slice(-2)}
+function cwUpdateBtn(){var b=$("cwopen");if(b)b.hidden=curRegion!=="cw-isle"}
+function cwOpen(){
+  cwLog=[];cwFx={hit:0,end:"",t0:Date.now()};cwm.hidden=false;document.body.style.overflow="hidden";
+  $("cwnote").textContent="불러오는 중…";cwRender();cwLoad();cwStart();$("cwclose").focus();
+}
+function cwClose(){cwm.hidden=true;clearInterval(cwTimer);cwTimer=null;clearInterval(cwCdT);cwCdT=null;document.body.style.overflow=(!rmodal.hidden||!mmodal.hidden||!$("gwmodal").hidden||!$("cmodal").hidden||!$("gfmodal").hidden||!gtmodal.hidden)?"hidden":""}
+function cwLoad(){
+  api("GET","/api/cw/state").then(function(r){
+    if(cwm.hidden)return;
+    if(!r||r._status!==200){$("cwnote").textContent="정보를 불러오지 못했어요.";return}
+    cwSt=r;cwSt.at=Date.now();cwRender();
+  });
+}
+function cwRender(){
+  var s=cwSt,e=s&&s.enc,nm=$("cwnm"),bar=$("cwhp"),hv=$("cwhv"),tn=$("cwtn"),lg=$("cwlog");
+  var ended=!!cwFx.end;
+  if(e){
+    nm.textContent=e.mon.name+" · "+e.mon.grade+"급 · "+e.mon.size;bar.style.width=Math.max(0,e.hp/e.max*100)+"%";hv.textContent=e.hp+" / "+e.max;tn.textContent="남은 턴 "+Math.max(0,e.limit-e.turn);
+    $("cwnote").textContent=ended?"":"체력을 0으로 만들면 자동으로 포획돼요.";
+  }else{
+    nm.textContent=ended?cwFx.name||"":"만난 몬스터가 없어요";bar.style.width=cwFx.end==="caught"?"0%":(cwFx.end==="fled"&&cwFx.hp!=null?Math.max(0,cwFx.hp/cwFx.max*100)+"%":"0%");hv.textContent=ended&&cwFx.max?(cwFx.hp+" / "+cwFx.max):"";tn.textContent="";
+    var cd=s?Math.max(0,s.cd-Math.floor((Date.now()-s.at)/1000)):0;
+    if(!ended)$("cwnote").textContent=s&&s.all?"모든 몬스터를 만났어요!":cd>0?"다음 입장까지 "+cwFmt(cd)+" · 다른 곳에 다녀온 뒤 다시 들어오세요.":"다른 곳에 다녀온 뒤 다시 들어오면 새로운 몬스터를 만날 수 있어요.";
+  }
+  lg.textContent="";cwLog.slice(-6).forEach(function(t){var li=document.createElement("li");li.textContent=t;lg.appendChild(li)});lg.scrollTop=lg.scrollHeight;
+  var on=!!e&&!ended&&!cwBusy;["cwhit","cwsm","cwleave"].forEach(function(id){$(id).disabled=!on});
+}
+function cwAct(act){
+  if(cwBusy||!cwSt||!cwSt.enc)return;
+  cwBusy=true;cwRender();
+  api("POST","/api/cw/act",{act:act}).then(function(r){
+    cwBusy=false;
+    if(!r||r._status!==200){$("cwnote").textContent=r&&r.error==="busy"?"잠시 후 다시 눌러 주세요.":"처리하지 못했어요.";cwLoad();return}
+    (r.log||[]).forEach(function(t){cwLog.push(t)});
+    if(r.dmg>0)cwFx.hit=Date.now();
+    if(r.end){
+      cwFx.end=r.end==="left"?"left":r.end;cwFx.t0=Date.now();cwFx.name=cwSt.enc.mon.name+" · "+cwSt.enc.mon.grade+"급";cwFx.hp=r.hp;cwFx.max=r.max;
+      var nt=r.end==="caught"?"포획 성공! 육성 앱에서 "+r.mon.name+"을(를) 확인해 보세요.":r.end==="fled"?"몬스터가 도망쳤어요. 다음에 다시 도전해 보세요.":"몬스터와 헤어졌어요.";
+      cwSt.enc=null;cwRender();$("cwnote").textContent=nt;
+      if(r.end==="caught"&&typeof gwToast==="function")gwToast(r.mon.name+"을(를) 포획했어요!",4000);
+      return;
+    }
+    cwSt.enc.hp=r.hp;cwSt.enc.turn=r.turn;cwRender();
+  }).catch(function(){cwBusy=false;cwRender()});
+}
+/* 풍경은 적월문 풍경 그림(buildScene)을 그대로 쓰고, 그 위에 몬스터 픽셀아트를 얹습니다 */
+function cwStart(){
+  if(!cwScn||scn.key!=="cw-isle"){buildScene("cw-isle");cwScn={base:scn.base,anim:scn.anim,use:scn.use,t0:performance.now()}}
+  if(!RAI_HS){RAI_HS=raiSpr(RAI_H,RC.point);RAI_MS=raiSpr(RAI_M,RC.main);RAI_MC=raiSpr(RAI_M,RC.point)}
+  clearInterval(cwTimer);cwDraw();
+  if(!(window.matchMedia&&matchMedia("(prefers-reduced-motion: reduce)").matches))cwTimer=setInterval(function(){if(!document.hidden&&!cwm.hidden)cwDraw()},100);
+  clearInterval(cwCdT);cwCdT=setInterval(function(){if(cwm.hidden||(cwSt&&cwSt.enc))return;cwRender()},1000);
+}
+function cwDraw(){
+  var cv=$("cwscene");if(!cv||!cwScn||cwm.hidden)return;
+  var c=cv.getContext("2d");c.imageSmoothingEnabled=false;
+  var t=(performance.now()-cwScn.t0)/1000;
+  c.drawImage(cwScn.base,0,0);cwScn.use(c);for(var i=0;i<cwScn.anim.length;i++)cwScn.anim[i](t);
+  var e=cwSt&&cwSt.enc,now=Date.now(),end=cwFx.end;
+  var cm=e?e.mon.cm:(cwFx.cm||50),h=Math.max(14,Math.min(72,Math.round(12+Math.log(cm/5+1)*10))),w=Math.round(h*RAI_M[0].length/RAI_M.length);
+  if(!e&&!end)return;
+  if(e)cwFx.cm=e.mon.cm;
+  var hit=now-cwFx.hit<260,bob=Math.round(Math.sin(now/260)*2),x=Math.round(96-w/2),y=88-h+bob,a=1;
+  if(hit){x+=(Math.floor(now/50)%2?2:-2)}
+  if(end){
+    var k=Math.min(1,(now-cwFx.t0)/900);
+    if(end==="caught"){var s2=1-k;a=s2;w=Math.max(1,Math.round(w*s2));h=Math.max(1,Math.round(h*s2));x=Math.round(96-w/2);y=88-h-Math.round(k*14)}
+    else if(end==="fled"||end==="left"){x=Math.round(96-w/2+k*110);a=1-k*0.6}
+  }
+  c.save();c.globalAlpha=Math.max(0,a);
+  c.fillStyle=RC.base;c.globalAlpha=Math.max(0,a)*0.5;c.fillRect(Math.round(96-w/2)+2,90,Math.max(w-4,1),2);c.globalAlpha=Math.max(0,a);
+  c.drawImage(hit?RAI_MC:RAI_MS,x,y,w,h);
+  if(end==="caught"&&now-cwFx.t0<1100){c.fillStyle=RC.point;for(var q=0;q<8;q++){var an=q/8*6.283+now/300,rr=10+((now-cwFx.t0)/900)*34;c.fillRect(Math.round(96+Math.cos(an)*rr),Math.round(70+Math.sin(an)*rr*0.6),2,2)}}
+  c.restore();
+}
+$("cwopen").addEventListener("click",cwOpen);$("cwclose").addEventListener("click",cwClose);$("cwdone").addEventListener("click",cwClose);
+$("cwhit").addEventListener("click",function(){cwAct("hit")});$("cwsm").addEventListener("click",function(){cwAct("smash")});$("cwleave").addEventListener("click",function(){cwAct("leave")});
+cwm.addEventListener("mousedown",function(e){if(e.target===cwm)cwClose()});
+document.addEventListener("keydown",function(e){if(e.key==="Escape"&&!cwm.hidden)cwClose()});
 
 /* ───── 적월문 조사: 풍경 위 '!' (지역마다 3~5개) 를 눌러 재료를 찾습니다. '!' 하나를 조사하면 그 '!' 는 3시간 동안 사라집니다 ───── */
 var SV_POS={
