@@ -1875,6 +1875,13 @@ route('POST', '/api/gifts/seen', async (req, res, ctx) => {
 
 // 세계 지도(나라와 세부 지역)
 // ───────────── 예전 테스트 계정 정리 ─────────────
+// 모든 유저의 PVP 승패 전적을 한 번만 0으로 되돌립니다(서버가 켜진 뒤 처음 요청 때). 이미 했다는 표시를 settings 에 남겨서 다시 배포해도 반복되지 않습니다.
+let pvpRecReset = false;
+async function resetPvpRecordsOnce() {
+  if (pvpRecReset) return; pvpRecReset = true;
+  const mark = await db.run("INSERT INTO settings (key, value) VALUES ('pvp_record_reset_1', '1') ON CONFLICT(key) DO NOTHING");
+  if (mark.changes === 1) await db.run('UPDATE users SET pvp_win = 0, pvp_lose = 0');
+}
 // 이전에 임시로 열어 두었던 테스트 계정(AAAA-AA11)은 없앴습니다. 이미 만들어져 있던 계정이 있으면 서버가 켜진 뒤 처음 요청 때 한 번 지웁니다.
 let oldTestGone = false;
 async function removeOldTestAccount() {
@@ -2135,6 +2142,7 @@ route('POST', '/api/pvp/stats', async (req, res, ctx) => {
   const b = ctx.body && ctx.body.stats;
   if (!G.pvpStatsOk(b)) return fail(res, 400, 'bad_stats');
   if (await db.get('SELECT 1 AS x FROM pvp_queue WHERE user_id = ?', [ctx.user.id])) return fail(res, 409, 'queued');
+  if (await pvpLiveRow(ctx.user.id, Date.now())) return fail(res, 409, 'queued');
   const a = G.PVP_KEYS.map(k => b[k]);
   const u = await db.get('SELECT pvp_stats, pvp_set FROM users WHERE id = ?', [ctx.user.id]);
   const old = u.pvp_set ? pvpStatsOf(u.pvp_stats) : null;
@@ -2165,31 +2173,69 @@ async function pvpTryMatch(uid, me, now) {
     const mine2 = await db.run('DELETE FROM pvp_queue WHERE user_id = ?', [uid]);
     if (mine2.changes !== 1) { await db.run('INSERT INTO pvp_queue (user_id, power, joined_at, seen_at) VALUES (?, ?, ?, ?) ON CONFLICT(user_id) DO NOTHING', [c.w.user_id, c.w.power, c.w.joined_at, now]); return null; }
     const o = await pvpMine(c.w.user_id, now);
-    const rnd = G.mulberry32((Math.random() * 4294967296) >>> 0);
-    const [A, B] = rnd() < 0.5 ? [{ id: uid, m: me }, { id: c.w.user_id, m: o }] : [{ id: c.w.user_id, m: o }, { id: uid, m: me }];
-    const r = G.pvpBattle(A.m.a, compFx(A.m.comp), B.m.a, compFx(B.m.comp), rnd);
+    const [A, B] = Math.random() < 0.5 ? [{ id: uid, m: me }, { id: c.w.user_id, m: o }] : [{ id: c.w.user_id, m: o }, { id: uid, m: me }];
     const names = await db.all('SELECT id, hunter_name FROM users WHERE id IN (?, ?)', [A.id, B.id]);
     const nm = id => (names.find(n => n.id === id) || {}).hunter_name || '(헌터)';
-    const side = (X) => ({ name: nm(X.id), power: X.m.power, stats: X.m.a, comp: X.m.comp ? { name: X.m.comp.name, nick: X.m.comp.nick, grade: X.m.comp.grade, fx: X.m.comp.hungry ? '배가 고파 힘을 못 써요' : X.m.comp.pvp.name + ' · ' + X.m.comp.pvp.text } : null });
+    const side = (X) => ({ name: nm(X.id), power: X.m.power, stats: X.m.a, fx: compFx(X.m.comp), comp: X.m.comp ? { name: X.m.comp.name, nick: X.m.comp.nick, grade: X.m.comp.grade, fx: X.m.comp.hungry ? '배가 고파 힘을 못 써요' : X.m.comp.pvp.name + ' · ' + X.m.comp.pvp.text } : null });
     const info = JSON.stringify({ a: side(A), b: side(B) });
-    const ins = await db.run('INSERT INTO pvp_battles (a_id, b_id, winner, turns, info, log, at) VALUES (?, ?, ?, ?, ?, ?, ?)', [A.id, B.id, r.winner, r.turns, info, JSON.stringify(r.log), now]);
-    const win = r.winner === 0 ? A.id : B.id, lose = r.winner === 0 ? B.id : A.id;
-    await db.batch([
-      ['UPDATE users SET pvp_win = pvp_win + 1 WHERE id = ?', [win]],
-      ['UPDATE users SET pvp_lose = pvp_lose + 1, pvp_lock = ? WHERE id = ?', [now + PVP_LOCK_MS, lose]],
-    ]);
+    const ins = await db.run('INSERT INTO pvp_live (a_id, b_id, hp_a, hp_b, turn, dl, info, hits, log, upd) VALUES (?, ?, ?, ?, 0, ?, ?, ?, ?, ?)',
+      [A.id, B.id, PVP.HP, PVP.HP, now + PVP.TURN_MS, info, JSON.stringify({ hits: [0, 0], pool: [0, 0] }), '[]', now]);
     return ins.lastId;
   }
   return null;
 }
 
-async function pvpBattleFor(uid) {
-  const b = await db.get('SELECT * FROM pvp_battles WHERE at > ? AND ((a_id = ? AND a_seen = 0) OR (b_id = ? AND b_seen = 0)) ORDER BY id DESC LIMIT 1', [Date.now() - 5 * 60000, uid, uid]);
-  if (!b) return null;
-  const meSide = b.a_id === uid ? 0 : 1;
-  await db.run(meSide === 0 ? 'UPDATE pvp_battles SET a_seen = 1 WHERE id = ?' : 'UPDATE pvp_battles SET b_seen = 1 WHERE id = ?', [b.id]);
-  const info = JSON.parse(b.info);
-  return { id: b.id, me: meSide, winner: b.winner, turns: b.turns, a: info.a, b: info.b, log: JSON.parse(b.log), hp: PVP.HP };
+// ───── 수동 전투: 한 판의 상태는 pvp_live 한 줄에 저장하고, 양쪽이 고르면(또는 시간이 지나면) 한 턴씩 처리합니다 ─────
+async function pvpLiveRow(uid, now) {
+  return db.get('SELECT * FROM pvp_live WHERE (a_id = ? OR b_id = ?) AND (done = 0 OR (upd > ? AND ((a_id = ? AND a_seen = 0) OR (b_id = ? AND b_seen = 0)))) ORDER BY id DESC LIMIT 1',
+    [uid, uid, now - 10 * 60000, uid, uid]);
+}
+// 한 턴을 처리합니다. 같은 턴을 두 번 처리하지 않도록 turn 값이 그대로일 때만 저장합니다.
+async function pvpStep(row, now) {
+  const info = JSON.parse(row.info), h = JSON.parse(row.hits), names = [info.a.name, info.b.name];
+  const F = [G.pvpFighter(info.a.stats, info.a.fx), G.pvpFighter(info.b.stats, info.b.fx)];
+  const acts = [row.act_a, row.act_b], miss = [row.miss_a, row.miss_b];
+  for (let i = 0; i < 2; i++) { if (acts[i]) miss[i] = 0; else { acts[i] = 'guard'; miss[i]++; } }      // 시간 안에 못 고르면 방어
+  const log = JSON.parse(row.log), t = row.turn + 1;
+  let r;
+  const afk = miss[0] >= PVP.AFK_FORFEIT ? 0 : miss[1] >= PVP.AFK_FORFEIT ? 1 : -1;
+  if (afk >= 0) r = { st: { hp: [row.hp_a, row.hp_b], turn: t, hits: h.hits, pool: h.pool }, lines: [[names[afk] + ' 님이 계속 응답하지 않아 기권패 처리됐어요.', 'en']], over: true, winner: 1 - afk, kind: 'afk' };
+  else r = G.pvpResolve(F, { hp: [row.hp_a, row.hp_b], turn: row.turn, hits: h.hits, pool: h.pool }, acts, G.mulberry32((row.id * 7919 + t * 104729) >>> 0), names);
+  log.push({ n: t, acts, lines: r.lines, hp: r.st.hp });
+  const hj = JSON.stringify({ hits: r.st.hits, pool: r.st.pool });
+  if (!r.over) {
+    await db.run('UPDATE pvp_live SET hp_a = ?, hp_b = ?, turn = ?, act_a = ?, act_b = ?, miss_a = ?, miss_b = ?, dl = ?, hits = ?, log = ?, upd = ? WHERE id = ? AND turn = ? AND done = 0',
+      [r.st.hp[0], r.st.hp[1], t, '', '', miss[0], miss[1], now + PVP.TURN_MS, hj, JSON.stringify(log), now, row.id, row.turn]);
+    return;
+  }
+  const ok = await db.run('UPDATE pvp_live SET hp_a = ?, hp_b = ?, turn = ?, miss_a = ?, miss_b = ?, hits = ?, log = ?, done = 1, winner = ?, kind = ?, upd = ? WHERE id = ? AND turn = ? AND done = 0',
+    [r.st.hp[0], r.st.hp[1], t, miss[0], miss[1], hj, JSON.stringify(log), r.winner, r.kind, now, row.id, row.turn]);
+  if (ok.changes !== 1) return;
+  const win = r.winner === 0 ? row.a_id : row.b_id, lose = r.winner === 0 ? row.b_id : row.a_id;
+  await db.batch([
+    ['UPDATE users SET pvp_win = pvp_win + 1 WHERE id = ?', [win]],
+    ['UPDATE users SET pvp_lose = pvp_lose + 1, pvp_lock = ? WHERE id = ?', [now + PVP_LOCK_MS, lose]],
+  ]);
+}
+// 양쪽이 모두 골랐거나 제한 시간이 지났으면 턴을 처리합니다 (한 번에 최대 몇 턴까지).
+async function pvpAdvance(row, now) {
+  for (let n = 0; n < 6 && row && !row.done; n++) {
+    if (!((row.act_a && row.act_b) || now > row.dl)) break;
+    await pvpStep(row, now);
+    row = await db.get('SELECT * FROM pvp_live WHERE id = ?', [row.id]);
+  }
+  return row;
+}
+function pvpLiveView(row, uid, now) {
+  const info = JSON.parse(row.info), me = row.a_id === uid ? 0 : 1, mine = me === 0 ? row.act_a : row.act_b, opp = me === 0 ? row.act_b : row.act_a;
+  return { id: row.id, me, turn: row.turn + 1, hp: [row.hp_a, row.hp_b], max: PVP.HP, left: Math.max(0, Math.ceil((row.dl - now) / 1000)), turnSec: Math.round(PVP.TURN_MS / 1000),
+    mine: mine || '', oppReady: !!opp, a: info.a, b: info.b, log: JSON.parse(row.log), done: !!row.done, winner: row.winner, kind: row.kind, minTurns: PVP.MIN_TURNS };
+}
+async function pvpBattleFor(uid, now) {
+  let row = await pvpLiveRow(uid, now);
+  if (!row) return null;
+  row = await pvpAdvance(row, now);
+  return row ? pvpLiveView(row, uid, now) : null;
 }
 const PVP = G.PVP;
 
@@ -2201,16 +2247,37 @@ async function pvpPollState(uid) {
     await db.run('UPDATE pvp_queue SET seen_at = ? WHERE user_id = ?', [now, uid]);
     await pvpTryMatch(uid, await pvpMine(uid, now), now);
   }
-  const battle = await pvpBattleFor(uid);
+  const battle = await pvpBattleFor(uid, Date.now());
   const q2 = battle ? null : await db.get('SELECT joined_at, power FROM pvp_queue WHERE user_id = ?', [uid]);
   return { state: battle ? 'matched' : q2 ? 'waiting' : 'idle', waited: q2 ? Math.floor((now - q2.joined_at) / 1000) : 0, range: q2 && now - q2.joined_at >= PVP_TOL_WAIT ? PVP_TOL[1] : PVP_TOL[0], battle };
 }
 route('POST', '/api/pvp/queue', async (req, res, ctx) => {
   const uid = ctx.user.id, now = Date.now(), m = await pvpMine(uid, now);
   if (!m.u.pvp_set) return fail(res, 400, 'no_stats');
+  if (await pvpLiveRow(uid, now)) return send(res, 200, Object.assign({ ok: true, power: m.power }, await pvpPollState(uid)));      // 이미 진행 중인(또는 아직 못 본) 전투가 있으면 그 전투로
   if (m.u.pvp_lock > now) return fail(res, 400, 'recovering', { hp: pvpHpNow(m.u.pvp_lock, now), lockLeft: Math.ceil((m.u.pvp_lock - now) / 1000) });
   await db.run('INSERT INTO pvp_queue (user_id, power, joined_at, seen_at) VALUES (?, ?, ?, ?) ON CONFLICT(user_id) DO UPDATE SET power = excluded.power, seen_at = excluded.seen_at', [uid, m.power, now, now]);
   send(res, 200, Object.assign({ ok: true, power: m.power }, await pvpPollState(uid)));
+});
+route('POST', '/api/pvp/act', async (req, res, ctx) => {
+  const uid = ctx.user.id, now = Date.now(), act = String(ctx.body.act || '');
+  if (!['attack', 'smash', 'guard', 'flee'].includes(act)) return fail(res, 400, 'bad_act');
+  if (await limited('pvpact:' + uid, 120, 60000)) return fail(res, 429, 'rate_limited');
+  let row = await pvpLiveRow(uid, now);
+  if (!row || row.done) return fail(res, 409, 'no_battle');
+  row = await pvpAdvance(row, now);
+  if (!row || row.done) return send(res, 200, { ok: true, battle: row ? pvpLiveView(row, uid, now) : null });
+  if (Number(ctx.body.turn) && Number(ctx.body.turn) !== row.turn + 1) return send(res, 200, { ok: true, stale: true, battle: pvpLiveView(row, uid, now) });
+  const col = row.a_id === uid ? 'act_a' : 'act_b';
+  await db.run('UPDATE pvp_live SET ' + col + " = ? WHERE id = ? AND turn = ? AND done = 0 AND " + col + " = ''", [act, row.id, row.turn]);
+  row = await pvpAdvance(await db.get('SELECT * FROM pvp_live WHERE id = ?', [row.id]), now);
+  send(res, 200, { ok: true, battle: pvpLiveView(row, uid, now) });
+});
+route('POST', '/api/pvp/ack', async (req, res, ctx) => {      // 끝난 전투 결과를 확인했음
+  const uid = ctx.user.id;
+  await db.run('UPDATE pvp_live SET a_seen = 1 WHERE a_id = ? AND done = 1', [uid]);
+  await db.run('UPDATE pvp_live SET b_seen = 1 WHERE b_id = ? AND done = 1', [uid]);
+  send(res, 200, { ok: true });
 });
 route('GET', '/api/pvp/poll', async (req, res, ctx) => { send(res, 200, await pvpPollState(ctx.user.id)); });
 route('POST', '/api/pvp/cancel', async (req, res, ctx) => {
@@ -3622,6 +3689,7 @@ async function purgeUser(id) {
     ['DELETE FROM pvp_queue WHERE user_id = ?', [id]],
     ['DELETE FROM cw_enc WHERE user_id = ?', [id]],
     ['DELETE FROM pvp_battles WHERE a_id = ? OR b_id = ?', [id, id]],
+    ['DELETE FROM pvp_live WHERE a_id = ? OR b_id = ?', [id, id]],
     ['DELETE FROM users WHERE id = ?', [id]],
   ]);
 }
@@ -3768,6 +3836,7 @@ async function handle(req, res) {
     const r = routes[req.method + ' ' + pathname];
     if (!r) return fail(res, 404, 'not_found');
     await removeOldTestAccount().catch(() => {});
+    await resetPvpRecordsOnce().catch(() => { pvpRecReset = false; });
     if (req.method !== 'GET') {
       const origin = req.headers.origin;
       if (origin) { let ok = false; try { ok = new URL(origin).host === req.headers.host; } catch (_) {} if (!ok) return fail(res, 403, 'bad_origin'); }
