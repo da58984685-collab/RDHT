@@ -65,12 +65,15 @@ const COUNTRIES = [
     R('gt-hill', '푸른 언덕', '바람이 부는 풀밭 언덕', 'i-grass', 'E', [60, 120]), R('gt-ridge', '바위 골짜기', '깎아지른 바위벽 사이의 골짜기', 'i-rock', 'D', [140, 70]),
     R('gt-peak', '구름 봉우리', '구름을 두른 먼 산', 'i-mtn', 'C', [100, 45]), R('gt-wood', '외딴 숲길', '홀로 선 나무들의 길', 'i-tree', 'D', [50, 60]),
     R('gt-field', '최초의 게이트', '무너진 건물이 늘어선 거리', 'i-city', 'B', [140, 140]), R('gt-lake', '푸른 바다', '파도가 닿는 해안 절벽', 'i-wave', 'C', [95, 150])] },
+  // 그레이윅: 대서양 한가운데(미국과 유럽 사이)에 떠 있는, 지도에 이름이 알려지지 않은 외딴 섬. 지역은 한 곳뿐이고 몬스터는 나타나지 않습니다 (몬스터 육성 시스템용 안전 지역).
+  { id: 'CW', name: '그레이윅', lat: 28, lon: -40, safe: true, regions: [
+    R('cw-isle', '그레이윅 아일랜드', '지도에 이름이 알려지지 않은 외딴 섬', 'i-tree', 'F', [100, 100])] },
 ];
 const COUNTRY_BY_ID = Object.fromEntries(COUNTRIES.map(c => [c.id, c]));
 const REGIONS = COUNTRIES.flatMap(c => c.regions.map(r => Object.assign({}, r, { country: c.id })));
-// 적월문(gate)은 몬스터가 나타나지 않는 안전 지역입니다
-const SPAWN_COUNTRIES = COUNTRIES.filter(c => !c.gate);
-const SPAWN_REGIONS = REGIONS.filter(r => !COUNTRY_BY_ID[r.country].gate);
+// 적월문(gate)과 외딴 섬(safe)은 몬스터가 나타나지 않는 안전 지역입니다
+const SPAWN_COUNTRIES = COUNTRIES.filter(c => !c.gate && !c.safe);
+const SPAWN_REGIONS = REGIONS.filter(r => !COUNTRY_BY_ID[r.country].gate && !COUNTRY_BY_ID[r.country].safe);
 const REGION_BY_ID = Object.fromEntries(REGIONS.map(r => [r.id, r]));
 const countryOf = id => (REGION_BY_ID[id] ? REGION_BY_ID[id].country : COUNTRY_BY_ID[id] ? id : 'KR');
 // 나라 또는 세부 지역의 이름 (S급은 나라, F~A급은 세부 지역에서 출몰)
@@ -90,6 +93,229 @@ const MON = {
     '혈월의 여왕', '천공의 심판자', '심연의 군주', '만귀의 왕', '백골 제왕', '멸망의 불새',
     '대지를 삼키는 자', '폭풍의 용왕', '서리 마녀', '지옥문의 수문장', '붉은 달의 사도', '천 개의 눈'],
 };
+
+// ── 그레이윅 아일랜드의 우호적인 몬스터 30종 (몬스터 육성 시스템용 목록). 이 섬에서는 공격적인 몬스터 대신 이들이 나타납니다. ──
+// grade: 등급(E~S), cm: 크기(키·길이, cm), trait: 특징, appearance: 외관 설명. 아직 출현·육성 기능은 연결하지 않았고 목록만 있습니다.
+const FRIENDLY_MON = [
+  { id: 'fm01', name: '쌀알이', grade: 'E', cm: 5, size: '5cm', trait: '모내기철 논둑에 수십 마리가 모여 풍년을 점쳐 준다', appearance: '하얀 쌀알 모양의 몸에 까만 점 두 개가 눈의 전부' },
+  { id: 'fm02', name: '이슬이', grade: 'E', cm: 8, size: '8cm', trait: '아침 풀잎 끝에 맺혀 있다가 쓰다듬으면 몸이 반짝인다', appearance: '이슬방울 같은 투명한 몸 안에 작은 별 하나가 떠 있음' },
+  { id: 'fm03', name: '도톨이', grade: 'E', cm: 10, size: '10cm', trait: '추운 밤 품에 파고들어 체온을 나눠 주는 겁 많은 아기 다람쥐', appearance: '도토리 깍정이를 모자처럼 쓴 동그란 다람쥐, 볼이 통통함' },
+  { id: 'fm04', name: '소록', grade: 'E', cm: 12, size: '12cm', trait: '느리지만 지나간 자리마다 이끼 길이 생겨 길잡이가 된다', appearance: '달팽이 모양, 초록 등껍질에 이끼와 작은 버섯이 자람' },
+  { id: 'fm05', name: '반디', grade: 'D', cm: 15, size: '15cm', trait: '여름밤마다 날개 불빛으로 별자리를 그려 보이며 춤춘다', appearance: '투명한 겹날개에 은은한 연둣빛이 흐르는 반딧불이 요정' },
+  { id: 'fm06', name: '몽돌이', grade: 'E', cm: 20, size: '20cm', trait: '바닷가에서 가만히 있다가 가끔 굴러와 곁에 말없이 있어 준다', appearance: '파도에 닦인 매끈한 검은 조약돌, 흰 줄무늬 한 줄, 얼굴이 없음' },
+  { id: 'fm07', name: '초롱', grade: 'D', cm: 25, size: '25cm', trait: '공중을 떠다니며 갓의 불빛으로 어두운 해안을 밝혀 준다', appearance: '청사초롱처럼 붉게 빛나는 반투명 해파리, 긴 다리가 댕기처럼 흔들림' },
+  { id: 'fm08', name: '밤송이', grade: 'D', cm: 30, size: '30cm', trait: '놀라면 몸을 말지만 친해지면 가시를 눕히고 배를 보여 준다', appearance: '밤송이처럼 가시가 돋은 고슴도치, 코끝이 촉촉함' },
+  { id: 'fm09', name: '달이', grade: 'D', cm: 35, size: '35cm', trait: '귀를 쫑긋 세워 날씨를 알려 주고, 기분이 좋으면 절구를 콩콩 찧는다', appearance: '보름달처럼 하얗고 몽실한 털의 아기 달토끼, 작은 절구를 안고 있음' },
+  { id: 'fm10', name: '나전이', grade: 'C', cm: 40, size: '40cm', trait: '비늘에 햇빛을 받으면 무지갯빛 자개 무늬가 번져 길을 밝힌다', appearance: '자개 장롱 같은 오색 비늘이 반짝이는 도마뱀' },
+  { id: 'fm11', name: '한지학', grade: 'D', cm: 50, size: '50cm', trait: '바람이 불 때마다 종이 소리를 내며 마을에 소식을 전한다', appearance: '한지를 접어 만든 듯 각진 하얀 학, 눈은 먹물 점' },
+  { id: 'fm12', name: '여우비', grade: 'C', cm: 60, size: '60cm', trait: '맑은 날 꼬리를 흔들어 여우비를 내리게 하고 길 잃은 헌터를 마을로 이끈다', appearance: '꼬리가 셋인 하얀 아기 여우, 꼬리 끝이 안개로 흩어짐' },
+  { id: 'fm13', name: '털도깨비', grade: 'C', cm: 70, size: '70cm', trait: '겉모습과 달리 몹시 수줍어서 눈이 마주치면 털 속에 얼굴을 숨긴다', appearance: '뿔 하나에 퉁방울눈, 이빨이 삐죽 나온 붉은 털북숭이 도깨비' },
+  { id: 'fm14', name: '쇠먹이', grade: 'C', cm: 80, size: '80cm', trait: '쇠붙이를 먹어 녹슨 것들을 치워 주고, 한번 따르면 끝까지 곁을 지킨다', appearance: '곰의 몸에 코끼리 코, 소의 꼬리와 호랑이 발톱을 지닌 불가사리 새끼' },
+  { id: 'fm15', name: '범돌이', grade: 'C', cm: 90, size: '90cm', trait: '졸졸 따라다니다 헌터가 지치면 등을 내어 주고 같이 낮잠을 잔다', appearance: '민화 속 까치호랑이처럼 눈이 동그랗고 이마에 왕(王) 무늬가 있는 아기 호랑이' },
+  { id: 'fm16', name: '삼족오', grade: 'S', cm: 100, size: '1m', trait: '새벽을 알리며 날아올라 길 잃은 헌터에게 해 뜨는 방향을 알려 준다', appearance: '붉은 해를 등지고 나는 세 발 달린 검은 까마귀, 깃털 끝이 금빛' },
+  { id: 'fm17', name: '백록', grade: 'S', cm: 110, size: '1.1m', trait: '걸을 때마다 뿔의 영지버섯과 꽃이 피어나 마음을 가라앉힌다', appearance: '십장생 그림 속 흰 사슴, 뿔에 영지와 매화가 피어 있음' },
+  { id: 'fm18', name: '그늘삵', grade: 'B', cm: 120, size: '1.2m', trait: '그늘 속에서 불쑥 나타나 놀래 주고는 곧 무릎에 올라와 잠든다', appearance: '귀 끝에 검은 털이 솟은 삵, 노란 눈만 또렷함' },
+  { id: 'fm19', name: '만수', grade: 'B', cm: 130, size: '1.3m', trait: '등 위에서 소나무와 연못을 가꾸며 걷고, 쉬는 곳마다 꽃이 핀다', appearance: '십장생 거북처럼 등딱지에 작은 소나무와 연못이 있고 꼬리에 이끼가 길게 늘어짐' },
+  { id: 'fm20', name: '해치', grade: 'S', cm: 140, size: '1.4m', trait: '거짓말을 하는 이를 알아보고 곁에서 옳은 길로 이끈다', appearance: '사자와 닮은 몸에 이마 뿔 하나, 비늘 갑옷 같은 털을 두른 해치' },
+  { id: 'fm21', name: '바람이', grade: 'B', cm: 150, size: '1.5m', trait: '바람 부는 언덕에서 짖어 짐승과 헌터를 이어 주고 길을 알려 준다', appearance: '은빛 털이 바람에 흩날리는 하얀 풍산개, 꼬리가 둥글게 말림' },
+  { id: 'fm22', name: '허수', grade: 'B', cm: 160, size: '1.6m', trait: '들판 한가운데 서서 가만히 곁을 지키다가 헌터가 지나가면 손을 흔든다', appearance: '짚으로 엮어 밀짚모자를 씌운 허수아비, 얼굴은 먹으로 그린 점 세 개' },
+  { id: 'fm23', name: '색동나비', grade: 'B', cm: 170, size: '1.7m', trait: '날개를 펼치면 햇빛이 색동저고리처럼 퍼져 주위를 환하게 만든다', appearance: '색동 무늬 날개의 나비 요정, 날개 폭이 사람 키만 함' },
+  { id: 'fm24', name: '귀면', grade: 'A', cm: 180, size: '1.8m', trait: '지붕과 문을 지키며 길 잃은 헌터를 호통 대신 정중히 안내한다', appearance: '기와 위 도깨비 얼굴처럼 부릅뜬 눈과 송곳니를 가진 기와 괴물, 몸에서 푸른 안개가 샘' },
+  { id: 'fm25', name: '나래', grade: 'A', cm: 190, size: '1.9m', trait: '안개 속에서 노래를 불러 지친 헌터를 달래고 상처를 낫게 한다', appearance: '오색 날개옷을 두른 선녀, 긴 머리에 비녀와 구름 장식' },
+  { id: 'fm26', name: '대장군', grade: 'A', cm: 200, size: '2m', trait: '마을 어귀에 서서 모든 것을 부릅뜬 눈으로 지켜보지만 길손에겐 한없이 다정하다', appearance: '천하대장군 장승처럼 퉁방울눈에 수염이 길고 이빨이 삐죽 나온 나무 기둥' },
+  { id: 'fm27', name: '곰실', grade: 'A', cm: 220, size: '2.2m', trait: '덩치가 크지만 겁이 많아 안아 주면 꼼짝 않고 가만히 있는다', appearance: '이끼가 낀 둥근 곰, 배가 푹신하고 귀가 작으며 눈이 순함' },
+  { id: 'fm28', name: '미르', grade: 'S', cm: 250, size: '2.5m', trait: '섬의 안개를 만들어 내는 용으로, 기분에 따라 섬의 날씨가 바뀐다', appearance: '회색 구름 같은 비늘의 아기 용, 수염이 길고 숨에서 안개가 흘러나옴' },
+  { id: 'fm29', name: '큰하르방', grade: 'A', cm: 300, size: '3m', trait: '한자리에 서서 섬 전체를 내려다보며 헌터가 오면 고개를 끄덕여 맞는다', appearance: '구멍 뚫린 현무암을 쌓은 거대한 돌하르방, 둥근 눈과 벙거지 모자' },
+  { id: 'fm30', name: '이무기', grade: 'S', cm: 400, size: '4m', trait: '수평선을 따라 천천히 헤엄치며 섬을 감싸 바다의 위험을 막아 준다', appearance: '푸른 비늘이 끝없이 이어진 큰 바다뱀, 뿔은 아직 나지 않았고 몸길이 4m' },
+];
+
+// 우호적인 몬스터의 고유 효과: 토벌 때 붙는 보너스(hunt)와 PvP 때 붙는 보너스(pvp). 등급이 높을수록 수치가 커집니다.
+// [토벌 효과 이름, 종류, PvP 효과 이름, 종류]. 아직 실제 토벌·PvP 계산에는 연결하지 않았습니다(보여 주기용 데이터).
+const FRIEND_FX = {
+  fm01: ['풍년 점괘', 'gold', '작은 몸집', 'evade'],
+  fm02: ['아침 이슬', 'exp', '이슬 방패', 'guard'],
+  fm03: ['품속 온기', 'guard', '도토리 던지기', 'crit'],
+  fm04: ['이끼 길', 'free', '이끼 쿠션', 'guard'],
+  fm06: ['단단한 곁', 'hp', '굴러 박치기', 'atk'],
+  fm05: ['별자리 춤', 'fame', '반딧불 신호', 'crit'],
+  fm07: ['해안 등불', 'taint', '눈부신 빛', 'evade'],
+  fm08: ['가시 갑옷', 'hp', '가시 반격', 'thorn'],
+  fm09: ['달 방아', 'free', '방아 찧기', 'atk'],
+  fm11: ['소식 전하기', 'gold', '종이 접기', 'guard'],
+  fm10: ['자개 광택', 'fame', '오색 비늘', 'evade'],
+  fm12: ['여우비 내림', 'taint', '홀리기', 'critd'],
+  fm13: ['도깨비 방망이', 'gold', '수줍은 일격', 'critd'],
+  fm14: ['녹 먹기', 'exp', '쇠 이빨', 'atk'],
+  fm15: ['호랑이 기운', 'win', '호랑이 발톱', 'crit'],
+  fm23: ['색동 빛', 'fame', '날개 가루', 'erode'],
+  fm22: ['들판 지킴', 'guard', '허수아비 춤', 'evade'],
+  fm21: ['바람 길', 'free', '질풍', 'critd'],
+  fm18: ['그늘 사냥', 'win', '불시 기습', 'critd'],
+  fm19: ['장수의 걸음', 'exp', '묵직한 등딱지', 'thorn'],
+  fm24: ['문지기', 'guard', '귀면의 호통', 'atk'],
+  fm25: ['선녀의 노래', 'hp', '치유의 가락', 'guard'],
+  fm26: ['마을 수호', 'win', '장승 방벽', 'thorn'],
+  fm27: ['푹신한 품', 'hp', '곰의 일격', 'crit'],
+  fm29: ['돌 지킴이', 'guard', '돌 방벽', 'guard'],
+  fm16: ['새벽 길잡이', 'free', '태양의 가호', 'crit'],
+  fm20: ['시비 가림', 'win', '정의의 심판', 'atk'],
+  fm28: ['안개 날씨', 'taint', '용의 숨결', 'erode'],
+  fm30: ['바다 수호', 'hp', '파도 장벽', 'evade'],
+  fm17: ['영지의 향', 'exp', '선계의 가호', 'evade'],
+};
+const FX_GRADE = { E: 1, D: 2, C: 3, B: 4, A: 5, S: 7 };
+const FX_HUNT = {   // 1단계당 수치 · 설명
+  win:   [1, v => `토벌 성공 확률 +${v}%p`],
+  exp:   [4, v => `토벌 경험치 +${v}%`],
+  gold:  [4, v => `토벌 골드 +${v}%`],
+  guard: [2, v => `토벌 실패 시 체력 차감 방지 확률 +${v}%p`],
+  free:  [2, v => `시간 제한 없이 재토벌 확률 +${v}%p`],
+  hp:    [3, v => `토벌 실패 시 체력 감소량 -${v}%`],
+  taint: [4, v => `토벌 시 오염도 증가량 -${v}%`],
+  fame:  [3, v => `토벌 명성 획득량 +${v}%`],
+};
+const FX_PVP = {   // 종류: [등급별 수치 E·D·C·B·A·S, 설명]  (시뮬레이션으로 종류마다 같은 가치가 되게 맞춘 값)
+  atk:   [[2, 4, 6, 8, 10, 12],        v => `PvP 공격 피해 +${v}%`],
+  evade: [[2, 3, 5, 7, 8, 10],         v => `PvP 회피 확률 +${v}%p`],
+  crit:  [[3, 6, 9, 12, 15, 17],       v => `PvP 치명타 확률 +${v}%p`],
+  critd: [[11, 21, 32, 43, 53, 64],    v => `PvP 치명타 피해 +${v}%p`],
+  guard: [[1, 3, 4, 6, 7, 8],          v => `PvP 받는 피해 -${v}%`],
+  erode: [[0.1, 0.2, 0.25, 0.35, 0.45, 0.5], v => `PvP 매 턴 상대에게 침식 피해 +${v}`],
+  thorn: [[2, 3, 5, 7, 9, 10],         v => `PvP 받은 피해의 ${v}%를 상대에게 되돌림`],
+};
+// 친밀도 단계: 30·60·90 이상이 되면 효과가 강해집니다(최대 친밀도 100). 단계별 배수는 아래와 같습니다.
+const BOND_STEP = 30, BOND_MAX = 100, BOND_MUL = [1, 1.3, 1.6, 2];
+const bondStage = b => Math.min(3, Math.floor((Number(b) || 0) / BOND_STEP));
+const fxNum = (k, v) => k === 'erode' ? Math.round(v * 100) / 100 : Math.round(v * 10) / 10;
+
+const FX_ORDER = 'EDCBAS';
+FRIENDLY_MON.forEach(m => {
+  const f = FRIEND_FX[m.id], g = FX_GRADE[m.grade];
+  m.hunt = { name: f[0], k: f[1], v: FX_HUNT[f[1]][0] * g, text: FX_HUNT[f[1]][1](FX_HUNT[f[1]][0] * g) };
+  const pv = FX_PVP[f[3]][0][FX_ORDER.indexOf(m.grade)];
+  m.pvp = { name: f[2], k: f[3], v: pv, text: FX_PVP[f[3]][1](pv) };
+});
+
+
+// ───────────── PvP 전용 스탯 (기존 토벌 스탯·레벨과 별개) ─────────────
+// 체력·근력·민첩·행운·오염도 다섯 가지. 모두에게 같은 포인트 15를 주고, 스탯마다 최소 1·최대 5 (처음엔 모두 1에서 시작해 10포인트를 나눠 씁니다).
+const PVP_MIN = 1, PVP_MAX = 5, PVP_TOTAL = 15, PVP_KEYS = ['hp', 'str', 'agi', 'luck', 'taint'];
+const PVP_KO = { hp: '체력', str: '근력', agi: '민첩', luck: '행운', taint: '오염도' };
+function pvpStatsOk(s) {
+  if (!s || typeof s !== 'object') return false;
+  let sum = 0;
+  for (const k of PVP_KEYS) { const v = s[k]; if (!Number.isInteger(v) || v < PVP_MIN || v > PVP_MAX) return false; sum += v; }
+  return sum === PVP_TOTAL;
+}
+// 스탯 → 전투 수치. 몬스터 보너스(FX_PVP)는 이 값에 더해집니다. 모든 확률은 95%를 넘지 않고, 회피·피해 경감은 50%까지입니다.
+function pvpDerive(s) {
+  const o = {
+    maxHp: Math.round((50 + 20 * s.hp) * (1 - 0.04 * (s.taint - 1))),   // 체력: 50 + 20×체력 / 오염도: 1점 초과당 최대 체력 -4%
+    dmgCut: s.hp >= PVP_MAX ? 5 : 0,                                       // 체력 5 극의: 받는 피해 -5%
+    atk: 10 + 4 * s.str,                                                   // 근력: 공격력 10 + 4×근력
+    finish: s.str >= PVP_MAX ? 10 : 0,                                     // 근력 5 극의: 상대 체력 30% 이하일 때 피해 +10%
+    dodge: 3 * s.agi,                                                      // 민첩: 회피 3%p×민첩
+    firstPerAgi: 10,                                                       // 민첩: 선공은 기본 50%에서 두 사람의 민첩 차이 1당 ±10%p
+    double: s.agi >= PVP_MAX ? 15 : 0,                                     // 민첩 5 극의: 연속 공격 15%
+    crit: 5 * s.luck,                                                      // 행운: 치명타 확률 5%p×행운
+    critMul: s.luck >= PVP_MAX ? 1.8 : 1.5,                                // 행운: 치명타 피해 ×1.5 (행운 5 극의: ×1.8)
+    taintRate: 15 * s.taint,                                               // 오염도: 공격 명중 시 오염 부여 확률 15%p×오염도
+    taintTick: s.taint >= PVP_MAX ? 3 : 2,                                 // 오염 1중첩당 매 턴 피해 2 (오염도 5 극의: 3), 최대 5중첩·3턴 지속
+  };
+  return o;
+}
+
+// ───────────── PvP 규칙 (기존 스탯과 별개인 PvP 고유 스테이터스) ─────────────
+// 레벨 없음. 체력·근력·민첩·행운·오염도 5가지를 각 1~5로 정하고(모두 1에서 시작), 모두에게 같은 포인트 총 15를 나눠 줍니다(남는 10포인트를 배분).
+// PvP 체력은 100에서 시작해 0이 되면 전투 종료. 최소 10턴이 지나기 전에는 체력이 1 밑으로 내려가지 않습니다. 체력이 0이 된 헌터는 PvP 체력이 100으로 돌아올 때까지 PvP 참여 불가.
+// 한 턴: 민첩이 높은 쪽(같으면 무작위)이 먼저 공격하고 상대가 공격 → 턴 끝에 침식·반동 계산. 40턴이 지나도 안 끝나면 남은 체력이 많은 쪽이 승리.
+const PVP = {
+  HP: 100, MIN_TURNS: 10, MAX_TURNS: 40, POINTS: 15, STAT_MIN: 1, STAT_MAX: 5,
+  BASE_DMG: 4.5,            // 공격 1회 기본 피해
+  STR_DMG: 0.3,             // 근력 1당 공격 피해 +0.3
+  AGI_DODGE: 4.5,           // 민첩 1당 회피 +4.5%p (민첩이 높으면 먼저 공격)
+  LUCK_CRIT: 8,             // 행운 1당 치명타 확률 +8%p
+  CRIT_MUL: 1.8,            // 치명타 피해 배율
+  VIT_GUARD: 4.5,           // 체력 1당 받는 피해 -4.5%
+  TAINT_ERODE: 0.5,         // 오염도 1당: 매 턴 상대에게 침식 피해 +0.5 (방어·회피 무시)
+  TAINT_RECOIL: 0.2,        // 오염도 1당: 매 턴 나에게 반동 피해 +0.2
+};
+const PVP_STAT_TEXT = {
+  hp:    ['체력', '받는 피해를 줄여 줍니다. 1당 -4.5% (최대 -22.5%).'],
+  str:   ['근력', '공격 1회 피해가 커집니다. 기본 4.5에 1당 +0.3 (최대 6.0).'],
+  agi:   ['민첩', '공격을 피할 확률이 올라가고, 높을수록 먼저 공격합니다. 1당 +4.5%p (최대 22.5%).'],
+  luck:  ['행운', '치명타(피해 1.8배) 확률이 올라갑니다. 1당 +8%p (최대 40%).'],
+  taint: ['오염도', '매 턴 상대에게 막을 수 없는 침식 피해를 줍니다. 1당 0.5 (최대 2.5). 대신 나도 매 턴 반동 피해를 입습니다. 1당 0.2 (최대 1.0).'],
+};
+
+// ───────────── PvP 전투 엔진 (장비·등급·레벨은 쓰지 않고, PvP 스탯과 동행 몬스터 효과만 씁니다) ─────────────
+// 전투자 한 명의 수치. stats = [체력, 근력, 민첩, 행운, 오염도], fx = { k, v } (동행 몬스터의 PvP 효과, 없으면 null)
+function pvpFighter(stats, fx) {
+  const [hp, str, agi, luck, taint] = stats, k = fx && fx.k, v = fx ? fx.v : 0;
+  return {
+    agi,
+    dmg: (PVP.BASE_DMG + PVP.STR_DMG * str) * (k === 'atk' ? 1 + v / 100 : 1),
+    dodge: Math.min(50, PVP.AGI_DODGE * agi + (k === 'evade' ? v : 0)),
+    crit: Math.min(95, PVP.LUCK_CRIT * luck + (k === 'crit' ? v : 0)),
+    critMul: PVP.CRIT_MUL + (k === 'critd' ? v / 100 : 0),
+    guard: Math.min(50, PVP.VIT_GUARD * hp + (k === 'guard' ? v : 0)),
+    erode: PVP.TAINT_ERODE * taint + (k === 'erode' ? v : 0),
+    recoil: PVP.TAINT_RECOIL * taint,
+    thorn: k === 'thorn' ? v : 0,
+  };
+}
+function mulberry32(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+const r1 = x => Math.round(x * 10) / 10;
+// 한 판을 끝까지 진행합니다. 돌려주는 값: { winner: 0|1, turns, log, hp:[a,b] }
+// 한 턴: 민첩이 높은 쪽(같으면 무작위)이 먼저 공격 → 상대 공격 → 턴 끝에 침식·반동. 최소 10턴은 체력이 1 밑으로 내려가지 않고, 40턴까지 안 끝나면 남은 체력이 많은 쪽이 승리합니다.
+function pvpBattle(sa, fa, sb, fb, rnd) {
+  const F = [pvpFighter(sa, fa), pvpFighter(sb, fb)], hp = [PVP.HP, PVP.HP], log = [];
+  let t = 0;
+  const floor = () => { if (t < PVP.MIN_TURNS) for (let i = 0; i < 2; i++) if (hp[i] < 1) hp[i] = 1; };
+  while (t < PVP.MAX_TURNS) {
+    t++;
+    const first = F[0].agi === F[1].agi ? (rnd() < 0.5 ? 0 : 1) : (F[0].agi > F[1].agi ? 0 : 1);
+    const ev = [];
+    for (const w of [first, 1 - first]) {
+      if (hp[0] <= 0 || hp[1] <= 0) break;
+      const a = F[w], d = F[1 - w];
+      if (rnd() * 100 < d.dodge) { ev.push([w, 0, 0, r1(hp[0]), r1(hp[1])]); continue; }
+      const crit = rnd() * 100 < a.crit;
+      const dmg = r1(a.dmg * (crit ? a.critMul : 1) * (1 - d.guard / 100));
+      hp[1 - w] -= dmg;
+      if (d.thorn) hp[w] -= r1(dmg * d.thorn / 100);
+      floor();
+      ev.push([w, crit ? 2 : 1, dmg, r1(hp[0]), r1(hp[1])]);
+    }
+    const toA = r1(F[1].erode + F[0].recoil), toB = r1(F[0].erode + F[1].recoil);
+    if (hp[0] > 0 && hp[1] > 0) { hp[0] -= toA; hp[1] -= toB; floor(); }
+    log.push({ n: t, ev, end: [toA, toB, r1(Math.max(0, hp[0])), r1(Math.max(0, hp[1]))] });
+    if (t >= PVP.MIN_TURNS && (hp[0] <= 0 || hp[1] <= 0)) break;
+  }
+  let winner;
+  if (hp[0] === hp[1]) winner = F[0].agi === F[1].agi ? (rnd() < 0.5 ? 0 : 1) : (F[0].agi > F[1].agi ? 0 : 1);
+  else winner = hp[0] > hp[1] ? 0 : 1;
+  return { winner, turns: t, log, hp: [r1(Math.max(0, hp[0])), r1(Math.max(0, hp[1]))] };
+}
+// 전투 수치(0~100): 기준 상대(모든 스탯 3, 몬스터 없음)와 같은 조건으로 600번 싸웠을 때의 승률. 같은 입력이면 항상 같은 값이 나옵니다.
+const PVP_REF = [3, 3, 3, 3, 3];
+function pvpPower(stats, fx) {
+  const rnd = mulberry32(20261024);
+  let w = 0;
+  for (let i = 0; i < 600; i++) if (pvpBattle(stats, fx, PVP_REF, null, rnd).winner === 0) w++;
+  return Math.round(w / 6);
+}
+
+// 친밀도에 맞춰 강화된 토벌·PvP 효과를 돌려줍니다.
+function friendFx(m, bond) {
+  const st = bondStage(bond), mul = BOND_MUL[st];
+  const h = fxNum(m.hunt.k, m.hunt.v * mul), p = fxNum(m.pvp.k, m.pvp.v * mul);
+  return {
+    stage: st, mul,
+    hunt: { name: m.hunt.name, k: m.hunt.k, v: h, text: FX_HUNT[m.hunt.k][1](h) },
+    pvp: { name: m.pvp.name, k: m.pvp.k, v: p, text: FX_PVP[m.pvp.k][1](p) },
+  };
+}
 
 const MIN = 60000, HOUR = 3600000;
 // 등급 묶음별 출몰 주기
@@ -526,7 +752,7 @@ const isTurnBased = (monRank, hunterRank) => monRank !== 'SS' && RANK_IDX[monRan
 module.exports = {
   BT, btMon, btPlayer, isTurnBased, taintStage, TAINT_SHOP_PCT, TAINT_BAN_DANGER, taintPrice, TAINT_LOSE_GOLD_MUL, HUNTER_CHANCE, HUNTER_LV_MAX, hunterScale, RARE_CHANCE, SPECIAL_MON,
   SV_MARKS, MATERIALS, GATE_MATS, GATE_ZONES, EQ_GRADE, EQ_SLOTS, EQUIPS, RUMOR_NEED, RUMOR_OPEN_MS, RUMOR_GAP_MS, RUMOR_MAX_OPEN, RUMOR_TPL, RUMOR_REWARD, RECIPES, CRAFT_DEFS,
-  STAT_MAX, STAT_RESET_BASE, STAT_RESET_PER, statResetCost, FAME_MAX, rnd, chance01, SPAWN_COUNTRIES, SPAWN_REGIONS, REGIONS, REGION_BY_ID, COUNTRIES, COUNTRY_BY_ID, countryOf, placeName, placeLong, MON, TIERS, ACTIVE_MS, ACTIVE_MS_F, ACTIVE_MS_S, activeMsOf, FAME_PER_LV, FAME_PER_RANK, KILL_EXP, KILL_GOLD, KILL_TAINT, rollTaint, garble, RANK_IDX, ACH_KINDS, ACH_COMPOUND, ACH_NUM, ACH_SEED, ACH_SEED2, ACH_SEED3, PROMO, ACH_PIN_MAX, rollGold, HUNT_DIFF,
+  STAT_MAX, STAT_RESET_BASE, STAT_RESET_PER, statResetCost, FAME_MAX, rnd, chance01, SPAWN_COUNTRIES, SPAWN_REGIONS, REGIONS, REGION_BY_ID, COUNTRIES, COUNTRY_BY_ID, countryOf, placeName, placeLong, MON, FRIENDLY_MON, PVP, PVP_STAT_TEXT, BOND_STEP, BOND_MAX, BOND_MUL, bondStage, friendFx, pvpBattle, pvpPower, mulberry32, PVP_MIN, PVP_MAX, PVP_TOTAL, PVP_KEYS, PVP_KO, pvpStatsOk, pvpDerive, TIERS, ACTIVE_MS, ACTIVE_MS_F, ACTIVE_MS_S, activeMsOf, FAME_PER_LV, FAME_PER_RANK, KILL_EXP, KILL_GOLD, KILL_TAINT, rollTaint, garble, RANK_IDX, ACH_KINDS, ACH_COMPOUND, ACH_NUM, ACH_SEED, ACH_SEED2, ACH_SEED3, PROMO, ACH_PIN_MAX, rollGold, HUNT_DIFF,
   RAID_NEED, RAID_ATTEMPTS, S_MAX, S_WINDOW_MS, S_WAIT_MS, powNeed, cdOf, huntChance,
   rollRank, rollStats, PROB_CAP, STR_WIN, guardChance, freeChance, HP_START, HP_MIN, HP_DYING_MS, HP_REVIVE, hpLoss, makeCode, addExp, MIN, HOUR,
 };
