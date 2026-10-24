@@ -1998,6 +1998,77 @@ route('POST', '/api/raise/craft', async (req, res, ctx) => {
   send(res, 200, { ok: true, food: fu.mon_food });
 });
 
+
+// ───────────── 그레이윅: 우호 몬스터와 만나 턴제로 겨루고, 체력을 0으로 만들면 자동으로 포획 ─────────────
+// 입장은 10분에 한 번. 들어올 때 아직 없는 몬스터 한 마리가 나타나며(등급별 확률), 12턴 안에 체력을 0으로 만들면 포획됩니다. 토벌 스탯(근력·행운)만 쓰고 장비·체력에는 영향이 없습니다.
+const CW_REGION = 'cw-isle', CW_CD = 10 * 60000, CW_TURNS = 12, CW_EXPIRE = 30 * 60000;
+const CW_HP = { E: 40, D: 60, C: 90, B: 130, A: 180, S: 250 };
+const CW_ODDS = { E: 34, D: 32, C: 20, B: 12.5, A: 1.2, S: 0.3 };     // 등급별 출현 확률(%): E·D 가 가장 많고 A 는 5% 미만, S 는 0.5% 미만
+const CW_ACT = ['몸을 낮추고 이쪽을 살핀다', '주위를 맴돌며 눈치를 본다', '슬금슬금 거리를 벌린다', '꼬리를 흔들며 경계한다', '숨을 고르며 버틴다'];
+async function cwSpawn(uid, now) {
+  const own = new Set((await db.all('SELECT mon_id FROM user_mons WHERE user_id = ?', [uid])).map(r => r.mon_id));
+  const left = {};
+  for (const m of G.FRIENDLY_MON) if (!own.has(m.id)) (left[m.grade] = left[m.grade] || []).push(m);
+  const gs = Object.keys(left);
+  if (!gs.length) { await db.run('DELETE FROM cw_enc WHERE user_id = ?', [uid]); return false; }      // 모두 모았음
+  let r = Math.random() * gs.reduce((a, g) => a + CW_ODDS[g], 0), grade = gs[gs.length - 1];     // 남은 등급끼리 확률 비율을 유지
+  for (const g of gs) { r -= CW_ODDS[g]; if (r < 0) { grade = g; break; } }
+  const m = left[grade][G.rnd(0, left[grade].length - 1)], hp = CW_HP[grade];
+  await db.run('DELETE FROM cw_enc WHERE user_id = ?', [uid]);
+  await db.run('INSERT INTO cw_enc (user_id, mon_id, hp, hp_max, turn, at) VALUES (?, ?, ?, ?, 0, ?)', [uid, m.id, hp, hp, now]);
+  return true;
+}
+function cwView(e) {
+  const m = G.FRIENDLY_MON.find(x => x.id === e.mon_id);
+  return { mon: { id: m.id, name: m.name, grade: m.grade, cm: m.cm, size: m.size, appearance: m.appearance }, hp: e.hp, max: e.hp_max, turn: e.turn, limit: CW_TURNS };
+}
+async function cwEnc(uid, now) {
+  const e = await db.get('SELECT mon_id, hp, hp_max, turn, at FROM cw_enc WHERE user_id = ?', [uid]);
+  if (e && now - e.at > CW_EXPIRE) { await db.run('DELETE FROM cw_enc WHERE user_id = ?', [uid]); return null; }
+  return e || null;
+}
+route('GET', '/api/cw/state', async (req, res, ctx) => {
+  const now = Date.now(), e = ctx.user.region === CW_REGION ? await cwEnc(ctx.user.id, now) : null;
+  const full = (await db.get('SELECT COUNT(*) AS c FROM user_mons WHERE user_id = ?', [ctx.user.id])).c >= G.FRIENDLY_MON.length;
+  send(res, 200, { inside: ctx.user.region === CW_REGION, cd: Math.max(0, Math.ceil(((Number(ctx.user.cw_enter) || 0) + CW_CD - now) / 1000)), enc: e ? cwView(e) : null, all: full });
+});
+route('POST', '/api/cw/act', async (req, res, ctx) => {
+  const uid = ctx.user.id, now = Date.now(), act = String(ctx.body.act || '');
+  if (await limited('cw:' + uid, 120, 60000)) return fail(res, 429, 'rate_limited');
+  if (ctx.user.region !== CW_REGION) return fail(res, 409, 'not_here');
+  const e = await cwEnc(uid, now);
+  if (!e) return fail(res, 404, 'no_enc');
+  const v = cwView(e), nm = v.mon.name;
+  if (act === 'leave') { await db.run('DELETE FROM cw_enc WHERE user_id = ?', [uid]); return send(res, 200, { ok: true, end: 'left', log: [nm + '과(와) 헤어졌다.'] }); }
+  if (act !== 'hit' && act !== 'smash') return fail(res, 400, 'bad_act');
+  const st = JSON.parse(ctx.user.stats), str = Number(st.str) || 0, luck = Number(st.luck) || 0;
+  const smash = act === 'smash', log = [];
+  let dmg = 0;
+  if (Math.random() * 100 < (smash ? 60 : 90)) {
+    dmg = (8 + str * 0.4) * (smash ? 2.2 : 1) * (0.85 + Math.random() * 0.3);
+    const crit = Math.random() * 100 < Math.min(40, luck * 0.5);
+    if (crit) dmg *= 1.8;
+    dmg = Math.max(1, Math.round(dmg));
+    log.push((smash ? '강타! ' : '') + (crit ? '치명타! ' : '') + nm + '에게 ' + dmg + ' 피해');
+  } else log.push((smash ? '강타가 ' : '공격이 ') + '빗나갔다');
+  const hp = Math.max(0, e.hp - dmg), turn = e.turn + 1;
+  const w = await db.run('UPDATE cw_enc SET hp = ?, turn = ? WHERE user_id = ? AND turn = ?', [hp, turn, uid, e.turn]);
+  if (w.changes !== 1) return fail(res, 409, 'busy');
+  if (hp <= 0) {      // 체력이 0이 되면 자동 포획
+    await db.run('INSERT INTO user_mons (user_id, mon_id, got_at) VALUES (?, ?, ?) ON CONFLICT(user_id, mon_id) DO NOTHING', [uid, e.mon_id, now]);
+    await db.run('DELETE FROM cw_enc WHERE user_id = ?', [uid]);
+    log.push(nm + '을(를) 포획했다!');
+    return send(res, 200, { ok: true, end: 'caught', hp: 0, max: e.hp_max, turn, limit: CW_TURNS, dmg, log, mon: v.mon });
+  }
+  if (turn >= CW_TURNS) {
+    await db.run('DELETE FROM cw_enc WHERE user_id = ?', [uid]);
+    log.push(nm + '은(는) 지쳐서 수풀 속으로 사라졌다...');
+    return send(res, 200, { ok: true, end: 'fled', hp, max: e.hp_max, turn, limit: CW_TURNS, dmg, log, mon: v.mon });
+  }
+  log.push(nm + '은(는) ' + CW_ACT[G.rnd(0, CW_ACT.length - 1)]);
+  send(res, 200, { ok: true, end: '', hp, max: e.hp_max, turn, limit: CW_TURNS, dmg, log, mon: v.mon });
+});
+
 // ───────────── 전장 (PvP) 화면용 정보 ─────────────
 // PvP 스탯 [체력, 근력, 민첩, 행운, 오염도]: 각 1~5, 합계 15. 기본은 모두 3입니다(스탯을 직접 나누는 화면은 아직 없음).
 const PVP_DEFAULT = [3, 3, 3, 3, 3];
@@ -2163,9 +2234,16 @@ route('POST', '/api/move', async (req, res, ctx) => {
   if (ctx.user.block_flags & 2) return fail(res, 403, 'blocked', { what: 'move' });
   if (corruptLock(ctx.user, Date.now())) return fail(res, 409, 'corrupted', { until: ctx.user.corrupt_until });
   if (G.countryOf(ctx.user.region) === 'GT' && G.countryOf(id) !== 'GT') await gateAutoRetreat(ctx.user.id);
+  let cwNew = false;
+  if (id === CW_REGION && ctx.user.region !== CW_REGION) {      // 그레이윅은 10분에 한 번만 입장할 수 있습니다
+    const now = Date.now(), left = (Number(ctx.user.cw_enter) || 0) + CW_CD - now;
+    if (left > 0) return fail(res, 409, 'cw_cd', { wait: Math.ceil(left / 1000) });
+    await db.run('UPDATE users SET cw_enter = ? WHERE id = ?', [now, ctx.user.id]);
+    cwNew = await cwSpawn(ctx.user.id, now);
+  }
   await db.run('UPDATE users SET region = ? WHERE id = ?', [id, ctx.user.id]);
   if (id !== ctx.user.region) await db.run('INSERT INTO visit_counts (user_id, region, n) VALUES (?, ?, 1) ON CONFLICT(user_id, region) DO UPDATE SET n = n + 1', [ctx.user.id, id]);   // 방문 횟수 (업적)
-  send(res, 200, { region: id, country: G.countryOf(id) });
+  send(res, 200, { region: id, country: G.countryOf(id), cwNew });
 });
 
 route('POST', '/api/hunt', async (req, res, ctx) => {
@@ -3507,6 +3585,7 @@ async function purgeUser(id) {
     ['DELETE FROM monsters WHERE owner_id = ?', [id]],
     ['DELETE FROM user_mons WHERE user_id = ?', [id]],
     ['DELETE FROM pvp_queue WHERE user_id = ?', [id]],
+    ['DELETE FROM cw_enc WHERE user_id = ?', [id]],
     ['DELETE FROM pvp_battles WHERE a_id = ? OR b_id = ?', [id, id]],
     ['DELETE FROM users WHERE id = ?', [id]],
   ]);
