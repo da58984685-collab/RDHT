@@ -4556,7 +4556,7 @@ function loadPvp(scr){
       api("POST","/api/pvp/queue").then(function(r){
         bt.disabled=false;if(gone())return;
         if(!r||r._status!==200){
-          msg.textContent=r&&r.error==="recovering"?"PvP 체력을 회복하는 중이에요. ("+r.hp+" / 100 · "+Math.ceil(r.lockLeft/60)+"분 남음)":"매칭을 시작하지 못했어요.";return}
+          msg.textContent=r&&r.error==="no_stats"?"먼저 PVP 스탯을 배분해 주세요. (스탯 카드의 PVP 스탯)":r&&r.error==="recovering"?"PvP 체력을 회복하는 중이에요. ("+r.hp+" / 100 · "+Math.ceil(r.lockLeft/60)+"분 남음)":"매칭을 시작하지 못했어요.";return}
         if(r.state==="matched"){leave();battle(r.battle);return}
         setWait(true,r.waited,r.range);start();
       });
@@ -4565,9 +4565,9 @@ function loadPvp(scr){
       if(gone())return;
       if(!r||r._status!==200){info.textContent="정보를 불러오지 못했어요.";return}
       var s=r.stats,c=r.companion;
-      info.appendChild(pvEl("div",null,"스탯  체력 "+s.hp+" · 근력 "+s.str+" · 민첩 "+s.agi+" · 행운 "+s.luck+" · 오염도 "+s.taint));
+      info.appendChild(pvEl("div",null,!r.set?"스탯  아직 배분하지 않았어요 (스탯 카드의 PVP 스탯에서 먼저 배분해 주세요)":"스탯  체력 "+s.hp+" · 근력 "+s.str+" · 민첩 "+s.agi+" · 행운 "+s.luck+" · 오염도 "+s.taint));
       info.appendChild(pvEl("div",null,"동행 몬스터  "+(c?(c.nick?c.nick+" ("+c.name+")":c.name)+" · "+c.grade+"급"+(c.hungry?" · 배고픔(효과 없음)":""):"없음")));
-      info.appendChild(pvEl("div",null,"전투 수치  "+r.power+" / 100 · 전적 "+r.win+"승 "+r.lose+"패"));
+      info.appendChild(pvEl("div",null,(r.set?"전투 수치  "+r.power+" / 100 · 전적 ":"전적 ")+r.win+"승 "+r.lose+"패"));
       if(r.hp<100)info.appendChild(pvEl("div","pvp-warn","PvP 체력 회복 중  "+r.hp+" / 100 (약 "+Math.ceil(r.lockLeft/60)+"분 뒤 참가 가능)"));
     });
     /* 창을 닫았다 다시 열었을 때: 아직 못 본 전투나 계속되는 대기 상태 이어서 보여 주기 */
@@ -4676,6 +4676,7 @@ function loadPvs(scr){
 function pvsDraw(w){
   w.textContent="";
   var sum=pvsVal.reduce(function(a,b){return a+b},0),left=15-sum,changed=pvsVal.join()!==pvsSaved.join();
+  var moved=0;if(pvsInfo.set)pvsVal.forEach(function(v,i){moved+=Math.max(0,v-pvsSaved[i])});var cost=pvsInfo.set?moved*pvsInfo.cost:0,poor=cost>pvsInfo.gold;
   var S=260,C=S/2,R=S/2-44,pt=function(i,v){var a=-Math.PI/2+i*2*Math.PI/5,r=R*v/5;return [C+r*Math.cos(a),C+r*Math.sin(a)]};
   var NS="http://www.w3.org/2000/svg",sv=document.createElementNS(NS,"svg");sv.setAttribute("viewBox","0 0 "+S+" "+S);sv.setAttribute("class","pvs-svg");sv.setAttribute("role","img");
   sv.setAttribute("aria-label","PVP 스탯 오각형: "+PVS_N.map(function(n,i){return n+" "+pvsVal[i]}).join(", "));
@@ -4690,8 +4691,8 @@ function pvsDraw(w){
   var top=pvEl("div","pvs-top");top.appendChild(sv);
   var side=pvEl("div","pvs-side");
   side.appendChild(pvEl("p","pvs-pt","남은 포인트 "+left+" / 10"));
-  side.appendChild(pvEl("p","pvs-sub","전투 수치 "+pvsInfo.power+" / 100 (저장된 스탯과 동행 몬스터 기준)"));
-  side.appendChild(pvEl("p","pvs-sub","PVP 스탯은 전장에서만 적용돼요. 장비와 레벨, 등급은 PVP에 영향을 주지 않아요."));
+  side.appendChild(pvEl("p","pvs-sub",pvsInfo.set?"전투 수치 "+pvsInfo.power+" / 100 (저장된 스탯과 동행 몬스터 기준)":"아직 스탯을 배분하지 않았어요. 처음 배분은 무료예요."));
+  side.appendChild(pvEl("p","pvs-sub",(pvsInfo.set?"바꾼 포인트 1당 "+pvsInfo.cost+" G가 들어요. 이번 변경 "+moved+"포인트 = "+cost+" G":"배분을 저장한 뒤에는 바꾼 포인트 1당 "+pvsInfo.cost+" G가 들어요.")+" (보유 "+pvsInfo.gold+" G)"));side.appendChild(pvEl("p","pvs-sub","PVP 스탯은 전장에서만 적용돼요. 장비와 레벨, 등급은 PVP에 영향을 주지 않아요."));
   top.appendChild(side);w.appendChild(top);
   var ul=pvEl("ul","pvs-ls");
   PVS_K.forEach(function(k,i){
@@ -4706,18 +4707,18 @@ function pvsDraw(w){
   w.appendChild(ul);
   var row=pvEl("div","pvs-ac");
   var rs=pvEl("button",null,"되돌리기");rs.type="button";rs.disabled=!changed;rs.addEventListener("click",function(){pvsVal=pvsSaved.slice();pvsNote="";pvsDraw(w)});
-  var sv2=pvEl("button","on","저장");sv2.type="button";sv2.disabled=!changed||left!==0;
+  var sv2=pvEl("button","on",cost>0?"저장 · "+cost+" G":"저장");sv2.type="button";sv2.disabled=!changed||left!==0||poor;
   sv2.addEventListener("click",function(){
     sv2.disabled=true;var b={};PVS_K.forEach(function(k,i){b[k]=pvsVal[i]});
     api("POST","/api/pvp/stats",{stats:b}).then(function(r){
       if(!w.isConnected)return;
-      if(r&&r._status===200){pvsSaved=pvsVal.slice();pvsInfo.power=r.power;pvsNote="저장했어요."}
-      else pvsNote=r&&r.error==="queued"?"매칭 중에는 바꿀 수 없어요. 매칭을 취소해 주세요.":"저장하지 못했어요.";
+      if(r&&r._status===200){pvsSaved=pvsVal.slice();pvsInfo.power=r.power;pvsInfo.gold=r.gold;gold=r.gold;if(typeof setGoldTag==="function")setGoldTag();pvsInfo.set=true;pvsNote=r.cost>0?"저장했어요. "+r.cost+" G를 썼어요.":"저장했어요."}
+      else pvsNote=r&&r.error==="no_gold"?"골드가 부족해요. (필요 "+r.cost+" G)":r&&r.error==="queued"?"매칭 중에는 바꿀 수 없어요. 매칭을 취소해 주세요.":"저장하지 못했어요.";
       pvsDraw(w);
     });
   });
   row.appendChild(rs);row.appendChild(sv2);w.appendChild(row);
-  var nt=pvEl("p","pvs-note",left!==0?"포인트를 모두 쓴 뒤에 저장할 수 있어요.":pvsNote);nt.setAttribute("role","status");w.appendChild(nt);
+  var nt=pvEl("p","pvs-note",left!==0?"포인트를 모두 쓴 뒤에 저장할 수 있어요.":poor&&changed?"골드가 부족해요. (필요 "+cost+" G)":pvsNote);nt.setAttribute("role","status");w.appendChild(nt);
 }
 var raiSel="";
 var RAI_H=["00000000011000000000", "00000001111110000000", "00000011111111000000", "00000011111111000000", "00000011111111000000", "00000011111111000000", "00000001111110000000", "00000000000000000000", "00000000000000000000", "00011111111111111000", "00111111111111111100", "01111111111111111110", "01111111111111111110", "11111111111111111111", "11111111111111111111", "11100111111111100111", "11100111111111100111", "11100111111111100111", "11100111111111100111", "11100111111111100111", "11100111111111100111", "11100111111111100111", "11100111111111100111", "11100111111111100111", "11100111111111100111", "11100111111111100111", "11100111111111100111", "00000111111111100000", "00000111100111100000", "00000111100111100000", "00000111100111100000", "00000111100111100000", "00000111100111100000", "00000111100111100000", "00000111100111100000", "00000111100111100000", "00000111100111100000", "00000111100111100000", "00000111100111100000", "00000111100111100000", "00000111100111100000", "00000111100111100000", "00000111100111100000", "00000111100111100000", "00000111100111100000", "00000111100111100000", "00000111100111100000", "00000011000011000000"];
