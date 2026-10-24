@@ -848,6 +848,7 @@ input[type=checkbox]:focus-visible{outline:2px solid var(--deep);outline-offset:
 .pvp-rme{margin:0 0 8px;font-size:.85rem;color:#f0b93a}
 .pvp-rt{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px}
 .pvp-rt li{display:grid;grid-template-columns:2.4em 1fr auto 3.2em;gap:8px;align-items:center;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--card);font-size:.85rem}
+.pvp-rt .bio,.pvp-rt .tr{grid-column:1/-1;min-width:0;overflow-wrap:anywhere;line-height:1.4}.pvp-rt .bio{color:var(--text);font-size:.82rem}.pvp-rt .tr{color:var(--sub);font-size:.78rem}
 .pvp-rt li.me{border-color:var(--red2);background:#2a0a10}.pvp-rt .n{color:var(--sub);text-align:center;font-weight:700}.pvp-rt .rt{text-align:right;color:var(--sub)}.pvp-rt .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .pvb-h{display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:start}
 .pvb-s{display:flex;flex-direction:column;gap:3px;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--card);min-width:0}.pvb-s.me{border-color:var(--red2)}
@@ -3223,7 +3224,7 @@ function pollState(first){
 }
 function moveTo(id,silent){
   var rg=regionById(id);if(!rg)return;
-  if(!silent&&id==="cw-isle"&&curRegion!=="cw-isle"){      /* 그레이윅은 10분에 한 번만 입장: 서버 확인이 끝난 뒤에 이동합니다 */
+  if(!silent&&id==="cw-isle"){      /* 그레이윅은 10분에 한 번만 입장: 서버 확인이 끝난 뒤에 이동합니다 */
     api("POST","/api/move",{region:id}).then(function(r){
       if(r.error==="cw_cd")cwSetCd(r.wait);if(r.error){$("mapmsg").textContent=r.error==="cw_cd"?"그레이윅은 10분에 한 번만 들어갈 수 있어요. "+cwFmt(r.wait)+" 뒤에 다시 와 주세요.":r.error==="blocked"?"운영자에 의해 이동이 제한되었습니다.":r.error==="corrupted"?"오염이 폭주해 "+mmss(r.until-nowS())+" 동안 이동할 수 없습니다.":r.error==="taint_ban"?TAINT_BAN_MSG:"이동하지 못했어요. 잠시 후 다시 시도해주세요.";return}
       cwSetCd(600);moveTo(id,true);markRegions();$("mapmsg").textContent="그레이윅에 도착했어요.";cwOpen();
@@ -4348,8 +4349,9 @@ gtmodal.addEventListener("keydown",function(e){
 var cwm=$("cwmodal"),cwSt=null,cwBusy=false,cwFx={hit:0,end:"",t0:0},cwTimer=null,cwSpr=null,cwLog=[],cwCdT=null,cwScn=null;
 var cwReadyAt=0;
 function cwSetCd(s){cwReadyAt=Date.now()+Math.max(0,Number(s)||0)*1000;cwTick()}
-function cwTick(){var el=document.querySelector('#regions .rg[data-id="cw-isle"] .rg-cd');if(!el)return;var s=Math.ceil((cwReadyAt-Date.now())/1000);if(s>0){el.hidden=false;el.textContent="입장 가능까지 "+("0"+Math.floor(s/60)).slice(-2)+" : "+("0"+(s%60)).slice(-2)}else el.hidden=true}
+function cwTick(){var el=document.querySelector('#regions .rg[data-id="cw-isle"] .rg-cd');if(!el)return;var s=Math.ceil((cwReadyAt-Date.now())/1000);el.hidden=s<=0;if(s>0)el.textContent="입장 가능까지 "+("0"+Math.floor(s/60)).slice(-2)+" : "+("0"+(s%60)).slice(-2)}
 setInterval(cwTick,1000);
+setInterval(function(){if(curRegion!==undefined&&!document.hidden)api("GET","/api/cw/state").then(function(r){if(r&&!r.error&&typeof r.cd==="number")cwSetCd(r.cd)}).catch(function(){})},30000);
 function cwFmt(s){s=Math.max(0,Math.floor(s));return Math.floor(s/60)+":"+("0"+(s%60)).slice(-2)}
 function cwUpdateBtn(){var b=$("cwopen");if(b)b.hidden=curRegion!=="cw-isle"}
 function cwOpen(){
@@ -4600,6 +4602,8 @@ function loadPvp(scr){
         var li=pvEl("li",x.me?"me":"");
         li.appendChild(pvEl("span","n",String(x.no)));li.appendChild(pvEl("span","nm",x.name));
         li.appendChild(pvEl("span","wl",x.w+"승 "+x.l+"패"));li.appendChild(pvEl("span","rt",x.rate+"%"));
+        if(x.bio)li.appendChild(pvEl("span","bio",x.bio));
+        if(x.traits&&x.traits.length)li.appendChild(pvEl("span","tr",x.traits.join(" · ")));
         t.appendChild(li);
       });
       box.appendChild(t);
