@@ -239,13 +239,22 @@ const PVP = {
   VIT_GUARD: 4.5,           // 체력 1당 받는 피해 -4.5%
   TAINT_ERODE: 0.5,         // 오염도 1당: 매 턴 상대에게 침식 피해 +0.5 (방어·회피 무시)
   TAINT_RECOIL: 0.2,        // 오염도 1당: 매 턴 나에게 반동 피해 +0.2
+  // ── 수동 전투(공격·강타·방어·도주) ──
+  TURN_MS: 20000,           // 한 턴에 고를 수 있는 시간. 안 고르면 방어로 처리됩니다
+  SMASH_P: 60,              // 강타 성공 확률(%). 성공하면 피해 2배
+  SMASH_MUL: 2,
+  GUARD_MUL: 0.4,           // 방어한 턴에 받는 공격 피해 배율
+  FLEE_BASE: 40, FLEE_AGI: 6,   // 도주 성공 확률 = 40 + 민첩×6 (%, 최대 90)
+  ERODE_TERM: 2,            // 공격이 2번 적중할 때마다 오염 침식이 상대에게 자동 적용 (강타 성공은 2배로 쌓임)
+  RECOIL_TERM: 3,           // 3턴마다 오염 반동이 나에게 자동 적용
+  AFK_FORFEIT: 3,           // 3턴 연속 아무것도 안 고르면 기권패
 };
 const PVP_STAT_TEXT = {
   hp:    ['체력', '받는 피해를 줄여 줍니다.'],
   str:   ['근력', '공격 1회 피해가 커집니다.'],
   agi:   ['민첩', '공격을 피할 확률이 올라가고, 높을수록 먼저 공격합니다.'],
   luck:  ['행운', '치명타(피해 1.8배) 확률이 올라갑니다.'],
-  taint: ['오염도', '매 턴 상대에게 막을 수 없는 침식 피해를 줍니다. 대신 나도 매 턴 반동 피해를 입습니다.'],
+  taint: ['오염도', '공격이 두 번 적중할 때마다 상대에게 막을 수 없는 침식 피해를 줍니다(강타 성공은 두 배). 대신 나도 몇 턴마다 반동 피해를 입습니다.'],
 };
 
 // ───────────── PvP 전투 엔진 (장비·등급·레벨은 쓰지 않고, PvP 스탯과 동행 몬스터 효과만 씁니다) ─────────────
@@ -296,6 +305,61 @@ function pvpBattle(sa, fa, sb, fb, rnd) {
   if (hp[0] === hp[1]) winner = F[0].agi === F[1].agi ? (rnd() < 0.5 ? 0 : 1) : (F[0].agi > F[1].agi ? 0 : 1);
   else winner = hp[0] > hp[1] ? 0 : 1;
   return { winner, turns: t, log, hp: [r1(Math.max(0, hp[0])), r1(Math.max(0, hp[1]))] };
+}
+// ── 수동 전투: 한 턴 처리 ──
+// F = [전투자 a, b](pvpFighter), st = { hp:[a,b], turn, hits:[a,b], pool:[a,b] }, acts = ['attack'|'smash'|'guard'|'flee', ...], names = [이름 a, 이름 b]
+// 도주 → (민첩 순서대로) 공격·강타 → 3턴마다 오염 반동. 최소 10턴까지는 체력이 1 밑으로 내려가지 않고, 40턴까지 안 끝나면 체력이 많은 쪽이 승리합니다.
+function pvpResolve(F, st, acts, rnd, names) {
+  const hp = st.hp.slice(), hits = st.hits.slice(), pool = st.pool.slice(), t = st.turn + 1, lines = [];
+  let over = false, winner = -1, kind = '';
+  const floor = () => { if (t < PVP.MIN_TURNS) for (let i = 0; i < 2; i++) if (hp[i] < 1) hp[i] = 1; };
+  const order = F[0].agi === F[1].agi ? (rnd() < 0.5 ? [0, 1] : [1, 0]) : (F[0].agi > F[1].agi ? [0, 1] : [1, 0]);
+  for (const w of order) {
+    if (acts[w] !== 'flee') continue;
+    const p = Math.min(90, PVP.FLEE_BASE + PVP.FLEE_AGI * F[w].agi);
+    if (rnd() * 100 < p) { lines.push([names[w] + ' 도주 성공!', 'en']); over = true; winner = 1 - w; kind = 'flee'; break; }
+    lines.push([names[w] + ' 도주 실패…', '']);
+  }
+  if (!over) {
+    for (const w of order) {
+      const a = acts[w], d = 1 - w;
+      if (a === 'guard') { lines.push([names[w] + ' 방어 자세', 'en']); continue; }
+      if (a !== 'attack' && a !== 'smash') continue;
+      if (hp[0] <= 0 || hp[1] <= 0) break;
+      const A = F[w], D = F[d], sm = a === 'smash', lab = sm ? '강타' : '공격';
+      if (sm && rnd() * 100 >= PVP.SMASH_P) { lines.push([names[w] + ' 강타 실패!', '']); continue; }
+      if (rnd() * 100 < D.dodge) { lines.push([names[w] + ' ▶ ' + names[d] + '  ' + lab + ' 빗나감', '']); continue; }
+      const crit = rnd() * 100 < A.crit;
+      const dmg = r1(A.dmg * (crit ? A.critMul : 1) * (sm ? PVP.SMASH_MUL : 1) * (1 - D.guard / 100) * (acts[d] === 'guard' ? PVP.GUARD_MUL : 1));
+      hp[d] -= dmg;
+      if (D.thorn) hp[w] -= r1(dmg * D.thorn / 100);
+      floor();
+      lines.push([(crit ? '치명타! ' : '') + names[w] + ' ▶ ' + names[d] + '  ' + lab + (sm ? ' 성공! ' : ' ') + dmg + ' 피해' + (acts[d] === 'guard' ? ' (방어)' : ''), crit || sm ? 'cr' : '']);
+      hits[w]++; pool[w] += sm ? 2 : 1;
+      if (hits[w] % PVP.ERODE_TERM === 0) {
+        if (A.erode > 0) {
+          const e = r1(A.erode * pool[w]);
+          hp[d] -= e; floor();
+          lines.push(['오염 침식  ' + names[d] + ' -' + e + (pool[w] > PVP.ERODE_TERM ? ' (강타로 증폭)' : ''), 'en']);
+        }
+        pool[w] = 0;
+      }
+    }
+    if (t % PVP.RECOIL_TERM === 0 && hp[0] > 0 && hp[1] > 0) {
+      for (let i = 0; i < 2; i++) {
+        if (F[i].recoil <= 0) continue;
+        const r = r1(F[i].recoil * PVP.RECOIL_TERM);
+        hp[i] -= r; floor();
+        lines.push(['오염 반동  ' + names[i] + ' -' + r, 'en']);
+      }
+    }
+    if (hp[0] <= 0 || hp[1] <= 0 || t >= PVP.MAX_TURNS) {
+      over = true; kind = hp[0] <= 0 || hp[1] <= 0 ? 'ko' : 'time';
+      if (hp[0] === hp[1]) winner = F[0].agi === F[1].agi ? (rnd() < 0.5 ? 0 : 1) : (F[0].agi > F[1].agi ? 0 : 1);
+      else winner = hp[0] > hp[1] ? 0 : 1;
+    }
+  }
+  return { st: { hp: [r1(Math.max(0, hp[0])), r1(Math.max(0, hp[1]))], turn: t, hits, pool }, lines, over, winner, kind };
 }
 // 전투 수치(0~100): 기준 상대(모든 스탯 3, 몬스터 없음)와 같은 조건으로 600번 싸웠을 때의 승률. 같은 입력이면 항상 같은 값이 나옵니다.
 const PVP_REF = [3, 3, 3, 3, 3];
@@ -752,7 +816,7 @@ const isTurnBased = (monRank, hunterRank) => monRank !== 'SS' && RANK_IDX[monRan
 module.exports = {
   BT, btMon, btPlayer, isTurnBased, taintStage, TAINT_SHOP_PCT, TAINT_BAN_DANGER, taintPrice, TAINT_LOSE_GOLD_MUL, HUNTER_CHANCE, HUNTER_LV_MAX, hunterScale, RARE_CHANCE, SPECIAL_MON,
   SV_MARKS, MATERIALS, GATE_MATS, GATE_ZONES, EQ_GRADE, EQ_SLOTS, EQUIPS, RUMOR_NEED, RUMOR_OPEN_MS, RUMOR_GAP_MS, RUMOR_MAX_OPEN, RUMOR_TPL, RUMOR_REWARD, RECIPES, CRAFT_DEFS,
-  STAT_MAX, STAT_RESET_BASE, STAT_RESET_PER, statResetCost, FAME_MAX, rnd, chance01, SPAWN_COUNTRIES, SPAWN_REGIONS, REGIONS, REGION_BY_ID, COUNTRIES, COUNTRY_BY_ID, countryOf, placeName, placeLong, MON, FRIENDLY_MON, PVP, PVP_STAT_TEXT, BOND_STEP, BOND_MAX, BOND_MUL, bondStage, friendFx, pvpBattle, pvpPower, mulberry32, PVP_MIN, PVP_MAX, PVP_TOTAL, PVP_KEYS, PVP_KO, pvpStatsOk, pvpDerive, TIERS, ACTIVE_MS, ACTIVE_MS_F, ACTIVE_MS_S, activeMsOf, FAME_PER_LV, FAME_PER_RANK, KILL_EXP, KILL_GOLD, KILL_TAINT, rollTaint, garble, RANK_IDX, ACH_KINDS, ACH_COMPOUND, ACH_NUM, ACH_SEED, ACH_SEED2, ACH_SEED3, PROMO, ACH_PIN_MAX, rollGold, HUNT_DIFF,
+  STAT_MAX, STAT_RESET_BASE, STAT_RESET_PER, statResetCost, FAME_MAX, rnd, chance01, SPAWN_COUNTRIES, SPAWN_REGIONS, REGIONS, REGION_BY_ID, COUNTRIES, COUNTRY_BY_ID, countryOf, placeName, placeLong, MON, FRIENDLY_MON, PVP, PVP_STAT_TEXT, BOND_STEP, BOND_MAX, BOND_MUL, bondStage, friendFx, pvpBattle, pvpFighter, pvpResolve, pvpPower, mulberry32, PVP_MIN, PVP_MAX, PVP_TOTAL, PVP_KEYS, PVP_KO, pvpStatsOk, pvpDerive, TIERS, ACTIVE_MS, ACTIVE_MS_F, ACTIVE_MS_S, activeMsOf, FAME_PER_LV, FAME_PER_RANK, KILL_EXP, KILL_GOLD, KILL_TAINT, rollTaint, garble, RANK_IDX, ACH_KINDS, ACH_COMPOUND, ACH_NUM, ACH_SEED, ACH_SEED2, ACH_SEED3, PROMO, ACH_PIN_MAX, rollGold, HUNT_DIFF,
   RAID_NEED, RAID_ATTEMPTS, S_MAX, S_WINDOW_MS, S_WAIT_MS, powNeed, cdOf, huntChance,
   rollRank, rollStats, PROB_CAP, STR_WIN, guardChance, freeChance, HP_START, HP_MIN, HP_DYING_MS, HP_REVIVE, hpLoss, makeCode, addExp, MIN, HOUR,
 };
