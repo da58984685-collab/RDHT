@@ -251,6 +251,28 @@ CREATE TABLE IF NOT EXISTS pvp_battles (
   a_seen    INTEGER NOT NULL DEFAULT 0,
   b_seen    INTEGER NOT NULL DEFAULT 0
 );
+CREATE TABLE IF NOT EXISTS pvp_live (
+  id        INTEGER PRIMARY KEY AUTOINCREMENT,
+  a_id      INTEGER NOT NULL,
+  b_id      INTEGER NOT NULL,
+  hp_a      REAL NOT NULL,
+  hp_b      REAL NOT NULL,
+  turn      INTEGER NOT NULL DEFAULT 0,
+  act_a     TEXT NOT NULL DEFAULT '',
+  act_b     TEXT NOT NULL DEFAULT '',
+  miss_a    INTEGER NOT NULL DEFAULT 0,
+  miss_b    INTEGER NOT NULL DEFAULT 0,
+  dl        INTEGER NOT NULL,
+  info      TEXT NOT NULL,
+  hits      TEXT NOT NULL DEFAULT '{}',
+  log       TEXT NOT NULL DEFAULT '[]',
+  done      INTEGER NOT NULL DEFAULT 0,
+  winner    INTEGER NOT NULL DEFAULT -1,
+  kind      TEXT NOT NULL DEFAULT '',
+  upd       INTEGER NOT NULL,
+  a_seen    INTEGER NOT NULL DEFAULT 0,
+  b_seen    INTEGER NOT NULL DEFAULT 0
+);
 CREATE TABLE IF NOT EXISTS cw_enc (
   user_id INTEGER PRIMARY KEY,
   mon_id  TEXT NOT NULL,
