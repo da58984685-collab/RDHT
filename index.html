@@ -457,6 +457,7 @@ body.tn3 .rwrap{filter:sepia(.5) saturate(2) hue-rotate(-40deg);box-shadow:0 0 2
 .rg:hover{border-color:var(--red2);box-shadow:0 0 14px var(--glow);transform:translateY(-1px)}
 .rg[aria-current="true"]{border-color:var(--red2);background:linear-gradient(180deg,#2a0d12,var(--field));box-shadow:0 0 18px var(--glow)}
 .rg-d{position:absolute;top:6px;left:6px;padding:2px 4px;font:400 .75rem/1 "Share Tech Mono",monospace;color:var(--sub);border:1px solid var(--line)}
+.rg-cd{display:block;margin:-8px 0 2px;font:400 .68rem/1.2 "Noto Sans KR",sans-serif;letter-spacing:0;color:var(--sub);white-space:nowrap}
 .rg-a{position:absolute;top:5px;right:6px;width:18px;height:18px;display:flex;align-items:center;justify-content:center;font:800 .75rem/1 "Noto Sans KR",sans-serif;color:#fff;background:var(--red);box-shadow:0 0 8px var(--red2);animation:blink 1s steps(2) infinite}
 #mapmsg{min-height:1.3em;margin:12px 0 0}
 
@@ -2698,7 +2699,8 @@ var globe=(function(){
         cx.fillStyle="#fff";EXCL_W.forEach(function(r){cx.fillRect(ox+r[0]*px,oy+r[1]*px,r[2]*px,r[3]*px)});
       }
       cx.strokeStyle="rgba(255,102,114,.4)";cx.lineWidth=1;cx.beginPath();cx.moveTo(q.x,q.y);cx.lineTo(q.x,q.y-8*q.z*f);cx.stroke();
-      if(q.z>0.3){cx.font="600 "+(10*f)+"px 'Noto Sans KR',sans-serif";cx.textAlign="center";cx.fillStyle="rgba(243,233,231,"+(0.45+q.z*0.45).toFixed(2)+")";cx.fillText(c.name+(sA?" · S":""),q.x,q.y+(c.gate?-9:14)*f)}
+      if(q.z>0.3){cx.font="600 "+(10*f)+"px 'Noto Sans KR',sans-serif";cx.textAlign="center";cx.fillStyle="rgba(243,233,231,"+(0.45+q.z*0.45).toFixed(2)+")";cx.fillText(c.name+(sA?" · S":""),q.x,q.y+(c.gate?-9:14)*f);
+        if(c.id==="CW"){var cs=Math.ceil((cwReadyAt-Date.now())/1000);if(cs>0){cx.font="400 "+(8.5*f)+"px 'Noto Sans KR',sans-serif";cx.fillStyle="rgba(243,233,231,"+(0.45+q.z*0.45).toFixed(2)+")";cx.fillText("입장 가능까지 "+("0"+Math.floor(cs/60)).slice(-2)+" : "+("0"+(cs%60)).slice(-2),q.x,q.y-14*f)}}}
     });
     num.textContent=GL.total.toLocaleString();
     if(hover&&hover.q&&hover.q.z>0.05){
@@ -3223,8 +3225,8 @@ function moveTo(id,silent){
   var rg=regionById(id);if(!rg)return;
   if(!silent&&id==="cw-isle"&&curRegion!=="cw-isle"){      /* 그레이윅은 10분에 한 번만 입장: 서버 확인이 끝난 뒤에 이동합니다 */
     api("POST","/api/move",{region:id}).then(function(r){
-      if(r.error){$("mapmsg").textContent=r.error==="cw_cd"?"그레이윅은 10분에 한 번만 들어갈 수 있어요. "+cwFmt(r.wait)+" 뒤에 다시 와 주세요.":r.error==="blocked"?"운영자에 의해 이동이 제한되었습니다.":r.error==="corrupted"?"오염이 폭주해 "+mmss(r.until-nowS())+" 동안 이동할 수 없습니다.":r.error==="taint_ban"?TAINT_BAN_MSG:"이동하지 못했어요. 잠시 후 다시 시도해주세요.";return}
-      moveTo(id,true);markRegions();$("mapmsg").textContent="그레이윅에 도착했어요.";cwOpen();
+      if(r.error==="cw_cd")cwSetCd(r.wait);if(r.error){$("mapmsg").textContent=r.error==="cw_cd"?"그레이윅은 10분에 한 번만 들어갈 수 있어요. "+cwFmt(r.wait)+" 뒤에 다시 와 주세요.":r.error==="blocked"?"운영자에 의해 이동이 제한되었습니다.":r.error==="corrupted"?"오염이 폭주해 "+mmss(r.until-nowS())+" 동안 이동할 수 없습니다.":r.error==="taint_ban"?TAINT_BAN_MSG:"이동하지 못했어요. 잠시 후 다시 시도해주세요.";return}
+      cwSetCd(600);moveTo(id,true);markRegions();$("mapmsg").textContent="그레이윅에 도착했어요.";cwOpen();
     }).catch(function(){$("mapmsg").textContent="이동하지 못했어요. 잠시 후 다시 시도해주세요."});
     return;
   }
@@ -3996,6 +3998,7 @@ function buildRegions(animate){
   if(c.gate){viewCountry="KR";c=COUNTRY_BY_ID.KR}
   c.regions.forEach(function(rg){
     var b=document.createElement("button");b.type="button";b.className="rg";b.dataset.id=rg.id;
+    if(rg.id==="cw-isle"){var cdl=document.createElement("span");cdl.className="rg-cd";cdl.hidden=true;b.appendChild(cdl)}
     b.appendChild(svgUse(rg.icon));
     var n=document.createElement("b");n.textContent=rg.name;b.appendChild(n);
     var s=document.createElement("small");s.textContent=rg.sub;b.appendChild(s);
@@ -4005,6 +4008,7 @@ function buildRegions(animate){
     b.addEventListener("click",function(){moveTo(rg.id);if(regionHot(rg.id).length)openR(rg.id)});
     box.appendChild(b);
   });
+  cwTick();
   if(animate&&box.animate&&!window.matchMedia("(prefers-reduced-motion: reduce)").matches)box.animate([{opacity:0,transform:"translateX(18px)"},{opacity:1,transform:"none"}],{duration:380,easing:"cubic-bezier(.3,1.1,.4,1)"});
 }
 // ── 대문: 오늘 이 기기에서 로그인한 적이 있으면 로그인·가입 화면 대신 보여줍니다 ──
@@ -4035,7 +4039,7 @@ $("genter").addEventListener("click",function(){
 $("gother").addEventListener("click",function(){forceFront=true;showFront()});
 function enterGame(me){
   var d=me.user;if(!bgm.id)bgmRestore();
-  power={lv:d.lv||1,exp:d.exp||0};curRegion=regionById(d.region)?d.region:"city";curCountry=countryOf(curRegion);setTimeout(cwUpdateBtn,0);viewCountry=COUNTRY_BY_ID[curCountry].gate?"KR":curCountry;
+  power={lv:d.lv||1,exp:d.exp||0};curRegion=regionById(d.region)?d.region:"city";curCountry=countryOf(curRegion);setTimeout(cwUpdateBtn,0);api("GET","/api/cw/state").then(function(r){if(r&&!r.error)cwSetCd(r.cd)}).catch(function(){});viewCountry=COUNTRY_BY_ID[curCountry].gate?"KR":curCountry;
   alerts=[];seenIds={};alertSig="";paused=false;
   var pb=$("pausebtn");pb.textContent="알림 멈춤";pb.setAttribute("aria-pressed","false");
   $("game").hidden=false;markLogin(d.hunterName);showFront();window.scrollTo(0,0);
@@ -4342,6 +4346,10 @@ gtmodal.addEventListener("keydown",function(e){
 
 /* ───── 그레이윅: 적월문과 같은 풍경 그림 위에 몬스터가 나타나고, 아래 턴제 전투로 체력을 0으로 만들면 자동 포획 ───── */
 var cwm=$("cwmodal"),cwSt=null,cwBusy=false,cwFx={hit:0,end:"",t0:0},cwTimer=null,cwSpr=null,cwLog=[],cwCdT=null,cwScn=null;
+var cwReadyAt=0;
+function cwSetCd(s){cwReadyAt=Date.now()+Math.max(0,Number(s)||0)*1000;cwTick()}
+function cwTick(){var el=document.querySelector('#regions .rg[data-id="cw-isle"] .rg-cd');if(!el)return;var s=Math.ceil((cwReadyAt-Date.now())/1000);if(s>0){el.hidden=false;el.textContent="입장 가능까지 "+("0"+Math.floor(s/60)).slice(-2)+" : "+("0"+(s%60)).slice(-2)}else el.hidden=true}
+setInterval(cwTick,1000);
 function cwFmt(s){s=Math.max(0,Math.floor(s));return Math.floor(s/60)+":"+("0"+(s%60)).slice(-2)}
 function cwUpdateBtn(){var b=$("cwopen");if(b)b.hidden=curRegion!=="cw-isle"}
 function cwOpen(){
