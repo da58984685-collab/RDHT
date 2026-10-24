@@ -788,6 +788,117 @@ input[type=checkbox]:focus-visible{outline:2px solid var(--deep);outline-offset:
 .big-p .app-list li{padding:10px 12px}
 .big-p .app-h{font-size:1.05rem}
 @media (max-width:560px){.big-p .app-list{grid-template-columns:minmax(0,1fr)}}
+.bigapp.rai{--s:min(58vh,440px,calc(100vw - 32px - 38px - 136px - 1cm))}
+.bigapp.rai .big-p{width:calc(38px + 136px + 1cm + var(--s));height:auto}
+.rai-w{display:flex;gap:1cm;flex:none;height:var(--s)}
+.rai-l{list-style:none;margin:0;padding:0 4px 0 0;flex:none;width:136px;overflow-y:auto;display:flex;flex-direction:column;gap:6px}
+.rai-ld{color:var(--sub);font-size:.85rem;padding:8px}
+.bigapp.rai.det{--s:min(58vh,400px,calc((100vw - 70px - 1cm) * .45))}
+.bigapp.rai.det .big-p{width:min(calc(100vw - 32px),calc(38px + var(--s) + 1cm + 400px))}
+.rai-i{flex:1;min-width:0;height:var(--s);display:flex;flex-direction:column;gap:8px}
+.rai-back{align-self:flex-start;background:none;border:1px solid var(--red2);border-radius:6px;color:#f2e9e4;font:inherit;font-size:.8rem;padding:3px 9px;cursor:pointer}
+.rai-r{display:grid;grid-template-columns:4.6em minmax(0,1fr);gap:8px;align-items:start;padding-bottom:10px;border-bottom:1px solid #2c1a1c}
+.rai-r:last-child{border-bottom:0}
+.rai-k{font-size:.78rem;color:#f0b93a;padding-top:.2em}
+.rai-v{font-size:.92rem;line-height:1.55;word-break:keep-all;overflow-wrap:anywhere;color:#f2e9e4}
+.rai-v strong{font-weight:700}.rai-fx{color:#f0b93a;font-size:.86rem}
+.rai-v small{color:var(--sub);font-size:.78rem}
+.pvp-w{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;min-height:min(66vh,540px);text-align:center}
+.pvp-go{min-width:min(60%,260px);padding:18px 24px;border:1px solid var(--red2);border-radius:10px;background:linear-gradient(180deg,#3a0a11,#1a0709);color:#f3e9e7;font:700 1.3rem/1 "Noto Sans KR",sans-serif;letter-spacing:.3em;text-indent:.3em;cursor:pointer;box-shadow:0 0 18px rgba(212,32,46,.35)}
+.pvp-msg{margin:0;min-height:1.2em;font-size:.82rem;color:#f0b93a}
+.pvs-open{display:block;width:100%;margin:10px 0 4px;padding:9px 12px;border:1px solid var(--red2);border-radius:8px;background:linear-gradient(180deg,#3a0a11,#1a0709);color:var(--text);font:600 .9rem "Noto Sans KR",sans-serif;cursor:pointer}
+.pvs-hint{margin:2px 0 0;font-size:.74rem;color:var(--sub);line-height:1.4}
+.pvs-w{display:flex;flex-direction:column;gap:12px}
+.pvs-top{display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+.pvs-svg{width:min(260px,100%);height:auto;flex:none}
+.pvs-ring{fill:none;stroke:rgba(212,32,46,.28);stroke-width:1}.pvs-ring.out{stroke:var(--red);stroke-width:1.4}
+.pvs-ax{stroke:rgba(212,32,46,.28);stroke-width:1}
+.pvs-pl{fill:rgba(212,32,46,.38);stroke:var(--red2);stroke-width:2;stroke-linejoin:round}
+.pvs-dot{fill:#f3e9e7}.pvs-lb{fill:#f3e9e7;font-size:11px;font-family:"Noto Sans KR",sans-serif}
+.pvs-side{flex:1;min-width:150px;display:flex;flex-direction:column;gap:6px}
+.pvs-pt{margin:0;font:700 1.05rem "Noto Sans KR",sans-serif;color:#f3e9e7}.pvs-sub{margin:0;font-size:.78rem;color:var(--sub);line-height:1.45}
+.pvs-ls{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+.pvs-ls li{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--card)}
+.pvs-tx{display:flex;flex-direction:column;gap:2px;min-width:0}.pvs-tx small{font-size:.72rem;color:var(--sub);line-height:1.4}
+.pvs-ct{display:flex;align-items:center;gap:8px;flex:none}.pvs-ct span{min-width:1.2em;text-align:center;font-weight:700}
+.pvs-ct button,.pvs-ac button{min-width:34px;min-height:34px;padding:0 12px;border:1px solid var(--line);border-radius:7px;background:#0b0708;color:var(--text);font:600 .9rem "Noto Sans KR",sans-serif;cursor:pointer}
+.pvs-ac{display:flex;gap:8px;justify-content:flex-end}.pvs-ac button.on{border-color:var(--red2);background:#3a0a11}
+.pvs-ct button:disabled,.pvs-ac button:disabled{opacity:.35;cursor:default}
+.pvs-note{margin:0;min-height:1.2em;font-size:.8rem;color:#f0b93a;text-align:right}
+.pvp-rk{align-self:flex-end;padding:8px 14px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--text);font:600 .85rem "Noto Sans KR",sans-serif;cursor:pointer}
+.pvp-go.on{background:linear-gradient(180deg,#1a1a1a,#0b0708);border-color:var(--sub);box-shadow:none;letter-spacing:.1em;font-size:1.05rem}
+.pvp-warn{color:#f0b93a}
+.pvp-w.pvp-rkv,.pvp-w.pvp-bv{justify-content:flex-start;align-items:stretch;text-align:left;min-height:0}
+.pvp-rh{display:flex;align-items:center;gap:12px}.pvp-bk{padding:7px 12px;border:1px solid var(--red2);border-radius:8px;background:#0b0708;color:var(--text);font:600 .82rem "Noto Sans KR",sans-serif;cursor:pointer}
+.pvp-rme{margin:0 0 8px;font-size:.85rem;color:#f0b93a}
+.pvp-rt{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px}
+.pvp-rt li{display:grid;grid-template-columns:2.4em 1fr auto 3.2em;gap:8px;align-items:center;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--card);font-size:.85rem}
+.pvp-rt li.me{border-color:var(--red2);background:#2a0a10}.pvp-rt .n{color:var(--sub);text-align:center;font-weight:700}.pvp-rt .rt{text-align:right;color:var(--sub)}.pvp-rt .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pvb-h{display:grid;grid-template-columns:1fr auto 1fr;gap:8px;align-items:start}
+.pvb-s{display:flex;flex-direction:column;gap:3px;padding:8px;border:1px solid var(--line);border-radius:8px;background:var(--card);min-width:0}.pvb-s.me{border-color:var(--red2)}
+.pvb-s small{font-size:.7rem;color:var(--sub);line-height:1.35}.pvb-vs{align-self:center;color:var(--red2);font-weight:700}
+.pvb-bar{height:10px;border:1px solid var(--line);border-radius:5px;background:#0b0708;overflow:hidden;margin-top:4px}.pvb-bar i{display:block;height:100%;width:100%;background:var(--red);transition:width .35s}
+.pvb-n{font-size:.78rem;text-align:right}
+.pvb-t{text-align:center;font-weight:700;color:#f3e9e7}
+.pvb-l{list-style:none;margin:0;padding:8px 10px;height:min(34vh,260px);overflow:auto;border:1px solid var(--line);border-radius:8px;background:#0b0708;font-size:.8rem;display:flex;flex-direction:column;gap:3px}
+.pvb-l .cr{color:#ff6672;font-weight:700}.pvb-l .en{color:var(--sub)}
+.pvb-r{display:flex;flex-direction:column;gap:6px;align-items:center;text-align:center}.pvb-r b{font-size:1.4rem;letter-spacing:.2em}.pvb-r.win b{color:#8fe3b0}.pvb-r.lose b{color:#ff8a94}
+.pvb-skip{align-self:center;padding:7px 14px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--text);cursor:pointer}
+@media (max-width:560px){.pvb-h{grid-template-columns:1fr 1fr}.pvb-vs{display:none}.pvs-top{justify-content:center}}
+.pvp-i{display:flex;flex-direction:column;gap:3px;font-size:.78rem;color:var(--sub)}
+.rai-mk{width:100%;padding:8px 10px;border:1px dashed #f0b93a;border-radius:6px;background:#1a0d0f;color:#f0b93a;font:inherit;font-size:.85rem;cursor:pointer}
+.rai-tr{position:relative}
+.rai-tr em{position:absolute;top:0;bottom:0;width:2px;margin-left:-1px;background:#0f0809}
+.rai-c{gap:12px}
+.rai-cl{flex:1;min-width:0;height:var(--s);display:flex;flex-direction:column;gap:8px}
+.rai-ch{display:flex;align-items:center;gap:10px;font-size:.8rem;color:var(--sub)}
+.rai-cu{list-style:none;margin:0;padding:0 4px 0 0;flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:6px}
+.rai-cu li{display:flex;align-items:center;gap:8px;justify-content:space-between;padding:6px 8px;border:1px solid #3a2a2c;border-radius:6px;background:#140d0f}
+.rai-cn{font-size:.88rem;min-width:0;overflow-wrap:anywhere}.rai-cn small{color:var(--sub)}
+.rai-cb{display:flex;gap:4px;flex:none}
+.rai-cb button,.rai-cpl button{background:#1a0d0f;border:1px solid var(--red2);border-radius:5px;color:#f2e9e4;font:inherit;font-size:.78rem;padding:4px 7px;cursor:pointer}
+.rai-cb button:disabled{opacity:.35;cursor:default}
+.rai-cp{flex:none;width:min(40%,250px);height:var(--s);display:flex;flex-direction:column;gap:8px}
+.rai-ct{font-weight:700;font-size:.92rem}
+.rai-cpl{list-style:none;margin:0;padding:0 4px 0 0;flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:4px;font-size:.82rem}
+.rai-cpl li{display:flex;justify-content:space-between;align-items:center;gap:6px}
+.rai-acts2{grid-template-columns:repeat(2,minmax(0,1fr))}
+.rai-t{margin-left:auto;flex:none;font-size:.68rem;color:#f0b93a;border:1px solid #f0b93a;border-radius:4px;padding:0 4px}
+.rai-ib{flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:10px;padding-right:4px}
+.rai-f{flex:none;display:flex;flex-direction:column;gap:6px;border-top:1px solid #2c1a1c;padding-top:8px}
+.rai-st{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.rai-bar{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 6px;align-items:center;font-size:.74rem;color:var(--sub)}
+.rai-bar .rai-tr{grid-column:1/3;order:3}
+.rai-bar b{font-weight:600;color:#f2e9e4;text-align:right}
+.rai-tr{height:8px;border-radius:4px;background:#2c1a1c;overflow:hidden}
+.rai-tr i{display:block;height:100%;background:var(--red2)}
+.rai-note{margin:0;min-height:1.2em;font-size:.82rem;color:#f0b93a}
+.rai-acts{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+.rai-acts button{background:#1a0d0f;border:1px solid var(--red2);border-radius:6px;color:#f2e9e4;font:inherit;font-size:.78rem;padding:7px 2px;cursor:pointer}
+.rai-acts button.on{border-color:#f0b93a;background:#2a1618}
+.rai-acts button.danger{border-color:#7a3a40;color:#ff8a94}
+.rai-acts button:disabled{opacity:.4;cursor:default}
+.rai-nf{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.rai-nf input{flex:1;min-width:7em;max-width:14em;background:#0f0809;border:1px solid var(--red2);border-radius:6px;color:#f2e9e4;font:inherit;font-size:.9rem;padding:5px 8px}
+.rai-nf button{background:#2a1618;border:1px solid #f0b93a;border-radius:6px;color:#f2e9e4;font:inherit;font-size:.82rem;padding:5px 10px;cursor:pointer}
+.rai-nf button:disabled{opacity:.5}
+.rai-nm{flex-basis:100%;font-size:.75rem;color:var(--sub);min-height:1em}
+@media (max-width:560px){
+ .bigapp.rai.det{--s:min(52vw,34vh,220px)}
+ .rai-d{flex-direction:column;align-items:center;height:auto;gap:12px}
+ .rai-d .rai-i{height:auto;max-height:46vh;width:100%}
+ .rai-ib{max-height:28vh}
+ .rai-c .rai-cl,.rai-c .rai-cp{width:100%;height:auto}
+ .rai-c .rai-cu{max-height:26vh}
+ .rai-c .rai-cpl{max-height:14vh}
+ .bigapp.rai.det .big-p{width:calc(100vw - 32px)}
+}
+.rai-b{width:100%;display:flex;align-items:center;gap:8px;text-align:left;padding:6px 8px;font-size:.88rem;border-radius:6px;border:1px solid var(--red2);background:#1a0d0f;color:#f2e9e4;font:inherit;cursor:pointer}
+.rai-b:disabled{opacity:.35;cursor:default;background:#0f0809;border-color:#3a2a2c}
+.rai-b[aria-pressed="true"]{border-color:#f0b93a;background:#2a1618}
+.rai-g{flex:none;width:1.6em;height:1.6em;display:inline-flex;align-items:center;justify-content:center;border-radius:4px;background:#000;font-size:.75rem;font-weight:700;color:#bbb}
+.rai-b.g-S .rai-g{color:#f0b93a}.rai-b.g-A .rai-g{color:#ff7a5c}.rai-b.g-B .rai-g{color:#c58cff}
+.rai-sq{flex:none;width:var(--s);height:var(--s);overflow:hidden;position:relative;border:1px solid var(--red2);border-radius:8px;background:#0f0809}
 .rum-v{display:flex;gap:8px}.rum-v button{flex:1}
 .rum-res{font-size:.8rem;color:#f0b93a}.rum-res.bad{color:var(--sub)}
 
@@ -841,7 +952,7 @@ body{overflow-x:clip}      /* 어떤 요소가 넘쳐도 화면 전체가 가로
 <body>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
 <symbol id="i-heart" viewBox="0 0 7 7"><path d="M3 0h1v1H3zM2 1h3v1H2zM1 2h5v1H1zM0 3h7v1H0zM1 4h5v1H1zM2 5h3v1H2zM3 6h1v1H3z"/></symbol>
-<symbol id="i-dex" viewBox="0 0 7 7"><path d="M0 0h6v1H0zM0 1h1v5H0zM2 2h3v1H2zM2 4h3v1H2zM0 6h7v1H0zM6 1h1v5H6z"/></symbol><symbol id="i-wkr" viewBox="0 0 7 7"><path d="M0 6h7v1H0zM1 3h1v3H1zM3 1h1v5H3zM5 4h1v2H5z"/></symbol><symbol id="i-hof" viewBox="0 0 7 7"><path d="M1 0h5v1H1zM0 1h1v2H0zM6 1h1v2H6zM1 1h5v3H1zM3 4h1v1H3zM2 5h3v1H2zM1 6h5v1H1z"/></symbol><symbol id="i-wnt" viewBox="0 0 7 7"><path d="M3 0h1v2H3zM3 5h1v2H3zM0 3h2v1H0zM5 3h2v1H5zM3 3h1v1H3z"/></symbol><symbol id="i-hlw" viewBox="0 0 7 7"><path d="M2 0h3v1H2zM1 1h5v1H1zM0 2h2v1H0zM3 2h1v1H3zM5 2h2v1H5zM0 3h7v1H0zM0 4h7v1H0zM0 5h7v1H0zM0 6h1v1H0zM2 6h1v1H2zM4 6h1v1H4zM6 6h1v1H6z"/></symbol><symbol id="i-star" viewBox="0 0 7 7"><path d="M3 0h1v7H3zM0 3h7v1H0zM2 2h3v3H2z"/></symbol>
+<symbol id="i-dex" viewBox="0 0 7 7"><path d="M0 0h6v1H0zM0 1h1v5H0zM2 2h3v1H2zM2 4h3v1H2zM0 6h7v1H0zM6 1h1v5H6z"/></symbol><symbol id="i-wkr" viewBox="0 0 7 7"><path d="M0 6h7v1H0zM1 3h1v3H1zM3 1h1v5H3zM5 4h1v2H5z"/></symbol><symbol id="i-hof" viewBox="0 0 7 7"><path d="M1 0h5v1H1zM0 1h1v2H0zM6 1h1v2H6zM1 1h5v3H1zM3 4h1v1H3zM2 5h3v1H2zM1 6h5v1H1z"/></symbol><symbol id="i-wnt" viewBox="0 0 7 7"><path d="M3 0h1v2H3zM3 5h1v2H3zM0 3h2v1H0zM5 3h2v1H5zM3 3h1v1H3z"/></symbol><symbol id="i-hlw" viewBox="0 0 7 7"><path d="M2 0h3v1H2zM1 1h5v1H1zM0 2h2v1H0zM3 2h1v1H3zM5 2h2v1H5zM0 3h7v1H0zM0 4h7v1H0zM0 5h7v1H0zM0 6h1v1H0zM2 6h1v1H2zM4 6h1v1H4zM6 6h1v1H6z"/></symbol><symbol id="i-pvp" viewBox="0 0 7 7"><path d="M0 0h1v1H0zM1 1h1v1H1zM2 2h1v1H2zM3 3h1v1H3zM4 4h1v1H4zM5 5h1v1H5zM6 6h1v1H6zM6 0h1v1H6zM5 1h1v1H5zM4 2h1v1H4zM2 4h1v1H2zM1 5h1v1H1zM0 6h1v1H0z"/></symbol><symbol id="i-rai" viewBox="0 0 7 7"><path d="M2 0h3v1H2zM1 1h5v2H1zM0 3h7v2H0zM1 5h5v1H1zM2 6h3v1H2z"/></symbol><symbol id="i-star" viewBox="0 0 7 7"><path d="M3 0h1v7H3zM0 3h7v1H0zM2 2h3v3H2z"/></symbol>
 <symbol id="i-person" viewBox="0 0 8 8"><path d="M3 0h2v1H3zM2 1h4v2H2zM3 3h2v1H3zM1 4h6v1H1zM0 5h8v3H0z"/></symbol>
 <symbol id="i-chat" viewBox="0 0 8 7"><path d="M0 0h8v5H0zM1 5h2v1H1zM1 6h1v1H1z"/></symbol>
 <symbol id="i-plus" viewBox="0 0 8 8"><path d="M3 0h2v8H3zM0 3h8v2H0z"/></symbol>
@@ -953,7 +1064,7 @@ body{overflow-x:clip}      /* 어떤 요소가 넘쳐도 화면 전체가 가로
       </section>
       <section id="gstat">
         <h2><svg class="ic"><use href="#i-star"/></svg>스탯</h2>
-        <div class="body"><div class="pow" id="gpow"></div><p class="sprow" id="gsp" hidden></p><ul class="stats" id="gstats"></ul><p class="eqsum" id="geq" hidden></p><p class="dying-note" id="dyingnote" role="status" hidden></p><p class="twarn" id="twarn" role="status" hidden></p></div>
+        <div class="body"><div class="pow" id="gpow"></div><p class="sprow" id="gsp" hidden></p><ul class="stats" id="gstats"></ul><p class="eqsum" id="geq" hidden></p><button type="button" class="pvs-open" id="gpvs">PVP 스탯 (오각형)</button><p class="pvs-hint">장비 효과는 토벌에서만 적용돼요. PVP는 PVP 스탯과 동행 몬스터만 영향을 줍니다.</p><p class="dying-note" id="dyingnote" role="status" hidden></p><p class="twarn" id="twarn" role="status" hidden></p></div>
       </section>
     </div>
     <div class="g-col">
@@ -1911,7 +2022,7 @@ function placeLong(id){var r=regionById(id);return r?COUNTRY_BY_ID[r.country].na
 function inPlace(a){return (a.r==="SS"&&!a.c)?a.region===curCountry:a.region===curRegion}
 function countryHot(cid){return alerts.some(function(a){return isActive(a)&&((a.r==="SS"&&!a.c)?a.region===cid:countryOf(a.region)===cid)})}
 var STAT_KO={hp:"체력",str:"근력",agi:"민첩",luck:"행운",taint:"오염도"};
-function fxText(e){return (STAT_KO[e.stat]||e.stat)+" "+(e.amt>0?"+":"")+e.amt}
+function fxText(e){if(e.stat==="pvp_hp")return "PVP 체력 전체 회복";return (STAT_KO[e.stat]||e.stat)+" "+(e.amt>0?"+":"")+e.amt}
 var STAT_TIP={hp:"토벌에 실패하면 줄어듭니다. 5 이하가 되면 빈사 상태입니다.",str:"몬스터 토벌 성공 확률",agi:"체력 하락 방지 확률",luck:"즉시 재토벌 가능 확률"};
 var STAT_INV={str:1,agi:1,luck:1};
 var blockedBits=0,dyingUntil=0,statFx=null,corruptUntil=0,taintedNow=false;
@@ -2650,7 +2761,7 @@ var globe=(function(){
   return {set:set,isOn:function(){return on},redraw:function(){if(on&&rm)draw()}};
 })();
 var evInfo=null,achNew=0,questReady=0,rescueReq=0,rumorNew=0,gold=0,devApp=null,inventory=[],invSig="",invNote="";
-var APPS=[["gw","게이트웨이브","i-eye"],["msg","메신저","i-chat"],["com","커뮤니티","i-board"],["ach","업적","i-medal"],["qst","의뢰","i-star"],["eqp","장비","i-str"],["rum","괴담","i-psi"],["sys","시스템 알림","i-bell"],["shop","상점","i-shop"],["inv","인벤토리","i-bag"],["hlw","할로윈","i-hlw"]];
+var APPS=[["gw","게이트웨이브","i-eye"],["msg","메신저","i-chat"],["com","커뮤니티","i-board"],["ach","업적","i-medal"],["qst","의뢰","i-star"],["eqp","장비","i-str"],["rai","육성","i-rai"],["pvp","전장","i-pvp"],["rum","괴담","i-psi"],["sys","시스템 알림","i-bell"],["shop","상점","i-shop"],["inv","인벤토리","i-bag"],["hlw","할로윈","i-hlw"]];
 function devClock(){var d=new Date(),c=$("phclk");if(c)c.textContent=pad(d.getHours())+":"+pad(d.getMinutes())}
 function badgeOf(id){return id==="inv"?giftUnread:id==="sys"?unreadNotices:id==="msg"?unreadMsgs+friendReqs+rescueReq:id==="qst"?questReady:id==="rum"?rumorNew:id==="com"?Math.max(0,Math.min(99,cmLatest-cmSeen)):id==="ach"?achNew:0}
 function loadNotices(){
@@ -2916,12 +3027,15 @@ function renderDevice(){
     });
     scr.appendChild(g);return;
   }
-  var app=APPS.filter(function(a){return a[0]===devApp})[0]||["craft","조합"];
+  var app=APPS.filter(function(a){return a[0]===devApp})[0]||(devApp==="pvs"?["pvs","PVP 스탯"]:["craft","조합"]);
   var h=document.createElement("div");h.className="app-h";
   var tt=document.createElement("span");tt.textContent=app[1];h.appendChild(tt);scr.appendChild(h);
   function empty(txt){var p=document.createElement("p");p.className="app-empty";p.textContent=txt;scr.appendChild(p)}
   if(devApp==="com")empty("아직 올라온 게시글이 없습니다.");
   else if(devApp==="shop"){addGoldTag(scr);empty("불러오는 중…");loadShop()}
+  else if(devApp==="rai")loadRaise(scr);
+  else if(devApp==="pvp")loadPvp(scr);
+  else if(devApp==="pvs")loadPvs(scr);
   else if(devApp==="inv"){
     addGoldTag(scr);
     var gg=document.createElement("button");gg.type="button";gg.className="gift-btn gift-gold";gg.textContent="골드 선물하기";
@@ -2958,7 +3072,7 @@ function renderDevice(){
             ub.disabled=true;
             api("POST","/api/inventory/use",{item:it.item}).then(function(x){
               if(x.ok){invNote=x.item+" 사용 · "+x.label+" "+x.before+" → "+x.after;pollState(false)}
-              else{ub.disabled=false;invNote=x.error==="rate_limited"?"잠시 후 다시 시도해주세요.":"아이템을 사용하지 못했습니다.";var nn=scr.querySelector(".app-note");if(nn)nn.textContent=invNote}
+              else{ub.disabled=false;invNote=x.error==="rate_limited"?"잠시 후 다시 시도해주세요.":x.error==="pvp_full"?"PVP 체력이 이미 가득 차 있어요.":"아이템을 사용하지 못했습니다.";var nn=scr.querySelector(".app-note");if(nn)nn.textContent=invNote}
               if(x.ok){var n2=scr.querySelector(".app-note");if(!n2){n2=document.createElement("p");n2.className="app-note";n2.setAttribute("role","status");scr.insertBefore(n2,scr.querySelector(".app-list"))}n2.textContent=invNote}
             });
           });
@@ -4286,12 +4400,444 @@ function loadQuests(){
 }
 
 
+/* ───── 육성: 왼쪽에 몬스터 이름 버튼(얻은 몬스터만 켜짐), 오른쪽은 정사각형 빈 칸 ───── */
+/* ───── 전장: 매칭 · 유저 랭킹 · 턴제 전투 보기 ───── */
+var pvT=null,pvView="main",pvBat=null,pvPlay=null;
+function pvEl(t,c,x){var e=document.createElement(t);if(c)e.className=c;if(x!=null)e.textContent=x;return e}
+function loadPvp(scr){
+  clearInterval(pvT);pvT=null;clearTimeout(pvPlay);pvPlay=null;
+  var w=pvEl("div","pvp-w");scr.appendChild(w);
+  var waiting=false;
+  function gone(){return !w.isConnected}
+  function leave(){clearInterval(pvT);pvT=null;clearTimeout(pvPlay);pvPlay=null;if(waiting){waiting=false;api("POST","/api/pvp/cancel")}}
+  function main(){
+    pvView="main";w.textContent="";w.className="pvp-w";
+    var rk=pvEl("button","pvp-rk","유저 랭킹");rk.type="button";w.appendChild(rk);
+    var bt=pvEl("button","pvp-go","매칭");bt.type="button";w.appendChild(bt);
+    var msg=pvEl("p","pvp-msg");msg.setAttribute("role","status");w.appendChild(msg);
+    var info=pvEl("div","pvp-i");w.appendChild(info);
+    rk.addEventListener("click",function(){leave();rank()});
+    function setWait(on,sec,range){
+      waiting=on;bt.textContent=on?"매칭 취소":"매칭";bt.classList.toggle("on",on);
+      msg.textContent=on?"비슷한 수치의 상대를 찾는 중… "+sec+"초 (수치 차이 "+range+" 이내)":"";
+    }
+    function poll(){
+      api("GET","/api/pvp/poll").then(function(r){
+        if(gone()){leave();return}
+        if(!r||r._status!==200)return;
+        if(r.state==="matched"){leave();waiting=false;battle(r.battle);return}
+        if(r.state==="waiting")setWait(true,r.waited,r.range);
+        else{if(waiting){setWait(false);clearInterval(pvT);pvT=null;msg.textContent="대기가 끝났어요. 다시 매칭해 주세요."}}
+      });
+    }
+    function start(){clearInterval(pvT);pvT=setInterval(poll,2000)}
+    bt.addEventListener("click",function(){
+      if(waiting){clearInterval(pvT);pvT=null;api("POST","/api/pvp/cancel").then(function(){if(!gone()){setWait(false);msg.textContent="매칭을 취소했어요."}});return}
+      bt.disabled=true;
+      api("POST","/api/pvp/queue").then(function(r){
+        bt.disabled=false;if(gone())return;
+        if(!r||r._status!==200){
+          msg.textContent=r&&r.error==="recovering"?"PvP 체력을 회복하는 중이에요. ("+r.hp+" / 100 · "+Math.ceil(r.lockLeft/60)+"분 남음)":"매칭을 시작하지 못했어요.";return}
+        if(r.state==="matched"){leave();battle(r.battle);return}
+        setWait(true,r.waited,r.range);start();
+      });
+    });
+    api("GET","/api/pvp/me").then(function(r){
+      if(gone())return;
+      if(!r||r._status!==200){info.textContent="정보를 불러오지 못했어요.";return}
+      var s=r.stats,c=r.companion;
+      info.appendChild(pvEl("div",null,"스탯  체력 "+s.hp+" · 근력 "+s.str+" · 민첩 "+s.agi+" · 행운 "+s.luck+" · 오염도 "+s.taint));
+      info.appendChild(pvEl("div",null,"동행 몬스터  "+(c?(c.nick?c.nick+" ("+c.name+")":c.name)+" · "+c.grade+"급"+(c.hungry?" · 배고픔(효과 없음)":""):"없음")));
+      info.appendChild(pvEl("div",null,"전투 수치  "+r.power+" / 100 · 전적 "+r.win+"승 "+r.lose+"패"));
+      if(r.hp<100)info.appendChild(pvEl("div","pvp-warn","PvP 체력 회복 중  "+r.hp+" / 100 (약 "+Math.ceil(r.lockLeft/60)+"분 뒤 참가 가능)"));
+    });
+    /* 창을 닫았다 다시 열었을 때: 아직 못 본 전투나 계속되는 대기 상태 이어서 보여 주기 */
+    api("GET","/api/pvp/poll").then(function(r){
+      if(gone()||!r||r._status!==200)return;
+      if(r.state==="matched"){leave();battle(r.battle)}
+      else if(r.state==="waiting"){setWait(true,r.waited,r.range);start()}
+    });
+  }
+  function rank(){
+    pvView="rank";w.textContent="";w.className="pvp-w pvp-rkv";
+    var h=pvEl("div","pvp-rh");var bk=pvEl("button","pvp-bk","← 돌아가기");bk.type="button";h.appendChild(bk);h.appendChild(pvEl("b",null,"유저 랭킹"));w.appendChild(h);
+    bk.addEventListener("click",main);
+    var box=pvEl("div","pvp-rl");w.appendChild(box);box.textContent="불러오는 중…";
+    api("GET","/api/pvp/rank").then(function(r){
+      if(gone())return;box.textContent="";
+      if(!r||r._status!==200){box.textContent="랭킹을 불러오지 못했어요.";return}
+      var mine=pvEl("p","pvp-rme",r.me.no?"내 순위 "+r.me.no+"위 · "+r.me.w+"승 "+r.me.l+"패":"아직 전투 기록이 없어요.");box.appendChild(mine);
+      if(!r.list.length){box.appendChild(pvEl("p","app-empty","아직 전투를 치른 헌터가 없어요."));return}
+      var t=pvEl("ol","pvp-rt");
+      r.list.forEach(function(x){
+        var li=pvEl("li",x.me?"me":"");
+        li.appendChild(pvEl("span","n",String(x.no)));li.appendChild(pvEl("span","nm",x.name));
+        li.appendChild(pvEl("span","wl",x.w+"승 "+x.l+"패"));li.appendChild(pvEl("span","rt",x.rate+"%"));
+        t.appendChild(li);
+      });
+      box.appendChild(t);
+    });
+  }
+  function battle(b){
+    pvView="battle";pvBat=b;w.textContent="";w.className="pvp-w pvp-bv";
+    var A=b.a,B=b.b,me=b.me;
+    var head=pvEl("div","pvb-h");
+    function side(S,idx){
+      var d=pvEl("div","pvb-s"+(idx===me?" me":""));
+      d.appendChild(pvEl("b",null,S.name+(idx===me?" (나)":"")));
+      d.appendChild(pvEl("small",null,"전투 수치 "+S.power));
+      d.appendChild(pvEl("small",null,"체 "+S.stats[0]+" 근 "+S.stats[1]+" 민 "+S.stats[2]+" 운 "+S.stats[3]+" 오 "+S.stats[4]));
+      d.appendChild(pvEl("small",null,S.comp?(S.comp.nick||S.comp.name)+" · "+S.comp.fx:"동행 몬스터 없음"));
+      var tr=pvEl("div","pvb-bar"),f=pvEl("i");tr.appendChild(f);d.appendChild(tr);
+      var n=pvEl("span","pvb-n","100");d.appendChild(n);
+      return {d:d,f:f,n:n};
+    }
+    var sa=side(A,0),sb=side(B,1);head.appendChild(sa.d);head.appendChild(pvEl("span","pvb-vs","VS"));head.appendChild(sb.d);w.appendChild(head);
+    var turn=pvEl("div","pvb-t","전투 준비");w.appendChild(turn);
+    var lg=pvEl("ol","pvb-l");lg.setAttribute("aria-live","off");w.appendChild(lg);
+    var res=pvEl("div","pvb-r");w.appendChild(res);
+    var skip=pvEl("button","pvb-skip","건너뛰기");skip.type="button";w.appendChild(skip);
+    function hp(h0,h1){
+      sa.f.style.width=Math.max(0,h0)+"%";sb.f.style.width=Math.max(0,h1)+"%";sa.n.textContent=String(Math.ceil(Math.max(0,h0)));sb.n.textContent=String(Math.ceil(Math.max(0,h1)));
+    }
+    hp(100,100);
+    var nm=[A.name,B.name];
+    function line(t,c){var li=pvEl("li",c||"",t);lg.appendChild(li);lg.scrollTop=lg.scrollHeight}
+    var steps=[];
+    b.log.forEach(function(T){
+      T.ev.forEach(function(e){steps.push({t:T.n,e:e})});
+      steps.push({t:T.n,end:T.end});
+    });
+    var i=0;
+    function finish(){
+      clearTimeout(pvPlay);pvPlay=null;skip.hidden=true;
+      var last=b.log[b.log.length-1];hp(last.end[2],last.end[3]);
+      var win=b.winner===me;
+      turn.textContent=b.turns+"턴 · 전투 종료";
+      res.textContent="";res.className="pvb-r "+(win?"win":"lose");
+      res.appendChild(pvEl("b",null,win?"승리":"패배"));
+      res.appendChild(pvEl("span",null,win?"축하해요! 전적에 승리가 기록됐어요.":"PvP 체력이 0이 되어 10분 동안 회복해야 해요."));
+      var ok=pvEl("button","pvp-bk","전장으로");ok.type="button";ok.addEventListener("click",main);res.appendChild(ok);
+    }
+    function step(){
+      if(gone()){clearTimeout(pvPlay);return}
+      if(i>=steps.length){finish();return}
+      var s=steps[i++];turn.textContent=s.t+"턴";
+      if(s.e){
+        var e=s.e,at=nm[e[0]],df=nm[1-e[0]];
+        if(e[1]===0)line(at+" ▶ "+df+"  빗나감");
+        else line((e[1]===2?"치명타! ":"")+at+" ▶ "+df+"  "+e[2]+" 피해",e[1]===2?"cr":"");
+        hp(e[3],e[4]);
+      }else{
+        line("턴 끝 · 침식·반동  "+nm[0]+" -"+s.end[0]+" / "+nm[1]+" -"+s.end[1],"en");
+        hp(s.end[2],s.end[3]);
+      }
+      pvPlay=setTimeout(step,s.e?520:380);
+    }
+    skip.addEventListener("click",function(){
+      clearTimeout(pvPlay);lg.textContent="";
+      b.log.forEach(function(T){T.ev.forEach(function(e){line((e[1]===0?"":(e[1]===2?"치명타! ":""))+nm[e[0]]+" ▶ "+nm[1-e[0]]+(e[1]===0?"  빗나감":"  "+e[2]+" 피해"),e[1]===2?"cr":"")});line("턴 끝 · 침식·반동  "+nm[0]+" -"+T.end[0]+" / "+nm[1]+" -"+T.end[1],"en")});
+      finish();
+    });
+    var reduce=window.matchMedia&&window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if(reduce)skip.click();else pvPlay=setTimeout(step,500);
+  }
+  main();
+}
+/* ───── PVP 스탯 창(오각형): 체력·근력·민첩·행운·오염도 각 1~5, 합계 15. PVP 에서만 적용 ───── */
+var PVS_K=["hp","str","agi","luck","taint"],PVS_N=["체력","근력","민첩","행운","오염도"],pvsVal=null,pvsSaved=null,pvsInfo=null,pvsNote="";
+function loadPvs(scr){
+  var w=pvEl("div","pvs-w");scr.appendChild(w);w.textContent="불러오는 중…";
+  api("GET","/api/pvp/me").then(function(r){
+    if(!w.isConnected)return;
+    if(!r||r._status!==200){w.textContent="정보를 불러오지 못했어요.";return}
+    pvsInfo=r;pvsSaved=PVS_K.map(function(k){return r.stats[k]});pvsVal=pvsSaved.slice();pvsNote="";pvsDraw(w);
+  });
+}
+function pvsDraw(w){
+  w.textContent="";
+  var sum=pvsVal.reduce(function(a,b){return a+b},0),left=15-sum,changed=pvsVal.join()!==pvsSaved.join();
+  var S=260,C=S/2,R=S/2-44,pt=function(i,v){var a=-Math.PI/2+i*2*Math.PI/5,r=R*v/5;return [C+r*Math.cos(a),C+r*Math.sin(a)]};
+  var NS="http://www.w3.org/2000/svg",sv=document.createElementNS(NS,"svg");sv.setAttribute("viewBox","0 0 "+S+" "+S);sv.setAttribute("class","pvs-svg");sv.setAttribute("role","img");
+  sv.setAttribute("aria-label","PVP 스탯 오각형: "+PVS_N.map(function(n,i){return n+" "+pvsVal[i]}).join(", "));
+  function poly(vals,cls){var p=document.createElementNS(NS,"polygon");p.setAttribute("points",vals.map(function(v,i){return pt(i,v).join(",")}).join(" "));p.setAttribute("class",cls);sv.appendChild(p);return p}
+  for(var l=1;l<=5;l++)poly([l,l,l,l,l],"pvs-ring"+(l===5?" out":""));
+  for(var i=0;i<5;i++){var e=pt(i,5),ln=document.createElementNS(NS,"line");ln.setAttribute("x1",C);ln.setAttribute("y1",C);ln.setAttribute("x2",e[0]);ln.setAttribute("y2",e[1]);ln.setAttribute("class","pvs-ax");sv.appendChild(ln)}
+  poly(pvsVal,"pvs-pl");
+  PVS_N.forEach(function(n,i){
+    var p=pt(i,pvsVal[i]),d=document.createElementNS(NS,"circle");d.setAttribute("cx",p[0]);d.setAttribute("cy",p[1]);d.setAttribute("r",4);d.setAttribute("class","pvs-dot");sv.appendChild(d);
+    var q=pt(i,5.9),t=document.createElementNS(NS,"text");t.setAttribute("x",q[0]);t.setAttribute("y",q[1]);t.setAttribute("text-anchor","middle");t.setAttribute("dominant-baseline","middle");t.setAttribute("class","pvs-lb");t.textContent=n+" "+pvsVal[i];sv.appendChild(t);
+  });
+  var top=pvEl("div","pvs-top");top.appendChild(sv);
+  var side=pvEl("div","pvs-side");
+  side.appendChild(pvEl("p","pvs-pt","남은 포인트 "+left+" / 10"));
+  side.appendChild(pvEl("p","pvs-sub","전투 수치 "+pvsInfo.power+" / 100 (저장된 스탯과 동행 몬스터 기준)"));
+  side.appendChild(pvEl("p","pvs-sub","PVP 스탯은 전장에서만 적용돼요. 장비와 레벨, 등급은 PVP에 영향을 주지 않아요."));
+  top.appendChild(side);w.appendChild(top);
+  var ul=pvEl("ul","pvs-ls");
+  PVS_K.forEach(function(k,i){
+    var li=pvEl("li");var tx=pvEl("div","pvs-tx");tx.appendChild(pvEl("b",null,PVS_N[i]));tx.appendChild(pvEl("small",null,pvsInfo.text[k][1]));li.appendChild(tx);
+    var ct=pvEl("div","pvs-ct");
+    var m=pvEl("button",null,"−");m.type="button";m.disabled=pvsVal[i]<=1;m.setAttribute("aria-label",PVS_N[i]+" 줄이기");
+    var v=pvEl("span",null,String(pvsVal[i]));
+    var p=pvEl("button",null,"+");p.type="button";p.disabled=pvsVal[i]>=5||left<=0;p.setAttribute("aria-label",PVS_N[i]+" 올리기");
+    m.addEventListener("click",function(){pvsVal[i]--;pvsNote="";pvsDraw(w)});p.addEventListener("click",function(){pvsVal[i]++;pvsNote="";pvsDraw(w)});
+    ct.appendChild(m);ct.appendChild(v);ct.appendChild(p);li.appendChild(ct);ul.appendChild(li);
+  });
+  w.appendChild(ul);
+  var row=pvEl("div","pvs-ac");
+  var rs=pvEl("button",null,"되돌리기");rs.type="button";rs.disabled=!changed;rs.addEventListener("click",function(){pvsVal=pvsSaved.slice();pvsNote="";pvsDraw(w)});
+  var sv2=pvEl("button","on","저장");sv2.type="button";sv2.disabled=!changed||left!==0;
+  sv2.addEventListener("click",function(){
+    sv2.disabled=true;var b={};PVS_K.forEach(function(k,i){b[k]=pvsVal[i]});
+    api("POST","/api/pvp/stats",{stats:b}).then(function(r){
+      if(!w.isConnected)return;
+      if(r&&r._status===200){pvsSaved=pvsVal.slice();pvsInfo.power=r.power;pvsNote="저장했어요."}
+      else pvsNote=r&&r.error==="queued"?"매칭 중에는 바꿀 수 없어요. 매칭을 취소해 주세요.":"저장하지 못했어요.";
+      pvsDraw(w);
+    });
+  });
+  row.appendChild(rs);row.appendChild(sv2);w.appendChild(row);
+  var nt=pvEl("p","pvs-note",left!==0?"포인트를 모두 쓴 뒤에 저장할 수 있어요.":pvsNote);nt.setAttribute("role","status");w.appendChild(nt);
+}
+var raiSel="";
+var RAI_H=["00000000011000000000", "00000001111110000000", "00000011111111000000", "00000011111111000000", "00000011111111000000", "00000011111111000000", "00000001111110000000", "00000000000000000000", "00000000000000000000", "00011111111111111000", "00111111111111111100", "01111111111111111110", "01111111111111111110", "11111111111111111111", "11111111111111111111", "11100111111111100111", "11100111111111100111", "11100111111111100111", "11100111111111100111", "11100111111111100111", "11100111111111100111", "11100111111111100111", "11100111111111100111", "11100111111111100111", "11100111111111100111", "11100111111111100111", "11100111111111100111", "00000111111111100000", "00000111100111100000", "00000111100111100000", "00000111100111100000", "00000111100111100000", "00000111100111100000", "00000111100111100000", "00000111100111100000", "00000111100111100000", "00000111100111100000", "00000111100111100000", "00000111100111100000", "00000111100111100000", "00000111100111100000", "00000111100111100000", "00000111100111100000", "00000111100111100000", "00000111100111100000", "00000111100111100000", "00000111100111100000", "00000011000011000000"];
+var RAI_M=["00000000000000000111111111100000000000000000", "00000000000000111111111111111100000000000000", "00001111111111111111111111111111100001000000", "00011111111111111111111111111111111111111000", "00011111111111111111111111111111111111111000", "00001111111111111111111111111111111111111000", "00001111111110001111111111000111111111111000", "00001111111100001111111111000011111111111000", "00001111111110001111111111000111111111111000", "00011111111111111111111111111111111111111000", "00011111111111111111111111111111111111111000", "00111111111111111111111111111111111111111100", "00111101111111111111000001111111111110111100", "01110000111111111110000001111111111110011110", "01110000111111111100000000111111111100001110", "01100000111111111100000000011111111000001110", "11100000011111111000000000001111111000000111", "11100000011111110000000000001111110000000111", "11100000011111100000000000000111100000000111", "11100000011111000000000000000011100000000111", "11100000001110000000000000000011000000000111", "11100000001100000000000000000000000000001111", "11100000001100000000000000000000000000001111", "11110000000000000000000000000000000000001111", "01110000000000000000000000000000000000001110", "01110000000000000000000000000000000000011110", "01111000000000000000000000000000000000011110", "00111100000000000000011000000000000000111100", "00111100000000000000111100000000000001111100", "00111110000000000000111110000000000011111100", "00011111000000000001111111000000000111111000", "00001111100000000011111111100000001111110000", "00000111111000000011111111110000011111100000", "00000111111100000111111111111001111111100000", "00000011111111001111111111111111111111000000", "00000001111111111111111111111111111110000000", "00000001111111111111111111111111111110000000", "00000011100111111111111111111111101111000000", "00000011100011111111111111111111000111111110", "01111111100000011111111111111000000111111111", "01111111000000000000000000000000000001111110", "01111110000000000000000000000000000000000000"];
+var raiCm=0,raiCv=null,raiRO=null;
+function raiSpr(rows,c){var w=rows[0].length,h=rows.length,o=document.createElement("canvas");o.width=w;o.height=h;var x=o.getContext("2d");x.fillStyle=c;rows.forEach(function(r,y){for(var i=0;i<w;i++)if(r.charAt(i)==="1")x.fillRect(i,y,1,1)});return o}
+var RAI_HS=null,RAI_MS=null,RAI_MC=null,RAI_BG=null,raiMode="cmp",raiTimer=null;
+/* 색: 바탕(어두운 검붉은색) · 메인(붉은색) · 포인트(밝은 크림색) 세 가지만 씁니다 */
+var RC={base:"#0f0809",main:"#d4202e",point:"#f3e9e7"};
+/* 크기 비교: 사람(170cm 고정)과 선택한 몬스터를 가로 눈금선(cm·M)이 그려진 칸에 나란히 그립니다 */
+function raiCmp(x,S){
+  var max=raiCm>190?Math.ceil(raiCm*1.1/100)*100:200,top=Math.round(S*0.06)+8,bot=Math.round(S*0.06)+10,ph=S-top-bot,yb=top+ph;
+  function Y(cm){return yb-cm/max*ph}
+  x.fillStyle=RC.base;x.fillRect(0,0,S,S);
+  var step=max>200?20:10,fs=Math.max(6,Math.round(S*0.02));
+  x.textBaseline="bottom";x.textAlign="left";
+  for(var c=0;c<=max;c+=step){
+    var maj=c%50===0,y=Math.round(Y(c))+.5;
+    x.strokeStyle=maj?RC.main:"rgba(212,32,46,.28)";x.lineWidth=maj?Math.max(1.2,S*0.004):1;
+    x.beginPath();x.moveTo(0,y);x.lineTo(S,y);x.stroke();
+    x.fillStyle=RC.point;
+    if(c%100===0){x.font="600 "+Math.round(S*0.045)+"px sans-serif";if(c===0){x.textBaseline="top";x.fillText("0M",2,y+1);x.textBaseline="bottom"}else x.fillText((c/100)+"M",2,y-1)}
+    else if(c>0&&Math.min(c%100,100-c%100)/max*ph>=S*0.05&&(step/max*ph>=9||c%50===0)){x.font=fs+"px sans-serif";x.globalAlpha=.7;x.fillText(String(c),2,y-1);x.globalAlpha=1}
+  }
+  var hh=170/max*ph,hw=hh*RAI_H[0].length/RAI_H.length,hx=Math.round(S*0.12);
+  x.drawImage(RAI_HS,hx,yb-hh-0.5,hw,hh);
+  if(raiCm>0){
+    var mh=Math.max(raiCm/max*ph,2),mw=mh*RAI_M[0].length/RAI_M.length;
+    x.drawImage(RAI_MS,S-mw-Math.round(S*0.03),yb-mh-0.5,mw,mh);
+  }
+}
+/* 자세히 보기: 88x88 칸짜리 도트 풍경(밤하늘·달·산·소나무·땅) 위에 몬스터만 세웁니다 */
+function raiBg(){
+  var o=document.createElement("canvas");o.width=88;o.height=88;var g=o.getContext("2d");
+  function P(x,y,c){g.fillStyle=c;g.fillRect(x,y,1,1)}
+  function R(x,y,w,h,c){g.fillStyle=c;g.fillRect(x,y,w,h)}
+  R(0,0,88,88,RC.base);
+  [[6,6],[16,14],[27,5],[35,18],[48,8],[57,23],[78,7],[83,26],[10,30],[72,34]].forEach(function(a){P(a[0],a[1],RC.point)});
+  /* 달 */
+  for(var y=-8;y<=8;y++)for(var xx=-8;xx<=8;xx++)if(xx*xx+y*y<=64)P(66+xx,17+y,RC.point);
+  for(var y2=-3;y2<=3;y2++)for(var x2=-3;x2<=3;x2++)if(x2*x2+y2*y2<=9&&(x2+y2)%2===0)P(63+x2,15+y2,RC.base);
+  /* 먼 산(체크무늬 도트로 흐릿하게) */
+  for(var x3=0;x3<88;x3++){var t=Math.round(54-9*Math.sin(x3/9)-5*Math.sin(x3/4.3+1));for(var y3=t;y3<72;y3++)if((x3+y3)%2===0)P(x3,y3,RC.main)}
+  /* 가까운 산(꽉 찬 붉은색) */
+  for(var x4=0;x4<88;x4++){var t2=Math.round(64-5*Math.sin(x4/11+2)-3*Math.sin(x4/5));for(var y4=t2;y4<72;y4++)P(x4,y4,RC.main)}
+  /* 소나무 */
+  function pine(cx,by,h){for(var k=0;k<3;k++){var w=Math.round((3-k)*h/6)+1,yy=by-h+Math.round(k*h/3.2);for(var r=0;r<Math.round(h/3);r++){var ww=Math.round(w*(r+1)/(h/3)*1)+1;R(cx-ww,yy+r,ww*2+1,1,RC.base)}}R(cx,by-3,1,3,RC.base)}
+  pine(9,66,20);pine(19,67,14);pine(79,67,16);
+  /* 땅 */
+  R(0,72,88,16,RC.main);
+  for(var x5=0;x5<88;x5+=1){if((x5*7)%5===0)P(x5,72,RC.point)}
+  for(var x6=2;x6<88;x6+=6)P(x6,76+(x6%3),RC.base);
+  o.__done=1;return o;
+}
+function raiScene(x,S,t){
+  if(!RAI_BG)RAI_BG=raiBg();
+  var o=document.createElement("canvas");o.width=88;o.height=88;var g=o.getContext("2d");g.drawImage(RAI_BG,0,0);
+  var fr=Math.floor(t/130),bob=[0,0,-1,-2,-2,-1][fr%6],mw=RAI_M[0].length,mh=RAI_M.length,mx=Math.round((88-mw)/2),my=72-mh+bob+1;
+  /* 그림자: 몬스터가 뛰어오르면 작아집니다 */
+  var sw=Math.round(mw*(bob<-1?0.55:0.7)),sx=Math.round(44-sw/2);
+  g.fillStyle=RC.base;g.fillRect(sx,73,sw,1);g.fillRect(sx+2,74,Math.max(sw-4,1),1);
+  g.drawImage(RAI_MC,mx,my);
+  /* 눈 깜빡임: 약 3초마다 잠깐 눈을 감습니다 */
+  if(fr%24===0||fr%24===1){g.fillStyle=RC.point;g.fillRect(mx+13,my+6,3,3);g.fillRect(mx+26,my+6,3,3)}
+  x.imageSmoothingEnabled=false;x.drawImage(o,0,0,S,S);
+}
+function raiDraw(){
+  var cv=raiCv;if(!cv||!cv.isConnected){clearInterval(raiTimer);raiTimer=null;return}
+  var box=cv.parentNode,S=Math.round(box.clientWidth);if(S<20)return;
+  var dpr=window.devicePixelRatio||1;
+  if(cv.width!==Math.round(S*dpr)){cv.width=Math.round(S*dpr);cv.height=Math.round(S*dpr);cv.style.width=S+"px";cv.style.height=S+"px"}
+  var x=cv.getContext("2d");x.setTransform(dpr,0,0,dpr,0,0);x.imageSmoothingEnabled=false;
+  if(!RAI_HS){RAI_HS=raiSpr(RAI_H,RC.point);RAI_MS=raiSpr(RAI_M,RC.main);RAI_MC=raiSpr(RAI_M,RC.point)}
+  if(raiMode==="scene")raiScene(x,S,Date.now());else raiCmp(x,S);
+}
+/* 움직이는 그림은 자세히 보기 창에서만, 1초에 약 8번만 다시 그립니다(배터리 절약). 화면 움직임 줄이기 설정이 켜져 있으면 가만히 둡니다. */
+function raiAnim(on){
+  clearInterval(raiTimer);raiTimer=null;
+  if(on&&!(window.matchMedia&&matchMedia("(prefers-reduced-motion: reduce)").matches))raiTimer=setInterval(function(){if(!document.hidden)raiDraw()},125);
+}
+var raiView="list",raiMons=null,raiComp=null,raiAt=0,raiNote="",raiRel=false,raiFood=0,raiPick={};
+function raiDate(t){var d=new Date(t),z=function(n){return n<10?"0"+n:""+n};return d.getFullYear()+"."+z(d.getMonth()+1)+"."+z(d.getDate())+" "+z(d.getHours())+":"+z(d.getMinutes())}
+function raiCanvas(sq,mode){
+  raiMode=mode;raiAnim(mode==="scene");
+  var cv=document.createElement("canvas");cv.setAttribute("role","img");cv.setAttribute("aria-label","사람(170cm)과 몬스터의 크기 비교");sq.appendChild(cv);raiCv=cv;
+  if(raiRO)raiRO.disconnect();if(window.ResizeObserver){raiRO=new ResizeObserver(raiDraw);raiRO.observe(sq)}raiDraw();
+}
+function raiShow(wrap){
+  var ps=wrap.querySelector(".rai-cu"),pt=ps?ps.scrollTop:0;
+  wrap.innerHTML="";var mons=raiMons||[],cur=null;
+  mons.forEach(function(m){if(m.id===raiSel&&m.owned)cur=m});
+  if(raiView==="detail"&&!cur)raiView="list";
+  $("bigapp").classList.toggle("det",raiView!=="list");
+  wrap.className="rai-w"+(raiView==="detail"?" rai-d":raiView==="craft"?" rai-d rai-c":"");
+  var sq=document.createElement("div");sq.className="rai-sq";
+  if(raiView==="craft"){raiCraft(wrap,pt);return}
+  if(raiView==="detail"){
+    raiCm=cur.cm;wrap.appendChild(sq);raiCanvas(sq,"scene");
+    var info=document.createElement("div");info.className="rai-i";
+    var bk=document.createElement("button");bk.type="button";bk.className="rai-back";bk.textContent="← 목록";
+    bk.addEventListener("click",function(){raiView="list";raiRel=false;raiNote="";raiShow(wrap)});info.appendChild(bk);var body=document.createElement("div");body.className="rai-ib";info.appendChild(body);
+    function row(lab,node){var r=document.createElement("div");r.className="rai-r";var dt=document.createElement("div");dt.className="rai-k";dt.textContent=lab;var dd=document.createElement("div");dd.className="rai-v";dd.appendChild(node);r.appendChild(dt);r.appendChild(dd);body.appendChild(r)}
+    function txt(t){return document.createTextNode(t)}
+    var nf=document.createElement("form");nf.className="rai-nf";
+    var inp=document.createElement("input");inp.type="text";inp.maxLength=12;inp.value=cur.nick||"";inp.placeholder="이름을 지어 주세요";inp.setAttribute("aria-label","몬스터 이름");inp.autocomplete="off";
+    var sv=document.createElement("button");sv.type="submit";sv.textContent="저장";
+    var nm=document.createElement("span");nm.className="rai-nm";nm.setAttribute("role","status");
+    nf.appendChild(inp);nf.appendChild(sv);nf.appendChild(nm);
+    nf.addEventListener("submit",function(e){
+      e.preventDefault();sv.disabled=true;nm.textContent="";
+      api("POST","/api/raise/name",{id:cur.id,name:inp.value}).then(function(r){
+        sv.disabled=false;
+        if(r&&r._status===200){cur.nick=r.name;inp.value=r.name;nm.textContent="저장했어요."}else nm.textContent="저장하지 못했어요.";
+      });
+    });
+    row("이름",nf);
+    var sp=document.createElement("span");sp.appendChild(txt(cur.name));var gs=document.createElement("small");gs.textContent=" "+cur.grade+"급 · "+(cur.cm>=100?(cur.cm/100)+"m":cur.cm+"cm");sp.appendChild(gs);
+    row("종",sp);
+    row("채집 시기",txt(cur.got?raiDate(cur.got):"-"));
+    row("외관",txt(cur.appearance||"-"));
+    row("특징",txt(cur.trait||"-"));
+    function fx(e){var d=document.createElement("div");if(!e){d.textContent="-";return d}var b=document.createElement("strong");b.textContent=e.name;d.appendChild(b);var t=document.createElement("div");t.className="rai-fx";t.textContent=e.text;d.appendChild(t);if(cur.stage>0){var sg=document.createElement("small");sg.textContent="친밀도 "+cur.stage+"단계 · 기본 효과의 ×"+cur.mul;d.appendChild(sg)}return d}
+    row("토벌 효과",fx(cur.hunt));row("PvP 효과",fx(cur.pvp));
+    /* 상태(포만감·청결·친밀도)와 동행·먹이·목욕·방생 */
+    var elapsed=(Date.now()-raiAt)/1000,left=function(sec){return Math.max(0,Math.ceil(sec-elapsed))};
+    var stw=document.createElement("div");stw.className="rai-st";
+    function bar(lab,val){var d=document.createElement("div");d.className="rai-bar";var l=document.createElement("span");l.textContent=lab;var t=document.createElement("div");t.className="rai-tr";var f=document.createElement("i");f.style.width=Math.max(0,Math.min(100,val))+"%";t.appendChild(f);var n=document.createElement("b");n.textContent=String(val);d.appendChild(l);d.appendChild(t);d.appendChild(n);return d}
+    stw.appendChild(bar("포만감",cur.full));stw.appendChild(bar("청결",cur.clean));
+    var bb2=bar("친밀도 "+cur.stage+"단계",cur.bond);[30,60,90].forEach(function(p){var k=document.createElement("em");k.style.left=p+"%";bb2.querySelector(".rai-tr").appendChild(k)});stw.appendChild(bb2);
+    var note=document.createElement("p");note.className="rai-note";note.setAttribute("role","status");note.textContent=raiNote;
+    var acts=document.createElement("div");acts.className="rai-acts";
+    var walking=raiComp===cur.id;
+    function mins(sec){return Math.ceil(sec/60)+"분"}
+    function mk(label,act,dis,cls){var b=document.createElement("button");b.type="button";b.textContent=label;if(cls)b.className=cls;b.disabled=!!dis;b.setAttribute("data-act",act);acts.appendChild(b);return b}
+    var bw=mk(walking?"동행 해제":"동행","walk",false,walking?"on":"");
+    var bf=mk(left(cur.feedIn)>0?"먹이 · "+mins(left(cur.feedIn)):"먹이 ("+raiFood+")","feed",left(cur.feedIn)>0);
+    var bb=mk(left(cur.bathIn)>0?"목욕 · "+mins(left(cur.bathIn)):"목욕","bath",left(cur.bathIn)>0);
+    var br=mk(raiRel?"정말 방생":"방생","release",false,"danger");
+    var MSG={no_food:"먹이가 없어요. 목록의 '먹이 만들기'에서 만들 수 있어요.",cooldown:"아직 할 수 없어요. 잠시 뒤에 다시 해 주세요.",full:"배가 불러서 더 못 먹어요.",clean:"이미 깨끗해요.",hungry:"배가 고파서 동행할 수 없어요. 먼저 먹이를 주세요.",not_found:"이 몬스터를 찾을 수 없어요."};
+    function act(a){
+      if(a==="feed"&&raiFood<=0){raiNote=MSG.no_food;raiShow(wrap);return}
+      if(a==="release"&&!raiRel){raiRel=true;raiNote="한 번 더 누르면 방생해요. 되돌릴 수 없어요.";raiShow(wrap);return}
+      raiRel=false;Array.prototype.forEach.call(acts.children,function(b){b.disabled=true});
+      api("POST","/api/raise/act",{id:cur.id,act:a}).then(function(r){
+        if(!r||r._status!==200){raiNote=(r&&MSG[r.error])||"처리하지 못했어요.";if(r&&r.error==="cooldown"&&r.wait)raiNote="아직 할 수 없어요. "+mins(r.wait)+" 뒤에 다시 해 주세요.";raiShow(wrap);return}
+        if(a==="release"){cur.owned=false;if(raiComp===cur.id)raiComp=null;raiSel="";raiCm=0;raiView="list";raiNote="";raiShow(wrap);return}
+        Object.assign(cur,r.mon);raiComp=r.companion;raiAt=Date.now();if(r.food!=null)raiFood=r.food;
+        var lim=cur.bondToday>=cur.bondLimit?" (오늘 친밀도 한도 "+cur.bondLimit+"에 도달했어요)":" (오늘 "+cur.bondToday+" / "+cur.bondLimit+")";
+        raiNote=a==="feed"?"먹이를 줬어요. 포만감이 올랐어요. 친밀도 +"+(r.gain||0)+lim:a==="bath"?"목욕시켰어요. 청결이 올랐어요. 친밀도 +"+(r.gain||0)+lim:(raiComp===cur.id?"이제 함께 다녀요. 동행은 한 마리만 할 수 있고, PVP 파트너가 돼요.":"동행을 해제했어요. 친밀도 +"+(r.gain||0)+lim);
+        raiShow(wrap);
+      });
+    }
+    Array.prototype.forEach.call(acts.children,function(b){b.addEventListener("click",function(){act(b.getAttribute("data-act"))})});
+    var ft=document.createElement("div");ft.className="rai-f";ft.appendChild(stw);ft.appendChild(note);ft.appendChild(acts);info.appendChild(ft);
+    wrap.appendChild(info);
+    return;
+  }
+  var ul=document.createElement("ul");ul.className="rai-l";ul.setAttribute("aria-label","몬스터 목록");
+  wrap.appendChild(ul);wrap.appendChild(sq);raiCanvas(sq,"cmp");
+  var fl=document.createElement("li");var fb=document.createElement("button");fb.type="button";fb.className="rai-mk";fb.textContent="먹이 만들기 · 보유 "+raiFood;
+  fb.addEventListener("click",function(){raiView="craft";raiPick={};raiNote="";raiShow(wrap)});fl.appendChild(fb);ul.appendChild(fl);
+  mons.forEach(function(m){
+    var li=document.createElement("li");
+    var b=document.createElement("button");b.type="button";b.className="rai-b g-"+m.grade;b.disabled=!m.owned;
+    b.setAttribute("aria-pressed",raiSel===m.id?"true":"false");
+    var g=document.createElement("span");g.className="rai-g";g.textContent=m.grade;
+    var n=document.createElement("span");n.className="rai-n";n.textContent=m.name;
+    b.appendChild(g);b.appendChild(n);
+    if(raiComp===m.id){var tg=document.createElement("span");tg.className="rai-t";tg.textContent="동행";b.appendChild(tg)}
+    b.addEventListener("click",function(){
+      if(raiSel===m.id){raiView="detail";raiNote="";raiRel=false;raiShow(wrap);return}   /* 이미 선택한 몬스터를 한 번 더 누르면 자세히 보기 */
+      raiSel=m.id;raiCm=m.cm;raiDraw();Array.prototype.forEach.call(ul.querySelectorAll(".rai-b"),function(x){x.setAttribute("aria-pressed","false")});b.setAttribute("aria-pressed","true");
+    });
+    li.appendChild(b);ul.appendChild(li);
+  });
+}
+/* 먹이 만들기: 필요 없는 일반 재료 30개를 골라(1개·5개·10개씩 넣기) 먹이 1개로 조합합니다 */
+function raiCraft(wrap,pt){
+  var NEED=30,elig=(inventory||[]).filter(function(it){return it.mat&&it.tier==="c"&&it.qty>0});
+  var total=0;Object.keys(raiPick).forEach(function(k){total+=raiPick[k]});
+  var L=document.createElement("div");L.className="rai-cl";
+  var top=document.createElement("div");top.className="rai-ch";
+  var bk=document.createElement("button");bk.type="button";bk.className="rai-back";bk.textContent="← 목록";bk.addEventListener("click",function(){raiView="list";raiPick={};raiNote="";raiShow(wrap)});
+  var hs=document.createElement("span");hs.textContent="일반 재료 "+NEED+"개 → 먹이 1개 (보유 먹이 "+raiFood+")";top.appendChild(bk);top.appendChild(hs);L.appendChild(top);
+  var ul=document.createElement("ul");ul.className="rai-cu";
+  if(!elig.length){var e=document.createElement("li");e.className="rai-ld";e.textContent="쓸 수 있는 일반 재료가 없어요. (희귀 이상 재료와 상점 아이템은 쓸 수 없어요)";ul.appendChild(e)}
+  elig.forEach(function(it){
+    var have=it.qty-(raiPick[it.item]||0),li=document.createElement("li");
+    var nm=document.createElement("span");nm.className="rai-cn";nm.textContent=it.item;var q=document.createElement("small");q.textContent=" ×"+have;nm.appendChild(q);li.appendChild(nm);
+    var bs=document.createElement("span");bs.className="rai-cb";
+    [1,5,10].forEach(function(n){
+      var b=document.createElement("button");b.type="button";b.textContent="+"+n;b.disabled=have<1||total>=NEED;
+      b.addEventListener("click",function(){var add=Math.min(n,NEED-total,have);if(add<1)return;raiPick[it.item]=(raiPick[it.item]||0)+add;raiNote="";raiShow(wrap)});bs.appendChild(b);
+    });
+    li.appendChild(bs);ul.appendChild(li);
+  });
+  L.appendChild(ul);
+  var Rp=document.createElement("div");Rp.className="rai-cp";
+  var h=document.createElement("div");h.className="rai-ct";h.textContent="넣은 재료 "+total+" / "+NEED;Rp.appendChild(h);
+  var pl=document.createElement("ul");pl.className="rai-cpl";
+  var ks=Object.keys(raiPick);
+  if(!ks.length){var z=document.createElement("li");z.className="rai-ld";z.textContent="왼쪽에서 재료를 골라 넣어요.";pl.appendChild(z)}
+  ks.forEach(function(k){var li=document.createElement("li");var s1=document.createElement("span");s1.textContent=k+" ×"+raiPick[k];var x=document.createElement("button");x.type="button";x.textContent="빼기";x.addEventListener("click",function(){delete raiPick[k];raiShow(wrap)});li.appendChild(s1);li.appendChild(x);pl.appendChild(li)});
+  Rp.appendChild(pl);
+  var note=document.createElement("p");note.className="rai-note";note.setAttribute("role","status");note.textContent=raiNote;Rp.appendChild(note);
+  var ac=document.createElement("div");ac.className="rai-acts rai-acts2";
+  var rs=document.createElement("button");rs.type="button";rs.textContent="비우기";rs.disabled=!total;rs.addEventListener("click",function(){raiPick={};raiNote="";raiShow(wrap)});
+  var mk=document.createElement("button");mk.type="button";mk.className="on";mk.textContent="먹이 만들기";mk.disabled=total!==NEED;
+  mk.addEventListener("click",function(){
+    mk.disabled=true;
+    api("POST","/api/raise/craft",{items:raiPick}).then(function(r){
+      if(r&&r._status===200){
+        Object.keys(raiPick).forEach(function(k){inventory.forEach(function(it){if(it.item===k)it.qty-=raiPick[k]})});inventory=inventory.filter(function(it){return it.qty>0});
+        raiFood=r.food;raiPick={};raiNote="먹이를 1개 만들었어요.";try{pollState(false)}catch(e){}
+      }else raiNote=r&&r.error==="no_mats"?"재료가 모자라요. 다시 골라 주세요.":"만들지 못했어요.";
+      raiShow(wrap);
+    });
+  });
+  ac.appendChild(rs);ac.appendChild(mk);Rp.appendChild(ac);
+  wrap.appendChild(L);wrap.appendChild(Rp);
+  var nu=wrap.querySelector(".rai-cu");if(nu&&pt)nu.scrollTop=pt;
+}
+function loadRaise(scr){
+  var wrap=document.createElement("div");wrap.className="rai-w";scr.appendChild(wrap);
+  var ph=document.createElement("p");ph.className="rai-ld";ph.textContent="불러오는 중…";wrap.appendChild(ph);
+  api("GET","/api/raise").then(function(r){
+    if(!wrap.isConnected)return;
+    if(!r||r._status!==200||!r.mons){ph.textContent="불러오지 못했어요.";return}
+    raiMons=r.mons;raiFood=r.food||0;raiComp=r.companion||null;raiAt=Date.now();raiNote="";raiRel=false;raiShow(wrap);
+  });
+}
+
 /* ───── 큰 팝업으로 여는 앱 (상점·의뢰·괴담) ───── */
-var BIG={shop:1,rum:1,eqp:1,hlw:1,dex:1,wkr:1,hof:1,wnt:1},bigOpen=false;
+var BIG={shop:1,rum:1,eqp:1,rai:1,pvp:1,pvs:1,hlw:1,dex:1,wkr:1,hof:1,wnt:1},bigOpen=false;
 function openBig(id){
   if(bigOpen)return;
   var home=$("phscr"),body=$("bigbody");if(!home||!body)return;
   if(id==="hlw"){evTab="main";evHouseStop()}
+  $("bigapp").classList.toggle("rai",id==="rai");raiView="list";
   bigOpen=true;home.id="phscr_home";body.id="phscr";$("bigapp").hidden=false;document.body.style.overflow="hidden";
   devApp=id;invNote="";renderDevice();
   var x=$("phscr").querySelector(".app-h button");if(x)x.focus();
@@ -4299,11 +4845,12 @@ function openBig(id){
 function closeBig(){
   if(!bigOpen)return;
   evHouseStop();
-  bigOpen=false;$("bigapp").hidden=true;document.body.style.overflow="";
+  bigOpen=false;$("bigapp").hidden=true;$("bigapp").classList.remove("rai","det");document.body.style.overflow="";
   var b=$("phscr");b.id="bigbody";b.innerHTML="";$("phscr_home").id="phscr";
   devApp=null;renderDevice();
 }
 document.addEventListener("keydown",function(e){if(e.key==="Escape"&&bigOpen)closeBig()});
+$("gpvs").addEventListener("click",function(){openBig("pvs")});
 Array.prototype.forEach.call(document.querySelectorAll(".ph-nav .nv-back"),function(b){b.addEventListener("click",devBack)});
 $("bigapp").addEventListener("mousedown",function(e){if(e.target===this)closeBig()});
 
