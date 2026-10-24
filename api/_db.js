@@ -457,8 +457,9 @@ const MIGRATIONS = [
   'ALTER TABLE user_mons ADD COLUMN bond_day INTEGER NOT NULL DEFAULT 0',
   'ALTER TABLE user_mons ADD COLUMN bond_today INTEGER NOT NULL DEFAULT 0',
   // 육성: 포만감·청결(시간이 지나면 줄어듦, 값과 기준 시각을 저장), 친밀도, 산책(동행) 시작 시각, 먹이·목욕 마지막 시각
-  "ALTER TABLE user_mons ADD COLUMN full INTEGER NOT NULL DEFAULT 70",
-  "ALTER TABLE user_mons ADD COLUMN full_at INTEGER NOT NULL DEFAULT 0",
+  // 포만감 열 이름은 full 이 아니라 sat 입니다 (full 은 Postgres 예약어라 열을 만들 수 없음)
+  "ALTER TABLE user_mons ADD COLUMN sat INTEGER NOT NULL DEFAULT 70",
+  "ALTER TABLE user_mons ADD COLUMN sat_at INTEGER NOT NULL DEFAULT 0",
   "ALTER TABLE user_mons ADD COLUMN clean INTEGER NOT NULL DEFAULT 70",
   "ALTER TABLE user_mons ADD COLUMN clean_at INTEGER NOT NULL DEFAULT 0",
   "ALTER TABLE user_mons ADD COLUMN bond INTEGER NOT NULL DEFAULT 0",
