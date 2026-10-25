@@ -5,7 +5,7 @@ const { promisify } = require('node:util');
 const db = require('./_db');
 const G = require('./_game');
 const SYSMSG = require('./_sysmsg');
-const EVT = require('./_event');      // [EVENT:HALLOWEEN] 할로윈 이벤트 (api/_event.js)
+const GONE_ITEMS = ['도깨비 불씨', '별빛 조각', '반짝 별', '거울 조각'];      // 지난 이벤트(할로윈·마법소녀) 화폐·아이템: 모두 지웠고, 남은 알림 첨부도 받을 수 없음
 const B = require('./_board');
 
 const scrypt = promisify(crypto.scrypt);
@@ -156,7 +156,6 @@ async function taintMonsters(uid, now) {
 // F~A급 몬스터는 헌터마다 따로 출몰합니다. 그 헌터가 접속해 요청할 때 밀린 만큼 따라잡아 만듭니다.
 const spawnNext = new Map();       // 헌터별 '다음 출몰 시각' (이 시각 전에는 DB 를 읽지 않음). 다른 인스턴스가 앞당길 일이 없어 안전합니다.
 async function tickPersonal(uid, now) {
-  if (EV.nightOnly(now)) { if (PERF) spawnNext.set(uid, now + 60000); return; }      // [EVENT:HALLOWEEN] 백귀야행 중에는 일반 몬스터가 새로 출몰하지 않음 (잡귀만)
   if (PERF) { const c = spawnNext.get(uid); if (c !== undefined && now < c) return; }
   let minNext = Infinity, certain = true;
   const myRegions = G.SPAWN_REGIONS;      // F~A급은 헌터가 어디 있든 모든 나라의 모든 세부 지역에서 같은 확률로 출몰
@@ -478,7 +477,7 @@ async function catchUp() {
   catchUpRun = catchUpNow().finally(() => { catchUpRun = null; });
   return catchUpRun;
 }
-async function catchUpNow() { await corruptTick(); await tickSpawns(); await resolveDue(); await purgeMonsters(); await tickBoard(); await tickRumors(); await sweepExchange(); await EV.refresh(); await EV.cleanup(); }
+async function catchUpNow() { await corruptTick(); await tickSpawns(); await resolveDue(); await purgeMonsters(); await tickBoard(); await tickRumors(); await sweepExchange(); }
 
 // ── 업적 (정의는 DB에 저장되어 모든 헌터에게 똑같이 적용됩니다) ──
 let achCache = { at: 0, defs: null }, achSeeded = false;
@@ -640,8 +639,8 @@ async function sInfo(userId, now) {
 
 // 스탯이 만드는 확률 (모두 95% 이하)
 const fxOf = st => ({ win: Math.round(Math.min(G.PROB_CAP, (Number(st.str) || 0) * G.STR_WIN) * 100), guard: Math.round(G.guardChance(st.agi) * 100), free: Math.round(G.freeChance(st.luck) * 100) });
-const MAT_NAMES = new Set(G.MATERIALS.concat(G.GATE_MATS).map(m => m.name).concat([EVT.EMBER]));      // 인벤토리 '조합 아이템' 탭에 들어가는 재료 이름
-const MAT_TIER = new Map(G.MATERIALS.map(m => [m.name, 'c']).concat(G.GATE_MATS.map(m => [m.name, m.tier])).concat([[EVT.EMBER, 'r']]));   // 재료 등급 (현장 재료는 일반)
+const MAT_NAMES = new Set(G.MATERIALS.concat(G.GATE_MATS).map(m => m.name));      // 인벤토리 '조합 아이템' 탭에 들어가는 재료 이름
+const MAT_TIER = new Map(G.MATERIALS.map(m => [m.name, 'c']).concat(G.GATE_MATS.map(m => [m.name, m.tier])));   // 재료 등급 (현장 재료는 일반)
 // ── 서버 BGM: 관리자가 정한 유튜브 영상을 모든 헌터가 듣습니다. (끄기·볼륨은 각자 브라우저에서만 정함 — 서버에는 아무것도 저장하지 않음) ──
 const ytIdOf = u => {
   u = String(u || '').trim();
@@ -667,9 +666,7 @@ async function srvBgm() {
 }
 async function buildState(u, now) {
   await settleDying(u.id, now);
-  await EV.refresh();
   await tickPersonal(u.id, now);
-  await EV.refresh(); await EV.tick(u, now);      // [EVENT:HALLOWEEN] 백귀야행
   if (await corruptCheck(u.id, u)) u = (await userById(u.id)) || u;      // 방금 읽은 유저 행을 그대로 쓰고, 값이 바뀐 때만 다시 읽음
   await syncAchEarned(u, now);
   // 기기 '업적' 앱의 새 업적 표시: 마지막으로 업적 앱을 본 뒤에 얻은 업적 수 (처음 한 번은 기준만 잡습니다)
@@ -690,13 +687,12 @@ async function buildState(u, now) {
   const achNew = Number(cnt.ach);
   // 보이는 몬스터: 서버 공통 S급 + 내 몬스터(F~A). 예전 공통 F~A 몬스터는 보이지 않습니다.
   const vis = "((owner_id IS NULL AND (rank = 'SS' OR corrupt_of IS NOT NULL OR rumor_id IS NOT NULL)) OR owner_id = ?)";
-  const NL = EV.nightListSql(now);
   const mons = await db.all(`SELECT id, region, name, rank, spawned_at, rumor_id, corrupt_of FROM monsters
     WHERE ${vis} AND (spawned_at > ? OR (rank = 'SS' AND spawned_at > ?) OR (corrupt_of IS NOT NULL AND spawned_at > ?) OR id IN (SELECT id FROM monsters WHERE ${vis} ORDER BY id DESC LIMIT 6))
       AND id NOT IN (SELECT monster_id FROM s_close WHERE ok = 0)
       AND NOT (rank = 'F' AND corrupt_of IS NULL AND spawned_at < ${now - G.ACTIVE_MS_F} AND id NOT IN (SELECT monster_id FROM kills WHERE user_id = ?))
-      AND (corrupt_of IS NULL OR corrupt_of <> ?)${EV.GATE_GHOST_SQL}${NL.sql}
-    ORDER BY spawned_at DESC, id DESC LIMIT 40`, [u.id, now - G.ACTIVE_MS, now - G.ACTIVE_MS_S, now - CORRUPT_MON_MS, u.id, u.id, u.id].concat(EV.GATE_GHOST_ARGS, NL.args));      // [EVENT:HALLOWEEN] 적월문 안의 잡귀는 어떤 경우에도 보이지 않음
+      AND (corrupt_of IS NULL OR corrupt_of <> ?)
+    ORDER BY spawned_at DESC, id DESC LIMIT 40`, [u.id, now - G.ACTIVE_MS, now - G.ACTIVE_MS_S, now - CORRUPT_MON_MS, u.id, u.id, u.id]);
   const minId = mons.length ? Math.min.apply(null, mons.map(m => m.id)) : 0;
   const [kills, cds, parts, si, pending, results] = await Promise.all([
     db.all('SELECT monster_id FROM kills WHERE user_id = ? AND monster_id >= ?', [u.id, minId]),
@@ -755,7 +751,6 @@ async function buildState(u, now) {
     sWin: swin.map(x => ({ id: x.id, mon: x.name, part: !!x.part, exp: x.exp || 0, gold: x.gold || 0, taint: x.taint || 0, minAt: Number(x.min_at) || 0 })),
     sAuto, sHoldMs: SWIN_HOLD_MS,
     rec: await getRec(),
-    event: EV.brief(now),      // [EVENT:HALLOWEEN]
     bgm: (await srvBgm()).id, bgmv: bgmCache.v,      // 서버 BGM (유튜브 영상 ID, 없으면 빈 문자열)
     inventory: inv.map(r => ({ item: r.item, qty: r.qty, mat: MAT_NAMES.has(r.item), tier: MAT_TIER.get(r.item) || null, eff: r.eff_stat ? { stat: r.eff_stat, amt: r.eff_amt } : (G.CRAFT_DEFS[r.item] ? { stat: G.CRAFT_DEFS[r.item].stat, amt: G.CRAFT_DEFS[r.item].amt } : null) })),
   };
@@ -1131,7 +1126,7 @@ route('GET', '/api/gw/profile', async (req, res, ctx) => {
   if (!f) return fail(res, 404, 'not_found');
   const me = f.id === ctx.user.id, fr = me || await isFriend(ctx.user.id, f.id);
   const base = { hn: f.hunter_name, rank: f.rank, image: imgUrl(f.id, f.img_ver), friend: fr, me };
-  if (f.is_private && !me && !fr) return send(res, 200, { profile: Object.assign(base, { priv: true, bio: f.bio || '', pins: [], traits: traitsOf((await withText(f)).traits), ach: null }) });      // 비공개 유저도 간단 프로필의 소개글·특징은 보입니다 (위치·업적은 숨김)
+  if (f.is_private && !me && !fr) return send(res, 200, { profile: Object.assign(base, { priv: true, bio: f.bio || '', pins: [], traits: traitsOf((await withText(f)).traits), ach: null }) });
   await syncAchEarned(f, Date.now(), true);
   const a = await db.get(`SELECT a.name, a.descr, e.at FROM ach_earned e JOIN achievements a ON a.id = e.ach_id
     WHERE e.user_id = ? ORDER BY e.at DESC, e.rowid DESC LIMIT 1`, [f.id]);
@@ -1229,7 +1224,6 @@ route('POST', '/api/gifts/send', async (req, res, ctx) => {
   catch (e) { await restore(); throw e; }
   await db.run('DELETE FROM inventory WHERE user_id = ? AND item = ? AND qty <= 0', [u.id, item]);
   await db.run('INSERT INTO gifts (from_id, to_id, kind, item, qty, ts) VALUES (?, ?, ?, ?, ?, ?)', [u.id, f.id, 'item', item, qty, now]);
-  if (item === EV.EMBER) await EV.lossLog(u.id, qty, '선물 보냄 (→ ' + f.hunter_name + ')', now);
   await logAcquire(f.id, 'item', item, qty, '선물 (' + u.hunter_name + ')', now);
   send(res, 200, { ok: true, kind, to: f.hunter_name, item, qty });
 });
@@ -1355,8 +1349,6 @@ route('POST', '/api/quests/claim', async (req, res, ctx) => {
 });
 
 const giveItem = (uid, item, qty) => db.run('INSERT INTO inventory (user_id, item, qty) VALUES (?, ?, ?) ON CONFLICT(user_id, item) DO UPDATE SET qty = MIN(9999, qty + excluded.qty)', [uid, item, qty]);
-// [EVENT:HALLOWEEN] 이벤트 모듈 연결 (끄려면 관리자 페이지에서 '끄기' — 코드 수정 불필요)
-const EV = EVT.install({ db, G, route, send, fail, limited, userById, grantGold, logAcquire, giveItem, isFriend, userByCode, normCode, applyItemEffect, achReset: () => { achCache.defs = null; } });
 require('./_qna').install({ db, route, send, fail, limited });      // Q&A (관리자가 올리고 헌터가 읽음)
 require('./_sysmsg').install({ db, route, send, fail });      // 시스템 팝업 (관리자 → 전체 헌터)
 // 그림자 거래소는 없어졌습니다. 예전에 올라가 있던 물건이 남아 있으면 판매자에게 돌려주고 비웁니다 (모두 비면 더는 확인하지 않음).
@@ -1400,10 +1392,7 @@ async function tickRumors() {
 async function makeRumor(now, forceTruth) {
   const live = await db.all("SELECT tpl FROM rumors WHERE status = 'open'");
   const used = new Set(live.map(x => x.tpl));
-  await EV.refresh();
-  let idxs = G.RUMOR_TPL.map((_, i) => i).filter(i => !used.has(i) && (!G.RUMOR_TPL[i].ev || EV.on()));
-  const evIdx = idxs.filter(i => G.RUMOR_TPL[i].ev);      // [EVENT:HALLOWEEN] 이벤트 중에는 혼령 소문이 60% 확률로 우선
-  if (evIdx.length && G.chance01() < 0.6) idxs = evIdx;
+  const idxs = G.RUMOR_TPL.map((_, i) => i).filter(i => !used.has(i));
   const i = idxs[G.rnd(0, idxs.length - 1)], tp = G.RUMOR_TPL[i];
   const region = G.SPAWN_REGIONS[G.rnd(0, G.SPAWN_REGIONS.length - 1)].id;
   const place = G.placeName(region);
@@ -1438,8 +1427,6 @@ async function resolveRumor(r, side, now) {
     await db.run('INSERT INTO monsters (region, name, rank, spawned_at, rumor_id) VALUES (?, ?, ?, ?, ?)', [r.region, r.mon_name, r.rank, now, r.id]);
     await db.run('INSERT INTO board_posts (who, title, body, tag, at) VALUES (?, ?, ?, ?, ?)', ['익명의 시민', '[괴담] 소문이 사실이었다', G.placeName(r.region) + '에 "' + r.mon_name + '"이(가) 실제로 나타났습니다. 조심하세요.', '괴담', now]);
     for (const v of votes) await pay(v.user_id, v.vote === 1 ? RW.believeTrue : { gold: 0, exp: 0 });
-    const bn = (G.RUMOR_TPL[r.tpl] || {}).bonus;      // [EVENT:HALLOWEEN] 혼령 소문이 사실이면 믿은 사람에게 불씨
-    if (bn) for (const v of votes) if (v.vote === 1) { await giveItem(v.user_id, bn.item, bn.qty); await logAcquire(v.user_id, 'item', bn.item, bn.qty, '혼령 소문', now); }
   } else if (status === 'false') {
     for (const v of votes) await pay(v.user_id, v.vote === 1 ? RW.believeFalse : RW.doubtFalse);
   } else if (status === 'buried') {
@@ -1574,23 +1561,20 @@ const eqView = e => { const x = eqBonusOf(e), sl = G.EQ_SLOTS[e.slot], g = G.EQ_
   const sk = e.bonus ? EQ_STAT_KO[e.bonus.stat] : [sl.ko_stat, sl.unit];
   return { id: e.id, name: e.name, slot: e.slot, slotKo: sl.ko, grade: e.grade, desc: e.desc, stat: sk[0], val: x.val, unit: sk[1], maxDur: g.dur, repair: g.repair, ev: e.ev || undefined }; };
 route('GET', '/api/equip', async (req, res, ctx) => {
-  await EV.refresh();
   const inv = new Map((await db.all('SELECT item, qty FROM inventory WHERE user_id = ? AND qty > 0', [ctx.user.id])).map(r => [r.item, Number(r.qty)]));
   const mine = await db.all('SELECT id, key, dur, equipped FROM equip_inv WHERE user_id = ? ORDER BY equipped DESC, id', [ctx.user.id]);
   const eb = await equipBonus(ctx.user.id);
   send(res, 200, {
     gold: (await db.get('SELECT gold FROM users WHERE id = ?', [ctx.user.id])).gold,
-    defs: G.EQUIPS.filter(e => !e.ev || EV.on()).map(e => Object.assign(eqView(e), { mats: Object.keys(e.mats).map(k => ({ item: k, qty: e.mats[k], have: inv.get(k) || 0 })) })),
+    defs: G.EQUIPS.filter(e => !e.legacy).map(e => Object.assign(eqView(e), { mats: Object.keys(e.mats).map(k => ({ item: k, qty: e.mats[k], have: inv.get(k) || 0 })) })),
     mine: mine.filter(r => EQ_BY_ID.has(r.key)).map(r => { const e = EQ_BY_ID.get(r.key); return Object.assign(eqView(e), { uid: r.id, dur: r.dur, equipped: !!r.equipped, broken: r.dur <= 0 }); }),
     bonus: eb,
   });
 });
 route('POST', '/api/equip/craft', async (req, res, ctx) => {
   if (await limited('eqc:' + ctx.user.id, 40, 60000)) return fail(res, 429, 'rate_limited');
-  await EV.refresh();
   const e = EQ_BY_ID.get(String(ctx.body.id || ''));
-  if (!e) return fail(res, 404, 'no_recipe');
-  if (e.ev && !EV.on()) return fail(res, 403, 'event_off');      // [EVENT:HALLOWEEN] 이벤트 장비는 이벤트 기간에만 조합
+  if (!e || e.legacy) return fail(res, 404, 'no_recipe');      // 지난 이벤트 가면은 새로 만들 수 없음
   const cur = await userById(ctx.user.id);
   if (corruptLock(cur, Date.now())) return fail(res, 409, 'corrupted', { until: cur.corrupt_until });
   const own = await db.get('SELECT COUNT(*) AS c FROM equip_inv WHERE user_id = ?', [cur.id]);
@@ -1605,7 +1589,6 @@ route('POST', '/api/equip/craft', async (req, res, ctx) => {
     }
     await db.run('INSERT INTO equip_inv (user_id, key, dur, equipped, at) VALUES (?, ?, ?, 0, ?)', [cur.id, e.id, G.EQ_GRADE[e.grade].dur, Date.now()]);
   } catch (err) { await restore(); throw err; }
-  if (e.mats[EV.EMBER]) await EV.lossLog(cur.id, e.mats[EV.EMBER], '장비 조합 (' + e.name + ')', Date.now());
   await db.run('DELETE FROM inventory WHERE user_id = ? AND qty <= 0', [cur.id]);
   await logAcquire(cur.id, 'item', e.name + ' (' + e.grade + '급 장비)', 1, '장비 조합', Date.now());
   send(res, 200, { ok: true, name: e.name, grade: e.grade });
@@ -1881,6 +1864,35 @@ async function resetPvpRecordsOnce() {
   if (pvpRecReset) return; pvpRecReset = true;
   const mark = await db.run("INSERT INTO settings (key, value) VALUES ('pvp_record_reset_1', '1') ON CONFLICT(key) DO NOTHING");
   if (mark.changes === 1) await db.run('UPDATE users SET pvp_win = 0, pvp_lose = 0');
+}
+// 할로윈 이벤트를 코드에서 지웠습니다. 서버가 켜진 뒤 첫 요청 때 한 번만 남은 '도깨비 불씨'와 잡귀 몬스터를 치웁니다.
+// (만든 가면·받은 칭호는 그대로 남습니다. 끝나면 settings 에 'hlw_cleanup_1' 표시가 남아 다시 하지 않습니다.)
+const OLD_GHOSTS = ['떠돌이 잡귀', '굶주린 아귀', '도깨비불', '달걀귀신', '몽달귀신', '손각시', '야광귀', '빗자루 도깨비', '객귀', '수살귀', '문지방 귀신', '바람 귀신',
+  '장독대 귀신', '부지깽이 도깨비', '짚신 도깨비', '맷돌 도깨비', '서낭당 귀신', '아궁이 귀신', '뒷간 귀신', '빗소리 귀신', '연못 귀신', '허수아비 귀신', '떠돌이 장승', '방울 소리 귀신',
+  '어둑시니', '두억시니', '화묘', '떠돌이 상여꾼', '빈 사당 혼령', '낡은 인형 혼', '거울 속 그림자', '등롱 귀신'];
+let hlwGone = false;
+async function cleanupHalloweenOnce() {
+  if (hlwGone) return; hlwGone = true;
+  if (await db.get("SELECT 1 AS x FROM settings WHERE key = 'hlw_cleanup_1'")) return;
+  const ph = OLD_GHOSTS.map(() => '?').join(','), sub = `SELECT id FROM monsters WHERE owner_id IS NOT NULL AND name IN (${ph})`;
+  await db.batch([
+    [`DELETE FROM inventory WHERE item IN (${GONE_ITEMS.map(() => '?').join(',')})`, GONE_ITEMS],
+    [`DELETE FROM battles WHERE monster_id IN (${sub})`, OLD_GHOSTS],
+    [`DELETE FROM kills WHERE monster_id IN (${sub})`, OLD_GHOSTS],
+    [`DELETE FROM fail_cd WHERE monster_id IN (${sub})`, OLD_GHOSTS],
+    [`DELETE FROM monsters WHERE owner_id IS NOT NULL AND name IN (${ph})`, OLD_GHOSTS],
+    ["DELETE FROM user_spawn WHERE tier LIKE 'evg%'", []],
+  ]);
+  await db.run("INSERT INTO settings (key, value) VALUES ('hlw_cleanup_1', '1') ON CONFLICT(key) DO NOTHING");
+}
+// 마법소녀 이벤트를 코드에서 지웠습니다. 서버가 켜진 뒤 첫 요청 때 한 번만 남은 '반짝 별'·'거울 조각' 등 이벤트 아이템을 치웁니다.
+// (코스튬·꼬마 마물 친구 기록은 표에 그대로 남지만 더 이상 쓰이지 않습니다. 받은 칭호·마법 장신구는 그대로. 끝나면 settings 에 'mgl_cleanup_1' 표시가 남습니다.)
+let mglGone = false;
+async function cleanupMagicalOnce() {
+  if (mglGone) return; mglGone = true;
+  if (await db.get("SELECT 1 AS x FROM settings WHERE key = 'mgl_cleanup_1'")) return;
+  await db.run(`DELETE FROM inventory WHERE item IN (${GONE_ITEMS.map(() => '?').join(',')})`, GONE_ITEMS);
+  await db.run("INSERT INTO settings (key, value) VALUES ('mgl_cleanup_1', '1') ON CONFLICT(key) DO NOTHING");
 }
 // 이전에 임시로 열어 두었던 테스트 계정(AAAA-AA11)은 없앴습니다. 이미 만들어져 있던 계정이 있으면 서버가 켜진 뒤 처음 요청 때 한 번 지웁니다.
 let oldTestGone = false;
@@ -2158,6 +2170,18 @@ route('POST', '/api/pvp/stats', async (req, res, ctx) => {
   send(res, 200, { ok: true, stats: b, cost, gold: me.gold });
 });
 
+// 두 헌터의 전투 한 판을 만듭니다 (매칭·직접 초대 공통). 누가 a/b 쪽인지는 무작위.
+async function pvpStartBattle(uid, me, oid, o, now) {
+    const [A, B] = Math.random() < 0.5 ? [{ id: uid, m: me }, { id: oid, m: o }] : [{ id: oid, m: o }, { id: uid, m: me }];
+    const names = await db.all('SELECT id, hunter_name FROM users WHERE id IN (?, ?)', [A.id, B.id]);
+    const nm = id => (names.find(n => n.id === id) || {}).hunter_name || '(헌터)';
+    const side = (X) => ({ name: nm(X.id), stats: X.m.a, fx: compFx(X.m.comp), comp: X.m.comp ? { name: X.m.comp.name, nick: X.m.comp.nick, grade: X.m.comp.grade, fx: X.m.comp.hungry ? '배가 고파 힘을 못 써요' : X.m.comp.pvp.name + ' · ' + X.m.comp.pvp.text } : null });
+    const info = JSON.stringify({ a: side(A), b: side(B) });
+    const ins = await db.run('INSERT INTO pvp_live (a_id, b_id, hp_a, hp_b, turn, dl, info, hits, log, upd) VALUES (?, ?, ?, ?, 0, ?, ?, ?, ?, ?)',
+      [A.id, B.id, PVP.HP, PVP.HP, now + PVP.TURN_MS, info, JSON.stringify({ hits: [0, 0], pool: [0, 0] }), '[]', now]);
+    return ins.lastId;
+}
+
 // 대기열에서 나와 비슷한 수치의 상대를 찾아 전투를 진행합니다. 상대를 먼저 '내 것으로' 확보(대기열에서 삭제)한 쪽만 전투를 만듭니다.
 async function pvpTryMatch(uid, me, now) {
   const q = await db.get('SELECT joined_at FROM pvp_queue WHERE user_id = ?', [uid]);
@@ -2172,15 +2196,7 @@ async function pvpTryMatch(uid, me, now) {
     if (got.changes !== 1) continue;                       // 다른 사람이 먼저 데려감
     const mine2 = await db.run('DELETE FROM pvp_queue WHERE user_id = ?', [uid]);
     if (mine2.changes !== 1) { await db.run('INSERT INTO pvp_queue (user_id, power, joined_at, seen_at) VALUES (?, ?, ?, ?) ON CONFLICT(user_id) DO NOTHING', [c.w.user_id, c.w.power, c.w.joined_at, now]); return null; }
-    const o = await pvpMine(c.w.user_id, now);
-    const [A, B] = Math.random() < 0.5 ? [{ id: uid, m: me }, { id: c.w.user_id, m: o }] : [{ id: c.w.user_id, m: o }, { id: uid, m: me }];
-    const names = await db.all('SELECT id, hunter_name FROM users WHERE id IN (?, ?)', [A.id, B.id]);
-    const nm = id => (names.find(n => n.id === id) || {}).hunter_name || '(헌터)';
-    const side = (X) => ({ name: nm(X.id), stats: X.m.a, fx: compFx(X.m.comp), comp: X.m.comp ? { name: X.m.comp.name, nick: X.m.comp.nick, grade: X.m.comp.grade, fx: X.m.comp.hungry ? '배가 고파 힘을 못 써요' : X.m.comp.pvp.name + ' · ' + X.m.comp.pvp.text } : null });
-    const info = JSON.stringify({ a: side(A), b: side(B) });
-    const ins = await db.run('INSERT INTO pvp_live (a_id, b_id, hp_a, hp_b, turn, dl, info, hits, log, upd) VALUES (?, ?, ?, ?, 0, ?, ?, ?, ?, ?)',
-      [A.id, B.id, PVP.HP, PVP.HP, now + PVP.TURN_MS, info, JSON.stringify({ hits: [0, 0], pool: [0, 0] }), '[]', now]);
-    return ins.lastId;
+    return pvpStartBattle(uid, me, c.w.user_id, await pvpMine(c.w.user_id, now), now);
   }
   return null;
 }
@@ -2249,7 +2265,7 @@ async function pvpPollState(uid) {
   }
   const battle = await pvpBattleFor(uid, Date.now());
   const q2 = battle ? null : await db.get('SELECT joined_at, power FROM pvp_queue WHERE user_id = ?', [uid]);
-  return { state: battle ? 'matched' : q2 ? 'waiting' : 'idle', waited: q2 ? Math.floor((now - q2.joined_at) / 1000) : 0, range: q2 && now - q2.joined_at >= PVP_TOL_WAIT ? PVP_TOL[1] : PVP_TOL[0], battle };
+  return { state: battle ? 'matched' : q2 ? 'waiting' : 'idle', waited: q2 ? Math.floor((now - q2.joined_at) / 1000) : 0, range: q2 && now - q2.joined_at >= PVP_TOL_WAIT ? PVP_TOL[1] : PVP_TOL[0], battle, inv: battle ? { in: [], out: null } : await pvpInvites(uid, now) };
 }
 route('POST', '/api/pvp/queue', async (req, res, ctx) => {
   const uid = ctx.user.id, now = Date.now(), m = await pvpMine(uid, now);
@@ -2282,6 +2298,78 @@ route('POST', '/api/pvp/ack', async (req, res, ctx) => {      // 끝난 전투 �
 route('GET', '/api/pvp/poll', async (req, res, ctx) => { send(res, 200, await pvpPollState(ctx.user.id)); });
 route('POST', '/api/pvp/cancel', async (req, res, ctx) => {
   await db.run('DELETE FROM pvp_queue WHERE user_id = ?', [ctx.user.id]);
+  send(res, 200, { ok: true });
+});
+
+// ───── 직접 대전: 닉네임이나 코드로 상대를 초대하고, 상대가 수락하면 바로 전투가 시작됩니다 ─────
+const PVP_INV_MS = 2 * 60000;                    // 초대는 2분 안에 수락해야 합니다
+async function pvpInvites(uid, now) {
+  const inc = await db.all("SELECT i.id, i.created_at, u.hunter_name, u.rank FROM pvp_invite i JOIN users u ON u.id = i.from_id WHERE i.to_id = ? AND i.status = 'pending' AND i.created_at > ? ORDER BY i.id DESC LIMIT 5", [uid, now - PVP_INV_MS]);
+  const o = await db.get('SELECT i.id, i.status, i.created_at, i.upd, u.hunter_name FROM pvp_invite i JOIN users u ON u.id = i.to_id WHERE i.from_id = ? ORDER BY i.id DESC LIMIT 1', [uid]);
+  let out = null;
+  if (o) {
+    const pend = o.status === 'pending';
+    if (pend && o.created_at <= now - PVP_INV_MS) out = { id: o.id, to: o.hunter_name, status: 'expired', left: 0 };
+    else if (pend || (o.status !== 'accepted' && now - o.upd < 60000)) out = { id: o.id, to: o.hunter_name, status: o.status, left: pend ? Math.ceil((o.created_at + PVP_INV_MS - now) / 1000) : 0 };
+  }
+  return { in: inc.map(r => ({ id: r.id, from: r.hunter_name, rank: r.rank, left: Math.ceil((r.created_at + PVP_INV_MS - now) / 1000) })), out };
+}
+// 지금 전투를 시작할 수 있는 상태인지 (스탯 배분 · 체력 회복 · 다른 전투/대기 여부). 안 되면 오류 이름을 돌려줍니다.
+async function pvpReady(uid, now) {
+  const m = await pvpMine(uid, now);
+  if (!m.u.pvp_set) return { err: 'no_stats' };
+  if (m.u.pvp_lock > now) return { err: 'recovering', m };
+  if (await pvpLiveRow(uid, now)) return { err: 'busy' };
+  return { m };
+}
+route('POST', '/api/pvp/invite', async (req, res, ctx) => {
+  const uid = ctx.user.id, now = Date.now(), t = String(ctx.body.target == null ? '' : ctx.body.target).trim();
+  if (!t || cp(t) > 40) return fail(res, 400, 'bad_target');
+  if (await limited('pvpinv:' + uid, 12, 60000)) return fail(res, 429, 'rate_limited');
+  let f = null; const code = normCode(t);
+  if (code) f = await userByCode(code);
+  if (!f) {
+    const rows = await db.all('SELECT id FROM users WHERE hunter_name = ? LIMIT 2', [t]);
+    if (rows.length > 1) return fail(res, 409, 'ambiguous');
+    if (rows.length === 1) f = await userById(rows[0].id);
+  }
+  if (!f || f.admin_char) return fail(res, 404, 'no_user');
+  if (f.id === uid) return fail(res, 400, 'self');
+  const me = await pvpReady(uid, now);
+  if (me.err) return fail(res, me.err === 'recovering' ? 400 : me.err === 'busy' ? 409 : 400, me.err, me.err === 'recovering' ? { hp: pvpHpNow(me.m.u.pvp_lock, now), lockLeft: Math.ceil((me.m.u.pvp_lock - now) / 1000) } : undefined);
+  const tg = await pvpReady(f.id, now);
+  if (tg.err) return fail(res, 409, 'target_' + tg.err);      // 상대가 스탯 미배분 · 회복 중 · 전투 중
+  await db.run("UPDATE pvp_invite SET status = 'canceled', upd = ? WHERE from_id = ? AND status = 'pending'", [now, uid]);      // 보낸 초대는 한 번에 하나
+  await db.run("DELETE FROM pvp_invite WHERE created_at < ?", [now - 3600000]);
+  const dup = await db.get("SELECT 1 AS x FROM pvp_invite WHERE from_id = ? AND to_id = ? AND status = 'pending' AND created_at > ?", [f.id, uid, now - PVP_INV_MS]);
+  if (dup) return fail(res, 409, 'they_invited');      // 상대가 먼저 나를 초대해 둠 → 수락하면 됨
+  const r = await db.run("INSERT INTO pvp_invite (from_id, to_id, status, created_at, upd) VALUES (?, ?, 'pending', ?, ?)", [uid, f.id, now, now]);
+  send(res, 200, { ok: true, id: r.lastId, to: f.hunter_name, inv: await pvpInvites(uid, now) });
+});
+route('POST', '/api/pvp/invite/accept', async (req, res, ctx) => {
+  const uid = ctx.user.id, now = Date.now(), id = Number(ctx.body.id);
+  if (!Number.isInteger(id)) return fail(res, 400, 'bad_id');
+  const inv = await db.get("SELECT * FROM pvp_invite WHERE id = ? AND to_id = ?", [id, uid]);
+  if (!inv || inv.status !== 'pending' || inv.created_at <= now - PVP_INV_MS) return fail(res, 410, 'gone');
+  const me = await pvpReady(uid, now);
+  if (me.err) return fail(res, me.err === 'busy' ? 409 : 400, me.err, me.err === 'recovering' ? { hp: pvpHpNow(me.m.u.pvp_lock, now), lockLeft: Math.ceil((me.m.u.pvp_lock - now) / 1000) } : undefined);
+  const ch = await pvpReady(inv.from_id, now);
+  if (ch.err) { await db.run("UPDATE pvp_invite SET status = 'canceled', upd = ? WHERE id = ? AND status = 'pending'", [now, id]); return fail(res, 409, 'gone'); }
+  const got = await db.run("UPDATE pvp_invite SET status = 'accepted', upd = ? WHERE id = ? AND status = 'pending'", [now, id]);
+  if (got.changes !== 1) return fail(res, 410, 'gone');      // 다른 곳에서 먼저 처리됨
+  await db.run('DELETE FROM pvp_queue WHERE user_id IN (?, ?)', [uid, inv.from_id]);
+  await db.run("UPDATE pvp_invite SET status = 'canceled', upd = ? WHERE status = 'pending' AND (from_id IN (?, ?) OR to_id IN (?, ?)) AND id <> ?", [now, uid, inv.from_id, uid, inv.from_id, id]);      // 두 사람의 다른 초대는 정리
+  await pvpStartBattle(uid, me.m, inv.from_id, ch.m, now);
+  send(res, 200, Object.assign({ ok: true }, await pvpPollState(uid)));
+});
+route('POST', '/api/pvp/invite/decline', async (req, res, ctx) => {
+  const id = Number(ctx.body.id);
+  if (!Number.isInteger(id)) return fail(res, 400, 'bad_id');
+  await db.run("UPDATE pvp_invite SET status = 'declined', upd = ? WHERE id = ? AND to_id = ? AND status = 'pending'", [Date.now(), id, ctx.user.id]);
+  send(res, 200, { ok: true });
+});
+route('POST', '/api/pvp/invite/cancel', async (req, res, ctx) => {
+  await db.run("UPDATE pvp_invite SET status = 'canceled', upd = ? WHERE from_id = ? AND status = 'pending'", [Date.now(), ctx.user.id]);
   send(res, 200, { ok: true });
 });
 
@@ -2356,8 +2444,6 @@ route('POST', '/api/hunt', async (req, res, ctx) => {
   if (cur.block_flags & 1) return fail(res, 403, 'blocked', { what: 'hunt' });      // 운영자가 토벌을 막아 둠
   const m = await db.get('SELECT id, region, name, rank, spawned_at, owner_id, rumor_id, corrupt_of FROM monsters WHERE id = ?', [Number(ctx.body.id)]);
   if (!m) return fail(res, 410, 'expired');
-  if (m.owner_id != null && EV.nightOnly(Date.now()) && !EV.GHOST_SET.has(m.name)) return fail(res, 404, 'no_monster');      // [EVENT:HALLOWEEN] 백귀야행 중에는 잡귀만 상대할 수 있음
-  if (EV.isGhostInGate(m)) return fail(res, 404, 'no_monster');      // [EVENT:HALLOWEEN] 적월문 안의 잡귀는 상대할 수 없음
   if ((m.owner_id != null && m.owner_id !== cur.id) || (m.owner_id == null && m.rank !== 'SS' && m.corrupt_of == null && m.rumor_id == null)) return fail(res, 404, 'no_monster');
   const cm = m.corrupt_of != null;
   if (corruptLock(cur, now)) return fail(res, 409, 'corrupted', { until: cur.corrupt_until });   // 오염도 100: 1시간 활동 불가
@@ -2439,8 +2525,7 @@ async function huntWin(cur, m, eb, now) {
   await logAcquire(cur.id, 'exp', '경험치', gain, m.name + ' 토벌', now);
   await logAcquire(cur.id, 'gold', '골드', gold, m.name + ' 토벌', now);
   await questProg(cur, 'kill', 1, G.RANK_IDX[m.rank]);
-  const ember = await EV.onKill(cur, m, now);      // [EVENT:HALLOWEEN] 잡귀 처치 시 도깨비 불씨
-  return { payload: { result: 'success', gain, gold, taint, taintNow, levelUp: r.up, lv: r.lv, exp: r.exp, ember: ember || undefined, note: note || undefined } };
+  return { payload: { result: 'success', gain, gold, taint, taintNow, levelUp: r.up, lv: r.lv, exp: r.exp, note: note || undefined } };
 }
 // 토벌 실패 처리
 async function huntLose(cur, m, myStats, eb, now) {
@@ -2719,7 +2804,7 @@ route('GET', '/api/notices', async (req, res, ctx) => {
     FROM notices n WHERE NOT EXISTS (SELECT 1 FROM notice_del d WHERE d.user_id = ? AND d.notice_id = n.id) ORDER BY n.id DESC LIMIT 50`, [ctx.user.id, ctx.user.id]);
   // 아이템은 알림이 발송된 뒤에 가입한 헌터에게는 지급되지 않습니다
   send(res, 200, { notices: rows.map(n => ({ id: n.id, title: n.title || '', text: n.text, ts: n.created_at,
-    item: n.item || '', qty: n.item ? n.qty : 0, claimed: !!n.claimed, can: !!n.item && ctx.user.created_at < n.created_at && (n.item !== EV.EMBER || EV.on()) })), seen: ctx.user.notice_seen });
+    item: n.item || '', qty: n.item ? n.qty : 0, claimed: !!n.claimed, can: !!n.item && ctx.user.created_at < n.created_at && !GONE_ITEMS.includes(n.item) })), seen: ctx.user.notice_seen });
 });
 
 // 알림에 첨부된 아이템 수령 (헌터당 알림 1회)
@@ -2729,7 +2814,7 @@ route('POST', '/api/notices/claim', async (req, res, ctx) => {
   if (!n) return fail(res, 404, 'no_notice');
   if (!n.item) return fail(res, 400, 'no_item');
   if (!(ctx.user.created_at < n.created_at)) return fail(res, 403, 'not_eligible');
-  if (n.item === EV.EMBER && !EV.on()) return fail(res, 403, 'event_off');      // 이벤트가 꺼진 뒤에는 도깨비 불씨 수령 불가
+  if (GONE_ITEMS.includes(n.item)) return fail(res, 403, 'event_off');      // 지난 이벤트(할로윈·마법소녀)의 아이템은 받을 수 없음
   const now = Date.now();
   const eq = EQ_BY_NAME.get(n.item);       // 첨부 아이템이 장비이면 장비 보관함으로 지급 (장비는 개당 내구도를 가짐)
   if (eq) {
@@ -3038,7 +3123,6 @@ route('POST', '/api/admin/player/item', async (req, res, ctx) => {
   await db.run('INSERT INTO inventory (user_id, item, qty) VALUES (?, ?, ?) ON CONFLICT(user_id, item) DO UPDATE SET qty = excluded.qty', [u.id, item, qty]);
   const delta = qty - (prev ? prev.qty : 0);
   if (delta > 0) await logAcquire(u.id, 'item', item, delta, '운영자 지급', Date.now());
-  if (delta < 0 && item === EV.EMBER) await EV.lossLog(u.id, -delta, '운영자 회수', Date.now());
   send(res, 200, { ok: true });
 }, { auth: false, admin: true });
 
@@ -3056,7 +3140,6 @@ route('POST', '/api/admin/gold/all', async (req, res, ctx) => {
 
 route('POST', '/api/admin/player/item/delete', async (req, res, ctx) => {
   const u = await adminTarget(ctx, res); if (!u) return;
-  if (ctx.body.all === true || String(ctx.body.item || '') === EV.EMBER) { const eq = await db.get('SELECT qty FROM inventory WHERE user_id = ? AND item = ?', [u.id, EV.EMBER]); if (eq) await EV.lossLog(u.id, eq.qty, '운영자 삭제', Date.now()); }
   if (ctx.body.all === true) await db.run('DELETE FROM inventory WHERE user_id = ?', [u.id]);
   else await db.run('DELETE FROM inventory WHERE user_id = ? AND item = ?', [u.id, String(ctx.body.item || '')]);
   send(res, 200, { ok: true });
@@ -3298,7 +3381,7 @@ route('GET', '/api/admin/shop', async (req, res) => {
   const items = await db.all('SELECT id, name, descr, price, eff_stat, eff_amt FROM shop_items ORDER BY id');
   send(res, 200, { items: items.map(i => ({ id: i.id, name: i.name, desc: i.descr, price: i.price, stat: i.eff_stat, amt: i.eff_amt })),
     equips: G.EQUIPS.map(e => ({ name: e.name, grade: e.grade, slot: e.slot })),
-    special: [{ name: EV.EMBER, note: '할로윈 이벤트 아이템 · 이벤트를 끄면 사라짐' }] });
+    special: [] });
 }, { auth: false, admin: true });
 
 route('POST', '/api/admin/shop/save', async (req, res, ctx) => {
@@ -3690,6 +3773,7 @@ async function purgeUser(id) {
     ['DELETE FROM cw_enc WHERE user_id = ?', [id]],
     ['DELETE FROM pvp_battles WHERE a_id = ? OR b_id = ?', [id, id]],
     ['DELETE FROM pvp_live WHERE a_id = ? OR b_id = ?', [id, id]],
+    ['DELETE FROM pvp_invite WHERE from_id = ? OR to_id = ?', [id, id]],
     ['DELETE FROM users WHERE id = ?', [id]],
   ]);
 }
@@ -3788,10 +3872,28 @@ async function maintState() {
   maintCache = { at: now, on: m.maint_on === undefined ? true : m.maint_on === '1', msg: m.maint_msg || '' };
   return maintCache;
 }
+// ── 화면 테마: 관리자 페이지에서 '기본 / 할로윈 / 마법소녀' 중 하나를 고르면 모든 헌터 화면에 적용됩니다 (장식·색만 바뀌고 게임 내용은 그대로) ──
+const THEMES = ['none', 'halloween', 'magic'];
+let themeCache = { at: 0, v: 'none' };
+async function themeState() {
+  const now = Date.now();
+  if (now - themeCache.at < 3000) return themeCache.v;
+  const r = await db.get("SELECT value FROM settings WHERE key = 'site_theme'");
+  themeCache = { at: now, v: r && THEMES.includes(r.value) ? r.value : 'none' };
+  return themeCache.v;
+}
+route('GET', '/api/admin/theme', async (req, res) => { send(res, 200, { theme: await themeState() }); }, { auth: false, admin: true });
+route('POST', '/api/admin/theme', async (req, res, ctx) => {
+  const v = String(ctx.body.theme || '');
+  if (!THEMES.includes(v)) return fail(res, 400, 'bad_theme');
+  await db.run("INSERT INTO settings (key, value) VALUES ('site_theme', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value", [v]);
+  themeCache = { at: Date.now(), v };
+  send(res, 200, { theme: v });
+}, { auth: false, admin: true });
 route('GET', '/api/maintenance', async (req, res) => {
   const m = await maintState();
-  await EV.refresh();
-  send(res, 200, { on: m.on, message: m.on ? m.msg : '', hlw: EV.on() });      // hlw: [THEME:HALLOWEEN] 할로윈 화면 테마를 켤지 (이벤트 진행 중일 때)
+  const th = await themeState();
+  send(res, 200, { on: m.on, message: m.on ? m.msg : '', hlw: th === 'halloween', mgl: th === 'magic' });      // hlw / mgl: 화면 테마(할로윈 · 마법소녀)를 켤지 — 관리자 페이지의 '화면 테마' 설정
 }, { auth: false });
 route('GET', '/api/admin/bgm', async (req, res) => {
   bgmCache.at = 0;
@@ -3837,6 +3939,8 @@ async function handle(req, res) {
     if (!r) return fail(res, 404, 'not_found');
     await removeOldTestAccount().catch(() => {});
     await resetPvpRecordsOnce().catch(() => { pvpRecReset = false; });
+    await cleanupHalloweenOnce().catch(() => { hlwGone = false; });
+    await cleanupMagicalOnce().catch(() => { mglGone = false; });
     if (req.method !== 'GET') {
       const origin = req.headers.origin;
       if (origin) { let ok = false; try { ok = new URL(origin).host === req.headers.host; } catch (_) {} if (!ok) return fail(res, 403, 'bad_origin'); }
