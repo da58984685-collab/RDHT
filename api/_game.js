@@ -700,6 +700,8 @@ const RUMOR_TPL = [
   { t: '{p}의 끝나지 않는 막차', mon: '막차의 승객', rank: 'B', body: '{p}에서 막차를 타면 종점에 닿지 않고 계속 달린다고 합니다.', hoax: '졸다가 종점을 지나친 취객의 이야기가 부풀려진 것이었습니다.' },
   { t: '{p}의 웃는 인형', mon: '웃는 인형', rank: 'C', body: '{p}의 오래된 가게 진열장에서 밤마다 인형의 표정이 바뀐다는 소문입니다.', hoax: '진열장 조명이 흔들려 그렇게 보인 것이었습니다.' },
 ];
+const EVENT = require('./_event');      // [EVENT:HALLOWEEN] 이벤트 데이터 (api/_event.js)
+RUMOR_TPL.push(...EVENT.RUMOR_TPL);         // [EVENT:HALLOWEEN] 이벤트 소문 (이벤트가 꺼지면 새로 만들어지지 않음)
 // 보상표: 소문에 어떻게 표를 던졌고 결과가 어떻게 되었는가
 const RUMOR_REWARD = { believeTrue: { gold: 150, exp: 30 }, doubtFalse: { gold: 80, exp: 20 }, believeFalse: { gold: -100, exp: 0 } };
 
@@ -719,6 +721,7 @@ const EQ_SLOTS = {
   boots: { ko: '신발', stat: 'agi', ko_stat: '민첩', v: [3, 6, 10, 16], unit: '' },
   acc: { ko: '장신구', stat: 'taintRes', ko_stat: '오염도 증가 감소', v: [8, 15, 24, 35], unit: '%' },
   mask: { ko: '가면', stat: 'luck', ko_stat: '행운', v: [0, 0, 0, 0], unit: '' },      // 지난 할로윈 이벤트의 가면 (능력치는 장비마다 bonus 로 지정)
+  mask: EVENT.MASK_SLOT,      // [EVENT:HALLOWEEN] 가면 (능력치는 장비마다 bonus 로 지정)
   magic: { ko: '마법 장신구', stat: 'luck', ko_stat: '행운', v: [0, 0, 0, 0], unit: '' },
 };
 const EQUIPS = [
@@ -743,13 +746,7 @@ const EQUIPS = [
   { id: 'e_x1', name: '붉은 산호 목걸이', slot: 'acc', grade: 'B', desc: '오염을 걸러 주는 붉은 산호 목걸이.', mats: { '붉은 산호': 2, '물귀신의 머리카락': 2, '진주': 1, '조개껍데기': 2 } },
   { id: 'e_x2', name: '적월의 반지', slot: 'acc', grade: 'S', desc: '붉은 달빛이 오염을 밀어내는 반지.', mats: { '적월의 핵': 1, '붉은 조류의 핵': 1, '핏빛 수정': 2, '붉은 재': 4 } },
 ];
-// 지난 할로윈 이벤트에서 만든 가면: 가진 헌터는 계속 착용·수리할 수 있지만 새로 조합할 수는 없습니다 (legacy).
-EQUIPS.push(
-  { id: 'ev_m1', legacy: true, name: '도깨비 가면', slot: 'mask', grade: 'B', desc: '뿔 달린 붉은 도깨비 탈. 쓰면 발걸음이 가벼워진다.', bonus: { stat: 'agi', val: 6 }, mats: {} },
-  { id: 'ev_m2', legacy: true, name: '해태 가면', slot: 'mask', grade: 'B', desc: '액운을 쫓는 해태의 탈. 오염이 덜 스며든다.', bonus: { stat: 'taintRes', val: 14 }, mats: {} },
-  { id: 'ev_m3', legacy: true, name: '호랑이 가면', slot: 'mask', grade: 'A', desc: '산군(山君)의 기세가 서린 탈. 쓰면 힘이 솟는다.', bonus: { stat: 'str', val: 9 }, mats: {} },
-  { id: 'ev_m4', legacy: true, name: '구미호 가면', slot: 'mask', grade: 'A', desc: '꼬리 아홉 달린 여우의 탈. 운이 따라붙는다.', bonus: { stat: 'luck', val: 9 }, mats: {} },
-);
+EQUIPS.push(...EVENT.MASKS);                 // [EVENT:HALLOWEEN] 이벤트 가면 (조합 가능 여부는 이벤트 켜짐 상태에 따름)
 EQUIPS.push(
   { id: 'mg_c1', legacy: true, name: '하트 크리스털 스틱', slot: 'magic', grade: 'A', desc: '끝에 하트 모양 수정이 달린 마법 지팡이. 휘두르면 힘이 실린다.', bonus: { stat: 'str', val: 9 }, mats: {} },
   { id: 'mg_c2', legacy: true, name: '별빛 브로치', slot: 'magic', grade: 'A', desc: '가슴에 다는 별 모양 브로치. 행운이 반짝이며 따라붙는다.', bonus: { stat: 'luck', val: 9 }, mats: {} },
