@@ -45,8 +45,10 @@ h2{color:#fef3e4}
 .hf{background:#050307}
 .hbr{background:rgba(243,238,231,.18)}
 .al-go{background:linear-gradient(135deg,#b96723,#35066b)}
-.al.pins{background:linear-gradient(100deg,rgba(223,123,42,.22),rgba(240,185,58,.08) 70%,var(--field));box-shadow:0 0 14px rgba(223,123,42,.3)}
-.al.pins .al-r{background:linear-gradient(135deg,#ff933b,#5000ab)}
+.al.pins{border-left-color:#f5c518;background:linear-gradient(100deg,rgba(124,58,237,.3),rgba(245,197,24,.1) 70%,var(--field));box-shadow:0 0 14px rgba(124,58,237,.35)}
+.al.pins .al-r{background:linear-gradient(135deg,#8b5cf6,#4c1d95);border-color:#f5c518;box-shadow:0 0 10px rgba(245,197,24,.5)}
+.al-pin{color:#1e0a3c;background:linear-gradient(135deg,#a78bfa,#f5c518)}
+.al.pins[data-r] .al-r{background:linear-gradient(135deg,#8b5cf6,#4c1d95);border-color:#f5c518;color:#fff3b0;box-shadow:0 0 10px rgba(245,197,24,.5)}      /* 고정된 알림의 등급 표시: 보라 + 노랑 (등급별 주황·붉은색보다 우선) */
 .rg[aria-current="true"]{background:linear-gradient(180deg,#1c0a31,var(--field))}
 .big-p .ph-nav{background:#0a070c}
 .ph-scr{background:#0a070c}
