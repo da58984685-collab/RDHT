@@ -162,6 +162,15 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
     <p class="muted" style="margin:0 0 10px;font-size:.85rem">모든 헌터 화면의 장식과 색을 바꿉니다. 게임 내용은 그대로이고, 다른 것을 고르거나 '기본'을 고르면 다음 접속 · 5분 안에 원래대로 돌아옵니다. (마법소녀 테마에는 낮·밤 스위치가 함께 나옵니다)</p>
     <div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn" data-th="none">기본</button><button type="button" class="btn" data-th="halloween">할로윈</button><button type="button" class="btn" data-th="magic">마법소녀</button></div>
   </section>
+  <section class="card" id="evcard" style="margin-bottom:12px"><!-- [EVENT:HALLOWEEN] -->
+    <h2 style="margin-bottom:6px">할로윈 이벤트 <span id="evst" class="muted" style="font-size:.85rem"></span></h2>
+    <p class="muted" style="margin:0 0 10px;font-size:.85rem">백귀야행(밤 20시~02시 잡귀) · 처녀귀신의 소원 · 백귀 도감 · 도깨비 장터 · 귀신의 집 · 가면 장비 조합 · 혼령 소문. <b>위의 '화면 테마'를 '할로윈'으로 두면 켜지고, 기간이 끝나도 저절로 꺼지지 않습니다.</b> 다른 테마를 고르면 이벤트 메뉴가 닫히고(불씨·가면은 그대로 남음), 다시 할로윈을 고르면 이어서 쓸 수 있습니다.</p>
+    <h3 style="margin:14px 0 6px;font-size:1rem">귀신의 집 출입 횟수</h3>
+    <p class="muted" style="margin:0 0 8px;font-size:.85rem">하루 기본 횟수는 한 사람이 하루(한국 시간)에 귀신의 집을 시작할 수 있는 횟수입니다(기본 2회). 특정 헌터의 오늘 남은 횟수만 따로 정할 수도 있고(기본보다 많게도 가능), 오늘 횟수를 모두에게 되돌릴 수도 있습니다.</p>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px"><span class="muted">하루 기본 횟수</span><input id="hhmax" type="number" min="0" max="20" step="1" style="max-width:90px"><button type="button" class="btn" id="hhmaxbtn">적용</button><button type="button" class="btn dbtn" id="hhreset">오늘 횟수 전체 되돌리기</button></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center"><input id="hhcode" maxlength="20" placeholder="헌터 고유 코드" style="flex:1;min-width:150px"><button type="button" class="btn ghost" id="hhlook">조회</button><input id="hhleft" type="number" min="0" max="20" step="1" placeholder="남은 횟수" style="max-width:110px"><button type="button" class="btn" id="hhset">이 헌터에게 적용</button></div>
+    <p id="hhmsg" class="muted" style="margin:8px 0 0;font-size:.85rem" role="status"></p>
+  </section>
   <section class="card" id="hncard" style="margin-bottom:12px">
     <h2 style="margin-bottom:6px">오염 사냥꾼 현황</h2>
     <p class="muted" style="margin:0 0 8px;font-size:.85rem">서버 전체에서 오염 사냥꾼이 토벌될 때마다 강해집니다(체력·공격력·최소 라운드·보상). 강화는 최대 단계에서 멈추지만 횟수는 계속 셉니다.</p>
@@ -357,7 +366,7 @@ var THN={none:"기본",halloween:"할로윈",magic:"마법소녀"};
 function loadTheme(){
   api("GET","/api/admin/theme").then(function(r){
     if(r._status===401||r.error)return;
-    var cur=r.theme||"none";curTheme=cur;$("thst").textContent="· "+(THN[cur]||"기본");
+    var cur=r.theme||"none";curTheme=cur;$("thst").textContent="· "+(THN[cur]||"기본");loadEvAdmin();
     Array.prototype.forEach.call(document.querySelectorAll("#thcard [data-th]"),function(b){b.style.outline=b.getAttribute("data-th")===cur?"2px solid #ff8a94":""});
   });
 }
@@ -366,6 +375,39 @@ Array.prototype.forEach.call(document.querySelectorAll("#thcard [data-th]"),func
     api("POST","/api/admin/theme",{theme:b.getAttribute("data-th")}).then(function(r){if(r.error){alert("저장하지 못했습니다.");return}loadTheme()});
   });
 });
+var evMode="auto";
+function loadEvAdmin(){
+  api("GET","/api/admin/event").then(function(r){
+    if(r._status===401||r.error)return;
+    $("evst").textContent="· "+(r.on?"진행 중 (할로윈 테마와 함께 켜짐)":"꺼짐 (화면 테마가 할로윈이 아님)");
+    $("evst").style.color=r.on?"#8be28b":"";
+  });
+}
+// ── 귀신의 집 출입 횟수 ──
+function hhLoad(){api("GET","/api/admin/event/house").then(function(r){if(r&&r.max!==undefined&&document.activeElement!==$("hhmax"))$("hhmax").value=r.max})}
+function hhErr(r){return r.error==="no_user"?"그 코드의 헌터가 없습니다.":r.error==="bad_left"||r.error==="bad_max"?"0~20 사이 정수를 넣으세요.":"처리하지 못했습니다."}
+$("hhmaxbtn").addEventListener("click",function(){
+  var v=Number($("hhmax").value);if(!Number.isInteger(v)||v<0||v>20){$("hhmsg").textContent="0~20 사이 정수를 넣으세요.";return}
+  api("POST","/api/admin/event/house",{max:v}).then(function(r){$("hhmsg").textContent=r.ok?"하루 기본 횟수를 "+r.max+"회로 바꿨습니다.":hhErr(r)});
+});
+$("hhreset").addEventListener("click",function(){
+  if(!confirm("오늘 모든 헌터의 귀신의 집 사용 횟수를 지우고 기본 횟수로 되돌릴까요?"))return;
+  api("POST","/api/admin/event/house",{resetAll:true}).then(function(r){$("hhmsg").textContent=r.ok?"오늘 횟수를 모두 되돌렸습니다.":hhErr(r)});
+});
+$("hhlook").addEventListener("click",function(){
+  var c=$("hhcode").value.trim();if(!c){$("hhmsg").textContent="고유 코드를 입력하세요.";return}
+  api("GET","/api/admin/event/house?code="+encodeURIComponent(c)).then(function(r){
+    if(r.error){$("hhmsg").textContent=hhErr(r);return}
+    $("hhleft").value=r.left;$("hhmsg").textContent=r.hn+" · 오늘 남은 횟수 "+r.left+"회 (하루 기본 "+r.max+"회)";
+  });
+});
+$("hhset").addEventListener("click",function(){
+  var c=$("hhcode").value.trim(),v=Number($("hhleft").value);
+  if(!c){$("hhmsg").textContent="고유 코드를 입력하세요.";return}
+  if($("hhleft").value===""||!Number.isInteger(v)||v<0||v>20){$("hhmsg").textContent="남은 횟수는 0~20 사이 정수여야 합니다.";return}
+  api("POST","/api/admin/event/house",{code:c,left:v}).then(function(r){$("hhmsg").textContent=r.ok?r.hn+"님의 오늘 남은 횟수를 "+r.left+"회로 정했습니다.":hhErr(r)});
+});
+hhLoad();
 var maintOn=false;
 function loadMaint(){
   api("GET","/api/admin/maintenance").then(function(r){
