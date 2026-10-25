@@ -3633,8 +3633,8 @@ function pBuild(f,d){
   }
   var bio=document.createElement("p");bio.className="fp-bio";
   if(!d){bio.className+=" mute";bio.textContent="불러오는 중…"}
-  else if(d.priv){bio.className+=" mute";bio.textContent="비공개 유저입니다."}
   else if(d.bio)bio.textContent=d.bio;
+  else if(d.priv){bio.className+=" mute";bio.textContent="비공개 유저입니다."}
   else{bio.className+=" mute";bio.textContent="소개글이 없습니다."}
   if(d&&d.pins&&d.pins.length){
     var pr=document.createElement("div"),ps=document.createElement("small");ps.textContent="등록한 업적";var pw=document.createElement("div");pw.className="fp-pins";
@@ -3642,7 +3642,7 @@ function pBuild(f,d){
     pr.appendChild(ps);pr.appendChild(pw);kv.appendChild(pr);
   }
   var mb=document.createElement("button");mb.type="button";mb.className="fp-more";mb.textContent="더보기";
-  if(!d||d.priv)mb.disabled=true;
+  if(!d||(d.priv&&!(d.traits&&d.traits.length)))mb.disabled=true;
   mb.addEventListener("click",function(){trOpen("view",((d&&d.hn)||f.hn)+"의 특징",d&&d.traits,mb)});
   var warnEl=null;
   if(d&&d.corrupt){
