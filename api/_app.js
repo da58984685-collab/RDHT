@@ -1131,7 +1131,7 @@ route('GET', '/api/gw/profile', async (req, res, ctx) => {
   if (!f) return fail(res, 404, 'not_found');
   const me = f.id === ctx.user.id, fr = me || await isFriend(ctx.user.id, f.id);
   const base = { hn: f.hunter_name, rank: f.rank, image: imgUrl(f.id, f.img_ver), friend: fr, me };
-  if (f.is_private && !me && !fr) return send(res, 200, { profile: Object.assign(base, { priv: true, bio: '', pins: [], traits: [], ach: null }) });
+  if (f.is_private && !me && !fr) return send(res, 200, { profile: Object.assign(base, { priv: true, bio: f.bio || '', pins: [], traits: traitsOf((await withText(f)).traits), ach: null }) });      // 비공개 유저도 간단 프로필의 소개글·특징은 보입니다 (위치·업적은 숨김)
   await syncAchEarned(f, Date.now(), true);
   const a = await db.get(`SELECT a.name, a.descr, e.at FROM ach_earned e JOIN achievements a ON a.id = e.ach_id
     WHERE e.user_id = ? ORDER BY e.at DESC, e.rowid DESC LIMIT 1`, [f.id]);
