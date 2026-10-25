@@ -2,7 +2,7 @@
  *
  * 하는 일
  *   - 서버가 '할로윈 테마가 켜져 있다고 알려 줄 때만 halloween.css 를 불러오고, 박쥐·거미·유령·잭오랜턴 장식을 화면에 올립니다.
- *   - 이벤트가 꺼지면(관리자 페이지에서 테마를 바꾸면) 다음 접속·5분 안에 자동으로 오리지널 화면으로 돌아옵니다.
+ *   - 관리자 페이지 '화면 테마'에서 할로윈을 고르면 켜지고, 다른 테마를 고르면 다음 접속·5분 안에 오리지널 화면으로 돌아옵니다. (기간이 끝났다고 저절로 꺼지지 않음)
  *   - 이 파일이 없어도(또는 index.html 의 <script src="/halloween.js"> 한 줄을 지워도) 게임은 원래대로 동작합니다.
  *
  * 미리 보기: 주소 끝에 ?hlw=1 (해제는 ?hlw=0). 이벤트 상태와 상관없이 이 브라우저 탭에서만 적용됩니다.
@@ -95,8 +95,8 @@
   function ask() {
     if (FORCE !== null) return;
     fetch("/api/maintenance", { credentials: "same-origin" }).then(function (r) { return r.json(); }).then(function (j) {
-      if (!j) return;
-      var v = !!j.hlw; lsSet(v); setOn(v, false);
+      if (!j || typeof j.hlw !== "boolean") return;      // 서버가 분명하게 true/false 로 알려 줄 때만 바꿈 (이상한 응답이면 지금 상태 유지)
+      var v = j.hlw; lsSet(v); setOn(v, false);
     }).catch(function () {});
   }
   ask();
