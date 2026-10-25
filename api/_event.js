@@ -2,11 +2,11 @@
 // ═══════════════════════════════════════════════════════════════════════
 //  [EVENT:HALLOWEEN] 할로윈 이벤트 — 이 파일 하나에 이벤트 내용이 모여 있습니다.
 //
-//  ■ 끄는 법 (기존 서버처럼 돌리기)
-//    1) 관리자 페이지 → '할로윈 이벤트' 카드에서 [끄기] 를 누르면 즉시 꺼집니다. (코드 수정 없음)
-//    2) '자동' 상태이면 아래 START ~ END 기간에만 켜지고, END 가 지나면 저절로 꺼집니다.
+//  ■ 켜고 끄는 법
+//    관리자 페이지 → '화면 테마'에서 '할로윈'을 고르면 이벤트가 켜지고(화면 테마와 함께), 다른 테마를 고르면 꺼집니다.
+//    기간이 끝났다고 저절로 꺼지지 않습니다. (예전의 START ~ END '자동' 기간은 더 쓰지 않습니다)
 //    꺼지면: 백귀야행 몬스터가 더 나오지 않고(남은 잡귀는 청소), 소원 앱과 이벤트 소문이 사라지고,
-//            가면 조합이 막힙니다. 이미 만든 가면은 그대로 가지고 착용할 수 있습니다.
+//            가면 조합이 막힙니다. 이미 만든 가면·도깨비 불씨는 그대로 남고, 할로윈 테마를 다시 켜면 이어서 쓸 수 있습니다.
 //
 //  ■ 아예 코드에서 지우고 싶다면
 //    - 이 파일과, 다른 파일에서 'EVENT:HALLOWEEN' 으로 검색되는 부분(약 15곳)을 지우면 됩니다.
@@ -338,7 +338,7 @@ function install(a) {
     return r.changes === 1;
   };
   const claimDown = (uid, key, add) => db.run('UPDATE ev_claims SET n = MAX(0, n - ?) WHERE user_id = ? AND key = ?', [add || 1, uid, key]);
-  let cache = { at: 0, mode: 'auto', ok: false };      // ok: 설정을 DB 에서 한 번이라도 제대로 읽었는가 (못 읽은 상태에서는 '꺼짐'으로 단정하지 않음)
+  let cache = { at: 0, mode: 'off', theme: 'none', ok: false };      // ok: 설정을 DB 에서 한 번이라도 제대로 읽었는가 (못 읽은 상태에서는 '꺼짐'으로 단정하지 않음)
   let houseDaily = HOUSE_DAILY;      // 하루 귀신의 집 횟수 (관리자 창에서 바꿀 수 있음, 설정 'ev_house_daily')
 
   const modeNow = () => cache.mode;
@@ -347,7 +347,9 @@ function install(a) {
     if (!force && now - cache.at < 5000) return;
     try {
       const r = await db.get("SELECT value FROM settings WHERE key = 'ev_hlw'");
-      cache.mode = r && (r.value === 'on' || r.value === 'off') ? r.value : 'auto';
+      const th = await db.get("SELECT value FROM settings WHERE key = 'site_theme'");
+      cache.theme = th ? th.value : 'none';
+      cache.mode = cache.theme === 'halloween' ? 'on' : 'off';      // 이벤트는 '화면 테마 = 할로윈' 일 때만 켜짐
       const hd = await db.get("SELECT value FROM settings WHERE key = 'ev_house_daily'");
       const hv = hd ? Number(hd.value) : NaN;
       houseDaily = Number.isInteger(hv) && hv >= 0 && hv <= 20 ? hv : HOUSE_DAILY;
@@ -356,9 +358,7 @@ function install(a) {
   }
   // 지금 이벤트가 켜져 있는가 (동기. refresh() 가 5초마다 설정을 새로 읽어 옵니다)
   function on(now) {
-    now = now || Date.now();
-    const m = cache.mode;
-    return m === 'on' ? true : m === 'off' ? false : (now >= START && now < END);
+    return cache.theme === 'halloween';
   }
   // 백귀야행(이벤트가 켜져 있는 밤 시간) 중에는 잡귀만 출몰합니다.
   const nightOnly = now => on(now) && isNight(now);
@@ -431,12 +431,7 @@ function install(a) {
     if (on(now) || (!force && now - lastClean < 10 * MIN)) return;
     lastClean = now;
     const ph = GHOSTS.map(() => '?').join(',');
-    // 도깨비 불씨는 '관리자가 끄기를 눌렀을 때' 또는 '자동 기간(END)이 끝난 뒤'에만 사라집니다.
-    // 아직 시작 전(START 이전)이거나 설정을 읽는 순간의 착오로 '꺼짐'처럼 보일 때는 지우지 않습니다.
-    if (cache.mode === 'off' || (cache.mode === 'auto' && now >= END)) {
-      await db.run("INSERT INTO ember_log (user_id, delta, why, at) SELECT user_id, -qty, ?, ? FROM inventory WHERE item = ? AND qty > 0", [cache.mode === 'off' ? '이벤트 끄기로 소멸' : '이벤트 기간 종료로 소멸', now, EMBER]).catch(() => {});
-      await db.run('DELETE FROM inventory WHERE item = ?', [EMBER]);
-    }
+    // 도깨비 불씨는 지우지 않습니다 (테마를 잠깐 바꿨다가 다시 할로윈으로 돌려도 그대로 쓸 수 있게).
     const has = await db.get(`SELECT 1 AS x FROM monsters WHERE name IN (${ph}) LIMIT 1`, GHOSTS);
     if (!has) return;
     await db.batch([
@@ -831,15 +826,15 @@ function install(a) {
     const now = Date.now();
     send(res, 200, { mode: cache.mode, on: on(now), start: START, end: END, ghosts: GHOSTS.length, masks: MASKS.map(m => m.name) });
   }, { auth: false, admin: true });
-  route('POST', '/api/admin/event', async (req, res, ctx) => {
-    const mode = ['on', 'off', 'auto'].includes(ctx.body.mode) ? ctx.body.mode : null;
+  route('POST', '/api/admin/event', async (req, res, ctx) => {      // 켜기/끄기 = 화면 테마를 '할로윈' / '기본' 으로 바꾸기
+    const mode = ['on', 'off'].includes(ctx.body.mode) ? ctx.body.mode : null;
     if (!mode) return fail(res, 400, 'bad_mode');
-    if (mode === 'auto') await db.run("DELETE FROM settings WHERE key = 'ev_hlw'");
-    else await db.run("INSERT INTO settings (key, value) VALUES ('ev_hlw', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value", [mode]);
-    cache = { at: Date.now(), mode, ok: true };
+    if (mode === 'on') await db.run("INSERT INTO settings (key, value) VALUES ('site_theme', 'halloween') ON CONFLICT(key) DO UPDATE SET value = excluded.value");
+    else await db.run("UPDATE settings SET value = 'none' WHERE key = 'site_theme' AND value = 'halloween'");
+    await refresh(true);
     nextAt.clear();
     if (!on(Date.now())) await cleanup(true);
-    send(res, 200, { mode, on: on(Date.now()) });
+    send(res, 200, { mode: cache.mode, on: on(Date.now()) });
   }, { auth: false, admin: true });
 
 
