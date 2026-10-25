@@ -273,6 +273,16 @@ CREATE TABLE IF NOT EXISTS pvp_live (
   a_seen    INTEGER NOT NULL DEFAULT 0,
   b_seen    INTEGER NOT NULL DEFAULT 0
 );
+CREATE TABLE IF NOT EXISTS pvp_invite (
+  id         INTEGER PRIMARY KEY AUTOINCREMENT,
+  from_id    INTEGER NOT NULL,
+  to_id      INTEGER NOT NULL,
+  status     TEXT NOT NULL DEFAULT 'pending',
+  created_at INTEGER NOT NULL,
+  upd        INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS pvp_invite_to ON pvp_invite(to_id, status);
+CREATE INDEX IF NOT EXISTS pvp_invite_from ON pvp_invite(from_id, status);
 CREATE TABLE IF NOT EXISTS cw_enc (
   user_id INTEGER PRIMARY KEY,
   mon_id  TEXT NOT NULL,
@@ -447,7 +457,6 @@ CREATE TABLE IF NOT EXISTS invites (
 
 // 예전에 만들어진 표에 새 칸을 추가합니다 (이미 있으면 무시).
 const MIGRATIONS = [
-  ...require('./_event').SQL,      // [EVENT:HALLOWEEN] 이벤트 표
   ...require('./_qna').SQL,        // Q&A 표
   ...require('./_sysmsg').SQL,     // 시스템 팝업 표
   // 게이트웨이브 댓글·대댓글 좋아요 (한 사람이 한 댓글에 한 번)
