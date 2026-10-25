@@ -357,7 +357,7 @@ var THN={none:"기본",halloween:"할로윈",magic:"마법소녀"};
 function loadTheme(){
   api("GET","/api/admin/theme").then(function(r){
     if(r._status===401||r.error)return;
-    var cur=r.theme||"none";$("thst").textContent="· "+(THN[cur]||"기본");
+    var cur=r.theme||"none";curTheme=cur;$("thst").textContent="· "+(THN[cur]||"기본");
     Array.prototype.forEach.call(document.querySelectorAll("#thcard [data-th]"),function(b){b.style.outline=b.getAttribute("data-th")===cur?"2px solid #ff8a94":""});
   });
 }
@@ -494,13 +494,23 @@ function table(cols,rows,emptyMsg){
   if(!rows.length)return'<div class="empty">'+esc(emptyMsg)+"</div>";
   return'<div class="tw" style="max-height:340px"><table><thead><tr>'+cols.map(function(c){return"<th>"+esc(c)+"</th>"}).join("")+"</tr></thead><tbody>"+rows.join("")+"</tbody></table></div>";
 }
+var emData=null,emF="all",emBusy="",curTheme="none";
+function emLoad(code){
+  if(emBusy===code)return;emBusy=code;
+  api("GET","/api/admin/event/ember?code="+encodeURIComponent(code)).then(function(r){
+    emBusy="";
+    if(r._status===401){showApp(false);return}
+    if(!r.list){emData={code:code,have:0,gain:0,loss:0,list:[]}}else emData=r;
+    if(tab==="ember"&&cache&&cache.player.code===code)renderDetail();
+  }).catch(function(){emBusy=""});
+}
 function renderDetail(){
   var r=cache,p=r.player,st=p.stats||{};
   var counts={};(r.counts||[]).forEach(function(x){counts[x.result]=x.c});
   var h='<div class="head">'+(p.image?'<img alt="" src="'+esc(p.image)+'">':'<div class="ph"></div>')+
     '<div><h2>'+esc(p.hunterName)+' <span class="rk '+esc(p.rank)+'">'+esc(p.rank)+'</span></h2><div class="muted">'+esc(p.code)+" · Lv."+p.lv+" · EXP "+p.exp+"</div></div></div>";
   h+='<div class="row" style="margin:0 0 10px"><button class="btn ghost sm" id="p_imgbtn" type="button">이미지 변경</button><button class="btn ghost sm" id="p_imgrm" type="button">이미지 삭제</button><input type="file" id="p_imgfile" accept="image/*" hidden><span id="p_imgmsg" class="muted"></span></div>';
-  h+='<div class="tabs">'+[["info","정보 · 스탯"],["items","아이템"],["acq","습득 정보"],["ach","업적"],["act","활동 관리"],["hunt","토벌 기록"]].map(function(t){return'<button class="tab'+(tab===t[0]?" on":"")+'" data-t="'+t[0]+'" type="button">'+t[1]+"</button>"}).join("")+"</div>";
+  h+='<div class="tabs">'+[["info","정보 · 스탯"],["items","아이템"],["acq","습득 정보"],["ach","업적"],["act","활동 관리"]].concat(curTheme==="halloween"?[["ember","도깨비 불씨"]]:[],[["hunt","토벌 기록"]]).map(function(t){return'<button class="tab'+(tab===t[0]?" on":"")+'" data-t="'+t[0]+'" type="button">'+t[1]+"</button>"}).join("")+"</div>";
   var opt=function(list,cur){return list.map(function(x){return'<option value="'+esc(x[0])+'"'+(x[0]===cur?" selected":"")+">"+esc(x[1])+"</option>"}).join("")};
   var RANKS=["F","E","D","C","B","A","S"].map(function(x){return[x,x]});
   if(tab==="info"){
@@ -551,6 +561,16 @@ function renderDetail(){
   }else if(tab==="acq"){
     h+=table(["","시각","종류","내용","수량","출처"],(r.acquired||[]).map(function(a){return'<tr data-id="'+a.id+'"><td><input type="checkbox" data-k="sel"></td><td>'+dt(a.at)+"</td><td>"+(a.kind==="exp"?"경험치":a.kind==="gold"?"골드":esc(a.kind))+"</td><td>"+esc(a.name)+"</td><td>"+a.qty+"</td><td>"+esc(a.source)+"</td></tr>"}),"습득 기록이 없습니다.");
     if((r.acquired||[]).length)h+='<div class="row"><button class="btn dbtn sm" data-act="acq-del" type="button">선택 삭제</button><button class="btn dbtn sm" data-act="acq-clear" type="button">전체 삭제</button></div>';
+  }else if(tab==="ember"){
+    var em=(emData&&emData.code===p.code)?emData:null;
+    if(!em){h+='<div class="empty">불러오는 중…</div>';emLoad(p.code)}
+    else{
+      var rows=em.list.filter(function(x){return emF==="all"||(emF==="gain"?x.d>0:x.d<0)});
+      h+='<div class="chips"><span class="chip">현재 보유 '+em.have+'</span><span class="chip ok">획득 +'+em.gain+'</span><span class="chip bad">소실 -'+em.loss+'</span></div>';
+      h+='<div class="row" style="margin:8px 0">'+[["all","전체"],["gain","획득만"],["loss","소실만"]].map(function(t){return'<button class="btn ghost sm'+(emF===t[0]?" on":"")+'" data-ef="'+t[0]+'" type="button"'+(emF===t[0]?' style="border-color:var(--red)"':"")+'>'+t[1]+"</button>"}).join("")+'<button class="btn ghost sm" data-ef="reload" type="button">새로고침</button></div>';
+      h+=table(["시각","증감","내용"],rows.map(function(x){return"<tr><td>"+dt(x.at)+'</td><td style="font-weight:700;color:'+(x.d>0?"#6fd08c":"#ff6b6b")+'">'+(x.d>0?"+":"")+x.d+"</td><td>"+esc(x.why)+"</td></tr>"}),"기록된 내역이 없습니다.");
+      h+='<div class="note">최근 300건까지 표시합니다. 지난 할로윈 이벤트 때 쌓인 기록이며, 이 내용은 헌터 화면에는 나오지 않습니다. 이벤트 코드를 지운 뒤 남은 불씨는 서버가 한 번 치워서 현재 보유는 0 일 수 있고, 기록되지 않은 경로가 있어 합계와 보유량이 다를 수 있습니다.</div>';
+    }
   }else{
     h+='<div class="chips"><span class="chip ok">성공 '+(counts.success||0)+'</span><span class="chip bad">실패 '+(counts.fail||0)+'</span><span class="chip wait">SS급 대기 '+(counts.pending||0)+"</span></div>";
     var RS=[["success","성공"],["fail","실패"],["pending","SS급 대기"]];
@@ -563,7 +583,9 @@ function renderDetail(){
 window.addEventListener("beforeunload",function(e){if(dirty){e.preventDefault();e.returnValue=""}});
 $("detail").addEventListener("click",function(e){
   var t=e.target,b=t.closest(".tab");
-  if(b&&cache){if(!okLeave())return;dirty=false;tab=b.getAttribute("data-t");renderDetail();return}
+  var ef=t.closest&&t.closest("[data-ef]");
+  if(ef){var v=ef.getAttribute("data-ef");if(v==="reload"){emData=null}else emF=v;renderDetail();return}
+  if(b&&cache){if(!okLeave())return;dirty=false;tab=b.getAttribute("data-t");if(tab==="ember")emData=null;renderDetail();return}
   if(t.id==="p_imgbtn"){$("p_imgfile").click();return}
   if(t.id==="p_imgrm"){if(confirm("이 헌터의 캐릭터 이미지를 삭제할까요?"))saveImg("");return}
   if(t.id==="act_save")return saveAct();
