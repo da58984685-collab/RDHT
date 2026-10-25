@@ -3872,6 +3872,24 @@ async function maintState() {
   maintCache = { at: now, on: m.maint_on === undefined ? true : m.maint_on === '1', msg: m.maint_msg || '' };
   return maintCache;
 }
+// ── 관리자: 한 헌터의 도깨비 불씨(지난 할로윈 이벤트 화폐) 획득·소실 기록 (?code=헌터코드). 헌터 화면에는 나오지 않습니다. ──
+async function emberHistory(uid, limit) {
+  const EMBER = '도깨비 불씨';
+  const [inv, gains, losses] = await Promise.all([
+    db.get('SELECT qty FROM inventory WHERE user_id = ? AND item = ?', [uid, EMBER]),
+    db.all("SELECT qty, source, at FROM acquire_log WHERE user_id = ? AND kind = 'item' AND name = ? ORDER BY id DESC LIMIT ?", [uid, EMBER, limit]),
+    db.all('SELECT delta, why, at FROM ember_log WHERE user_id = ? ORDER BY id DESC LIMIT ?', [uid, limit]),
+  ]);
+  const list = gains.map(g => ({ d: Number(g.qty), why: g.source, at: Number(g.at) })).concat(losses.map(l => ({ d: Number(l.delta), why: l.why, at: Number(l.at) }))).sort((a, b) => b.at - a.at).slice(0, limit);
+  const sum = f => list.reduce((t, x) => t + (f(x) ? x.d : 0), 0);
+  return { have: inv ? Number(inv.qty) : 0, gain: sum(x => x.d > 0), loss: -sum(x => x.d < 0), list };
+}
+route('GET', '/api/admin/event/ember', async (req, res) => {
+  const code = normCode(new URL(req.url, 'http://x').searchParams.get('code') || '');
+  const u = code ? await userByCode(code) : null;
+  if (!u) return fail(res, 404, 'no_user');
+  send(res, 200, Object.assign({ hn: u.hunter_name, code: u.code }, await emberHistory(u.id, 300)));
+}, { auth: false, admin: true });
 // ── 화면 테마: 관리자 페이지에서 '기본 / 할로윈 / 마법소녀' 중 하나를 고르면 모든 헌터 화면에 적용됩니다 (장식·색만 바뀌고 게임 내용은 그대로) ──
 const THEMES = ['none', 'halloween', 'magic'];
 let themeCache = { at: 0, v: 'none' };
