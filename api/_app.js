@@ -1359,6 +1359,8 @@ require('./_qna').install({ db, route, send, fail, limited });      // Q&A (관�
 require('./_sysmsg').install({ db, route, send, fail });      // 시스템 팝업 (관리자 → 전체 헌터)
 // [EVENT:HALLOWEEN] 이벤트 모듈 연결 (화면 테마를 '할로윈'으로 두면 켜지고, 다른 테마로 바꾸면 꺼집니다)
 const EV = EVT.install({ db, G, route, send, fail, limited, userById, grantGold, logAcquire, giveItem, isFriend, userByCode, normCode, applyItemEffect, achReset: () => { achCache.defs = null; } });
+// HOME: 개인 홈페이지 (글·사진·노래·댓글). 끄려면 이 한 줄과 purgeUser 의 HP.purge 줄을 지우세요 (api/_home.js)
+const HP = require('./_home').install({ db, route, send, fail, limited, userById, isFriend, imgSig, thumbUrl, ytIdOf, safeEq, cp });
 // 그림자 거래소는 없어졌습니다. 예전에 올라가 있던 물건이 남아 있으면 판매자에게 돌려주고 비웁니다 (모두 비면 더는 확인하지 않음).
 let excCleared = false;
 async function sweepExchange() {
@@ -3735,6 +3737,7 @@ route('POST', '/api/admin/player/hunt/delete', async (req, res, ctx) => {
 // 캐릭터와 관련 데이터를 모두 지웁니다.
 async function purgeUser(id) {
   await db.batch([
+    ...HP.purge(id),      // HOME: 홈피 글·댓글·노래
     ['DELETE FROM sessions WHERE user_id = ?', [id]],
     ['DELETE FROM kills WHERE user_id = ?', [id]],
     ['DELETE FROM fail_cd WHERE user_id = ?', [id]],
