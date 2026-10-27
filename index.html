@@ -2291,7 +2291,7 @@ function sbLoad(id,v){
   box.appendChild(f);
 }
 window.addEventListener("message",function(e){      // 서버 BGM 이 끝나면 처음부터 다시 재생 (유튜브 loop 설정이 먹지 않는 영상 대비). 내가 끈 경우는 제외
-  if(!sb.id||sb.off||!/(^|\.)youtube(-nocookie)?\.com$/.test(String(e.origin).replace(/^https?:\/\//,"")))return;
+  if(!sb.id||sb.off||hpHold||!/(^|\.)youtube(-nocookie)?\.com$/.test(String(e.origin).replace(/^https?:\/\//,"")))return;
   var d=e.data;if(typeof d==="string"){try{d=JSON.parse(d)}catch(x){return}}
   if(d&&((d.event==="onStateChange"&&d.info===0)||(d.event==="infoDelivery"&&d.info&&d.info.playerState===0))){sbCmd("seekTo",[0,true]);sbCmd("playVideo")}
 });
@@ -2304,7 +2304,7 @@ $("sbgmbtn").addEventListener("click",function(){
 });
 $("sbgmvol").addEventListener("input",function(){sb.vol=Number(this.value)||0;try{localStorage.setItem("hx_sbgm_vol",String(sb.vol))}catch(e){}sbCmd("setVolume",[sb.vol])});
 // 브라우저가 소리 자동 재생을 막았을 때: 화면을 처음 누르는 순간 재생을 다시 시도합니다 (내가 끈 경우는 제외)
-document.addEventListener("pointerdown",function(){var n=Date.now();if(!sb.id||sb.off||n-sb.t<4000)return;sb.t=n;sbCmd("setVolume",[sb.vol]);sbCmd("playVideo")},true);
+document.addEventListener("pointerdown",function(){var n=Date.now();if(!sb.id||sb.off||hpHold||n-sb.t<4000)return;sb.t=n;sbCmd("setVolume",[sb.vol]);sbCmd("playVideo")},true);
 function bgmRestore(){
   try{
     var vv=localStorage.getItem("hx_bgmvol");if(vv!==null)$("bgmvol").value=vv;
@@ -5178,6 +5178,16 @@ window.addEventListener("message",function(e){      // 노래가 끝나면 처�
   var d=e.data;if(typeof d==="string"){try{d=JSON.parse(d)}catch(x){return}}
   if(d&&((d.event==="onStateChange"&&d.info===0)||(d.event==="infoDelivery"&&d.info&&d.info.playerState===0))){hpCmd("seekTo",[0,true]);hpCmd("playVideo")}
 });
+/* 다른 창·탭에 갔다가 돌아오면 서버 BGM·내 BGM 이 다시 살아나는 경우가 있어, 던전로그에 있는 동안은 돌아올 때마다 다시 멈추고 던전로그 노래만 재생 상태로 맞춥니다 */
+function hpQuiet(){
+  if(!hp.open)return;
+  sbCmd("pauseVideo");sb.on=false;sbUi();
+  if(bgm.id){bgmCmd("pauseVideo");bgmUi(false)}
+  if(hp.playing){hpCmd("setVolume",[sb.vol]);hpCmd("playVideo")}
+}
+document.addEventListener("visibilitychange",function(){if(!document.hidden&&hp.open){hpQuiet();setTimeout(hpQuiet,600);setTimeout(hpQuiet,2000)}});
+window.addEventListener("focus",function(){if(hp.open){hpQuiet();setTimeout(hpQuiet,600)}});
+window.addEventListener("pageshow",function(){if(hp.open)hpQuiet()});
 /* 사진: 비율을 지켜 한 변 360px 이하로 줄이고 JPEG 약 90KB 안으로 맞춥니다 */
 function hpResize(file){
   return new Promise(function(ok,no){
