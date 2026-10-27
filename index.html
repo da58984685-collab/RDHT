@@ -5276,7 +5276,7 @@ function hpPhotos(){
 }
 function hpSide(d){
   var w=hpEl("aside","hp-side"),pic=hpEl("div","hp-pic");
-  if(d.av){var im=document.createElement("img");im.src=d.av;im.alt="";pic.appendChild(im)}else pic.innerHTML='<svg class="ic" aria-hidden="true"><use href="#i-person"/></svg>';
+  if(d.av){var im=document.createElement("img");im.src=d.avBig||d.av;im.alt="";if(d.avBig&&d.av){im.onerror=function(){im.onerror=null;im.src=d.av}}pic.appendChild(im)}else pic.innerHTML='<svg class="ic" aria-hidden="true"><use href="#i-person"/></svg>';
   var nm=hpEl("p","hp-nm",d.hn);nm.appendChild(document.createTextNode(" "));nm.appendChild(hpEl("span","rk",d.rank||""));
   w.appendChild(pic);w.appendChild(nm);
   var rest=hpEl("div","hp-side-rest");
