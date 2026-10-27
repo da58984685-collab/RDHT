@@ -452,6 +452,33 @@ CREATE TABLE IF NOT EXISTS invites (
   max_uses   INTEGER NOT NULL DEFAULT 10,
   created_at INTEGER NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS hp_home (
+  user_id    INTEGER PRIMARY KEY,
+  song       TEXT NOT NULL DEFAULT '',
+  song_title TEXT NOT NULL DEFAULT '',
+  upd        INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS hp_posts (
+  id      INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL,
+  body    TEXT NOT NULL,
+  img     TEXT NOT NULL DEFAULT '',
+  w       INTEGER NOT NULL DEFAULT 0,
+  h       INTEGER NOT NULL DEFAULT 0,
+  ts      INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS hp_comments (
+  id        INTEGER PRIMARY KEY AUTOINCREMENT,
+  post_id   INTEGER NOT NULL,
+  user_id   INTEGER NOT NULL,
+  parent_id INTEGER NOT NULL DEFAULT 0,
+  reply_to  INTEGER NOT NULL DEFAULT 0,
+  body      TEXT NOT NULL,
+  ts        INTEGER NOT NULL
+);
 `;
 
 
@@ -459,6 +486,7 @@ CREATE TABLE IF NOT EXISTS invites (
 const MIGRATIONS = [
   ...require('./_qna').SQL,        // Q&A 표
   ...require('./_sysmsg').SQL,     // 시스템 팝업 표
+  ...require('./_home').SQL,       // HOME: 개인 홈페이지 표
   ...require('./_event').SQL,      // [EVENT:HALLOWEEN] 이벤트 표
   // 게이트웨이브 댓글·대댓글 좋아요 (한 사람이 한 댓글에 한 번)
   'CREATE TABLE IF NOT EXISTS wanted_claims (user_id INTEGER NOT NULL, day TEXT NOT NULL, PRIMARY KEY (user_id, day))',
