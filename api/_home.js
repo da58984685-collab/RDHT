@@ -58,7 +58,7 @@ function install(ctx0) {
     const owner = q.get('hn') ? await byName(q.get('hn')) : ctx.user;
     if (!owner) return fail(res, 404, 'not_found');
     const ac = await access(ctx.user, owner);
-    const head = { hn: owner.hunter_name, rank: owner.rank, av: thumbUrl(owner.id, owner.img_ver, true), me: ac.me, friend: ac.fr };
+    const head = { hn: owner.hunter_name, rank: owner.rank, av: thumbUrl(owner.id, owner.img_ver, true), avBig: Number(owner.img_ver) > 0 ? '/api/img?k=' + owner.id + '.' + imgSig(String(owner.id), Number(owner.img_ver)) + '&v=' + Number(owner.img_ver) : '', me: ac.me, friend: ac.fr };
     if (!ac.open) return send(res, 200, Object.assign(head, { priv: true, posts: [], more: false, song: null, bio: '' }));
     const before = Number(q.get('before')) || 0;
     const h = await db.get('SELECT song, song_title FROM hp_home WHERE user_id = ?', [owner.id]);
