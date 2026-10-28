@@ -1178,7 +1178,9 @@ route('POST', '/api/gw/comment', async (req, res, ctx) => {
   if (await limited('gwc:' + ctx.user.id, 30, 60000)) return fail(res, 429, 'rate_limited');
   const id = Number(ctx.body.id) || 0, text = String(ctx.body.text == null ? '' : ctx.body.text).trim();
   if (!text || cp(text) > GW_CMT_MAX) return fail(res, 400, 'bad_text');
-  if (!(await db.get('SELECT id FROM gw_posts WHERE id = ?', [id]))) return fail(res, 404, 'not_found');
+  const gp = await db.get('SELECT id, cat FROM gw_posts WHERE id = ?', [id]);
+  if (!gp) return fail(res, 404, 'not_found');
+  if (gp.cat === '로그') return fail(res, 403, 'no_comment');      // 로그 칸의 자동 글에는 댓글을 달 수 없음
   // 대댓글: parent 는 같은 글의 댓글이어야 합니다. 대댓글에 다시 답하면 맨 위 댓글 아래에 붙고, 누구에게 답했는지만 남깁니다(1단계).
   let parent = 0, replyTo = 0;
   const pid = Number(ctx.body.parent) || 0;
