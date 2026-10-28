@@ -1030,7 +1030,7 @@ route('GET', '/api/board', async (req, res) => {
 });
 
 // ── 게이트웨이브: 헌터들끼리 쓰는 게시판 (글 올리기·삭제, 댓글 달기) ──
-const GW_CATS = ['구해요', '정보', '사담'];
+const GW_CATS = ['구해요', '정보', '사담', '로그'];      // '로그' 칸은 던전로그 업로드 때 서버가 자동으로만 올립니다 (직접 글쓰기 불가)
 const GW_TITLE_MAX = 40, GW_BODY_MAX = 1000, GW_CMT_MAX = 200, GW_MEN_MAX = 5;
 // @멘션: 글·댓글 안의 "@헌터이름" 중 '친구'인 헌터만 언급으로 저장합니다 (친구가 아니면 그냥 글자). 긴 이름부터 찾아 겹치지 않게 합니다.
 async function gwSaveMentions(authorId, text, postId, commentId, now) {
@@ -1144,7 +1144,7 @@ route('POST', '/api/gw/post', async (req, res, ctx) => {
   if (!title || cp(title) > GW_TITLE_MAX) return fail(res, 400, 'bad_title');
   if (!text || cp(text) > GW_BODY_MAX) return fail(res, 400, 'bad_text');
   const cat = ctx.body.cat == null || ctx.body.cat === '' ? '사담' : String(ctx.body.cat);      // 카테고리를 안 보내는 예전 화면에서 온 글은 사담으로
-  if (!GW_CATS.includes(cat)) return fail(res, 400, 'bad_cat');
+  if (!GW_CATS.includes(cat) || cat === '로그') return fail(res, 400, 'bad_cat');
   const now = Date.now();
   const r = await db.run('INSERT INTO gw_posts (user_id, title, body, ts, cat) VALUES (?, ?, ?, ?, ?)', [ctx.user.id, title, text, now, cat]);
   await gwSaveMentions(ctx.user.id, text, r.lastId, 0, now).catch(() => {});
