@@ -131,6 +131,40 @@ function install(ctx0) {
     send(res, 201, { id: r.lastId });
   }, { limit: 200000 });
 
+  // 던전로그 알림: 내 글에 달린 댓글 / 내 댓글에 달린 답글 (게이트웨이브 알림과 같은 방식)
+  // notify: 마지막으로 확인한 댓글 번호(c) 이후에 새로 생긴 일을 셉니다 (번호를 안 보내면 현재 번호만 알려줌)
+  route('GET', '/api/hp/notify', async (req, res, ctx) => {
+    if (await limited('hpn:' + ctx.user.id, 40, 60000)) return fail(res, 429, 'rate_limited');
+    const q = new URL(req.url, 'http://x').searchParams, me = ctx.user.id;
+    const mx = await db.get('SELECT MAX(id) AS m FROM hp_comments');
+    const out = { maxCmt: Number(mx && mx.m) || 0, comments: 0, replies: 0 };
+    if (q.get('c') === null) return send(res, 200, out);
+    const ac = Math.max(0, Number(q.get('c')) || 0);
+    if (out.maxCmt > ac) {
+      out.replies = Number((await db.get('SELECT COUNT(*) AS n FROM hp_comments c WHERE c.id > ? AND c.user_id != ? AND c.reply_to > 0 AND c.reply_to IN (SELECT id FROM hp_comments WHERE user_id = ?)', [ac, me, me])).n) || 0;
+      out.comments = Number((await db.get(`SELECT COUNT(*) AS n FROM hp_comments c JOIN hp_posts p ON p.id = c.post_id WHERE c.id > ? AND c.user_id != ? AND p.user_id = ?
+        AND NOT (c.reply_to > 0 AND c.reply_to IN (SELECT id FROM hp_comments WHERE user_id = ?))`, [ac, me, me, me])).n) || 0;
+    }
+    send(res, 200, out);
+  });
+  // alerts: 알림 벨 목록 (최근 최대 30건). 읽음 표시는 기기(브라우저)에 저장합니다.
+  route('GET', '/api/hp/alerts', async (req, res, ctx) => {
+    if (await limited('hpa:' + ctx.user.id, 40, 60000)) return fail(res, 429, 'rate_limited');
+    const me = ctx.user.id, snip = t => Array.from(String(t).replace(/\s+/g, ' ')).slice(0, 40).join('');
+    const [cs, rs] = await Promise.all([
+      db.all(`SELECT c.id, c.ts, c.body AS tx, c.post_id AS pid, u.hunter_name AS hn, u.rank AS rk FROM hp_comments c JOIN hp_posts p ON p.id = c.post_id JOIN users u ON u.id = c.user_id
+        WHERE c.user_id != ? AND p.user_id = ? AND NOT (c.reply_to > 0 AND c.reply_to IN (SELECT id FROM hp_comments WHERE user_id = ?)) ORDER BY c.id DESC LIMIT 15`, [me, me, me]),
+      db.all(`SELECT c.id, c.ts, c.body AS tx, c.post_id AS pid, u.hunter_name AS hn, u.rank AS rk, ow.hunter_name AS own FROM hp_comments c JOIN users u ON u.id = c.user_id
+        LEFT JOIN hp_posts p ON p.id = c.post_id LEFT JOIN users ow ON ow.id = p.user_id
+        WHERE c.user_id != ? AND c.reply_to > 0 AND c.reply_to IN (SELECT id FROM hp_comments WHERE user_id = ?) ORDER BY c.id DESC LIMIT 15`, [me, me]),
+    ]);
+    const al = [];
+    cs.forEach(r => al.push({ key: 'c' + r.id, kind: 'cmt', hn: r.hn, rank: r.rk, text: snip(r.tx), post: r.pid, own: '', ts: r.ts }));
+    rs.forEach(r => al.push({ key: 'r' + r.id, kind: 'rep', hn: r.hn, rank: r.rk, text: snip(r.tx), post: r.pid, own: r.own === ctx.user.hunter_name ? '' : (r.own || ''), ts: r.ts }));
+    al.sort((x, y) => y.ts - x.ts);
+    send(res, 200, { alerts: al.slice(0, 30) });
+  });
+
   route('POST', '/api/hp/post/delete', async (req, res, ctx) => {
     const id = Number(ctx.body.id) || 0;
     const p = ctx.user.admin_char ? await db.get('SELECT id FROM hp_posts WHERE id = ?', [id]) : await db.get('SELECT id FROM hp_posts WHERE id = ? AND user_id = ?', [id, ctx.user.id]);
