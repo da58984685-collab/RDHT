@@ -6449,7 +6449,8 @@ function gwOpenPost(id,keepScroll){
     var p=r.post,mt=$("gwvmeta");mt.innerHTML="";mt.appendChild(gwMeta(p,p.ts,{post:p.id}));
     $("gwvtitle").textContent=p.title;gwRich($("gwvbody"),p.body,p.men);
     var d=$("gwdel");d.hidden=!p.canDel;d.dataset.arm="0";d.textContent="삭제";
-    $("gwch").textContent="댓글 "+r.comments.length;
+    var lg=p.cat==="로그";      /* 로그 칸의 자동 글에는 댓글을 달 수 없음 */
+    $("gwch").textContent="댓글 "+r.comments.length;$("gwch").hidden=lg;$("gwcform").hidden=lg;
     var ul=$("gwcs");ul.innerHTML="";gwReply(null);
     function addC(c,isRe){
       var li=document.createElement("li");li.className=(c.mine?"me":"")+(isRe?" re":"");
@@ -6460,7 +6461,7 @@ function gwOpenPost(id,keepScroll){
       li.appendChild(m);li.appendChild(t);
       var bar=document.createElement("div");bar.className="gwcb";
       var rb=document.createElement("button");rb.type="button";rb.className="gwcx";rb.textContent="답글";rb.setAttribute("aria-label",c.hn+"님의 댓글에 답글 쓰기");
-      rb.addEventListener("click",function(){gwReply(c)});
+      rb.hidden=lg;rb.addEventListener("click",function(){gwReply(c)});
       var lb=document.createElement("button");lb.type="button";lb.className="gwcx gwlk";lb.setAttribute("aria-label","댓글 좋아요");
       function lkUi(){lb.textContent=(c.liked?"♥ ":"♡ ")+"좋아요"+(c.likes?" "+c.likes:"");lb.setAttribute("aria-pressed",c.liked?"true":"false");lb.classList.toggle("on",!!c.liked)}
       lkUi();
