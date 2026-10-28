@@ -120,6 +120,14 @@ function install(ctx0) {
     const total = Number((await db.get('SELECT COUNT(*) AS n FROM hp_posts WHERE user_id = ?', [ctx.user.id])).n) || 0;
     if (total >= POST_MAX) return fail(res, 409, 'full', { max: POST_MAX });
     const r = await db.run('INSERT INTO hp_posts (user_id, body, img, w, h, ts) VALUES (?, ?, ?, ?, ?, ?)', [ctx.user.id, body, img, w, h, Date.now()]);
+    // 게이트웨이브 '로그' 칸에 자동 알림 글을 올립니다 (직접 쓸 수 없는 칸). 도배를 막으려고 같은 사람은 30분에 한 번만 올라갑니다. 실패해도 던전로그 글은 그대로 저장됩니다.
+    try {
+      const now = Date.now(), last = await db.get("SELECT MAX(ts) AS t FROM gw_posts WHERE user_id = ? AND cat = '로그'", [ctx.user.id]);
+      if (!last || !Number(last.t) || now - Number(last.t) > 1800000) {
+        const line = '\u2018' + ctx.user.hunter_name + '\u2019 님이 던전로그를 업로드했습니다.';
+        await db.run('INSERT INTO gw_posts (user_id, title, body, ts, cat) VALUES (?, ?, ?, ?, ?)', [ctx.user.id, Array.from(line).slice(0, 40).join(''), line, now, '로그']);
+      }
+    } catch (_) {}
     send(res, 201, { id: r.lastId });
   }, { limit: 200000 });
 
