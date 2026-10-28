@@ -4089,7 +4089,6 @@ function updInq(){var b=$("inqbtn");if(b)b.textContent=inqUnread?"문의 ("+inqU
 function buildCountries(){
   var box=$("ctabs");if(!box)return;box.innerHTML="";
   COUNTRIES.forEach(function(c){
-    if(c.gate)return;
     var b=document.createElement("button");b.type="button";b.className="ct";b.dataset.id=c.id;b.textContent=c.name;
     b.setAttribute("role","tab");b.setAttribute("aria-selected",c.id===viewCountry?"true":"false");b.setAttribute("aria-current",c.id===curCountry?"true":"false");
     if(c.id===viewCountry)b.classList.add("on");
@@ -4104,7 +4103,18 @@ function buildCountries(){
 function buildRegions(animate){
   var box=$("regions");box.innerHTML="";
   var c=COUNTRY_BY_ID[viewCountry];if(!c)return;
-  if(c.gate){viewCountry="KR";c=COUNTRY_BY_ID.KR}
+  if(c.gate){      /* 적월문: 지역 대신 문 하나만 보여 주고, 누르면 이동 애니메이션 뒤에 적월문 팝업이 열립니다 (그레이윅처럼 지역이동 탭에서 이동) */
+    var gb=document.createElement("button");gb.type="button";gb.className="rg";gb.dataset.id="gate";
+    gb.appendChild(svgUse("i-gate"));
+    var gn=document.createElement("b");gn.textContent=c.name;gb.appendChild(gn);
+    var gs=document.createElement("small");gs.textContent=curCountry==="GT"?"문 안쪽에 머무는 중 · 눌러서 열기":"붉은 달 아래 열린 문 · 눌러서 들어가기";gb.appendChild(gs);
+    var ga=document.createElement("span");ga.className="rg-a";ga.hidden=true;gb.appendChild(ga);
+    gb.setAttribute("aria-current",curCountry==="GT"?"true":"false");
+    gb.addEventListener("click",gtFromTab);
+    box.appendChild(gb);
+    if(animate&&box.animate&&!window.matchMedia("(prefers-reduced-motion: reduce)").matches)box.animate([{opacity:0,transform:"translateX(18px)"},{opacity:1,transform:"none"}],{duration:380,easing:"cubic-bezier(.3,1.1,.4,1)"});
+    return;
+  }
   c.regions.forEach(function(rg){
     var b=document.createElement("button");b.type="button";b.className="rg";b.dataset.id=rg.id;
     if(rg.id==="cw-isle"){var cdl=document.createElement("span");cdl.className="rg-cd";cdl.hidden=true;b.appendChild(cdl)}
@@ -4409,6 +4419,19 @@ function gtRender(){
     box.appendChild(b);
   });
   drawScene();
+}
+function gtFromTab(){      /* 지역이동 탭의 '적월문' 카드: 안에 있으면 바로 팝업, 밖이면 (팝업 틀을 먼저 열어 두고) 이동 애니메이션 → 안쪽 화면 */
+  if(gtBusy)return;
+  if(curCountry==="GT"){openGate();return}
+  gtOpener=document.activeElement;$("gtout").hidden=true;$("gtin").hidden=true;$("gtnote").textContent="";
+  gtmodal.hidden=false;$("gtex").hidden=true;document.body.style.overflow="hidden";
+  gtBusy=true;
+  gtLoad("적월문으로 들어가는 중…",api("POST","/api/move",{region:COUNTRY_BY_ID.GT.regions[0].id})).then(function(r){
+    gtBusy=false;if(r.error){closeGate();$("mapmsg").textContent=gtErr(r);return}
+    var to=regionById(r.region);if(!to){closeGate();return}
+    moveTo(r.region,true);markRegions();gtRender();svLoad();$("gtclose").focus();
+    $("gtnote").textContent=to.name+"에 도착했습니다.";$("mapmsg").textContent=to.name+"에 도착했어요.";
+  }).catch(function(){gtBusy=false;closeGate();$("mapmsg").textContent="이동하지 못했어요. 잠시 후 다시 시도해주세요."});
 }
 function openGate(){
   gtOpener=document.activeElement;$("gtnote").textContent="";gtRender();
@@ -6271,7 +6294,7 @@ function gwLoad(reset){
   var ul=$("gwul");if(reset){gwLast=0;ul.innerHTML=""}
   api("GET","/api/gw?cat="+encodeURIComponent(gwCat)+(gwLast?"&before="+gwLast:"")).then(function(r){
     if(r.error){if(reset){ul.innerHTML="";var e=document.createElement("li");e.className="gwempty";e.textContent="글을 불러오지 못했습니다.";ul.appendChild(e)}return}
-    if(reset&&!r.posts.length){var e2=document.createElement("li");e2.className="gwempty";e2.textContent=gwCat?"이 카테고리에는 아직 올라온 글이 없습니다. 첫 글을 올려보세요.":"아직 올라온 글이 없습니다. 첫 글을 올려보세요.";ul.appendChild(e2)}
+    if(reset&&!r.posts.length){var e2=document.createElement("li");e2.className="gwempty";e2.textContent=gwCat==="로그"?"던전로그 업로드 시 자동 갱신됩니다.":gwCat?"이 카테고리에는 아직 올라온 글이 없습니다. 첫 글을 올려보세요.":"아직 올라온 글이 없습니다. 첫 글을 올려보세요.";ul.appendChild(e2)}
     r.posts.forEach(function(p){
       var li=document.createElement("li"),b=document.createElement("button");b.type="button";b.className="gwi";
       var m=document.createElement("p");m.className="gwm";m.appendChild(gwMeta(p,p.ts,{post:p.id},true));
