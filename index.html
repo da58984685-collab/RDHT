@@ -5081,7 +5081,9 @@ function raiShow(wrap){
   wrap.appendChild(ul);wrap.appendChild(sq);raiCanvas(sq,"cmp");
   var fl=document.createElement("li");var fb=document.createElement("button");fb.type="button";fb.className="rai-mk";fb.textContent="먹이 만들기 · 보유 "+raiFood;
   fb.addEventListener("click",function(){raiView="craft";raiPick={};raiNote="";raiShow(wrap)});fl.appendChild(fb);ul.appendChild(fl);
-  mons.forEach(function(m){
+  var GO="SABCDE",ord=mons.map(function(m,i){return{m:m,i:i}});      /* 동행 몬스터를 맨 위에, 나머지는 등급(S→E) 순서로, 같은 등급은 원래 순서대로 */
+  ord.sort(function(x,y){var cx=x.m.id===raiComp?0:1,cy=y.m.id===raiComp?0:1;if(cx!==cy)return cx-cy;var gx=GO.indexOf(x.m.grade),gy=GO.indexOf(y.m.grade);if(gx<0)gx=99;if(gy<0)gy=99;return gx-gy||x.i-y.i});
+  ord.map(function(o){return o.m}).forEach(function(m){
     var li=document.createElement("li");
     var b=document.createElement("button");b.type="button";b.className="rai-b g-"+m.grade;b.disabled=!m.owned;
     b.setAttribute("aria-pressed",raiSel===m.id?"true":"false");
