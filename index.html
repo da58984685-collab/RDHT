@@ -629,6 +629,9 @@ input[type=text],input[type=number],input[type=password],input[type=url],textare
 .hpm{z-index:700}
 .hpm .dialog{max-width:960px;padding:44px 10px 10px}
 .hpm .dhead{display:none}
+.hpm .hp-bellw{position:absolute;top:8px;right:60px;z-index:30}
+.hpm .hp-bellw .u074-bell{width:44px;height:44px}
+@media (max-width:640px){.hpm .hp-bellw .u074-pan{right:-52px;width:min(340px,calc(100vw - 24px))}.hpm .hp-bellw .u074-pan::before{right:74px}}
 .hp-frame{padding:8px;border-radius:16px;background:linear-gradient(160deg,#c42a38,#6e1119);box-shadow:0 0 0 1px #ff6672 inset,0 6px 24px rgba(0,0,0,.5)}
 .hp-bar{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;padding:2px 8px 8px;color:#fff}
 .hp-bar b{font:800 1.02rem/1.3 "Noto Sans KR",sans-serif;text-shadow:0 1px 0 rgba(0,0,0,.35);overflow-wrap:anywhere}
@@ -1814,6 +1817,22 @@ body{overflow-x:clip}      /* 어떤 요소가 넘쳐도 화면 전체가 가로
 <div class="modal hpm" id="hpmodal" hidden>
   <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="hptitle">
     <button type="button" class="x" id="hpclose" aria-label="닫기"><svg class="ic"><use href="#i-x"/></svg></button>
+    <div class="ux u074 is-closed hp-bellw" id="hpbellw">
+      <button class="u074-bell" id="hpbell" type="button" aria-expanded="false" aria-controls="hppan" aria-label="던전로그 알림"><svg viewBox="0 0 22 22" aria-hidden="true"><path d="M5.5 15V10a5.5 5.5 0 0 1 11 0v5l1.5 1.5h-14zM9 18.5a2 2 0 0 0 4 0"/></svg><span class="u074-badge zero" id="hpbadge" aria-hidden="true">0</span></button>
+      <div class="u074-pan" id="hppan" role="region" aria-label="던전로그 알림" inert>
+        <div class="u074-ph" role="tablist" aria-label="알림 종류"><button class="u074-tab" type="button" role="tab" aria-selected="true">전체</button><button class="u074-tab" type="button" role="tab" aria-selected="false">설정</button><button class="u074-all" type="button" id="hpaall">모두 읽음</button></div>
+        <ul class="u074-list" id="hpalist" aria-live="polite"></ul>
+        <div class="u074-set" id="hpaset" hidden>
+          <p class="cmn">알림은 아래 항목마다 켜고 끌 수 있습니다.</p>
+          <ul class="gwsl">
+            <li><label><input type="checkbox" id="hpn-cmt"><span><b>내 글에 댓글이 달릴 때</b><small>내 던전로그 글에 다른 헌터가 댓글을 달면 알려줍니다.</small></span></label></li>
+            <li><label><input type="checkbox" id="hpn-rep"><span><b>나에게 답글이 달릴 때</b><small>내 댓글에 다른 헌터가 답글을 달면 알려줍니다.</small></span></label></li>
+          </ul>
+          <div class="gwrow"><button type="button" class="hud-btn" id="hpn-test">알림음 들어보기</button></div>
+          <p class="gwnote2" id="hpsnote"></p>
+        </div>
+      </div>
+    </div>
     <div class="dhead"><p class="eyebrow">HUNTER HOME</p><h1 id="hptitle">던전로그</h1></div>
     <div id="hpbody" aria-live="polite"></div>
   </div>
@@ -5235,8 +5254,115 @@ function hpResize(file){
     im.src=url;
   });
 }
+
+/* ───── 던전로그 알림: 내 글에 댓글 / 내 댓글에 답글 (게이트웨이브 알림 벨과 같은 모양, 설정은 던전로그 안에서) ───── */
+var hpnSet=null,hpnCur=null,hpnTimer=null,HPA=[],hpaOpen=false,hpaTab=0,hpaKnown=null;
+function hpnKey(){return "hx_hpn_"+myCode}
+function hpcKey(){return "hx_hpc_"+myCode}
+function hprKey(){return "hx_hpr_"+myCode}
+function hpnSettings(){
+  if(hpnSet)return hpnSet;hpnSet={cmt:true,rep:true};
+  try{var v=JSON.parse(localStorage.getItem(hpnKey())||"null");if(v){hpnSet.cmt=v.cmt!==false;hpnSet.rep=v.rep!==false}}catch(e){}
+  return hpnSet;
+}
+function hpnAny(){var t=hpnSettings();return t.cmt||t.rep}
+/* 던전로그 알림음: 다른 알림음(높은 두 음·낮은 세 음 하강·짧은 상승음·톱니파 효과음·게이트웨이브 톡톡띠링)과 달리
+   낮은 도-미-솔을 올라가는 부드러운 '둥-둥-둥' 종소리 (사인파 + 한 옥타브 위 배음, 약 1.1초) */
+function hpPing(force){
+  var c=cmAudio();if(!c||c.state!=="running")return;
+  var wait=sndUntil-Date.now();
+  if(wait>0&&!force){setTimeout(function(){hpPing(true)},wait+120);return}
+  sndUntil=Date.now()+1150;
+  try{
+    var t=c.currentTime;
+    [[262,0,.5],[330,.2,.5],[392,.4,.7]].forEach(function(n){
+      [[1,.2],[2,.06]].forEach(function(h){
+        var o=c.createOscillator(),g=c.createGain();o.type="sine";o.frequency.value=n[0]*h[0];
+        g.gain.setValueAtTime(0,t+n[1]);g.gain.linearRampToValueAtTime(h[1],t+n[1]+.02);g.gain.exponentialRampToValueAtTime(.0008,t+n[1]+n[2]);
+        o.connect(g);g.connect(c.destination);o.start(t+n[1]);o.stop(t+n[1]+n[2]+.05);
+      });
+    });
+  }catch(e){}
+}
+function hpnPoll(){
+  if($("game").hidden||!hpnAny())return;
+  if(!hpnCur){try{var v=localStorage.getItem(hpcKey());if(v!==null&&v!==""&&+v>=0)hpnCur=+v}catch(e){}}
+  api("GET","/api/hp/notify"+(hpnCur!=null?"?c="+hpnCur:"")).then(function(r){
+    if(r.error||typeof r.maxCmt!=="number")return;
+    var first=hpnCur==null,t=hpnSettings(),parts=[];
+    hpnCur=r.maxCmt;try{localStorage.setItem(hpcKey(),String(hpnCur))}catch(e){}
+    if(first){hpaLoad(false);return}
+    if(t.cmt&&r.comments)parts.push("내 글에 댓글 "+r.comments+"건");
+    if(t.rep&&r.replies)parts.push("나에게 답글 "+r.replies+"건");
+    if(r.comments||r.replies)hpaLoad(true);
+    if(parts.length){hpPing();gwToast("던전로그 · "+parts.join(" · "))}
+  }).catch(function(){});
+}
+function hpnStart(){clearInterval(hpnTimer);hpnTimer=setInterval(function(){if(document.hidden)return;hpnPoll()},15000);setTimeout(hpnPoll,3500)}
+[["hpn-cmt","cmt"],["hpn-rep","rep"]].forEach(function(x){
+  $(x[0]).addEventListener("change",function(){
+    var t=hpnSettings(),was=hpnAny();t[x[1]]=this.checked;try{localStorage.setItem(hpnKey(),JSON.stringify(t))}catch(e){}
+    if(!was&&hpnAny()){hpnCur=null;try{localStorage.removeItem(hpcKey())}catch(e){}}      /* 모두 꺼져 있다가 켜면 그동안 쌓인 알림은 울리지 않음 */
+    $("hpsnote").textContent=this.checked?"알림을 켰습니다.":"알림을 껐습니다.";hpaRender();
+  });
+});
+$("hpn-test").addEventListener("click",function(){cmAudio();setTimeout(function(){hpPing(true)},60);$("hpsnote").textContent="이 소리가 던전로그 알림에 사용됩니다. (소리가 안 나면 기기 음량과 음소거를 확인해 주세요.)"});
+function hpaReadSet(){try{var v=JSON.parse(localStorage.getItem(hprKey())||"null");if(Array.isArray(v))return v}catch(e){}return null}
+function hpaSaveRead(a){try{localStorage.setItem(hprKey(),JSON.stringify(a.slice(-400)))}catch(e){}}
+function hpaVisible(){var t=hpnSettings();return HPA.filter(function(a){return a.kind==="cmt"?t.cmt:t.rep})}
+function hpaCount(){
+  var rs=hpaReadSet()||[],n=hpaVisible().filter(function(a){return rs.indexOf(a.key)<0}).length,bd=$("hpbadge"),prev=Number(bd.textContent)||0;
+  bd.textContent=n>99?"99+":n;bd.classList.toggle("zero",!n);
+  $("hpbell").setAttribute("aria-label","던전로그 알림, 안 읽음 "+n+"개");$("hpaall").disabled=!n;
+  if(n>prev&&!gwaRm&&bd.animate)bd.animate([{transform:"scale(1)"},{transform:"scale(1.5)"},{transform:"scale(1)"}],{duration:450,easing:"cubic-bezier(.34,1.5,.64,1)"});
+}
+function hpaRender(){
+  var ul=$("hpalist");ul.innerHTML="";var rs=hpaReadSet()||[],vis=hpaVisible();
+  if(!vis.length){var e=document.createElement("li");e.className="u074-empty";e.textContent="새 알림이 없어요.";ul.appendChild(e)}
+  vis.forEach(function(a){
+    var li=document.createElement("li");li.className="u074-it";
+    li.innerHTML='<div><button class="u074-row" type="button"><span class="u074-av" aria-hidden="true"><em></em></span><span class="u074-tx"><b></b><span></span><small></small></span><span class="u074-dot" aria-hidden="true"></span></button></div>';
+    var row=li.querySelector(".u074-row");row.dataset.key=a.key;
+    li.querySelector(".u074-av").style.setProperty("--g",gwaGrad(a.hn));li.querySelector("em").textContent=a.kind==="cmt"?"💬":"↩";
+    li.querySelector("b").textContent=a.hn;
+    var tx0=a.kind==="cmt"?"님이 내 글에 댓글을 남겼어요":"님이 내 댓글에 답했어요";
+    li.querySelector(".u074-tx>span").textContent=tx0+(a.text?": “"+a.text+"”":"");li.querySelector("small").textContent=cmAgo(a.ts);
+    var isRead=rs.indexOf(a.key)>=0;if(isRead)row.classList.add("read");
+    row.setAttribute("aria-label",a.hn+tx0+(a.text?": "+a.text:"")+(isRead?"":", 안 읽음"));
+    row.addEventListener("click",function(){
+      var r2=hpaReadSet()||[];if(r2.indexOf(a.key)<0){r2.push(a.key);hpaSaveRead(r2)}
+      row.classList.add("read");hpaCount();hpaSetOpen(false);openHp(a.own||"");
+    });
+    ul.appendChild(li);
+  });
+  hpaCount();
+}
+function hpaLoad(ring){
+  if($("game").hidden)return;
+  api("GET","/api/hp/alerts").then(function(r){
+    if(r.error||!Array.isArray(r.alerts))return;
+    HPA=r.alerts;var rs=hpaReadSet();
+    if(rs===null){rs=HPA.map(function(a){return a.key});hpaSaveRead(rs)}
+    var keys=HPA.map(function(a){return a.key}),fresh=hpaKnown?keys.filter(function(k){return hpaKnown.indexOf(k)<0}):[];hpaKnown=keys;
+    var t=hpnSettings(),shown=HPA.filter(function(a){return fresh.indexOf(a.key)>=0&&(a.kind==="cmt"?t.cmt:t.rep)});
+    hpaRender();
+    if(ring&&shown.length){var b=$("hpbell");b.classList.remove("ring");void b.offsetWidth;b.classList.add("ring")}
+  }).catch(function(){});
+}
+$("hpbell").addEventListener("animationend",function(){this.classList.remove("ring")});
+function hpaSetOpen(v){hpaOpen=v;$("hpbellw").classList.toggle("is-closed",!v);$("hpbell").setAttribute("aria-expanded",String(v));$("hppan").inert=!v}
+function hpaTabSet(i){
+  hpaTab=i;$("hppan").querySelectorAll(".u074-tab").forEach(function(x,k){x.setAttribute("aria-selected",String(k===i))});
+  $("hpalist").hidden=i===1;$("hpaset").hidden=i!==1;$("hpaall").hidden=i===1;
+  if(i===1){var t=hpnSettings();$("hpn-cmt").checked=t.cmt;$("hpn-rep").checked=t.rep;$("hpsnote").textContent=""}else hpaRender();
+}
+$("hppan").querySelectorAll(".u074-tab").forEach(function(t,i){t.addEventListener("click",function(){hpaTabSet(i)})});
+$("hpbell").addEventListener("click",function(){var o=!hpaOpen;hpaSetOpen(o);if(o){hpaTabSet(hpaTab);hpaLoad(false)}});
+$("hpaall").addEventListener("click",function(){var rs=hpaReadSet()||[];hpaVisible().forEach(function(a){if(rs.indexOf(a.key)<0)rs.push(a.key)});hpaSaveRead(rs);hpaRender()});
+document.addEventListener("pointerdown",function(e){if(hpaOpen&&!$("hpbellw").contains(e.target))hpaSetOpen(false)});
 function hpClose(){
   if(!hp.open)return;
+  hpaSetOpen(false);
   hp.open=false;hpHold=false;$("hpmodal").hidden=true;document.body.style.overflow=hp.prevOv;
   $("hpsong").innerHTML="";hp.playing=false;hp.song="";
   var pv=hp.prev||{};hp.prev=null;
@@ -6266,7 +6392,7 @@ function gwRich(el,text,men){
   }
   if(last<text.length)el.appendChild(document.createTextNode(text.slice(last)));
 }
-gwnStart();
+gwnStart();hpnStart();
 
 function gwErr(r){return r.error==="rate_limited"?"잠시 후 다시 시도해주세요.":r.error==="bad_title"?"제목을 1~40자로 입력해주세요.":r.error==="bad_text"?"내용을 확인해주세요.":r.error==="bad_cat"?"카테고리를 선택해주세요.":r.error==="not_found"?"글을 찾을 수 없습니다.":"처리하지 못했습니다."}
 function gwMeta(p,at,ref,inBtn){
