@@ -1462,6 +1462,8 @@ body{overflow-x:clip}      /* 어떤 요소가 넘쳐도 화면 전체가 가로
 .gwrp button{padding:2px 8px;font:500 .74rem/1.2 "Noto Sans KR",sans-serif;color:var(--sub);background:transparent;border:1px solid var(--line);border-radius:6px;cursor:pointer}
 .gwch{margin:6px 0 8px;font-size:.82rem;color:var(--deep)}
 .gwdel[data-arm="1"]{border-color:var(--red);color:#ff8a93}
+.gwbm{display:inline-flex;align-items:center;gap:6px}.gwbm svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;stroke-linejoin:round}.gwbm[aria-pressed="true"]{border-color:var(--red2);color:#ffb3ba}.gwbm[aria-pressed="true"] svg{fill:currentColor}
+.u074-bmx{flex:none;align-self:center;margin-right:10px;padding:4px 8px;font-size:11.5px;border-radius:999px;border:1px solid var(--ux-line);background:transparent;color:var(--ux-ink-3)}.u074-bmx:hover{color:var(--ux-ink);border-color:var(--ux-accent)}
 .gwcs li{position:relative}
 #gwcform #gwct{resize:none;min-height:44px;height:44px;max-height:120px;line-height:1.45;overflow-y:auto}
 #gwcform{align-items:flex-end}
@@ -1557,8 +1559,9 @@ body{overflow-x:clip}      /* 어떤 요소가 넘쳐도 화면 전체가 가로
           <div class="ux u074 is-closed" id="gwbellw">
             <button class="u074-bell" id="gwbell" type="button" aria-expanded="false" aria-controls="gwpan" aria-label="알림"><svg viewBox="0 0 22 22" aria-hidden="true"><path d="M5.5 15V10a5.5 5.5 0 0 1 11 0v5l1.5 1.5h-14zM9 18.5a2 2 0 0 0 4 0"/></svg><span class="u074-badge zero" id="gwbadge" aria-hidden="true">0</span></button>
             <div class="u074-pan" id="gwpan" role="region" aria-label="게이트웨이브 알림" inert>
-              <div class="u074-ph" role="tablist" aria-label="알림 종류"><button class="u074-tab" type="button" role="tab" aria-selected="true">전체</button><button class="u074-tab" type="button" role="tab" aria-selected="false">멘션</button><button class="u074-tab" type="button" role="tab" aria-selected="false">설정</button><button class="u074-all" type="button" id="gwaall">모두 읽음</button></div>
+              <div class="u074-ph" role="tablist" aria-label="알림 종류"><button class="u074-tab" type="button" role="tab" aria-selected="true">전체</button><button class="u074-tab" type="button" role="tab" aria-selected="false">멘션</button><button class="u074-tab" type="button" role="tab" aria-selected="false">북마크</button><button class="u074-tab" type="button" role="tab" aria-selected="false">설정</button><button class="u074-all" type="button" id="gwaall">모두 읽음</button></div>
               <ul class="u074-list" id="gwalist" aria-live="polite"></ul>
+              <ul class="u074-list" id="gwabm" hidden></ul>
               <div class="u074-set" id="gwaset" hidden>
                 <p class="cmn">알림은 아래 항목마다 켜고 끌 수 있습니다. 모든 알림은 같은 소리가 납니다.</p>
                 <ul class="gwsl">
@@ -1595,7 +1598,7 @@ body{overflow-x:clip}      /* 어떤 요소가 넘쳐도 화면 전체가 가로
       <p class="gwnote" id="gwwnote" role="status"></p>
     </div>
     <div id="gwview" class="gwv" hidden>
-      <div class="gwtop"><button type="button" class="hud-btn" id="gwvback">← 목록</button><button type="button" class="hud-btn gwdel" id="gwdel" hidden>삭제</button></div>
+      <div class="gwtop"><button type="button" class="hud-btn" id="gwvback">← 목록</button><button type="button" class="hud-btn gwdel" id="gwdel" hidden>삭제</button><button type="button" class="hud-btn gwbm" id="gwbm" aria-pressed="false" aria-label="북마크"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v18l-6-4.2L6 21z"/></svg><span>북마크</span></button></div>
       <p class="gwm" id="gwvmeta"></p>
       <h3 id="gwvtitle"></h3>
       <p class="gwbody" id="gwvbody"></p>
@@ -3160,7 +3163,7 @@ function loadShop(){
         api("POST","/api/shop/buy",{id:it.id,qty:n}).then(function(x){
           b.disabled=false;b.textContent=x.ok?(x.qty>1?x.qty+"개 구매 완료 ✓":"구매 완료 ✓"):x.error==="no_gold"?"골드가 부족합니다":x.error==="max_qty"?(x.room>0?"최대 "+x.room+"개까지 살 수 있습니다":"더 가질 수 없습니다"):x.error==="blocked"?"운영자가 제한함":x.error==="corrupted"?"활동 불가 상태입니다":"구매 실패";
           setTimeout(function(){b.textContent=lbl},1400);
-          if(x.ok){gold=x.gold;setGoldTag();pollState(false)}
+          if(x.ok){gold=x.gold;setGoldTag();if(x.food!=null)raiFood=x.food;pollState(false)}
         });
       });
       li.appendChild(qrow);li.appendChild(b);ul.appendChild(li);
@@ -5839,6 +5842,30 @@ function loadEventMain(scr){
     });
     row.appendChild(bt);li.appendChild(row);ul.appendChild(li);scr.appendChild(ul);
     note("남은 시간 "+Math.floor(r.resetIn/3600000)+"시간 "+Math.floor(r.resetIn%3600000/60000)+"분");
+    if(r.pick){      /* 지난 소원 직접 고르기: 1~8번 중 원하는 번호의 소원을 바로 들어줍니다 (번호마다 한 번) */
+      var pe=new Date(r.pick.until-1);
+      head("소원 직접 고르기 · "+(pe.getMonth()+1)+"월 "+pe.getDate()+"일까지");
+      note("아직 들어주지 못한 소원을 번호로 골라 바로 들어줄 수 있어요. 사연 조각도 함께 열립니다.");
+      var pl=document.createElement("ul");pl.className="app-list";
+      r.pick.chapters.forEach(function(c){
+        var pli=document.createElement("li");pli.className="qst-li"+(c.done?" got":"");
+        var pt=document.createElement("div");pt.className="qst-t";pt.textContent=c.n+"번째 소원 · "+c.who;pli.appendChild(pt);
+        var ps=document.createElement("small");ps.textContent=c.say;pli.appendChild(ps);
+        var pok=true;
+        c.items.forEach(function(x){var sm=document.createElement("small");sm.textContent="· "+x.item+" "+x.have+" / "+x.qty;if(x.have<x.qty)pok=false;pli.appendChild(sm)});
+        var prow=document.createElement("div");prow.className="rum-v";var pb=document.createElement("button");pb.type="button";pb.className="ach-btn";
+        pb.textContent=c.done?"완료":c.today?"오늘의 소원 (위에서 들어주세요)":"이 소원 들어주기";pb.disabled=c.done||c.today||!pok;
+        pb.addEventListener("click",function(){
+          pb.disabled=true;
+          api("POST","/api/event/wish",{ch:c.n}).then(function(x){
+            if(x.ok){$("mapmsg").textContent=c.n+"번째 소원을 들어주었습니다 · 골드 +"+x.gold+" G · "+r.emberName+" +"+x.ember+(x.storyEnd?" · 칭호 '"+x.storyEnd+"' 획득!":"");pollState(false);loadEvent()}
+            else{pb.disabled=false;pb.textContent=x.error==="no_mats"?"재료가 부족합니다":x.error==="already_done"?"이미 완료했습니다":x.error==="pick_over"?"선택 기간이 끝났습니다":"할 수 없습니다";setTimeout(function(){loadEvent()},1400)}
+          });
+        });
+        prow.appendChild(pb);pli.appendChild(prow);pl.appendChild(pli);
+      });
+      scr.appendChild(pl);
+    }
     if(r.story){
       head("처녀귀신의 사연 · "+r.story.read+" / "+r.story.total);
       var us=document.createElement("ul");us.className="app-list";
@@ -6317,14 +6344,33 @@ function gwaLoad(ring){
   }).catch(function(){});
 }
 $("gwbell").addEventListener("animationend",function(){this.classList.remove("ring")});
+/* 북마크: 게시글 화면의 북마크 버튼으로 저장하고, 알림 벨의 '북마크' 탭에서 모아 봅니다 */
+function gwbmLoad(){
+  var ul=$("gwabm");
+  api("GET","/api/gw/bookmarks").then(function(r){
+    ul.innerHTML="";
+    if(r.error||!Array.isArray(r.bookmarks)){var e0=document.createElement("li");e0.className="u074-empty";e0.textContent="북마크를 불러오지 못했어요.";ul.appendChild(e0);return}
+    if(!r.bookmarks.length){var e=document.createElement("li");e.className="u074-empty";e.textContent="북마크한 글이 없어요. 게시글 화면의 북마크 버튼으로 저장해 보세요.";ul.appendChild(e);return}
+    r.bookmarks.forEach(function(b){
+      var li=document.createElement("li");li.className="u074-it";
+      li.innerHTML='<div style="display:flex;align-items:stretch"><button class="u074-row" type="button" style="flex:1;min-width:0"><span class="u074-av" aria-hidden="true"><em></em></span><span class="u074-tx"><b></b><span></span><small></small></span></button><button class="u074-bmx" type="button">해제</button></div>';
+      li.querySelector(".u074-av").style.setProperty("--g",gwaGrad(b.hn));li.querySelector("em").textContent="🔖";
+      li.querySelector("b").textContent=b.title;
+      var bsp=li.querySelector(".u074-tx>span");bsp.textContent=b.cat+" · "+b.hn;bsp.style.display="block";li.querySelector("small").textContent=cmAgo(b.ts);
+      li.querySelector(".u074-row").addEventListener("click",function(){gwaSetOpen(false);gwOpenPost(b.id)});
+      li.querySelector(".u074-bmx").addEventListener("click",function(){api("POST","/api/gw/bookmark",{id:b.id,on:false}).then(function(){gwbmLoad()})});
+      ul.appendChild(li);
+    });
+  }).catch(function(){});
+}
 function gwaSetOpen(v){
   gwaOpen=v;var w=$("gwbellw");w.classList.toggle("is-closed",!v);$("gwbell").setAttribute("aria-expanded",String(v));$("gwpan").inert=!v;
 }
 function gwaTabSet(i){
   gwaTab=i;var tb=$("gwpan").querySelectorAll(".u074-tab");
   tb.forEach(function(x,k){x.setAttribute("aria-selected",String(k===i))});
-  $("gwalist").hidden=i===2;$("gwaset").hidden=i!==2;$("gwaall").hidden=i===2;
-  if(i===2){gwSyncSet();$("gwsnote").textContent=""}else gwaRender();
+  $("gwalist").hidden=i>=2;$("gwabm").hidden=i!==2;$("gwaset").hidden=i!==3;$("gwaall").hidden=i>=2;
+  if(i===3){gwSyncSet();$("gwsnote").textContent=""}else if(i===2)gwbmLoad();else gwaRender();
 }
 $("gwpan").querySelectorAll(".u074-tab").forEach(function(t,i){t.addEventListener("click",function(){gwaTabSet(i)})});
 $("gwbell").addEventListener("click",function(){
@@ -6448,7 +6494,7 @@ function gwOpenPost(id,keepScroll){
     if(r.error){$("gwvnote").textContent=gwErr(r);return}
     var p=r.post,mt=$("gwvmeta");mt.innerHTML="";mt.appendChild(gwMeta(p,p.ts,{post:p.id}));
     $("gwvtitle").textContent=p.title;gwRich($("gwvbody"),p.body,p.men);
-    var d=$("gwdel");d.hidden=!p.canDel;d.dataset.arm="0";d.textContent="삭제";
+    var d=$("gwdel");d.hidden=!p.canDel;d.dataset.arm="0";d.textContent="삭제";gwBmUi(!!p.bm);
     var lg=p.cat==="로그";      /* 로그 칸의 자동 글에는 댓글을 달 수 없음 */
     $("gwch").textContent="댓글 "+r.comments.length;$("gwch").hidden=lg;$("gwcform").hidden=lg;
     var ul=$("gwcs");ul.innerHTML="";gwReply(null);
@@ -6527,6 +6573,15 @@ $("gwform").addEventListener("submit",function(e){
   }).catch(function(){btn.disabled=false;n.textContent="올리지 못했습니다."});
 });
 $("gwrpx").addEventListener("click",function(){gwReply(null)});
+function gwBmUi(on){var b=$("gwbm");b.setAttribute("aria-pressed",on?"true":"false");b.querySelector("span").textContent=on?"북마크됨":"북마크"}
+$("gwbm").addEventListener("click",function(){
+  var b=this,want=b.getAttribute("aria-pressed")!=="true";b.disabled=true;
+  api("POST","/api/gw/bookmark",{id:gwPost,on:want}).then(function(r){
+    b.disabled=false;
+    if(r.error){$("gwvnote").textContent=r.error==="bm_full"?"북마크는 "+r.max+"개까지 저장할 수 있어요.":r.error==="rate_limited"?"잠시 후 다시 시도해주세요.":"북마크하지 못했습니다.";return}
+    gwBmUi(r.bm);gwToast(r.bm?"북마크에 저장했어요. 알림의 북마크 탭에서 볼 수 있어요.":"북마크를 해제했어요.",2000);
+  }).catch(function(){b.disabled=false;$("gwvnote").textContent="북마크하지 못했습니다."});
+});
 $("gwdel").addEventListener("click",function(){
   var d=this;
   if(d.dataset.arm!=="1"){d.dataset.arm="1";d.textContent="한 번 더 누르면 삭제됩니다";setTimeout(function(){if(d.dataset.arm==="1"){d.dataset.arm="0";d.textContent="삭제"}},4000);return}
