@@ -453,6 +453,13 @@ CREATE TABLE IF NOT EXISTS invites (
   created_at INTEGER NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS gw_bookmarks (
+  user_id INTEGER NOT NULL,
+  post_id INTEGER NOT NULL,
+  ts      INTEGER NOT NULL,
+  PRIMARY KEY (user_id, post_id)
+);
+
 CREATE TABLE IF NOT EXISTS hp_home (
   user_id    INTEGER PRIMARY KEY,
   song       TEXT NOT NULL DEFAULT '',
