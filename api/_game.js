@@ -389,7 +389,7 @@ const TIERS = [
   { k: 'mid',  ranks: ['C', 'B'],      gap: () => 30 * MIN },
   { k: 'high', ranks: ['A'],           gap: () => rnd(60, 120) * MIN },
   { k: 's',    ranks: ['S'],           gap: () => rnd(120, 240) * MIN },
-  { k: 'top',  ranks: ['SS'],          gap: () => 8 * HOUR },
+  { k: 'top',  ranks: ['SS'],          gap: () => 24 * HOUR },      // SS급은 하루에 1마리
 ];
 const ACTIVE_MS = 30 * MIN;
 const ACTIVE_MS_F = 5 * MIN;                      // F급만 예외: 5분 안에 토벌하지 않으면 사라짐
@@ -531,8 +531,9 @@ const KILL_EXP = Object.fromEntries(Object.entries({ F: 8, E: 12, D: 20, C: 35, 
 const HUNT_DIFF = { F: '쉬움', E: '쉬움', D: '쉬움', C: '보통', B: '보통', A: '어려움', S: '매우 어려움', SS: '매우 어려움' };
 const HUNT_BASE = { '쉬움': 0.8, '보통': 0.55, '어려움': 0.25, '매우 어려움': 0.15 };
 
-const RAID_NEED = 100;                             // S급 자동 토벌 성공: 서로 다른 참여 헌터 수
-const RAID_ATTEMPTS = 300;                         // S급 자동 토벌 성공: 도전(토벌) 횟수 합계 (중복 포함)
+const RAID_NEED = 25;                              // SS급 자동 토벌 성공: 서로 다른 참여 헌터 수
+const RAID_ATTEMPTS = 150;                         // SS급 자동 토벌 성공: 도전(토벌) 횟수 합계 (중복 포함)
+const RAID_CHANCE_FULL = 100;                      // 성공 확률 계산용 참여 인원 기준(예전과 같은 값 유지: 자동 성공 기준을 낮춰도 확률은 그대로)
 const S_MAX = 3;                                   // S급 1시간당 도전 횟수
 const S_WINDOW_MS = HOUR;
 const S_WAIT_MS = Number(process.env.S_RESULT_DELAY_MS) || 24 * HOUR;   // S급 결과 공개까지
@@ -557,7 +558,7 @@ const freeChance = luck => capP((Number(luck) || 0) * LUCK_FREE);
 function huntChance(r, lv, participants, str) {
   if (r === 'SS') {
     const lb = Math.min(0.1, (lv - 1) * 0.01);
-    const p = 0.05 + 0.9 * Math.min(1, participants / RAID_NEED) + lb + (Number(str) || 0) * STR_WIN;
+    const p = 0.05 + 0.9 * Math.min(1, participants / RAID_CHANCE_FULL) + lb + (Number(str) || 0) * STR_WIN;
     return Math.max(0.05, capP(p));
   }
   const p = HUNT_BASE[HUNT_DIFF[r]] + Math.min(0.12, (lv - 1) * 0.015) + (Number(str) || 0) * STR_WIN;
