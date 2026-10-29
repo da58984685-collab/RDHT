@@ -73,6 +73,7 @@ const STORY = [
 ];
 const STORY_ACH = { id: 'ev_hlw_story', name: '신부의 노리개', descr: '할로윈 밤, 여덟 귀신의 사연 조각을 모두 모아 처녀귀신의 이야기를 끝까지 들었다.' };
 const STORY_ALL_EMBER = 40, FINAL_DAY_EMBER = 10;
+const PICK_UNTIL = Date.parse('2026-11-01T00:00:00+09:00');       // 10월 31일(한국 시간) 밤까지는 지난 소원(1~8번)을 직접 골라 들어줄 수 있음
 const STORY_FIRST = Date.parse('2026-10-20T00:00:00Z');       // 사연 1번이 열리는 날(한국 날짜 10월 20일) → 10월 23일에 4번, 10월 27일에 마지막 8번
 const storyDayN = day => Math.floor((Date.parse(day + 'T00:00:00Z') - STORY_FIRST) / (24 * HOUR));
 const storyIdx = day => Math.max(0, Math.min(STORY.length - 1, storyDayN(day)));      // 하루에 한 편씩, 8번이 마지막 (그 뒤로는 8번 귀신이 계속 소원을 말하고 사연은 더 열리지 않음)
@@ -452,6 +453,19 @@ function install(a) {
     while (items.length < 3) { const nm = pool[Math.floor(r() * pool.length)]; if (!items.some(x => x.item === nm)) items.push({ item: nm, qty: 1 + Math.floor(r() * 2) }); }
     return { who: ghost.who, say: ghost.say, items };
   }
+  // 직접 고른 소원(1~8번): 오늘의 소원이 아닌 번호는 사용자·번호가 같으면 항상 같은 재료. 완료 기록은 ev_claims 의 'wch:번호' (한 번만)
+  function wishOfCh(uid, ci) {
+    const r = seeded(hash(uid + ':ch' + ci + ':hlw'));
+    const pool = G.MATERIALS.filter(m => m.w >= 6).map(m => m.name);
+    const items = [];
+    while (items.length < 3) { const nm = pool[Math.floor(r() * pool.length)]; if (!items.some(x => x.item === nm)) items.push({ item: nm, qty: 1 + Math.floor(r() * 2) }); }
+    return { who: STORY[ci].who, say: STORY[ci].say, items };
+  }
+  async function openChapters(uid) {      // 사연이 열린 번호들: 매일의 소원으로 연 것 + 직접 고른 것
+    const set = new Set((await db.all('SELECT day FROM ev_wish WHERE user_id = ? AND done = 1 ORDER BY day DESC LIMIT 60', [uid])).map(r => storyIdx(r.day)));
+    for (const r of await db.all("SELECT key FROM ev_claims WHERE user_id = ? AND key LIKE 'wch:%' AND n > 0", [uid])) { const i = Number(String(r.key).slice(4)); if (i >= 0 && i < STORY.length) set.add(i); }
+    return set;
+  }
   async function streakOf(uid, today) {
     const rows = await db.all('SELECT day FROM ev_wish WHERE user_id = ? AND done = 1 ORDER BY day DESC LIMIT 30', [uid]);
     const days = new Set(rows.map(r => r.day));
@@ -468,9 +482,10 @@ function install(a) {
     const inv = new Map((await db.all('SELECT item, qty FROM inventory WHERE user_id = ? AND qty > 0', [u.id])).map(r => [r.item, Number(r.qty)]));
     const done = await db.get('SELECT done FROM ev_wish WHERE user_id = ? AND day = ?', [u.id, day]);
     const streak = await streakOf(u.id, day);
-    const doneDays = await db.all('SELECT day FROM ev_wish WHERE user_id = ? AND done = 1 ORDER BY day DESC LIMIT 60', [u.id]);
-    const open = new Set(doneDays.map(r => storyIdx(r.day))), today = storyIdx(day);
+    const open = await openChapters(u.id), today = storyIdx(day);
+    const pick = now < PICK_UNTIL ? { until: PICK_UNTIL, chapters: STORY.map((c, i) => { const pw = i === today ? w : wishOfCh(u.id, i); return { n: i + 1, who: c.who, say: pw.say, today: i === today, done: open.has(i), items: pw.items.map(x => ({ item: x.item, qty: x.qty, have: inv.get(x.item) || 0 })) }; }) } : null;
     send(res, 200, {
+      pick,
       story: { total: STORY.length, read: open.size, today, chapters: STORY.map((c, i) => ({ n: i + 1, who: open.has(i) || i === today ? c.who : null, text: open.has(i) ? c.text : null, done: open.has(i) })), allEmber: STORY_ALL_EMBER, achName: STORY_ACH.name },
       on: true, night: isNight(now), nightLeft: nightLeft(now), nightText: String(NIGHT_FROM) + '시 ~ 다음날 ' + String(NIGHT_TO).padStart(2, '0') + '시', ends: cache.mode === 'auto' ? END : null,
       ember: inv.get(EMBER) || 0, emberName: EMBER,
@@ -486,6 +501,38 @@ function install(a) {
     const now = Date.now();
     if (!on(now)) return fail(res, 403, 'event_off');
     const u = await userById(ctx.user.id), day = kstDay(now), w = wishOf(u.id, day);
+    // 직접 고르기: 오늘의 소원이 아닌 번호(1~8)를 고르면 그 소원을 바로 들어줍니다 (10월 31일 밤까지, 번호마다 한 번)
+    const chN = ctx.body.ch == null || ctx.body.ch === '' ? 0 : Number(ctx.body.ch);
+    if (chN && (!Number.isInteger(chN) || chN < 1 || chN > STORY.length)) return fail(res, 400, 'bad_ch');
+    if (chN && chN - 1 !== storyIdx(day)) {
+      if (now >= PICK_UNTIL) return fail(res, 403, 'pick_over');
+      const ci = chN - 1, pw = wishOfCh(u.id, ci);
+      if ((await openChapters(u.id)).has(ci)) return fail(res, 409, 'already_done');
+      const taken = [];
+      const restore = async () => { for (const t of taken) await giveItem(u.id, t[0], t[1]); };
+      try {
+        for (const x of pw.items) {
+          const d = await db.run('UPDATE inventory SET qty = qty - ? WHERE user_id = ? AND item = ? AND qty >= ?', [x.qty, u.id, x.item, x.qty]);
+          if (d.changes !== 1) { await restore(); return fail(res, 400, 'no_mats', { item: x.item }); }
+          taken.push([x.item, x.qty]);
+        }
+        if (!(await claimUp(u.id, 'wch:' + ci, 1, now))) { await restore(); return fail(res, 409, 'already_done'); }
+      } catch (err) { await restore(); throw err; }
+      await db.run('DELETE FROM inventory WHERE user_id = ? AND qty <= 0', [u.id]);
+      const gold2 = 150 + Math.max(0, RANKS.indexOf(u.rank)) * 60;
+      await grantGold(u.id, gold2);
+      await giveItem(u.id, EMBER, WISH_EMBER);
+      await logAcquire(u.id, 'gold', '골드', gold2, '처녀귀신의 소원', now);
+      await logAcquire(u.id, 'item', EMBER, WISH_EMBER, '처녀귀신의 소원', now);
+      let ember2 = WISH_EMBER, storyEnd2 = '';
+      if ((await openChapters(u.id)).size >= STORY.length && await claimUp(u.id, 'story_all', 1, now)) {
+        await giveItem(u.id, EMBER, STORY_ALL_EMBER);
+        await logAcquire(u.id, 'item', EMBER, STORY_ALL_EMBER, '처녀귀신의 사연 완결', now);
+        await grantAch(u.id, STORY_ACH, now);
+        ember2 += STORY_ALL_EMBER; storyEnd2 = STORY_ACH.name;
+      }
+      return send(res, 200, { ok: true, gold: gold2, ember: ember2, streak: await streakOf(u.id, day), ach: '', chapter: { n: ci + 1, who: STORY[ci].who, text: STORY[ci].text }, storyEnd: storyEnd2 });
+    }
     await db.run('INSERT OR IGNORE INTO ev_wish (user_id, day, done, at) VALUES (?, ?, 0, 0)', [u.id, day]);
     const dn = await db.get('SELECT done FROM ev_wish WHERE user_id = ? AND day = ?', [u.id, day]);
     if (dn && dn.done) return fail(res, 409, 'already_done');
@@ -520,9 +567,8 @@ function install(a) {
     await logAcquire(u.id, 'gold', '골드', gold, '처녀귀신의 소원', now);
     await logAcquire(u.id, 'item', EMBER, ember, '처녀귀신의 소원', now);
     // 여덟 조각을 모두 모았으면 완결 보상 (한 번만)
-    const doneAll = await db.all('SELECT day FROM ev_wish WHERE user_id = ? AND done = 1 ORDER BY day DESC LIMIT 60', [u.id]);
     let storyEnd = '';
-    if (new Set(doneAll.map(r => storyIdx(r.day))).size >= STORY.length && await claimUp(u.id, 'story_all', 1, now)) {
+    if ((await openChapters(u.id)).size >= STORY.length && await claimUp(u.id, 'story_all', 1, now)) {
       await giveItem(u.id, EMBER, STORY_ALL_EMBER);
       await logAcquire(u.id, 'item', EMBER, STORY_ALL_EMBER, '처녀귀신의 사연 완결', now);
       await grantAch(u.id, STORY_ACH, now);
