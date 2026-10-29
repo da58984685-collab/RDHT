@@ -292,7 +292,7 @@ async function hpForAttempts(ids, now) {
   }
 }
 
-// S급 토벌 성공: 관리자가 결정하거나, 참여 100명 / 도전 300회(중복 포함)에 이르면 자동으로 성공합니다.
+// S급 토벌 성공: 관리자가 결정하거나, 참여 25명 / 도전 150회(중복 포함)에 이르면 자동으로 성공합니다.
 // 보상은 '도전에 참여한 헌터'에게만 정해지며, 그 헌터가 성공 팝업에서 확인을 누를 때 지급됩니다.
 async function declareSuccess(m, how) {
   const now = Date.now();
