@@ -1067,7 +1067,8 @@ route('GET', '/api/gw/post', async (req, res, ctx) => {
   const mod = !!ctx.user.admin_char;     // 관리자 전용 캐릭터는 모든 글과 댓글을 지울 수 있음
   const mrows = await db.all('SELECT m.comment_id AS cid, u.hunter_name AS hn FROM gw_mentions m JOIN users u ON u.id = m.target_id WHERE m.post_id = ?', [id]);
   const menOf = cid => mrows.filter(m => Number(m.cid) === cid).map(m => m.hn);
-  send(res, 200, { post: { id: p.id, cat: p.cat || '사담', men: menOf(0), title: p.title, body: p.body, hn: p.hn || '(탈퇴한 헌터)', rank: p.rk || '', av: thumbUrl(p.user_id, p.iv, Number(p.ht) > 0), mine: p.user_id === ctx.user.id, canDel: mod || p.user_id === ctx.user.id, ts: p.ts },
+  const bmRow = await db.get('SELECT 1 AS x FROM gw_bookmarks WHERE user_id = ? AND post_id = ?', [ctx.user.id, id]);
+  send(res, 200, { post: { id: p.id, bm: !!bmRow, cat: p.cat || '사담', men: menOf(0), title: p.title, body: p.body, hn: p.hn || '(탈퇴한 헌터)', rank: p.rk || '', av: thumbUrl(p.user_id, p.iv, Number(p.ht) > 0), mine: p.user_id === ctx.user.id, canDel: mod || p.user_id === ctx.user.id, ts: p.ts },
     comments: cs.map(c => ({ id: c.id, men: menOf(Number(c.id)), parent: Number(c.parent_id) || 0, toHn: c.reply_to ? ((cs.find(x => x.id === Number(c.reply_to)) || {}).hn || '(삭제된 댓글)') : '', text: c.body, hn: c.hn || '(탈퇴한 헌터)', rank: c.rk || '', av: thumbUrl(c.user_id, c.iv, Number(c.ht) > 0), mine: c.user_id === ctx.user.id, canDel: mod || c.user_id === ctx.user.id, ts: c.ts, likes: Number((lk.get(c.id) || {}).n) || 0, liked: Number((lk.get(c.id) || {}).mine) > 0 })) });
 });
 // 게이트웨이브 알림 확인: 마지막으로 확인한 글/댓글 번호(p, c) 이후에 생긴 일을 종류별로 셉니다. (번호를 안 보내면 현재 번호만 알려줌)
@@ -1150,11 +1151,32 @@ route('POST', '/api/gw/post', async (req, res, ctx) => {
   await gwSaveMentions(ctx.user.id, text, r.lastId, 0, now).catch(() => {});
   send(res, 201, { id: r.lastId });
 });
+// 북마크: 게시글을 눌러 저장하고, 게이트웨이브 알림 벨의 '북마크' 탭에서 모아 봅니다 (사람마다 최대 100개)
+const GW_BM_MAX = 100;
+route('POST', '/api/gw/bookmark', async (req, res, ctx) => {
+  if (await limited('gwbm:' + ctx.user.id, 60, 60000)) return fail(res, 429, 'rate_limited');
+  const id = Number(ctx.body.id) || 0, me = ctx.user.id;
+  if (!(await db.get('SELECT id FROM gw_posts WHERE id = ?', [id]))) return fail(res, 404, 'not_found');
+  const has = await db.get('SELECT 1 AS x FROM gw_bookmarks WHERE user_id = ? AND post_id = ?', [me, id]);
+  const want = ctx.body.on === undefined ? !has : !!ctx.body.on;
+  if (want && !has) {
+    const n = Number((await db.get('SELECT COUNT(*) AS n FROM gw_bookmarks WHERE user_id = ?', [me])).n) || 0;
+    if (n >= GW_BM_MAX) return fail(res, 409, 'bm_full', { max: GW_BM_MAX });
+    await db.run('INSERT INTO gw_bookmarks (user_id, post_id, ts) VALUES (?, ?, ?) ON CONFLICT(user_id, post_id) DO NOTHING', [me, id, Date.now()]);
+  } else if (!want && has) await db.run('DELETE FROM gw_bookmarks WHERE user_id = ? AND post_id = ?', [me, id]);
+  send(res, 200, { ok: true, bm: want });
+});
+route('GET', '/api/gw/bookmarks', async (req, res, ctx) => {
+  if (await limited('gwbml:' + ctx.user.id, 40, 60000)) return fail(res, 429, 'rate_limited');
+  const rows = await db.all(`SELECT b.post_id AS id, b.ts AS bts, p.title, p.cat, p.ts, u.hunter_name AS hn FROM gw_bookmarks b JOIN gw_posts p ON p.id = b.post_id LEFT JOIN users u ON u.id = p.user_id
+    WHERE b.user_id = ? ORDER BY b.ts DESC LIMIT ?`, [ctx.user.id, GW_BM_MAX]);
+  send(res, 200, { bookmarks: rows.map(r => ({ id: r.id, title: r.title, cat: r.cat || '사담', hn: r.hn || '(탈퇴한 헌터)', ts: r.ts, bts: r.bts })) });
+});
 route('POST', '/api/gw/post/delete', async (req, res, ctx) => {
   const id = Number(ctx.body.id) || 0;
   const p = ctx.user.admin_char ? await db.get('SELECT id FROM gw_posts WHERE id = ?', [id]) : await db.get('SELECT id FROM gw_posts WHERE id = ? AND user_id = ?', [id, ctx.user.id]);
   if (!p) return fail(res, 404, 'not_found');           // 본인 글만 지울 수 있음 (관리자 전용 캐릭터는 모두 가능)
-  await db.batch([['DELETE FROM gw_mentions WHERE post_id = ?', [id]], ['DELETE FROM gw_likes WHERE comment_id IN (SELECT id FROM gw_comments WHERE post_id = ?)', [id]], ['DELETE FROM gw_comments WHERE post_id = ?', [id]], ['DELETE FROM gw_posts WHERE id = ?', [id]]]);
+  await db.batch([['DELETE FROM gw_bookmarks WHERE post_id = ?', [id]], ['DELETE FROM gw_mentions WHERE post_id = ?', [id]], ['DELETE FROM gw_likes WHERE comment_id IN (SELECT id FROM gw_comments WHERE post_id = ?)', [id]], ['DELETE FROM gw_comments WHERE post_id = ?', [id]], ['DELETE FROM gw_posts WHERE id = ?', [id]]]);
   send(res, 200, { ok: true });
 });
 route('POST', '/api/gw/comment/delete', async (req, res, ctx) => {
@@ -3162,12 +3184,23 @@ async function seedPvpPotion() {
   await db.run("INSERT INTO settings (key, value) VALUES ('pvp_potion_seeded', '1') ON CONFLICT(key) DO NOTHING");
   await db.run('INSERT INTO shop_items (name, descr, price, at, eff_stat, eff_amt) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(name) DO NOTHING', [PVP_POTION, 'PVP 체력을 한 번에 100까지 전부 회복합니다. 패배 후 기다리지 않고 바로 다시 전장에 설 수 있어요.', PVP_POTION_PRICE, Date.now(), 'pvp_hp', 100]);
 }
-const shopPrice = (it, stg) => it.eff_stat === 'pvp_hp' ? it.price : G.taintPrice(it.price, stg);
+// 기본 상품: 몬스터 먹이(1000 G, 오염 단계에 따른 가격 인상 없음). 사면 인벤토리가 아니라 육성 앱의 '보유 먹이'에 바로 더해집니다(최대 99개). 서버를 처음 쓸 때 한 번만 등록하며, 관리자가 지우면 다시 만들지 않습니다.
+const MON_FOOD_NAME = '몬스터 먹이', MON_FOOD_PRICE = 1000;
+let foodSeeded = false;
+async function seedMonFood() {
+  if (foodSeeded) return; foodSeeded = true;
+  const done = await db.get("SELECT value FROM settings WHERE key = 'mon_food_seeded'");
+  if (done) return;
+  await db.run("INSERT INTO settings (key, value) VALUES ('mon_food_seeded', '1') ON CONFLICT(key) DO NOTHING");
+  await db.run('INSERT INTO shop_items (name, descr, price, at, eff_stat, eff_amt) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(name) DO NOTHING', [MON_FOOD_NAME, '육성 앱에서 몬스터에게 줄 먹이입니다. 사면 바로 보유 먹이에 더해져요. (최대 99개)', MON_FOOD_PRICE, Date.now(), 'mon_food', 1]);
+}
+const shopPrice = (it, stg) => it.eff_stat === 'pvp_hp' || it.eff_stat === 'mon_food' ? it.price : G.taintPrice(it.price, stg);
 route('GET', '/api/shop', async (req, res, ctx) => {
   await seedPvpPotion().catch(() => { potionSeeded = false; });
+  await seedMonFood().catch(() => { foodSeeded = false; });
   const items = await db.all('SELECT id, name, descr, price, eff_stat, eff_amt FROM shop_items ORDER BY id');
   const stg = stageOf(ctx.user);       // 오염 단계가 오르면 상점 가격이 오릅니다
-  send(res, 200, { gold: ctx.user.gold, markup: G.TAINT_SHOP_PCT[stg], items: items.map(i => ({ id: i.id, name: i.name, desc: i.descr, price: shopPrice(i, stg), eff: i.eff_stat ? { stat: i.eff_stat, amt: i.eff_amt } : null })) });
+  send(res, 200, { gold: ctx.user.gold, markup: G.TAINT_SHOP_PCT[stg], items: items.map(i => ({ id: i.id, name: i.name, desc: i.descr, price: shopPrice(i, stg), eff: i.eff_stat && i.eff_stat !== 'mon_food' ? { stat: i.eff_stat, amt: i.eff_amt } : null })) });
 });
 
 route('POST', '/api/shop/buy', async (req, res, ctx) => {
@@ -3178,6 +3211,21 @@ route('POST', '/api/shop/buy', async (req, res, ctx) => {
   if (!it) return fail(res, 404, 'no_item');
   const qty = ctx.body.qty === undefined ? 1 : Number(ctx.body.qty);          // 한 번에 여러 개 구매 (1~9999)
   if (!Number.isInteger(qty) || qty < 1 || qty > 9999) return fail(res, 400, 'bad_qty');
+  if (it.eff_stat === 'mon_food') {      // 몬스터 먹이: 인벤토리가 아니라 보유 먹이(최대 99)에 바로 더합니다
+    const fu = await db.get('SELECT mon_food FROM users WHERE id = ?', [ctx.user.id]);
+    const room = Math.max(0, 99 - (fu ? Number(fu.mon_food) : 0));
+    if (qty > room) return fail(res, 400, 'max_qty', { room });
+    const total = shopPrice(it, stageOf(ctx.user)) * qty;
+    if (total > 0) {
+      const pay = await db.run('UPDATE users SET gold = gold - ? WHERE id = ? AND gold >= ?', [total, ctx.user.id, total]);
+      if (pay.changes !== 1) return fail(res, 402, 'no_gold');
+    }
+    try { await db.run('UPDATE users SET mon_food = MIN(99, mon_food + ?) WHERE id = ?', [qty, ctx.user.id]); }
+    catch (e) { if (total > 0) await grantGold(ctx.user.id, total); throw e; }
+    await logAcquire(ctx.user.id, 'item', it.name, qty, total > 0 ? '상점 (-' + total + ' G)' : '상점', Date.now());
+    const me2 = await db.get('SELECT gold, mon_food FROM users WHERE id = ?', [ctx.user.id]);
+    return send(res, 200, { ok: true, item: it.name, qty, spent: total, gold: me2.gold, food: me2.mon_food });
+  }
   const cur = await db.get('SELECT qty FROM inventory WHERE user_id = ? AND item = ?', [ctx.user.id, it.name]);
   const have = cur ? Number(cur.qty) : 0;
   if (have + qty > 9999) return fail(res, 400, 'max_qty', { room: Math.max(0, 9999 - have) });
@@ -3399,7 +3447,7 @@ route('POST', '/api/admin/shop/save', async (req, res, ctx) => {
   if (!Number.isInteger(price) || price < 0 || price > 9999999) return fail(res, 400, 'bad_price');
   const stat = String(ctx.body.stat == null ? '' : ctx.body.stat);
   const amt = stat ? Number(ctx.body.amt) : 0;
-  if (!['', 'hp', 'str', 'agi', 'luck', 'taint', 'pvp_hp'].includes(stat)) return fail(res, 400, 'bad_stat');
+  if (!['', 'hp', 'str', 'agi', 'luck', 'taint', 'pvp_hp', 'mon_food'].includes(stat)) return fail(res, 400, 'bad_stat');
   if (stat && (!Number.isInteger(amt) || amt === 0 || amt < -999 || amt > 999)) return fail(res, 400, 'bad_amt');
   const id = Number(ctx.body.id) || 0;
   const dup = await db.get('SELECT id FROM shop_items WHERE name = ? AND id != ?', [name, id]);
@@ -3407,7 +3455,9 @@ route('POST', '/api/admin/shop/save', async (req, res, ctx) => {
   if (id) {
     const r = await db.get('SELECT id FROM shop_items WHERE id = ?', [id]);
     if (!r) return fail(res, 404, 'no_item');
-    await db.run('UPDATE shop_items SET name = ?, descr = ?, price = ?, eff_stat = ?, eff_amt = ? WHERE id = ?', [name, desc, price, stat, amt, id]);
+    const old = await db.get('SELECT eff_stat FROM shop_items WHERE id = ?', [id]);
+    const keep = old && old.eff_stat === 'mon_food' && !stat;      // 관리자 화면에 없는 효과(몬스터 먹이)는 가격·설명만 고쳐도 유지
+    await db.run('UPDATE shop_items SET name = ?, descr = ?, price = ?, eff_stat = ?, eff_amt = ? WHERE id = ?', [name, desc, price, keep ? 'mon_food' : stat, keep ? 1 : amt, id]);
   } else {
     await db.run('INSERT INTO shop_items (name, descr, price, at, eff_stat, eff_amt) VALUES (?, ?, ?, ?, ?, ?)', [name, desc, price, Date.now(), stat, amt]);
   }
@@ -3753,6 +3803,7 @@ async function purgeUser(id) {
     ['DELETE FROM gw_mentions WHERE target_id = ? OR by_id = ? OR post_id IN (SELECT id FROM gw_posts WHERE user_id = ?)', [id, id, id]],
     ['DELETE FROM gw_likes WHERE user_id = ? OR comment_id IN (SELECT id FROM gw_comments WHERE user_id = ? OR post_id IN (SELECT id FROM gw_posts WHERE user_id = ?))', [id, id, id]],
     ['DELETE FROM gw_comments WHERE user_id = ? OR post_id IN (SELECT id FROM gw_posts WHERE user_id = ?)', [id, id]],
+    ['DELETE FROM gw_bookmarks WHERE user_id = ? OR post_id IN (SELECT id FROM gw_posts WHERE user_id = ?)', [id, id]],
     ['DELETE FROM gw_posts WHERE user_id = ?', [id]],
     ['DELETE FROM gifts WHERE from_id = ? OR to_id = ?', [id, id]],
     ['DELETE FROM hunt_log WHERE user_id = ?', [id]],
