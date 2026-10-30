@@ -146,7 +146,7 @@ function install(ctx0) {
         AND NOT (c.reply_to > 0 AND c.reply_to IN (SELECT id FROM hp_comments WHERE user_id = ?))`, [ac, me, me, me])).n) || 0;
     }
     send(res, 200, out);
-  });
+  }, { lite: [] });
   // alerts: 알림 벨 목록 (최근 최대 30건). 읽음 표시는 기기(브라우저)에 저장합니다.
   route('GET', '/api/hp/alerts', async (req, res, ctx) => {
     if (await limited('hpa:' + ctx.user.id, 40, 60000)) return fail(res, 429, 'rate_limited');
