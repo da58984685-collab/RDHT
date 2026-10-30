@@ -762,11 +762,15 @@ async function buildState(u, now) {
 }
 
 // ───────────── 인증 ─────────────
-async function authUser(req) {
+// lite: 자주 불리는 가벼운 확인(알림 개수 등)은 헌터 정보 전체(열 50여 개) 대신 필요한 열만 읽습니다.
+// Postgres 는 결과마다 열 이름 목록을 함께 보내서, 열이 많으면 그것만으로 요청당 1KB 넘게 DB 전송량이 늘어납니다.
+const LITE_COLS = ['id', 'admin_char', 'last_seen'];
+async function authUser(req, lite) {
   const t = cookies(req).sid;
   if (!t) return null;
+  const sel = lite ? LITE_COLS.concat(lite).map(c => 'u.' + c).join(', ') : await userSel('u.');
   const row = await db.get(
-    'SELECT ' + (await userSel('u.')) + ' FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token_hash = ? AND s.expires_at > ?',
+    'SELECT ' + sel + ' FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.token_hash = ? AND s.expires_at > ?',
     [sha256(t), Date.now()]);
   if (row) {      // 접속 시각 기록 (요청마다 쓰지 않도록 20초에 한 번만 갱신)
     const now = Date.now();
@@ -1099,7 +1103,7 @@ route('GET', '/api/gw/notify', async (req, res, ctx) => {
       AND NOT (c.reply_to > 0 AND c.reply_to IN (SELECT id FROM gw_comments WHERE user_id = ?))`, [ac, me, me, me])).n) || 0;
   }
   send(res, 200, out);
-});
+}, { lite: [] });
 // 알림 벨 목록: 최근에 나와 관계된 일(새 글 / 내 글에 댓글 / 나에게 답글 / 나를 태그) 최대 40건. 읽음 표시는 기기(브라우저)에 저장합니다.
 route('GET', '/api/gw/alerts', async (req, res, ctx) => {
   if (await limited('gwa:' + ctx.user.id, 40, 60000)) return fail(res, 429, 'rate_limited');
@@ -1121,7 +1125,7 @@ route('GET', '/api/gw/alerts', async (req, res, ctx) => {
   ms.forEach(r => al.push({ key: 'm' + r.id, kind: 'men', hn: r.hn, rank: r.rk, text: snip(r.tx), post: r.pid, ts: r.ts, inCmt: Number(r.cid) > 0 }));
   al.sort((x, y) => y.ts - x.ts);
   send(res, 200, { alerts: al.slice(0, 40) });
-});
+}, { lite: [] });
 // 게이트웨이브 간단 프로필: 글/댓글 번호로 작성자를 찾아 보여줍니다 (헌터 코드는 내려주지 않음).
 // 친구가 아닌 헌터에게는 현재 위치를 숨기고, 비공개 유저는 이름·등급·이미지만 보여줍니다.
 route('GET', '/api/gw/profile', async (req, res, ctx) => {
@@ -1267,7 +1271,7 @@ route('GET', '/api/survey', async (req, res, ctx) => {
     if (marks[r.region] && r.idx >= 0 && r.idx < marks[r.region].length && Number(r.at) + SURVEY_CD > now) marks[r.region][r.idx] = Number(r.at) + SURVEY_CD;
   }
   send(res, 200, { now, marks });
-});
+}, { lite: [] });
 function pickMaterial(region) {
   const ws = G.MATERIALS.map(m => (m.at[region] || 0) * m.w + (m.at[region] === undefined ? (m.name === '적월석 가루' ? 0.6 : 0.15) : 0));
   const tot = ws.reduce((a, b) => a + b, 0);
@@ -2074,7 +2078,7 @@ route('GET', '/api/cw/state', async (req, res, ctx) => {
   const now = Date.now(), e = ctx.user.region === CW_REGION ? await cwEnc(ctx.user.id, now) : null;
   const full = (await db.get('SELECT COUNT(*) AS c FROM user_mons WHERE user_id = ?', [ctx.user.id])).c >= G.FRIENDLY_MON.length;
   send(res, 200, { inside: ctx.user.region === CW_REGION, cd: Math.max(0, Math.ceil(((Number(ctx.user.cw_enter) || 0) + CW_CD - now) / 1000)), enc: e ? cwView(e) : null, all: full });
-});
+}, { lite: ['region', 'cw_enter'] });
 route('POST', '/api/cw/act', async (req, res, ctx) => {
   const uid = ctx.user.id, now = Date.now(), act = String(ctx.body.act || '');
   if (await limited('cw:' + uid, 120, 60000)) return fail(res, 429, 'rate_limited');
@@ -2317,7 +2321,7 @@ route('POST', '/api/pvp/ack', async (req, res, ctx) => {      // 끝난 전투 �
   await db.run('UPDATE pvp_live SET b_seen = 1 WHERE b_id = ? AND done = 1', [uid]);
   send(res, 200, { ok: true });
 });
-route('GET', '/api/pvp/poll', async (req, res, ctx) => { send(res, 200, await pvpPollState(ctx.user.id)); });
+route('GET', '/api/pvp/poll', async (req, res, ctx) => { send(res, 200, await pvpPollState(ctx.user.id)); }, { lite: [] });
 route('POST', '/api/pvp/cancel', async (req, res, ctx) => {
   await db.run('DELETE FROM pvp_queue WHERE user_id = ?', [ctx.user.id]);
   send(res, 200, { ok: true });
@@ -2432,7 +2436,7 @@ route('GET', '/api/world/stats', async (req, res) => {
   const ss = await db.all(`SELECT id, name, region, spawned_at FROM monsters m WHERE rank = 'SS' AND owner_id IS NULL AND corrupt_of IS NULL AND spawned_at > ?
     AND id NOT IN (SELECT monster_id FROM s_close)`, [now - G.ACTIVE_MS_S]);
   send(res, 200, { hunters, s: ss.map(m => ({ id: m.id, name: m.name, country: m.region, left: m.spawned_at + G.ACTIVE_MS_S - now })) });
-});
+}, { lite: [] });
 
 route('POST', '/api/move', async (req, res, ctx) => {
   let id = ctx.body.region;
@@ -4004,7 +4008,7 @@ async function handle(req, res) {
     }
     const ctx = { ip: clientIp(req), body: {}, user: null };
     if (r.auth) {
-      ctx.user = await authUser(req);
+      ctx.user = await authUser(req, r.lite);
       if (!ctx.user) return fail(res, 401, 'unauthorized');
       const mt = await maintState();
       if (mt.on && !ctx.user.admin_char) return fail(res, 503, 'maintenance', { message: mt.msg });
