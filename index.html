@@ -2866,7 +2866,7 @@ var globe=(function(){
       if(!P)build();
       size();var cc=COUNTRY_BY_ID[curCountry];if(cc)rot=-cc.lo;vel=0.18;hover=null;tapSel=null;
       wrap.classList.add("is-globe");box.removeAttribute("inert");$("radar").setAttribute("aria-hidden","true");
-      stats();clearInterval(stT);stT=setInterval(stats,8000);
+      stats();clearInterval(stT);stT=setInterval(function(){if(document.hidden||(window.pollIdle&&window.pollIdle()>IDLE_SLOW))return;stats()},30000);
       draw();run();
       setTimeout(function(){if(on)cv.focus({preventScroll:true})},300);
     }else{
@@ -3335,8 +3335,10 @@ function applyState(st,first){
   showResults(st.results||[]);
 }
 var POLL_MS=10000,pollHid=0,lastInput=Date.now();   // 상태 확인 간격(ms): 줄이면 알림이 빨라지고 DB 사용량이 늘어납니다
-["pointerdown","keydown","touchstart","wheel"].forEach(function(ev){window.addEventListener(ev,function(){var was=Date.now()-lastInput>900000;lastInput=Date.now();if(was&&pollTimer)pollState()},{passive:true,capture:true})});
-document.addEventListener("visibilitychange",function(){if(!document.hidden&&typeof pollTimer!=="undefined"&&pollTimer){pollState();if(typeof gwnPoll==="function")gwnPoll()}});
+var IDLE_SLOW=180000,IDLE_DEEP=600000;   // 3분 넘게 손대지 않으면 확인을 느리게, 10분 넘으면 상태 확인만 1분에 한 번 (나머지 알림 확인은 쉼). 다시 만지면 바로 전부 확인합니다.
+window.pollIdle=function(){return Date.now()-lastInput};
+["pointerdown","keydown","touchstart","wheel","mousemove"].forEach(function(ev){window.addEventListener(ev,function(){var was=Date.now()-lastInput>IDLE_SLOW;lastInput=Date.now();if(was&&pollTimer){pollState();if(typeof window.gwnPoll==="function")window.gwnPoll();if(typeof hpnPoll==="function")hpnPoll()}},{passive:true,capture:true})});
+document.addEventListener("visibilitychange",function(){if(!document.hidden&&typeof pollTimer!=="undefined"&&pollTimer){pollState();if(typeof window.gwnPoll==="function")window.gwnPoll()}});
 var pollAgain=false;
 function pollState(first){
   if($("game").hidden)return;
@@ -4187,7 +4189,7 @@ function enterGame(me){
   taintStgInit=false;renderChar(d);renderStats(d.stats);buildCountries();buildRegions();devApp=null;renderPower(false);
   statSig="";applyState(me.state,true);
   moveTo(curRegion,true);$("mapmsg").textContent=sAutoMsg;sAutoMsg="";
-  clearInterval(pollTimer);pollTimer=setInterval(function(){if(document.hidden)return;var ev=(Date.now()-lastInput>900000?3:1);if(ev>1&&(++pollHid%ev))return;pollState()},POLL_MS);       // 평소 10초마다 확인. 숨은 탭은 20초, 15분 넘게 아무것도 안 만진 화면은 30초에 한 번 (서버·DB 사용량 절약)svData={};svSync();
+  clearInterval(pollTimer);pollTimer=setInterval(function(){if(document.hidden)return;var idl=Date.now()-lastInput,ev=(idl>IDLE_DEEP?6:idl>IDLE_SLOW?3:1);if(ev>1&&(++pollHid%ev))return;pollState()},POLL_MS);       // 평소 10초마다 확인. 숨은 탭은 쉬고, 3분 넘게 안 만진 화면은 30초, 10분 넘으면 1분에 한 번 (DB 전송량 절약)svData={};svSync();
   var h=$("hudloc");h.tabIndex=-1;h.focus();
 }
 // ── 커뮤니티 (읽기 전용) ──
@@ -4504,7 +4506,7 @@ var cwReadyAt=0;
 function cwSetCd(s){cwReadyAt=Date.now()+Math.max(0,Number(s)||0)*1000;cwTick()}
 function cwTick(){var el=document.querySelector('#regions .rg[data-id="cw-isle"] .rg-cd');if(!el)return;var s=Math.ceil((cwReadyAt-Date.now())/1000);el.hidden=s<=0;if(s>0)el.textContent="입장 가능까지 "+("0"+Math.floor(s/60)).slice(-2)+" : "+("0"+(s%60)).slice(-2)}
 setInterval(cwTick,1000);
-setInterval(function(){if(curRegion!==undefined&&!document.hidden)api("GET","/api/cw/state").then(function(r){if(r&&!r.error&&typeof r.cd==="number")cwSetCd(r.cd)}).catch(function(){})},30000);
+setInterval(function(){if(curRegion!==undefined&&!document.hidden&&!(window.pollIdle&&window.pollIdle()>IDLE_DEEP))api("GET","/api/cw/state").then(function(r){if(r&&!r.error&&typeof r.cd==="number")cwSetCd(r.cd)}).catch(function(){})},30000);
 function cwFmt(s){s=Math.max(0,Math.floor(s));return Math.floor(s/60)+":"+("0"+(s%60)).slice(-2)}
 function cwUpdateBtn(){var b=$("cwopen");if(b)b.hidden=curRegion!=="cw-isle"}
 function cwOpen(){
@@ -5301,7 +5303,7 @@ function hpnPoll(){
     if(parts.length){hpPing();gwToast("던전로그 · "+parts.join(" · "))}
   }).catch(function(){});
 }
-function hpnStart(){clearInterval(hpnTimer);hpnTimer=setInterval(function(){if(document.hidden)return;hpnPoll()},15000);setTimeout(hpnPoll,3500)}
+function hpnStart(){clearInterval(hpnTimer);hpnTimer=setInterval(function(){if(document.hidden||window.pollIdle()>IDLE_DEEP)return;hpnPoll()},30000);setTimeout(hpnPoll,3500)}
 [["hpn-cmt","cmt"],["hpn-rep","rep"]].forEach(function(x){
   $(x[0]).addEventListener("change",function(){
     var t=hpnSettings(),was=hpnAny();t[x[1]]=this.checked;try{localStorage.setItem(hpnKey(),JSON.stringify(t))}catch(e){}
@@ -6273,7 +6275,8 @@ function gwnPoll(){
     if(parts.length){gwPing();gwToast("게이트웨이브 · "+parts.join(" · "))}
   }).catch(function(){});
 }
-function gwnStart(){clearInterval(gwnTimer);gwnTimer=setInterval(function(){if(document.hidden)return;gwnPoll()},15000);setTimeout(gwnPoll,2500)}
+function gwnStart(){clearInterval(gwnTimer);gwnTimer=setInterval(function(){if(document.hidden||(window.pollIdle&&window.pollIdle()>600000))return;gwnPoll()},30000);setTimeout(gwnPoll,2500)}
+window.gwnPoll=gwnPoll;      /* 오래 쉬었다 돌아오면 상태 확인과 함께 바로 알림 확인 */
 [["gwn-p0","p0"],["gwn-p1","p1"],["gwn-p2","p2"],["gwn-p3","p3"],["gwn-cmt","cmt"],["gwn-rep","rep"],["gwn-men","men"]].forEach(function(x){
   $(x[0]).addEventListener("change",function(){
     var t=gwSettings(),was=gwAny();t[x[1]]=this.checked;gwSaveSet();
