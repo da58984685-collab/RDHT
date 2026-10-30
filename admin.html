@@ -345,7 +345,10 @@ function loadOnline(){
     $("onl").innerHTML=cells.map(function(c){return'<div class="stat"><b>'+esc(c[1])+"</b><span>"+esc(c[0])+"</span></div>"}).join("");
   });
 }
-setInterval(function(){if(!document.hidden&&!$("app").classList.contains("hide"))loadOnline()},15000);
+var admLast=Date.now();      /* 10분 넘게 관리자 창을 만지지 않으면 자동 새로고침을 쉬고, 다시 만지면 바로 새로 불러옵니다 (DB 전송량 절약). 새 문의 알림음 확인은 계속합니다. */
+var admIdle=function(){return Date.now()-admLast>600000};
+["pointerdown","keydown","touchstart","wheel","mousemove"].forEach(function(ev){window.addEventListener(ev,function(){var was=admIdle();admLast=Date.now();if(was&&typeof loadAll==="function"&&$("auto").checked&&!$("app").classList.contains("hide"))loadAll()},{passive:true,capture:true})});
+setInterval(function(){if(!document.hidden&&!admIdle()&&!$("app").classList.contains("hide"))loadOnline()},15000);
 function loadSbgm(){
   api("GET","/api/admin/bgm").then(function(r){
     if(r._status===401||r.error)return;
@@ -997,7 +1000,7 @@ $("hnpop").addEventListener("change",function(){
     if(r.ok){$("hnmsg").textContent=on?"자동 팝업을 켰습니다.":"자동 팝업을 껐습니다."}else{box.checked=!on;$("hnmsg").textContent="바꾸지 못했습니다."}
   });
 });
-setInterval(function(){if(!document.hidden)loadHn()},15000);
+setInterval(function(){if(!document.hidden&&!admIdle())loadHn()},15000);
 /* ───── Q&A ───── */
 var qnEdit=0,qnAsk=0,qnData=[],qnAsks=[];
 function qnaReset(){qnEdit=0;qnAsk=0;$("qnq").value="";$("qna_a").value="";$("qnpub").value="1";$("qnsave").textContent="올리기";$("qncancel").hidden=true}
@@ -1116,7 +1119,7 @@ function pollInq(){
 setInterval(pollInq,10000);pollInq();
 function loadAll(){loadHn();loadNHist();loadSp();loadOnline();loadMaint();loadTheme();loadSbgm();loadInq();loadQna();loadInv();loadOverview();loadS();loadRec();loadBoard();loadAchDefs();if(!document.activeElement||!/^(sn|sd|sp|ss|sam|sname|sdesc|sprice|sstat|samt)$/.test(document.activeElement.className||document.activeElement.id))loadShop();loadList();if(selCode&&!dirty)loadDetail();var d=new Date(),p=function(n){return String(n).padStart(2,"0")};$("last").textContent="갱신 "+p(d.getHours())+":"+p(d.getMinutes())+":"+p(d.getSeconds())}
 // 1분마다 데이터만 다시 불러옵니다. 선택한 헌터·탭·검색어·작성 중인 알림은 그대로 유지됩니다.
-setInterval(function(){if($("auto").checked&&!document.hidden&&!$("app").classList.contains("hide"))loadAll()},60000);
+setInterval(function(){if($("auto").checked&&!document.hidden&&!admIdle()&&!$("app").classList.contains("hide"))loadAll()},60000);
 document.addEventListener("visibilitychange",function(){if(!document.hidden&&$("auto").checked&&!$("app").classList.contains("hide"))loadAll()});
 function boot(fromLogin,tries){
   tries=tries||0;
