@@ -86,18 +86,66 @@ const VARIANT_BASE = 0.01, VARIANT_LUCK = 0.005, VARIANT_MUL = 1.5, VARIANT_REWA
 // ───────── 20 요리 ─────────
 // eff: exp/gold = 비율(0.1 = +10%), luck/str/agi = 더하기, hpGuard/taintRes = %, elem = 속성 공격 피해 비율
 const COOK = [
-  { id: 'c1', name: '야채 볶음', mats: { '약초': 2, '들꽃': 1, '소금': 1 }, eff: { exp: 0.1 }, min: 30, txt: '토벌 경험치 +10%' },
-  { id: 'c2', name: '산나물 주먹밥', mats: { '야생 열매': 2, '해초': 1, '소금': 1 }, eff: { luck: 5 }, min: 30, txt: '행운 +5' },
-  { id: 'c3', name: '짐승 뼈 국밥', mats: { '짐승의 뼈': 2, '맑은 샘물': 2, '약초': 1 }, eff: { str: 6 }, min: 60, txt: '근력 +6' },
-  { id: 'c4', name: '조개탕', mats: { '조개껍데기': 3, '해초': 1, '맑은 샘물': 1 }, eff: { hpGuard: 10 }, min: 60, txt: '체력 피해 -10%' },
-  { id: 'c5', name: '구름 이슬 화채', mats: { '구름 이슬': 2, '들꽃': 2 }, eff: { agi: 6 }, min: 60, txt: '민첩 +6' },
-  { id: 'c6', name: '매운탕', mats: { '민물 생선': 2, '독버섯': 1, '소금': 1 }, eff: { taintRes: 15 }, min: 60, txt: '오염도 증가 -15%' },
-  { id: 'c7', name: '적월 생선구이', mats: { '붉은 월어': 1, '적월석 가루': 1, '소금': 1 }, eff: { elem: 0.15 }, min: 90, txt: '속성 공격 피해 +15%' },
-  { id: 'c8', name: '심연 전골', mats: { [ABYSS_MAT]: 2, '심연의 주인': 1 }, eff: { exp: 0.2, gold: 0.2 }, min: 120, txt: '토벌 경험치·골드 +20%' },
+  { id: 'c1', name: '야채 볶음', mats: { '약초': 2, '들꽃': 1, '소금': 1 }, eff: { exp: 0.1 }, min: 30, txt: '토벌 경험치 +10%', art: { s: 'plate', f: '#6aa84f', g: '#e07a3a' } },
+  { id: 'c2', name: '산나물 주먹밥', mats: { '야생 열매': 2, '해초': 1, '소금': 1 }, eff: { luck: 5 }, min: 30, txt: '행운 +5', art: { s: 'onigiri', f: '#f6f4ee', g: '#2a4a2a' } },
+  { id: 'c3', name: '짐승 뼈 국밥', mats: { '짐승의 뼈': 2, '맑은 샘물': 2, '약초': 1 }, eff: { str: 6 }, min: 60, txt: '근력 +6', art: { s: 'bowl', f: '#e8dcc0', g: '#7cbf5a' } },
+  { id: 'c4', name: '조개탕', mats: { '조개껍데기': 3, '해초': 1, '맑은 샘물': 1 }, eff: { hpGuard: 10 }, min: 60, txt: '체력 피해 -10%', art: { s: 'bowl', f: '#d8e8e0', g: '#e0b090' } },
+  { id: 'c5', name: '구름 이슬 화채', mats: { '구름 이슬': 2, '들꽃': 2 }, eff: { agi: 6 }, min: 60, txt: '민첩 +6', art: { s: 'cup', f: '#a8d8f0', g: '#f08aa0' } },
+  { id: 'c6', name: '매운탕', mats: { '민물 생선': 2, '독버섯': 1, '소금': 1 }, eff: { taintRes: 15 }, min: 60, txt: '오염도 증가 -15%', art: { s: 'pot', f: '#d0402a', g: '#7cbf5a' } },
+  { id: 'c7', name: '적월 생선구이', mats: { '붉은 월어': 1, '적월석 가루': 1, '소금': 1 }, eff: { elem: 0.15 }, min: 90, txt: '속성 공격 피해 +15%', art: { s: 'fishplate', f: '#b03040', g: '#1a1012' } },
+  { id: 'c8', name: '심연 전골', mats: { [ABYSS_MAT]: 2, '심연의 주인': 1 }, eff: { exp: 0.2, gold: 0.2 }, min: 120, txt: '토벌 경험치·골드 +20%', art: { s: 'pot', f: '#5a3a9a', g: '#c0a0ff' } },
+  // ── 추가 요리 30종 (상점 '요리 재료' 탭의 재료 + 채집 재료 + 물고기) ──
+  { id: 'c9', name: '계란말이', mats: { '달걀': 3, '대파': 1, '소금': 1 }, eff: { exp: 0.08 }, min: 30, art: { s: 'plate', f: '#f2c94c', g: '#4caf50' } },
+  { id: 'c10', name: '김치볶음밥', mats: { '쌀': 2, '고추장': 1, '달걀': 1, '식용유': 1 }, eff: { str: 5 }, min: 45, art: { s: 'rice', f: '#e0603a', g: '#f2c94c' } },
+  { id: 'c11', name: '된장찌개', mats: { '된장': 1, '두부': 1, '감자': 1, '대파': 1, '맑은 샘물': 1 }, eff: { hpGuard: 8 }, min: 60, art: { s: 'bowl', f: '#a8743a', g: '#7cbf5a' } },
+  { id: 'c12', name: '불고기', mats: { '소고기': 2, '간장': 1, '양파': 1, '설탕': 1 }, eff: { str: 8 }, min: 60, art: { s: 'plate', f: '#7a3a22', g: '#4caf50' } },
+  { id: 'c13', name: '닭꼬치', mats: { '닭고기': 2, '대파': 1, '간장': 1 }, eff: { agi: 6 }, min: 45, art: { s: 'skewer', f: '#c0703a', g: '#5aa04a' } },
+  { id: 'c14', name: '감자전', mats: { '감자': 3, '밀가루': 1, '식용유': 1 }, eff: { luck: 4 }, min: 30, art: { s: 'pancake', f: '#e8c070', g: '#4caf50' } },
+  { id: 'c15', name: '잔치국수', mats: { '국수 면': 2, '달걀': 1, '대파': 1, '간장': 1 }, eff: { exp: 0.1, gold: 0.05 }, min: 60, art: { s: 'noodle', f: '#f4ead0', g: '#f2c94c' } },
+  { id: 'c16', name: '해물파전', mats: { '밀가루': 2, '대파': 2, '오징어': 1, '달걀': 1 }, eff: { elem: 0.1 }, min: 60, art: { s: 'plate', f: '#d8a050', g: '#5aa04a' } },
+  { id: 'c17', name: '고등어구이', mats: { '고등어': 1, '소금': 1, '식용유': 1 }, eff: { agi: 5, luck: 3 }, min: 45, art: { s: 'fishplate', f: '#8a9aa8', g: '#1a1012' } },
+  { id: 'c18', name: '오징어볶음', mats: { '오징어': 2, '고추장': 1, '양파': 1 }, eff: { str: 6, elem: 0.05 }, min: 60, art: { s: 'plate', f: '#e0603a', g: '#f4ead0' } },
+  { id: 'c19', name: '꽃게탕', mats: { '꽃게': 2, '된장': 1, '대파': 1, '맑은 샘물': 1 }, eff: { hpGuard: 12 }, min: 90, art: { s: 'pot', f: '#e0603a', g: '#e8a040' } },
+  { id: 'c20', name: '참치 주먹밥', mats: { '쌀': 2, '김': 1, '참다랑어': 1 }, eff: { exp: 0.15 }, min: 90, art: { s: 'onigiri', f: '#f6f4ee', g: '#1f3a2a' } },
+  { id: 'c21', name: '카레라이스', mats: { '쌀': 2, '카레 가루': 1, '감자': 1, '당근': 1, '돼지고기': 1 }, eff: { exp: 0.12, str: 4 }, min: 90, art: { s: 'rice', f: '#d4a020', g: '#e07a3a' } },
+  { id: 'c22', name: '돈가스', mats: { '돼지고기': 2, '밀가루': 1, '달걀': 1, '식용유': 1 }, eff: { str: 10 }, min: 90, art: { s: 'plate', f: '#c8843a', g: '#7cbf5a' } },
+  { id: 'c23', name: '치즈 오믈렛', mats: { '달걀': 3, '치즈': 1, '우유': 1, '버터': 1 }, eff: { luck: 6 }, min: 60, art: { s: 'plate', f: '#f2d04c', g: '#e05a3a' } },
+  { id: 'c24', name: '꿀 팬케이크', mats: { '밀가루': 2, '달걀': 1, '우유': 1, '꿀': 1 }, eff: { agi: 5, luck: 3 }, min: 60, art: { s: 'pancake', f: '#e0b060', g: '#a0522d' } },
+  { id: 'c25', name: '열매 케이크', mats: { '밀가루': 2, '설탕': 1, '버터': 1, '달걀': 1, '야생 열매': 2 }, eff: { gold: 0.12 }, min: 90, art: { s: 'cake', f: '#f4e6c8', g: '#e06a8a' } },
+  { id: 'c26', name: '꿀차', mats: { '꿀': 1, '찻잎': 1, '맑은 샘물': 1 }, eff: { taintRes: 10 }, min: 45, art: { s: 'mug', f: '#e0a040', b: '#d8c0a0' } },
+  { id: 'c27', name: '녹차', mats: { '찻잎': 2, '맑은 샘물': 1 }, eff: { taintRes: 8, luck: 2 }, min: 45, art: { s: 'mug', f: '#7cae5a', b: '#e8e2d8' } },
+  { id: 'c28', name: '밀크티', mats: { '찻잎': 1, '우유': 1, '설탕': 1 }, eff: { agi: 4 }, min: 30, art: { s: 'cup', f: '#c8a080', g: '#3a2a20' } },
+  { id: 'c29', name: '열매 스무디', mats: { '야생 열매': 3, '우유': 1, '꿀': 1 }, eff: { luck: 5 }, min: 30, art: { s: 'cup', f: '#d04a7a', g: '#7cbf5a' } },
+  { id: 'c30', name: '호빵', mats: { '밀가루': 2, '설탕': 1, '우유': 1 }, eff: { hpGuard: 6 }, min: 30, art: { s: 'bun', f: '#f4ead8', g: '#c0703a' } },
+  { id: 'c31', name: '두부조림', mats: { '두부': 2, '간장': 1, '고춧가루': 1, '마늘': 1 }, eff: { taintRes: 12 }, min: 60, art: { s: 'plate', f: '#d8a060', g: '#e0603a' } },
+  { id: 'c32', name: '삼계탕', mats: { '닭고기': 3, '쌀': 1, '마늘': 2, '약초': 2 }, eff: { hpGuard: 15, str: 4 }, min: 120, art: { s: 'pot', f: '#f0e2c0', g: '#7cbf5a' } },
+  { id: 'c33', name: '갈비찜', mats: { '소고기': 3, '간장': 2, '당근': 1, '감자': 1, '설탕': 1 }, eff: { str: 12 }, min: 120, art: { s: 'pot', f: '#7a3a22', g: '#e07a3a' } },
+  { id: 'c34', name: '메기 매운찜', mats: { '메기': 1, '고추장': 1, '대파': 1, '마늘': 1 }, eff: { elem: 0.12 }, min: 90, art: { s: 'pot', f: '#c0402a', g: '#7cbf5a' } },
+  { id: 'c35', name: '장어 덮밥', mats: { '쌀': 2, '그림자 장어': 1, '간장': 1, '설탕': 1 }, eff: { exp: 0.15, agi: 4 }, min: 120, art: { s: 'rice', f: '#6a3a20', g: '#f2c94c' } },
+  { id: 'c36', name: '문어 숙회', mats: { '문어': 1, '고추장': 1, '참기름': 1 }, eff: { elem: 0.1, luck: 3 }, min: 60, art: { s: 'plate', f: '#d06a7a', g: '#7cbf5a' } },
+  { id: 'c37', name: '송어 버터구이', mats: { '송어': 1, '버터': 1, '마늘': 1 }, eff: { gold: 0.1, exp: 0.05 }, min: 90, art: { s: 'fishplate', f: '#d89a7a', g: '#f2e28a' } },
+  { id: 'c38', name: '용왕 수라상', mats: { '용왕 비늘잉어': 1, '쌀': 2, '참기름': 1, '꿀': 1 }, eff: { exp: 0.25, gold: 0.25 }, min: 180, art: { s: 'pot', f: '#e8c050', g: '#d4202e' } },
 ];
+// 효과 문구가 없는 요리는 eff 로 만들어 씀
+const EFF_KO = { exp: '토벌 경험치', gold: '토벌 골드', elem: '속성 공격 피해', luck: '행운', str: '근력', agi: '민첩', hpGuard: '체력 피해', taintRes: '오염도 증가' };
+function effTxt(e) {
+  return Object.keys(e).map(k => k === 'exp' || k === 'gold' || k === 'elem' ? EFF_KO[k] + ' +' + Math.round(e[k] * 100) + '%' : k === 'hpGuard' || k === 'taintRes' ? EFF_KO[k] + ' -' + e[k] + '%' : EFF_KO[k] + ' +' + e[k]).join(' · ');
+}
+COOK.forEach(c => { if (!c.txt) c.txt = effTxt(c.eff); });
+// ── 상점 '요리 재료' 탭: 요리에만 쓰는 재료 (정가 판매, 인벤토리 조합 아이템으로 들어감) ──
+const COOK_MATS = [
+  { name: '쌀', price: 30, desc: '밥과 죽의 기본' }, { name: '밀가루', price: 30, desc: '전·빵·면 반죽' }, { name: '국수 면', price: 35, desc: '바로 삶는 소면' },
+  { name: '달걀', price: 25, desc: '어디에나 어울리는 재료' }, { name: '우유', price: 35, desc: '고소한 생우유' }, { name: '버터', price: 50, desc: '풍미를 더하는 버터' }, { name: '치즈', price: 70, desc: '쭉 늘어나는 치즈' },
+  { name: '돼지고기', price: 80, desc: '볶음·튀김용 돼지고기' }, { name: '소고기', price: 120, desc: '구이·찜용 소고기' }, { name: '닭고기', price: 70, desc: '꼬치·탕용 닭고기' }, { name: '두부', price: 30, desc: '부드러운 두부' },
+  { name: '감자', price: 25, desc: '포슬포슬한 감자' }, { name: '당근', price: 25, desc: '달큰한 당근' }, { name: '양파', price: 20, desc: '볶으면 단맛이 나는 양파' }, { name: '대파', price: 20, desc: '향을 내는 대파' }, { name: '마늘', price: 20, desc: '기운이 나는 마늘' },
+  { name: '간장', price: 30, desc: '짭짤한 간장' }, { name: '된장', price: 40, desc: '구수한 된장' }, { name: '고추장', price: 40, desc: '매콤한 고추장' }, { name: '고춧가루', price: 30, desc: '얼큰한 맛' },
+  { name: '설탕', price: 25, desc: '단맛 담당' }, { name: '꿀', price: 60, desc: '진한 벌꿀' }, { name: '식용유', price: 30, desc: '굽고 튀길 때' }, { name: '참기름', price: 45, desc: '고소한 마무리' },
+  { name: '김', price: 25, desc: '바삭한 김' }, { name: '카레 가루', price: 50, desc: '향신료를 섞은 카레 가루' }, { name: '찻잎', price: 40, desc: '말린 찻잎' },
+];
+const COOK_MAT_BY = new Map(COOK_MATS.map(m => [m.name, m]));
 const COOK_BY = new Map(COOK.map(c => [c.id, c]));
 const DISH = new Map();       // 요리 아이템 이름 → { c, q } (q: 1 보통, 1.5 일품)
-COOK.forEach(c => { DISH.set(c.name, { c, q: 1 }); DISH.set(c.name + ' (일품)', { c, q: 1.5 }); });
+COOK.forEach(c => { DISH.set(c.name, { c, q: 1 }); DISH.set(c.name + ' (일품)', { c, q: 1.5 }); });      // 요리 아이템
 const BUFF_MAX = 3 * HOUR, FINE_P = 0.1;
 
 // ───────── 21 낚시 ─────────
@@ -460,12 +508,34 @@ function install(d) {
   });
 
   // ═════════ 20 요리 ═════════
+  // 상점 '요리 재료' 탭
+  route('GET', '/api/shop/cook', async (req, res, ctx) => {
+    const inv = await db.all('SELECT item, qty FROM inventory WHERE user_id = ? AND qty > 0', [ctx.user.id]), have = new Map(inv.map(r => [r.item, Number(r.qty)]));
+    send(res, 200, { gold: ctx.user.gold, items: COOK_MATS.map(m => ({ name: m.name, desc: m.desc, price: m.price, have: have.get(m.name) || 0, uses: COOK.filter(c => c.mats[m.name]).map(c => c.name) })) });
+  });
+  route('POST', '/api/shop/cook/buy', async (req, res, ctx) => {
+    if (await limited('buy:' + ctx.user.id, 60, HOUR)) return fail(res, 429, 'rate_limited');
+    if (ctx.user.block_flags & 4) return fail(res, 403, 'blocked', { what: 'shop' });
+    const m = COOK_MAT_BY.get(String(ctx.body.name || '')), uid = ctx.user.id;
+    if (!m) return fail(res, 404, 'no_item');
+    const qty = ctx.body.qty === undefined ? 1 : Number(ctx.body.qty);
+    if (!Number.isInteger(qty) || qty < 1 || qty > 9999) return fail(res, 400, 'bad_qty');
+    const cur = await db.get('SELECT qty FROM inventory WHERE user_id = ? AND item = ?', [uid, m.name]), have = cur ? Number(cur.qty) : 0;
+    if (have + qty > 9999) return fail(res, 400, 'max_qty', { room: Math.max(0, 9999 - have) });
+    const total = m.price * qty;
+    const pay = await db.run('UPDATE users SET gold = gold - ? WHERE id = ? AND gold >= ?', [total, uid, total]);
+    if (pay.changes !== 1) return fail(res, 402, 'no_gold');
+    try { await giveItem(uid, m.name, qty); } catch (e) { await grantGold(uid, total); throw e; }
+    await logAcquire(uid, 'item', m.name, qty, '상점 요리 재료 (-' + total + ' G)', Date.now());
+    const me = await db.get('SELECT gold FROM users WHERE id = ?', [uid]);
+    send(res, 200, { ok: true, item: m.name, qty, spent: total, gold: me.gold });
+  });
   route('GET', '/api/cook', async (req, res, ctx) => {
     const uid = ctx.user.id, now = Date.now();
     const u = await db.get('SELECT buff, buff_until, buff_q FROM users WHERE id = ?', [uid]);
     const list = [];
-    for (const c of COOK) list.push({ id: c.id, name: c.name, txt: c.txt, min: c.min, mats: Object.keys(c.mats).map(k => ({ item: k, qty: c.mats[k] })), have: await haveMats(uid, c.mats) });
-    const dishes = (await db.all('SELECT item, qty FROM inventory WHERE user_id = ? AND qty > 0', [uid])).filter(r => DISH.has(r.item)).map(r => ({ item: r.item, qty: r.qty, txt: DISH.get(r.item).c.txt, fine: DISH.get(r.item).q > 1 }));
+    for (const c of COOK) list.push({ id: c.id, name: c.name, txt: c.txt, min: c.min, art: c.art, mats: Object.keys(c.mats).map(k => ({ item: k, qty: c.mats[k] })), have: await haveMats(uid, c.mats) });
+    const dishes = (await db.all('SELECT item, qty FROM inventory WHERE user_id = ? AND qty > 0', [uid])).filter(r => DISH.has(r.item)).map(r => ({ item: r.item, qty: r.qty, txt: DISH.get(r.item).c.txt, art: DISH.get(r.item).c.art, fine: DISH.get(r.item).q > 1 }));
     send(res, 200, { list, dishes, buff: u.buff && Number(u.buff_until) > now && COOK_BY.has(u.buff) ? { name: COOK_BY.get(u.buff).name, txt: COOK_BY.get(u.buff).txt, until: Number(u.buff_until), fine: Number(u.buff_q) > 1 } : null });
   });
   route('POST', '/api/cook', async (req, res, ctx) => {
@@ -669,6 +739,6 @@ function install(d) {
   };
 }
 // 인벤토리 '조합 아이템' 탭에 들어가는 새 재료와 등급
-const EXTRA_MAT_TIER = new Map([[VARIANT_DROP, 'e'], [ABYSS_MAT, 'r']].concat(FISH.map(f => [f.name, f.tier])));      // 어종은 모두 조합 재료로
+const EXTRA_MAT_TIER = new Map([[VARIANT_DROP, 'e'], [ABYSS_MAT, 'r']].concat(FISH.map(f => [f.name, f.tier]), COOK_MATS.map(m => [m.name, 'c'])));      // 어종·요리 재료는 조합 재료로
 
 module.exports = { install, SQL, timeMod, EXTRA_MAT_TIER, ENH, ENH_MAX, PROTECT, LEAGUE, TITLES, COOK, FISH, EXPED, FISH_SPOTS };
