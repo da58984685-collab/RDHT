@@ -689,20 +689,6 @@ const GATE_MATS = [
   { name: '적월의 핵', desc: '적월의 심장 한가운데 박혀 있던 핵.', tier: 'l', zone: 4 },
 ];
 
-// ── 도시 괴담: 소문이 돌고, 믿는 사람이 모이면 진실 여부가 가려집니다. ──
-const RUMOR_NEED = 3, RUMOR_OPEN_MS = 6 * HOUR, RUMOR_GAP_MS = 90 * MIN, RUMOR_MAX_OPEN = 2;
-const RUMOR_TPL = [
-  { t: '{p}의 입 찢어진 여자', mon: '입 찢어진 여자', rank: 'B', body: '해 질 녘 {p} 골목에서 마스크 쓴 여자가 "나 예뻐?" 하고 묻는다는 소문입니다.', hoax: '마스크를 쓴 채 길을 묻던 평범한 행인이었다고 합니다.' },
-  { t: '{p}의 밤마다 우는 아이', mon: '울음귀', rank: 'B', body: '밤이면 {p} 근처에서 아이 울음소리가 들리는데, 가 보면 아무도 없다고 합니다.', hoax: '길고양이의 울음소리를 잘못 들은 것이었습니다.' },
-  { t: '{p}의 열세 번째 계단', mon: '열세 번째 계단의 그것', rank: 'A', body: '{p}의 계단은 분명 열두 개인데, 밤에 올라가면 하나가 더 있다고 합니다.', hoax: '계단 수를 잘못 센 것이었습니다. 몇 번을 세어도 열두 개입니다.' },
-  { t: '{p}의 없는 층', mon: '없는 층의 주민', rank: 'B', body: '{p}의 엘리베이터에서 존재하지 않는 층 버튼이 눌린다는 소문이 돕니다.', hoax: '고장 난 엘리베이터 버튼의 오작동이었다고 합니다.' },
-  { t: '{p}의 거울 속 또 다른 나', mon: '거울 속의 나', rank: 'A', body: '{p}의 거울 앞에서 한 박자 늦게 웃는 "나"를 봤다는 사람이 늘고 있습니다.', hoax: '낡은 거울의 반사 지연일 뿐이었습니다.' },
-  { t: '{p}의 새벽 3시 전화박스', mon: '수화기 너머의 목소리', rank: 'C', body: '새벽 3시, {p}의 낡은 전화박스가 혼자 울린다는 소문입니다.', hoax: '전화박스 안에서 울린 건 누군가의 잃어버린 휴대폰이었습니다.' },
-  { t: '{p}의 끝나지 않는 막차', mon: '막차의 승객', rank: 'B', body: '{p}에서 막차를 타면 종점에 닿지 않고 계속 달린다고 합니다.', hoax: '졸다가 종점을 지나친 취객의 이야기가 부풀려진 것이었습니다.' },
-  { t: '{p}의 웃는 인형', mon: '웃는 인형', rank: 'C', body: '{p}의 오래된 가게 진열장에서 밤마다 인형의 표정이 바뀐다는 소문입니다.', hoax: '진열장 조명이 흔들려 그렇게 보인 것이었습니다.' },
-];
-// 보상표: 소문에 어떻게 표를 던졌고 결과가 어떻게 되었는가
-const RUMOR_REWARD = { believeTrue: { gold: 150, exp: 30 }, doubtFalse: { gold: 80, exp: 20 }, believeFalse: { gold: -100, exp: 0 } };
 
 // ── 장비: 탑 재료로만 조합할 수 있고, 상점·몬스터에서는 얻을 수 없습니다. ──
 // 등급(C~S)에 따라 성능과 내구도가 달라집니다. 내구도는 토벌을 한 번 할 때마다(성공·실패 모두) 착용 중인 장비마다 1씩 줄고, 0이 되면 효과가 사라집니다(수리하면 복구).
@@ -723,11 +709,17 @@ const EQ_SLOTS = {
   magic: { ko: '마법 장신구', stat: 'luck', ko_stat: '행운', v: [0, 0, 0, 0], unit: '' },
 };
 const EQUIPS = [
-  { id: 'e_w1', name: '회랑의 석제 단검', slot: 'weapon', grade: 'C', desc: '기둥 파편을 갈아 만든 투박한 단검.', mats: { '균열난 기둥 파편': 4, '먼지 낀 촛대': 1, '붉은 석재 조각': 3 } },
-  { id: 'e_w2', name: '수룡의 송곳니 창', slot: 'weapon', grade: 'B', desc: '수룡의 송곳니를 창끝에 박았다.', mats: { '수룡의 송곳니': 1, '녹슨 쇠사슬': 3, '붉은 산호': 2, '나뭇가지': 4 } },
-  { id: 'e_w3', name: '정원사의 가위검', slot: 'weapon', grade: 'A', desc: '거대한 가위를 한 자루 검으로 벼렸다.', mats: { '정원사의 가위': 1, '달빛 가시': 3, '시든 덩굴': 4, '철광석 조각': 3 } },
-  { id: 'e_w4', name: '금서의 필검', slot: 'weapon', grade: 'A', desc: '금서의 글귀가 칼날에 번지는 가는 검.', mats: { '금서의 심장': 1, '부러진 깃펜': 3, '재가 된 양피지': 3, '철광석 조각': 2 } },
-  { id: 'e_w5', name: '적월의 대검', slot: 'weapon', grade: 'S', desc: '붉은 달의 힘이 깃든 거대한 검.', mats: { '적월의 핵': 1, '주인의 손톱': 2, '핏빛 수정': 3, '월식의 조각': 1 } },
+  { id: 'e_w1', name: '회랑의 석제 단검', slot: 'weapon', el: 'earth', grade: 'C', desc: '기둥 파편을 갈아 만든 투박한 단검.', mats: { '균열난 기둥 파편': 4, '먼지 낀 촛대': 1, '붉은 석재 조각': 3 } },
+  { id: 'e_w2', name: '수룡의 송곳니 창', slot: 'weapon', el: 'water', grade: 'B', desc: '수룡의 송곳니를 창끝에 박았다.', mats: { '수룡의 송곳니': 1, '녹슨 쇠사슬': 3, '붉은 산호': 2, '나뭇가지': 4 } },
+  { id: 'e_w3', name: '정원사의 가위검', slot: 'weapon', el: 'poison', grade: 'A', desc: '거대한 가위를 한 자루 검으로 벼렸다.', mats: { '정원사의 가위': 1, '달빛 가시': 3, '시든 덩굴': 4, '철광석 조각': 3 } },
+  { id: 'e_w4', name: '금서의 필검', slot: 'weapon', el: 'arcane', grade: 'A', desc: '금서의 글귀가 칼날에 번지는 가는 검.', mats: { '금서의 심장': 1, '부러진 깃펜': 3, '재가 된 양피지': 3, '철광석 조각': 2 } },
+  { id: 'e_w5', name: '적월의 대검', slot: 'weapon', el: 'fire', grade: 'S', desc: '붉은 달의 힘이 깃든 거대한 검.', mats: { '적월의 핵': 1, '주인의 손톱': 2, '핏빛 수정': 3, '월식의 조각': 1 } },
+  // 속성 무기 (몬스터 속성 상성): 착용하면 턴제 전투에서 [속성 공격]을 쓸 수 있습니다
+  { id: 'e_w6', name: '서리 사슬낫', slot: 'weapon', el: 'ice', grade: 'C', desc: '젖은 부적으로 감은 사슬낫. 날 끝에 늘 서리가 맺혀 있다.', mats: { '녹슨 쇠사슬': 3, '젖은 부적': 3, '구름 이슬': 2, '철광석 조각': 2 } },
+  { id: 'e_w7', name: '낙뢰 부싯돌 도끼', slot: 'weapon', el: 'lightning', grade: 'B', desc: '부싯돌을 겹겹이 박은 도끼. 내려칠 때마다 번개가 튄다.', mats: { '부싯돌': 4, '청동 문고리': 2, '구름 이슬': 2, '철광석 조각': 3 } },
+  { id: 'e_w8', name: '폭렬 촛대 철퇴', slot: 'weapon', el: 'blast', grade: 'B', desc: '붉은 재를 채운 촛대 철퇴. 부딪히면 터진다.', mats: { '먼지 낀 촛대': 3, '붉은 재': 4, '부싯돌': 3, '녹슨 못': 4 } },
+  { id: 'e_w9', name: '봉인 부적 석장', slot: 'weapon', el: 'holy', grade: 'A', desc: '석상의 눈동자를 박고 봉인 부적을 두른 지팡이. 성스러운 빛을 내뿜는다.', mats: { '석상의 눈동자': 1, '봉인 부적 조각': 3, '굳은 월광': 3, '수정 파편': 2 } },
+  { id: 'e_w10', name: '그림자 뿌리 단창', slot: 'weapon', el: 'shadow', grade: 'A', desc: '심연의 씨앗에서 자란 뿌리를 깎은 짧은 창. 찌른 곳에 저주가 번진다.', mats: { '심연의 씨앗': 1, '그림자 뿌리': 3, '검은 이슬': 3, '그림자 열매': 2 } },
   { id: 'e_a1', name: '석재 흉갑', slot: 'armor', grade: 'C', desc: '석재를 이어 붙인 무거운 흉갑.', mats: { '붉은 석재 조각': 5, '균열난 기둥 파편': 3, '낡은 천조각': 3 } },
   { id: 'e_a2', name: '촛대 방패', slot: 'armor', grade: 'C', desc: '촛대 받침을 펴 만든 작은 방패.', mats: { '먼지 낀 촛대': 3, '녹슨 쇠사슬': 2, '녹슨 못': 4 } },
   { id: 'e_a3', name: '산호 비늘 갑옷', slot: 'armor', grade: 'B', desc: '산호와 비늘 조각을 엮은 갑옷.', mats: { '붉은 산호': 3, '물귀신의 머리카락': 2, '수로의 이끼구슬': 4, '낡은 천조각': 3 } },
@@ -786,7 +778,34 @@ const BT = {
   heavy: { mul: 1.8, hit: 0.7, cd: 2 },  // 내 강타
   guardTaken: 0.35, guardBonus: 0.3,     // 방어: 이번 라운드 받는 피해 ×0.35, 다음 공격 +30%
   mHeavy: 1.7, mHeavyChance: 0.25,       // 몬스터 강공(예고됨)
+  elem: { mul: 1.0, cd: 2 },             // 속성 공격(속성 무기를 착용했을 때): 기본 피해 ×1 에 상성 배율(약점 ×2 · 내성 ×0.5 · 그 외 ×1). 쓰고 나면 2라운드 쉼
 };
+// ── 몬스터 속성 상성: 10속성. 몬스터마다 속성이 하나씩 있고, 이 속성 몬스터는 weak 속성 공격에 ×2, res 속성 공격에 ×0.5 피해를 받습니다. ──
+// (화면의 연출·도감은 affinity.js 가 같은 표로 그림)
+const ELEMS = {
+  fire: { ko: '화염', weak: ['water', 'ice'], res: 'fire' },
+  ice: { ko: '빙결', weak: ['fire', 'blast'], res: 'ice' },
+  water: { ko: '물', weak: ['lightning', 'poison'], res: 'water' },
+  lightning: { ko: '번개', weak: ['earth', 'shadow'], res: 'lightning' },
+  earth: { ko: '대지', weak: ['water', 'ice'], res: 'earth' },
+  poison: { ko: '독', weak: ['fire', 'holy'], res: 'poison' },
+  blast: { ko: '폭발', weak: ['ice', 'water'], res: 'blast' },
+  holy: { ko: '신성', weak: ['shadow', 'arcane'], res: 'holy' },
+  arcane: { ko: '비전', weak: ['lightning', 'blast'], res: 'arcane' },
+  shadow: { ko: '어둠', weak: ['holy', 'lightning'], res: 'shadow' },
+};
+const ELEM_KEYS = Object.keys(ELEMS);
+const MON_ELEM = {
+  '오염된 쥐떼': 'poison', '허깨비': 'ice', '도깨비 변이체': 'arcane', '오염체': 'poison', '그림자 늑대': 'shadow', '강시 무리': 'earth', '귀화 군집': 'fire',
+  '야차': 'lightning', '구미호 분신': 'arcane', '이무기 유체': 'water', '불가사리': 'blast', '백귀야행': 'shadow', '천년 야차왕': 'lightning',
+  '혈귀 장군': 'fire', '달그림자 무녀': 'holy', '천년 구렁이': 'poison', '저승의 사냥개': 'shadow', '철갑 도깨비왕': 'earth', '낙뢰 해태': 'lightning',
+  '적월의 군주': 'fire', '흑룡 이무기': 'water', '혈월의 여왕': 'shadow', '천공의 심판자': 'holy', '심연의 군주': 'arcane', '만귀의 왕': 'shadow',
+  '백골 제왕': 'earth', '멸망의 불새': 'fire', '대지를 삼키는 자': 'earth', '폭풍의 용왕': 'lightning', '서리 마녀': 'ice', '지옥문의 수문장': 'blast',
+  '붉은 달의 사도': 'holy', '천 개의 눈': 'arcane', '오염 사냥꾼': 'poison', '혈월의 잔영': 'shadow',
+};
+// 목록에 없는 몬스터(새로 추가된 이름 등)는 이름으로 정해지는 속성을 씁니다 (항상 같은 결과)
+const elemOf = name => { if (MON_ELEM[name]) return MON_ELEM[name]; let h = 0; const s = String(name || ''); for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0; return ELEM_KEYS[h % ELEM_KEYS.length]; };
+const affMul = (atk, mon) => (!ELEMS[mon] || !ELEMS[atk] ? 1 : ELEMS[mon].weak.includes(atk) ? 2 : ELEMS[mon].res === atk ? 0.5 : 1);
 const BT_REF = { F: 2, E: 7, D: 14, C: 22, B: 32, A: 44, S: 60, SS: 80 };      // 등급마다 '보통 헌터'의 전투력 레벨 (근력은 레벨의 0.8배로 가정)
 // 오염 사냥꾼 강화: 서버 전체에서 오염 사냥꾼이 토벌된 횟수(lv)만큼 강해집니다 (최대 20단계)
 //  체력 +5% · 공격력 +3% · 최소 라운드 4단계마다 +1 · 보상(경험치·골드) +8% (단계마다)
@@ -825,7 +844,7 @@ const isTurnBased = (monRank, hunterRank) => monRank !== 'SS' && RANK_IDX[monRan
 
 module.exports = {
   BT, btMon, btPlayer, isTurnBased, taintStage, TAINT_SHOP_PCT, TAINT_BAN_DANGER, taintPrice, TAINT_LOSE_GOLD_MUL, HUNTER_CHANCE, HUNTER_LV_MAX, hunterScale, RARE_CHANCE, SPECIAL_MON,
-  SV_MARKS, MATERIALS, GATE_MATS, GATE_ZONES, EQ_GRADE, EQ_SLOTS, EQUIPS, RUMOR_NEED, RUMOR_OPEN_MS, RUMOR_GAP_MS, RUMOR_MAX_OPEN, RUMOR_TPL, RUMOR_REWARD, RECIPES, CRAFT_DEFS,
+  SV_MARKS, MATERIALS, GATE_MATS, GATE_ZONES, EQ_GRADE, EQ_SLOTS, EQUIPS, ELEMS, ELEM_KEYS, MON_ELEM, elemOf, affMul, RECIPES, CRAFT_DEFS,
   STAT_MAX, STAT_RESET_BASE, STAT_RESET_PER, statResetCost, FAME_MAX, rnd, chance01, SPAWN_COUNTRIES, SPAWN_REGIONS, REGIONS, REGION_BY_ID, COUNTRIES, COUNTRY_BY_ID, countryOf, placeName, placeLong, MON, FRIENDLY_MON, PVP, PVP_STAT_TEXT, BOND_STEP, BOND_MAX, BOND_MUL, bondStage, friendFx, pvpBattle, pvpFighter, pvpResolve, pvpPower, mulberry32, PVP_MIN, PVP_MAX, PVP_TOTAL, PVP_KEYS, PVP_KO, pvpStatsOk, pvpDerive, TIERS, ACTIVE_MS, ACTIVE_MS_F, ACTIVE_MS_S, activeMsOf, FAME_PER_LV, FAME_PER_RANK, KILL_EXP, KILL_GOLD, KILL_TAINT, rollTaint, garble, RANK_IDX, ACH_KINDS, ACH_COMPOUND, ACH_NUM, ACH_SEED, ACH_SEED2, ACH_SEED3, PROMO, ACH_PIN_MAX, rollGold, HUNT_DIFF,
   RAID_NEED, RAID_ATTEMPTS, S_MAX, S_WINDOW_MS, S_WAIT_MS, powNeed, cdOf, huntChance,
   rollRank, rollStats, PROB_CAP, STR_WIN, guardChance, freeChance, HP_START, HP_MIN, HP_DYING_MS, HP_REVIVE, hpLoss, makeCode, addExp, MIN, HOUR,
