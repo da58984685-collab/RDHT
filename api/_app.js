@@ -2942,12 +2942,12 @@ const intIds = v => (Array.isArray(v) ? v : []).slice(0, 500).map(Number).filter
 
 // 아이템 추가·수량 변경 (같은 이름이면 수량을 덮어씁니다)
 // ── 문의: 헌터 ↔ 관리자 1:1 대화 (메신저와 같은 방식, 상대는 관리자뿐) ──
-const inqOut = m => ({ id: m.id, admin: !!m.from_admin, t: m.text, ts: m.ts });
+const inqOut = m => ({ id: m.id, admin: !!m.from_admin, start: !!m.start, t: m.text, ts: m.ts });
 route('GET', '/api/inquiry', async (req, res, ctx) => {
   const after = Math.max(0, Number(new URL(req.url, 'http://x').searchParams.get('after')) || 0);
   const rows = after
-    ? await db.all('SELECT id, user_id, from_admin, text, ts FROM inquiries WHERE user_id = ? AND id > ? ORDER BY id LIMIT 200', [ctx.user.id, after])
-    : await db.all('SELECT id, user_id, from_admin, text, ts FROM (SELECT id, user_id, from_admin, text, ts FROM inquiries WHERE user_id = ? ORDER BY id DESC LIMIT 100) ORDER BY id', [ctx.user.id]);
+    ? await db.all('SELECT id, user_id, from_admin, text, ts, start FROM inquiries WHERE user_id = ? AND id > ? ORDER BY id LIMIT 200', [ctx.user.id, after])
+    : await db.all('SELECT id, user_id, from_admin, text, ts, start FROM (SELECT id, user_id, from_admin, text, ts, start FROM inquiries WHERE user_id = ? ORDER BY id DESC LIMIT 100) ORDER BY id', [ctx.user.id]);
   if (rows.length) await db.run('UPDATE users SET inq_read = MAX(inq_read, ?) WHERE id = ?', [rows[rows.length - 1].id, ctx.user.id]);
   send(res, 200, { messages: rows.map(inqOut) });
 });
@@ -2962,12 +2962,12 @@ route('POST', '/api/inquiry', async (req, res, ctx) => {
 const inqThreads = async () => (await db.all(`SELECT u.code, u.hunter_name AS hn, u.rank, COUNT(*) AS n,
     (SELECT i2.text FROM inquiries i2 WHERE i2.user_id = u.id ORDER BY i2.id DESC LIMIT 1) AS last,
     (SELECT i2.from_admin FROM inquiries i2 WHERE i2.user_id = u.id ORDER BY i2.id DESC LIMIT 1) AS last_admin,
-    MAX(i.ts) AS ts FROM inquiries i JOIN users u ON u.id = i.user_id GROUP BY u.id ORDER BY ts DESC LIMIT 200`))
-  .map(x => ({ code: x.code, hn: x.hn, rank: x.rank, n: x.n, last: x.last, waiting: !x.last_admin, ts: x.ts }));
+    MAX(i.start) AS started, MAX(i.ts) AS ts FROM inquiries i JOIN users u ON u.id = i.user_id GROUP BY u.id ORDER BY ts DESC LIMIT 200`))
+  .map(x => ({ code: x.code, hn: x.hn, rank: x.rank, n: x.n, last: x.last, waiting: !x.last_admin, started: !!Number(x.started), ts: x.ts }));
 const inqThread = async code => {
   const u = code && await userByCode(code);
   if (!u) return null;
-  const rows = await db.all('SELECT id, user_id, from_admin, text, ts FROM (SELECT id, user_id, from_admin, text, ts FROM inquiries WHERE user_id = ? ORDER BY id DESC LIMIT 200) ORDER BY id', [u.id]);
+  const rows = await db.all('SELECT id, user_id, from_admin, text, ts, start FROM (SELECT id, user_id, from_admin, text, ts, start FROM inquiries WHERE user_id = ? ORDER BY id DESC LIMIT 200) ORDER BY id', [u.id]);
   return { hn: u.hunter_name, code: u.code, messages: rows.map(inqOut) };
 };
 // 관리자 전용 캐릭터: 받은 문의를 메신저에서 열람 (읽기 전용)
@@ -2988,6 +2988,21 @@ route('POST', '/api/admin/inquiry/reply', async (req, res, ctx) => {
   if (!text || cp(text) > 200) return fail(res, 400, 'bad_text');
   await db.run('INSERT INTO inquiries (user_id, from_admin, text, ts) VALUES (?, 1, ?, ?)', [u.id, text, Date.now()]);
   send(res, 200, { ok: true });
+}, { auth: false, admin: true });
+// 관리자가 먼저 보내는 문의 메시지: 헌터 코드 또는 닉네임으로 찾아, 그 헌터의 '문의' 대화에 운영자 메시지로 넣습니다
+route('POST', '/api/admin/inquiry/start', async (req, res, ctx) => {
+  const raw = String(ctx.body.target || '').trim(), text = String(ctx.body.text || '').trim();
+  if (!raw) return fail(res, 400, 'bad_target');
+  if (!text || cp(text) > 200) return fail(res, 400, 'bad_text');
+  let u = normCode(raw) ? await userByCode(normCode(raw)) : null;
+  if (!u) {
+    const hits = await db.all('SELECT code FROM users WHERE hunter_name = ? LIMIT 2', [raw]);
+    if (hits.length > 1) return fail(res, 409, 'ambiguous');
+    if (hits.length) u = await userByCode(hits[0].code);
+  }
+  if (!u) return fail(res, 404, 'no_user');
+  await db.run('INSERT INTO inquiries (user_id, from_admin, text, ts, start) VALUES (?, 1, ?, ?, 1)', [u.id, text, Date.now()]);
+  send(res, 200, { ok: true, code: u.code, hn: u.hunter_name });
 }, { auth: false, admin: true });
 // 오염 폭주 해제: 활동 불가를 풀고, 그 헌터의 오염 몬스터를 즉시 소멸시키고, 오염도를 0%로 낮춤
 route('POST', '/api/admin/player/uncorrupt', async (req, res, ctx) => {
