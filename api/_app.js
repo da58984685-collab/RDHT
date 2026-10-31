@@ -1710,7 +1710,8 @@ async function gateAutoRetreat(uid) {
 route('GET', '/api/craft', async (req, res, ctx) => {
   send(res, 200, {
     materials: G.MATERIALS.concat(G.GATE_MATS).map(m => ({ name: m.name, desc: m.desc })),
-    recipes: G.RECIPES.map(r => ({ id: r.id, name: r.name, desc: r.desc, mats: Object.keys(r.mats).map(k => ({ item: k, qty: r.mats[k] })), eff: { stat: r.stat, amt: r.amt } })),
+    recipes: G.RECIPES.map(r => ({ id: r.id, name: r.name, desc: r.desc, mats: Object.keys(r.mats).map(k => ({ item: k, qty: r.mats[k] })), eff: { stat: r.stat, amt: r.amt }, maxLv: r.maxLv || 0 })),
+    lv: ctx.user.lv,
   });
 });
 route('POST', '/api/craft', async (req, res, ctx) => {
@@ -1719,6 +1720,7 @@ route('POST', '/api/craft', async (req, res, ctx) => {
   if (!rc) return fail(res, 404, 'no_recipe');
   const cur = await userById(ctx.user.id);
   if (corruptLock(cur, Date.now())) return fail(res, 409, 'corrupted', { until: cur.corrupt_until });
+  if (rc.maxLv && Number(cur.lv) > rc.maxLv) return fail(res, 403, 'lv_limit', { max: rc.maxLv });      // 초보 전용 조합법
   const have = await db.get('SELECT qty FROM inventory WHERE user_id = ? AND item = ?', [cur.id, rc.name]);
   if (have && Number(have.qty) >= 9999) return fail(res, 409, 'max_qty');
   const taken = [];
