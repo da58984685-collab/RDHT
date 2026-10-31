@@ -1099,23 +1099,6 @@ input[type=checkbox]:focus-visible{outline:2px solid var(--deep);outline-offset:
 .ex-rank ol{margin:6px 0;padding-left:18px;line-height:1.6}.ex-rank li.me{color:#f0c75e;font-weight:700}.ex-rank small{color:var(--sub);font-size:.72rem}
 .al.var{border-left-color:#f0c75e;box-shadow:inset 0 0 0 1px rgba(240,199,94,.45)}.al-var{margin-left:6px;padding:0 6px;border:1px solid #f0c75e;border-radius:8px;font-size:.68rem;color:#f0c75e}
 .ct-room{display:flex;flex-direction:column;gap:8px;padding:6px 0}
-.ct-rm-h{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-size:.86rem}.ct-rm-h span{color:var(--sub);font-size:.78rem}.ct-rm-h .hud-btn{margin-left:auto}
-.ct-iso{display:block;width:min(100%,560px);height:auto;align-self:center;border-radius:10px;background:#120a08;user-select:none;-webkit-user-select:none}
-.ct-iso .ct-tint{mix-blend-mode:multiply;pointer-events:none}
-.ct-iso .ct-cell{fill:transparent;stroke:rgba(255,255,255,.0);stroke-width:2}
-.ct-iso.tool .ct-cell{stroke:rgba(255,255,255,.22)}
-.ct-iso .ct-cell[role=button]{cursor:pointer}.ct-iso .ct-cell[role=button]:hover,.ct-iso .ct-cell[role=button]:focus-visible{fill:rgba(255,255,255,.22);stroke:var(--red2);outline:none}
-.ct-iso .ct-furn{pointer-events:none}.ct-iso .ct-furn image{filter:drop-shadow(0 6px 4px rgba(0,0,0,.35))}
-.ct-fu{display:block;width:100%;height:100%;object-fit:contain}
-.ct-tools{display:flex;flex-wrap:wrap;gap:6px}.ct-tools .hud-btn.on{border-color:var(--red2);background:#3a0a11}
-.ct-pal{display:inline-flex;align-items:center;gap:5px}.ct-pal .ct-fu{width:24px;height:24px}
-.ct-sw{display:flex;align-items:center;gap:5px;flex-wrap:wrap;font-size:.78rem;color:var(--sub)}
-.ct-sw-b{width:24px;height:24px;border:1px solid var(--line);border-radius:6px;cursor:pointer}.ct-sw-b.on{outline:2px solid #fff}
-.ct-rm-n{font-size:.8rem;color:#6fd08c}.ct-rm-help{margin:0;font-size:.74rem;color:var(--sub);line-height:1.5}
-.ct-cr-f{display:block;margin:2px 0 4px;font-size:.78rem;color:var(--sub);cursor:pointer}
-.ct-craft summary{cursor:pointer;font-weight:700;font-size:.85rem;padding:4px 0}
-.ct-cr{display:flex;align-items:center;gap:8px;padding:6px 0;border-top:1px solid var(--line)}.ct-cr .ct-fu{width:28px;height:28px;flex:none}
-.ct-cr div{flex:1;min-width:0;display:flex;flex-direction:column}.ct-cr small{color:var(--sub);font-size:.72rem}
 </style>
 <!-- 화면 테마: 관리자 페이지의 '화면 테마'에서 '마법소녀'를 고르면 켜집니다. 오리지널 화면으로만 쓰려면 아래 한 줄을 지우세요. -->
 <script src="magic.js"></script>
@@ -5680,7 +5663,7 @@ function openHp(hn,opener){
     if(bgm.on){bgmCmd("pauseVideo");bgmUi(false)}      /* 내 BGM 자동 음소거 */
     hp.open=true;$("hpmodal").hidden=false;
   }
-  hn=hn||"";hp.hn=hn;hp.tab="diary";ctRoom.d=null;ctRoom.note="";hp.d=null;hp.posts=[];hp.more=false;hp.cm={};hp.openC={};hp.reply={};hp.ctext={};hp.fail="";
+  hn=hn||"";hp.hn=hn;hp.tab="diary";hp.d=null;hp.posts=[];hp.more=false;hp.cm={};hp.openC={};hp.reply={};hp.ctext={};hp.fail="";
   hpSongStart("");hpRender();$("hpmodal").scrollTop=0;
   setTimeout(function(){$("hpclose").focus()},30);
   hpFetch(hn,0);
@@ -5710,12 +5693,11 @@ function hpRender(){
   if(d.priv){main.appendChild(hpEl("p","hp-empty","비공개 헌터의 던전로그입니다. 친구가 되면 볼 수 있어요."))}
   else{
     var tabs=hpEl("div","hp-tabs");tabs.setAttribute("role","tablist");
-    [["diary","다이어리"],["photo","사진첩"],["room","숙소"]].forEach(function(t){
+    [["diary","다이어리"],["photo","사진첩"]].forEach(function(t){
       var tb=hpBtn("hp-tab",t[1],function(){hp.tab=t[0];hpRender()});tb.setAttribute("role","tab");tb.setAttribute("aria-selected",hp.tab===t[0]?"true":"false");tabs.appendChild(tb);
     });
     main.appendChild(tabs);
     if(hp.tab==="photo")main.appendChild(hpPhotos());
-    else if(hp.tab==="room")main.appendChild(hpRoom());      /* 헌터 숙소 */
     else{
       if(d.me)main.appendChild(hpWrite());
       var lst=hpEl("div","hp-posts");
@@ -6043,7 +6025,7 @@ $("gtexback").addEventListener("click",function(){
 });
 
 /* ═════════════ 상시 컨텐츠 12종 (서버: api/_content.js) ═════════════
-   출석 · 운세 · 시간대 · 칭호 · 변종 · 장비 강화 · 무한 심층 · 요리 · 낚시 · 원정 · PVP 리그 · 숙소 */
+   출석 · 운세 · 시간대 · 칭호 · 변종 · 장비 강화 · 무한 심층 · 요리 · 낚시 · 원정 · PVP 리그 */
 var ctState=null,ctAttended=false,ctBuffT=0;
 var CT_TIER_C={c:"#e6dce0",r:"#6ab8ff",e:"#c39bff",l:"#f0c75e"};
 function ctLeft(ms){ms=Math.max(0,ms);var m=Math.ceil(ms/60000);return m>=2880?Math.floor(m/1440)+"일 "+Math.floor(m%1440/60)+"시간":m>=60?Math.floor(m/60)+"시간 "+(m%60)+"분":m+"분"}
@@ -6242,7 +6224,7 @@ function ctExped(scr){
     r.mons.forEach(function(m){
       var li=pvEl("li","qst-li"+(m.done?" done":""));li.appendChild(pvEl("div","qst-t","["+m.grade+"] "+m.name+" · 친밀도 "+m.bond+(m.walking?" · 동행 중":"")));
       var row=pvEl("div","rum-v ct-wrap");
-      if(m.spot){li.appendChild(pvEl("small",null,m.spotKo+" 원정 · "+(m.done?"돌아왔어요!":ctLeft(m.until-Date.now())+" 남음")));if(m.done)ctBtn(row,"보상 받기",false,function(){api("POST","/api/expedition/claim",{id:m.id}).then(function(x){note=x.ok?x.diary+" · "+Object.keys(x.got).map(function(k){return k+" ×"+x.got[k]}).join(", ")+(x.found?" · 가구 '"+x.found+"' 발견!":""):"받지 못했어요";pollState(false);load()})})}
+      if(m.spot){li.appendChild(pvEl("small",null,m.spotKo+" 원정 · "+(m.done?"돌아왔어요!":ctLeft(m.until-Date.now())+" 남음")));if(m.done)ctBtn(row,"보상 받기",false,function(){api("POST","/api/expedition/claim",{id:m.id}).then(function(x){note=x.ok?x.diary+" · "+Object.keys(x.got).map(function(k){return k+" ×"+x.got[k]}).join(", "):"받지 못했어요";pollState(false);load()})})}
       else r.spots.forEach(function(s){ctBtn(row,s.ko+" ("+s.hours+"시간"+(s.bond?" · 친밀도 "+s.bond:"")+")",m.walking||m.bond<s.bond||busy>=r.cap,function(){api("POST","/api/expedition/send",{id:m.id,spot:s.id}).then(function(x){note=x.ok?m.name+"(이)가 "+s.ko+"(으)로 떠났어요":x.error==="cap"?"동시에 보낼 수 있는 수를 넘었어요":x.error==="walking"?"동행을 먼저 해제하세요":x.error==="low_bond"?"친밀도가 모자라요":"보내지 못했어요";load()})})});
       li.appendChild(row);ul.appendChild(li);
     });
@@ -6294,88 +6276,6 @@ function ctAbyssRank(){
     var ol=pvEl("ol");r.list.forEach(function(x){ol.appendChild(pvEl("li",x.me?"me":"",x.no+". "+x.hn+" · "+x.best+"층"))});if(!r.list.length)ol.appendChild(pvEl("li",null,"아직 51층 이상 내려간 헌터가 없어요."));el.appendChild(ol);
     el.appendChild(pvEl("small",null,r.rewards));
   });
-}
-
-/* ───── 24 헌터 숙소: 던전로그 '방' 탭 ───── */
-var ctRoom={d:null,hn:null,tool:"",note:"",layout:null,wall:0,floor:0,visited:{}};
-function ctFurniCanvas(def,rot){      /* 가구 그림 (furni/<id>.webp) */
-  var im=document.createElement("img");im.className="ct-fu";im.src="furni/"+def.id+".webp";im.alt="";im.loading="lazy";im.decoding="async";
-  if(rot%2)im.style.transform="scaleX(-1)";return im;
-}
-/* 아이소메트릭 방: 원본 그림(1536×1024) 좌표 기준. 바닥 마름모 = 뒤 꼭짓점 B + x·U + y·V */
-var CT_ISO={B:[768,428],U:[612,268],V:[-612,268],
-  LW:"142,345 768,62 768,412 142,690",RW:"768,62 1394,345 1394,690 768,412"};
-function ctIsoPt(x,y,n){var I=CT_ISO;return [I.B[0]+I.U[0]*x/n+I.V[0]*y/n,I.B[1]+I.U[1]*x/n+I.V[1]*y/n]}
-function hpRoom(){
-  var box=hpEl("div","ct-room");
-  var hn=hp.d&&!hp.d.me?hp.d.hn:"";
-  if(!ctRoom.d||ctRoom.hn!==hn){
-    box.appendChild(hpEl("p","hp-empty","불러오는 중…"));ctRoom.hn=hn;ctRoom.d=null;
-    var vis=hn&&!ctRoom.visited[hn];if(vis)ctRoom.visited[hn]=1;
-    api("GET","/api/room"+(hn?"?hn="+encodeURIComponent(hn)+(vis?"&visit=1":""):"")).then(function(r){if(!hp.open||ctRoom.hn!==hn)return;ctRoom.d=r||{};ctRoom.layout=(r.layout||[]).slice();ctRoom.wall=r.wall||0;ctRoom.floor=r.floor||0;ctRoom.tool="";hpRender()});
-    return box;
-  }
-  var d=ctRoom.d;
-  if(d.priv){box.appendChild(hpEl("p","hp-empty","비공개 헌터의 숙소입니다."));return box}
-  var defs={};(d.defs||[]).forEach(function(f){defs[f.id]=f});
-  var head=hpEl("div","ct-rm-h");head.appendChild(hpEl("b","",(d.mine?"내 숙소":d.hn+"의 숙소")+" · "+d.size+"×"+d.size));head.appendChild(hpEl("span","","좋아요 "+d.likes+" · 방문 "+d.visits));
-  if(!d.mine){var lk=hpBtn("hud-btn",d.liked?"오늘 좋아요 함":"좋아요",function(){lk.disabled=true;api("POST","/api/room/like",{hn:d.hn}).then(function(x){if(x.ok){d.likes=x.likes;d.liked=true}hpRender()})});lk.disabled=!!d.liked;head.appendChild(lk)}
-  box.appendChild(head);
-  var NS="http://www.w3.org/2000/svg",n=d.size,at={};ctRoom.layout.forEach(function(it,i){at[it.x+","+it.y]=i});
-  function sv(t,a){var e=document.createElementNS(NS,t);for(var k in a)e.setAttribute(k,a[k]);return e}
-  var svg=sv("svg",{"class":"ct-iso"+(d.mine&&ctRoom.tool?" tool":""),viewBox:"80 0 1376 1024",role:"group","aria-label":(d.mine?"내 숙소":d.hn+"의 숙소")+" 배치도"});
-  svg.appendChild(sv("image",{href:"furni/_room.webp",x:80,y:0,width:1376,height:1024,preserveAspectRatio:"none"}));
-  var wc=d.walls[ctRoom.wall]||"#ffffff",fc=d.floors[ctRoom.floor]||"#ffffff";
-  if(wc.toLowerCase()!=="#ffffff"){svg.appendChild(sv("polygon",{points:CT_ISO.LW,fill:wc,"class":"ct-tint"}));svg.appendChild(sv("polygon",{points:CT_ISO.RW,fill:wc,"class":"ct-tint"}))}
-  if(fc.toLowerCase()!=="#ffffff"){var q=[ctIsoPt(0,0,1),ctIsoPt(1,0,1),ctIsoPt(1,1,1),ctIsoPt(0,1,1)];svg.appendChild(sv("polygon",{points:q.map(function(p){return p.join(",")}).join(" "),fill:fc,"class":"ct-tint"}))}
-  var cells=sv("g",{"class":"ct-cells"});svg.appendChild(cells);
-  function act(x,y){
-    var k=at[x+","+y];
-    if(k!==undefined){if(ctRoom.tool==="rot")ctRoom.layout[k].r=(ctRoom.layout[k].r+1)%4;else if(ctRoom.tool==="del")ctRoom.layout.splice(k,1);hpRender();return}
-    if(ctRoom.tool&&defs[ctRoom.tool]&&left(ctRoom.tool)>0){ctRoom.layout.push({k:ctRoom.tool,x:x,y:y,r:0});hpRender()}
-  }
-  for(var y=0;y<n;y++)for(var x=0;x<n;x++)(function(x,y){
-    var q=[ctIsoPt(x,y,n),ctIsoPt(x+1,y,n),ctIsoPt(x+1,y+1,n),ctIsoPt(x,y+1,n)],k=at[x+","+y],df=k!==undefined?defs[ctRoom.layout[k].k]:null;
-    var c=sv("polygon",{points:q.map(function(p){return p.map(function(v){return v.toFixed(1)}).join(",")}).join(" "),"class":"ct-cell"+(df?" has":"")});
-    var lb=(x+1)+"열 "+(y+1)+"행"+(df?" · "+df.name:" · 빈 칸");c.appendChild(sv("title",{})).textContent=df?df.name+(df.fx?" · "+df.fx:""):lb;
-    if(d.mine){c.setAttribute("tabindex","0");c.setAttribute("role","button");c.setAttribute("aria-label",lb);
-      c.addEventListener("click",function(){act(x,y)});c.addEventListener("keydown",function(e){if(e.key==="Enter"||e.key===" "){e.preventDefault();act(x,y)}})}
-    cells.appendChild(c);
-  })(x,y);
-  var fu=sv("g",{"class":"ct-furn"});svg.appendChild(fu);
-  var cw=(CT_ISO.U[0]*2)/n,ch=(CT_ISO.U[1]*2)/n;
-  var FLAT={rug:1,pawrug:1,cushion_pink:1,cushion_blue:1,pawseat:1,pawseat2:1,nest:1,foodbowl:1,waterbowl:1};      /* 바닥에 까는 가구는 먼저 그림 */
-  ctRoom.layout.map(function(it){return it}).sort(function(a,b){return (FLAT[b.k]?1:0)-(FLAT[a.k]?1:0)||(a.x+a.y)-(b.x+b.y)||a.x-b.x}).forEach(function(it){
-    var df=defs[it.k];if(!df)return;var ar=df.w||1,big=ar>1.15,w=cw*(big?1.25:1.05),h=w/ar;if(h>cw*1.6){h=cw*1.6;w=h*ar}
-    var c=ctIsoPt(it.x+.5,it.y+.5,n),bx=c[0]-w/2,by=c[1]+ch*.32-h;
-    var im=sv("image",{href:"furni/"+df.id+".webp",x:bx.toFixed(1),y:by.toFixed(1),width:w.toFixed(1),height:h.toFixed(1)});
-    if(it.r%2)im.setAttribute("transform","translate("+(2*c[0]).toFixed(1)+",0) scale(-1,1)");
-    fu.appendChild(im);
-  });
-  box.appendChild(svg);
-  function placed(id){return ctRoom.layout.filter(function(i){return i.k===id}).length}
-  function left(id){var o=(d.furni||[]).filter(function(f){return f.id===id})[0];return (o?o.qty:0)-placed(id)}
-  if(d.mine){
-    var tools=hpEl("div","ct-tools");
-    function tbtn(id,label){var b=hpBtn("hud-btn"+(ctRoom.tool===id?" on":""),label,function(){ctRoom.tool=ctRoom.tool===id?"":id;hpRender()});tools.appendChild(b)}
-    tbtn("rot","돌리기");tbtn("del","치우기");
-    (d.furni||[]).forEach(function(f){var df=defs[f.id];if(!df)return;var b=hpBtn("hud-btn ct-pal"+(ctRoom.tool===f.id?" on":""),"",function(){ctRoom.tool=ctRoom.tool===f.id?"":f.id;hpRender()});b.appendChild(ctFurniCanvas(df,0));b.appendChild(document.createTextNode(df.name+" "+left(f.id)));b.title=df.fx||df.name;tools.appendChild(b)});
-    box.appendChild(tools);
-    var sw=hpEl("div","ct-sw");sw.appendChild(hpEl("span","","벽"));d.walls.forEach(function(c,i){var b=hpBtn("ct-sw-b"+(ctRoom.wall===i?" on":""),"",function(){ctRoom.wall=i;hpRender()});b.style.background=c;b.setAttribute("aria-label","벽 색 "+(i+1));sw.appendChild(b)});
-    sw.appendChild(hpEl("span","","바닥"));d.floors.forEach(function(c,i){var b=hpBtn("ct-sw-b"+(ctRoom.floor===i?" on":""),"",function(){ctRoom.floor=i;hpRender()});b.style.background=c;b.setAttribute("aria-label","바닥 색 "+(i+1));sw.appendChild(b)});
-    box.appendChild(sw);
-    var sv=hpEl("div","gwrow");var nt=hpEl("span","ct-rm-n",ctRoom.note);
-    sv.appendChild(hpBtn("hud-btn","저장",function(){api("POST","/api/room/save",{layout:ctRoom.layout,wall:ctRoom.wall,floor:ctRoom.floor}).then(function(x){ctRoom.note=x.ok?"저장했어요":"저장하지 못했어요";hpRender()})}));sv.appendChild(nt);box.appendChild(sv);
-    box.appendChild(hpEl("p","ct-rm-help","가구를 고른 뒤 빈 칸을 누르면 놓여요. 돌리기·치우기를 고르고 가구를 누르면 돌리거나 치웁니다. 다 꾸몄으면 저장하세요."));
-    var det=document.createElement("details");det.className="ct-craft";var sm=document.createElement("summary");sm.textContent="가구 만들기";det.appendChild(sm);
-    var fl=hpEl("label","ct-cr-f");var fc=document.createElement("input");fc.type="checkbox";fc.checked=!!ctRoom.canOnly;fl.appendChild(fc);fl.appendChild(document.createTextNode(" 지금 만들 수 있는 것만 ("+(d.recipes||[]).filter(function(rc){return ctMatsOk(rc.mats,rc.have)}).length+" / "+(d.recipes||[]).length+")"));det.appendChild(fl);
-    fc.addEventListener("change",function(){ctRoom.canOnly=fc.checked;Array.prototype.forEach.call(det.querySelectorAll(".ct-cr"),function(r){r.hidden=fc.checked&&r.dataset.ok!=="1"})});
-    if(ctRoom.craftOpen)det.open=true;det.addEventListener("toggle",function(){ctRoom.craftOpen=det.open});
-    (d.recipes||[]).forEach(function(rc){var df=defs[rc.id],ok=ctMatsOk(rc.mats,rc.have),row=hpEl("div","ct-cr");row.dataset.ok=ok?"1":"0";if(ctRoom.canOnly&&!ok)row.hidden=true;row.appendChild(ctFurniCanvas(df,0));var tx=hpEl("div","");tx.appendChild(hpEl("b","",df.name+(df.fx?" · "+df.fx:"")));tx.appendChild(hpEl("small","",ctMats(rc.mats,rc.have)));row.appendChild(tx);
-      var b=hpBtn("hud-btn","만들기",function(){b.disabled=true;api("POST","/api/room/craft",{id:rc.id}).then(function(x){ctRoom.note=x.ok?x.name+" 완성":"재료가 모자라요";ctRoom.d=null;ctRoom.hn=null;hpRender()})});b.disabled=!ok;row.appendChild(b);det.appendChild(row)});
-    box.appendChild(det);
-  }
-  return box;
 }
 
 /* ───── 조합: 인벤토리 앱의 '조합' 버튼 ───── */
@@ -6905,7 +6805,7 @@ gwmodal.addEventListener("keydown",function(e){
   else if(!e.shiftKey&&document.activeElement===l){e.preventDefault();f.focus()}
 });
 function leaveGame(note){
-  ctAttended=false;ctState=null;ctRoom.d=null;
+  ctAttended=false;ctState=null;
   bgmStop();sbStop();globe.set(false);
   clearInterval(pollTimer);clearInterval(mTimer);
   [rmodal,hmodal,mmodal,$("cmodal"),$("gwmodal"),$("gfmodal"),$("gtmodal"),ntmodal,qmodal].forEach(function(m){m.hidden=true});cmReset();document.body.style.overflow="";
