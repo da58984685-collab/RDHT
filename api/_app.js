@@ -1791,7 +1791,7 @@ const bondRoom = (r, now) => Math.max(0, RAISE.BOND_DAY - (r.bond_day === raiDay
 const decayed = (v, at, rate, now) => at ? Math.max(0, Math.min(100, Math.round((v - (now - at) / 3600000 * rate) * 10) / 10)) : RAISE.START;
 function raiseState(r, now) {
   return {
-    full: Math.floor(decayed(r.full, r.full_at, RAISE.FULL_DECAY * (r.nest ? 0.8 : 1), now)),      /* 숙소에 '몬스터 잠자리'가 있으면 20% 천천히 */ clean: Math.floor(decayed(r.clean, r.clean_at, RAISE.CLEAN_DECAY, now)), bond: r.bond,
+    full: Math.floor(decayed(r.full, r.full_at, RAISE.FULL_DECAY, now)), clean: Math.floor(decayed(r.clean, r.clean_at, RAISE.CLEAN_DECAY, now)), bond: r.bond,
     walking: r.walk_at > 0, walkSince: r.walk_at, bondToday: RAISE.BOND_DAY - bondRoom(r, now), bondLimit: RAISE.BOND_DAY,
     feedIn: Math.max(0, Math.ceil((r.fed_last + RAISE.FEED_CD - now) / 1000)), bathIn: Math.max(0, Math.ceil((r.bath_last + RAISE.BATH_CD - now) / 1000)),
     expedition: r.exp_spot ? { spot: r.exp_spot, until: Number(r.exp_until) || 0 } : null,
@@ -1816,7 +1816,6 @@ route('GET', '/api/raise', async (req, res, ctx) => {
   const now = Date.now();
   await db.run('UPDATE user_mons SET sat_at = ?, clean_at = ? WHERE user_id = ? AND (sat_at = 0 OR clean_at = 0)', [now, now, ctx.user.id]);   // 처음 보는 몬스터는 이때부터 시간이 흐릅니다
   const rows = await db.all('SELECT ' + RAISE_COLS + ' FROM user_mons WHERE user_id = ?', [ctx.user.id]);
-  const nest = await CT.roomHas(ctx.user.id, 'nest'); rows.forEach(r => { r.nest = nest; });
   const own = new Map(rows.map(r => [r.mon_id, r]));
   const walk = rows.find(r => r.walk_at > 0);
   const fu = await db.get('SELECT mon_food FROM users WHERE id = ?', [ctx.user.id]);
@@ -1833,11 +1832,10 @@ route('POST', '/api/raise/act', async (req, res, ctx) => {
   const m = G.FRIENDLY_MON.find(x => x.id === id);
   const row = m && await db.get('SELECT ' + RAISE_COLS + ' FROM user_mons WHERE user_id = ? AND mon_id = ?', [uid, id]);
   if (!row) return fail(res, 404, 'not_found');
-  row.nest = await CT.roomHas(uid, 'nest');
   if (row.exp_spot && act !== 'release') return fail(res, 409, 'on_expedition', { until: Number(row.exp_until) });      // 원정 중에는 먹이·목욕·동행 불가
   const st = raiseState(row, now);
   const out = async extra => {
-    const r = await db.get('SELECT ' + RAISE_COLS + ' FROM user_mons WHERE user_id = ? AND mon_id = ?', [uid, id]); r.nest = row.nest;
+    const r = await db.get('SELECT ' + RAISE_COLS + ' FROM user_mons WHERE user_id = ? AND mon_id = ?', [uid, id]);
     const w = await db.get('SELECT mon_id FROM user_mons WHERE user_id = ? AND walk_at > 0', [uid]);
     const fu = await db.get('SELECT mon_food FROM users WHERE id = ?', [uid]);
     send(res, 200, Object.assign({ ok: true, companion: w ? w.mon_id : null, food: fu ? fu.mon_food : 0, mon: raiseFull(m, r, now) }, extra || {}));
