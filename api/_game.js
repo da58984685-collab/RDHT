@@ -639,6 +639,7 @@ const MATERIALS = [
 const GATE_ZONES = [
   { name: '입구 회랑', boss: '문지기 석상' }, { name: '붉은 수로', boss: '수룡' }, { name: '잿빛 서고', boss: '금서의 사서' },
   { name: '심연의 정원', boss: '그림자 정원사' }, { name: '적월의 심장', boss: '적월의 주인' },
+  { name: '심연 회랑', boss: '심연 수문장' },      // 51층부터 끝없이 (50층을 넘어선 헌터만, 무한 심층)
 ];
 const GATE_MATS = [
   { name: '붉은 석재 조각', desc: '입구 회랑의 벽에서 떨어진 붉은 돌조각.', tier: 'c', zone: 0 },
@@ -687,6 +688,11 @@ const GATE_MATS = [
   { name: '월식의 깃털', desc: '달이 가려질 때만 떨어지는 검은 깃털.', tier: 'r', zone: 4 },
   { name: '주인의 손톱', desc: '적월의 주인의 손톱. 만지면 맥이 뛴다.', tier: 'e', zone: 4 },
   { name: '적월의 핵', desc: '적월의 심장 한가운데 박혀 있던 핵.', tier: 'l', zone: 4 },
+  // 심연 회랑(무한 심층) 전용 재료
+  { name: '검게 굳은 이끼', desc: '심연 회랑의 벽을 뒤덮은 검은 이끼.', tier: 'c', zone: 5 },
+  { name: '심연 결정', desc: '끝없는 회랑 깊은 곳에서만 자라는 보랏빛 결정. 강화·요리·가구에 쓰인다.', tier: 'r', zone: 5 },
+  { name: '수문장의 심연석', desc: '심연 수문장이 지니고 있던 검은 돌.', tier: 'e', zone: 5 },
+  { name: '끝없는 심연의 눈', desc: '바라보면 끝이 보이지 않는 구슬.', tier: 'l', zone: 5 },
 ];
 
 
