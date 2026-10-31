@@ -161,7 +161,7 @@ main.landing{display:flex;align-items:center;justify-content:center;max-width:no
   /* 빈 공간 줄이기: 3열은 알림 목록이 남는 높이를 채우고(목록은 안에서 스크롤) 기기 카드는 내용 높이만큼만, 2열은 지역 이동 대신 아래 할 일 카드가 늘어남 */
   #galert{display:flex;flex-direction:column;flex:1 1 0;min-height:300px}
   #galert .body{flex:1;min-height:0;display:flex;flex-direction:column}
-  #galert .alerts{flex:1;min-height:0;overflow-y:auto;align-content:start;scrollbar-width:thin;scrollbar-color:var(--red) transparent}
+  #galert .alerts{flex:1;min-height:0;overflow:hidden;align-content:start;contain:size}      /* contain:size — 알림 내용이 화면 전체 높이를 늘리지 않게 */
   .g-col>#gdev:last-child{flex:none}
   #gtodo{display:flex;flex-direction:column;order:9}#gtodo .body{flex:1}
 }
@@ -382,6 +382,7 @@ body.tn3 .rwrap{filter:sepia(.5) saturate(2) hue-rotate(-40deg);box-shadow:0 0 2
 .pow .bar i{background:linear-gradient(90deg,#8f0f1b,#ff3b4a);box-shadow:0 0 8px var(--glow)}
 .pow-x{margin:6px 0 0;text-align:right;font:400 .75rem/1 "Share Tech Mono",monospace;color:var(--sub)}
 .alerts{list-style:none;margin:0;padding:0;display:grid;gap:8px;min-height:120px}
+.al[hidden]{display:none!important}
 .al{display:flex;align-items:center;gap:12px;padding:9px 12px;background:var(--field);border:1px solid var(--line);border-left:3px solid var(--red2)}
 .al.new{animation:alin .5s ease,alflash 1.3s ease}
 @keyframes alin{from{opacity:0;transform:translateX(-12px)}to{opacity:1;transform:none}}
@@ -3402,28 +3403,34 @@ function alItem(a,withBtn){
   return li;
 }
 function isPinS(a){return (a.r==="SS"||a.c)&&isActive(a)}
-/* 몬스터 출몰 알림 개수: PC에서는 알림 칸 높이에 들어가는 만큼(최대 ALERT_MAX), 모바일은 6개 */
-var ALERT_MAX=12,alCapN=6,alCapMq=window.matchMedia("(min-width:1100px)");
-function alertCap(){
-  var ul=$("alerts");if(!alCapMq.matches||!ul||!ul.clientHeight)return alCapN=6;
-  var li=ul.querySelector("li"),ih=li?li.offsetHeight:82,gap=8;
-  return alCapN=Math.max(1,Math.min(ALERT_MAX,Math.floor((ul.clientHeight+gap)/(ih+gap))));
-}
-(function(){
-  var ul=$("alerts"),t=0;if(!ul||!window.ResizeObserver)return;
-  new ResizeObserver(function(){clearTimeout(t);t=setTimeout(function(){var n=alCapN;if(alertCap()!==n){alertSig="";renderAlerts()}},120)}).observe(ul);
-})();
+/* 몬스터 출몰 알림: PC는 칸 높이에 들어가는 만큼(최대 ALERT_MAX), 모바일은 6개.
+   목록을 통째로 다시 그리지 않고 바뀐 카드만 넣고 빼서 깜빡임이 없게 합니다. (같은 카드는 그대로 두므로 SS 배지 깜빡임·새 알림 반짝임도 다시 시작되지 않음) */
+var ALERT_MAX=12,alMq=window.matchMedia("(min-width:1100px)");
+function alKey(a){return a.id+":"+(a.done?1:0)+(isPinS(a)?"p":"")}
 function renderAlerts(){
   // 토벌 가능한 SS급 출몰 정보는 항상 맨 위에 고정 (그 안에서는 최신순)
   alerts.sort(function(x,y){var px=isPinS(x)?1:0,py=isPinS(y)?1:0;return px!==py?py-px:(y.ts-x.ts)||(y.id-x.id)});
-  var top=alerts.slice(0,alertCap()),sig=top.map(function(a){return a.id+":"+(a.done?1:0)+(isPinS(a)?"p":"")}).join(",");
+  var ul=$("alerts"),fit=alMq.matches,top=alerts.slice(0,fit?ALERT_MAX:6);
+  var sig=top.map(alKey).join(",")+"|"+(fit?ul.clientHeight:0);
   if(sig!==alertSig){
     alertSig=sig;
-    var ul=$("alerts");ul.innerHTML="";
-    top.forEach(function(a){ul.appendChild(alItem(a));a.isNew=false});
+    var have={};Array.prototype.forEach.call(ul.children,function(li){have[li.dataset.k]=li});
+    top.forEach(function(a,i){
+      var k=alKey(a),li=have[k];
+      if(!li){li=alItem(a);li.dataset.k=k;if(a.isNew)setTimeout(function(){li.classList.remove("new")},1400)}
+      if(ul.children[i]!==li)ul.insertBefore(li,ul.children[i]||null);
+      a.isNew=false;
+    });
+    while(ul.children.length>top.length)ul.removeChild(ul.lastChild);
+    Array.prototype.forEach.call(ul.children,function(li){li.hidden=false});
+    if(fit)for(var j=ul.children.length-1;j>0&&ul.scrollHeight>ul.clientHeight+1;j--)ul.children[j].hidden=true;      // 넘치는 카드는 뒤에서부터 숨김
   }
   markRegions();
 }
+(function(){
+  var ul=$("alerts"),lastH=-1,tk=0;if(!ul||!window.ResizeObserver)return;
+  new ResizeObserver(function(){if(tk)return;tk=requestAnimationFrame(function(){tk=0;var h=alMq.matches?ul.clientHeight:0;if(h===lastH)return;lastH=h;renderAlerts()})}).observe(ul);      // 칸 높이가 바뀔 때만 다시 맞춤 (너비 변화는 무시)
+})();
 var statSig="";
 function applyState(st,first){
   spCheck(st.sp||null);
