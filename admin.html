@@ -248,6 +248,7 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
   <section class="card" id="inq">
     <h3 style="margin-bottom:8px">문의함 <span class="muted" style="font-weight:400;font-size:.85rem">(헌터가 관리자에게 보낸 메신저 · 관리자 전용 캐릭터는 게임 메신저에서 읽기만 가능)</span>
       <span style="float:right;font-weight:400;font-size:.85rem"><label style="cursor:pointer"><input type="checkbox" id="inqsnd" checked> 알림음</label> <button class="btn ghost sm" id="inqtest" type="button">소리 듣기</button></span></h3>
+    <div class="row" id="inqnew" style="margin:6px 0 10px;flex-wrap:wrap;gap:6px"><input id="inqto" maxlength="40" placeholder="헌터 코드 또는 닉네임" style="flex:0 1 200px"><input id="inqfirst" maxlength="200" placeholder="먼저 보낼 메시지 (최대 200자)" style="flex:1 1 260px"><button class="btn" id="inqstart" type="button">먼저 보내기</button><span class="muted" id="inqnmsg" style="font-size:.82rem"></span></div>
     <div id="inqlist"></div>
     <div id="inqchat" hidden>
       <div class="row" style="margin:10px 0 6px"><button class="btn ghost sm" id="inqback" type="button">← 목록</button><b id="inqname"></b></div>
@@ -998,7 +999,7 @@ function loadInq(){
       if(first||near)b.scrollTop=b.scrollHeight;
     }else if(r.threads){
       $("inqlist").hidden=false;$("inqchat").hidden=true;
-      $("inqlist").innerHTML=r.threads.length?'<div class="tw" style="max-height:300px"><table><thead><tr><th>헌터</th><th>마지막 문의/답변</th><th>시각</th><th></th></tr></thead><tbody>'+r.threads.map(function(t){return'<tr data-c="'+esc(t.code)+'" style="cursor:pointer"><td>'+esc(t.hn)+' <span class="muted">'+esc(t.code)+"</span></td><td>"+esc(t.last)+"</td><td>"+dt(t.ts)+"</td><td>"+(t.waiting?'<span class="chip bad">답변 대기</span>':"")+"</td></tr>"}).join("")+"</tbody></table></div>":'<div class="empty">받은 문의가 없습니다.</div>';
+      $("inqlist").innerHTML=r.threads.length?'<div class="tw" style="max-height:300px"><table><thead><tr><th>헌터</th><th>마지막 문의/답변</th><th>시각</th><th></th></tr></thead><tbody>'+r.threads.map(function(t){return'<tr data-c="'+esc(t.code)+'" style="cursor:pointer"><td>'+esc(t.hn)+' <span class="muted">'+esc(t.code)+"</span></td><td>"+esc(t.last)+"</td><td>"+dt(t.ts)+"</td><td>"+(t.waiting?'<span class="chip bad">답변 대기</span>':"")+(t.started?' <span class="chip">운영자 시작</span>':"")+"</td></tr>"}).join("")+"</tbody></table></div>":'<div class="empty">받은 문의가 없습니다.</div>';
     }
   });
 }
@@ -1011,6 +1012,18 @@ $("inqsend").addEventListener("click",function(){
   });
 });
 $("inqtext").addEventListener("keydown",function(e){if(e.key==="Enter"){e.preventDefault();$("inqsend").click()}});
+/* 관리자가 먼저 보내기: 헌터의 '문의' 대화에 운영자 메시지로 들어갑니다 */
+$("inqstart").addEventListener("click",function(){
+  var to=$("inqto").value.trim(),t=$("inqfirst").value.trim(),m=$("inqnmsg");
+  if(!to){m.textContent="받을 헌터를 입력하세요.";return}if(!t){m.textContent="메시지를 입력하세요.";return}
+  $("inqstart").disabled=true;
+  api("POST","/api/admin/inquiry/start",{target:to,text:t}).then(function(r){
+    $("inqstart").disabled=false;
+    if(r.ok){$("inqfirst").value="";m.textContent=r.hn+" 님의 문의함으로 보냈습니다.";inqCode=r.code;$("inqmsgs").innerHTML="";loadInq()}
+    else m.textContent=r.error==="no_user"?"그런 헌터가 없습니다.":r.error==="ambiguous"?"같은 닉네임이 여럿입니다. 코드로 입력하세요.":r.error==="bad_text"?"메시지는 1~200자로 입력하세요.":"보내지 못했습니다.";
+  });
+});
+$("inqfirst").addEventListener("keydown",function(e){if(e.key==="Enter"){e.preventDefault();$("inqstart").click()}});
 
 /* ───── 문의 알림음 (띵-동) ───── */
 var inqAC=null,inqSeen=null;
