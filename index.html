@@ -6107,9 +6107,10 @@ function u353Mount(w,r){
     go.setAttribute("aria-disabled",v.today||busy?"true":"false");
     go.textContent=v.today?"오늘 찍음":(n>=L?"새 도장판":"도장 찍기");
     info.textContent="";
-    ctNote(info,(v.today?"오늘 도장은 입장할 때 자동으로 찍혔어요. 내일 다시 와 주세요.":"오늘 도장이 아직 비어 있어요. 아래 버튼으로 찍을 수 있어요.")+(v.streak>1?" · "+v.streak+"일 연속":"")+(v.rounds?" · 완주 "+v.rounds+"회":""));
+    var st=[];if(!v.today)st.push("오늘 도장이 아직 비어 있어요. 아래 버튼으로 찍을 수 있어요.");if(v.streak>1)st.push(v.streak+"일 연속");if(v.rounds)st.push("완주 "+v.rounds+"회");
+    if(st.length)ctNote(info,st.join(" · "));
     if(next)ctNote(info,next+"칸째 보너스 · "+r.big[next]);
-    ctNote(info,"매일 "+r.daily+" G와 재료 2개, 7일 연속부터 골드 ×1.5. 하루 빠져도 도장은 그대로 남아요.");
+    ctNote(info,"매일 "+r.daily+" G와 재료 2개, 7일 연속부터 골드 ×1.5.");
   }
   function inkOn(k){S[k].querySelector(".u353-ink").classList.add("is-on");S[k].classList.add("is-got")}
   function reset(){root.classList.remove("is-done");n=0;S.forEach(function(s){s.querySelector(".u353-ink").classList.remove("is-on");s.classList.remove("is-got")})}
@@ -6190,7 +6191,7 @@ function ctFish(scr){
     ctNote(w,(note?note+" · ":"")+"오늘 남은 낚시 "+r.left+" / "+r.max+"회 · 지금 위치: "+r.place);
     if(!r.here){ctNote(w,"물가 지역에서만 낚시할 수 있어요 · "+r.spots.slice(0,8).join(", ")+" 등 "+r.spots.length+"곳");}
     else{
-      w.appendChild(pvEl("p","app-sub","지금 여기서 나오는 어종 · "+r.pool.map(function(f){return f.name+"("+TIER_KO[f.tier]+")"}).join(", ")));
+      w.appendChild(pvEl("p","app-sub","지금 여기서 나오는 어종 "+r.pool.length+"종 · "+r.pool.map(function(f){return (f.known?f.name:"???")+"("+TIER_KO[f.tier]+")"}).join(", ")));
       var pond=pvEl("div","ct-pond");var bob=pvEl("i","ct-bob");pond.appendChild(bob);var bar=pvEl("div","ct-fbar");var zone=pvEl("i","ct-fz"),mk=pvEl("b","ct-fm");bar.appendChild(zone);bar.appendChild(mk);bar.hidden=true;pond.appendChild(bar);
       var msg=pvEl("p","ct-fmsg","찌를 던져 보세요.");pond.appendChild(msg);w.appendChild(pond);
       var row=pvEl("div","rum-v");var go=ctBtn(row,"던지기",r.left<=0,function(){cast()},"ach-btn ct-cast");var reel=ctBtn(row,"당기기!",true,function(){pull()},"ach-btn ct-reel");w.appendChild(row);
@@ -6208,7 +6209,7 @@ function ctFish(scr){
           if(x.caught)pollState(false);load();
         })}
     }
-    ctHead(w,"어종 기록");var ul=pvEl("ul","app-list");r.log.forEach(function(f){var li=pvEl("li","qst-li"+(f.n?"":" got"));li.appendChild(pvEl("div","qst-t",(f.n?f.name:"???")+" · "+TIER_KO[f.tier]));li.appendChild(pvEl("small",null,f.n?"잡은 수 "+f.n+" · 최대 "+f.best+"cm":"아직 낚지 못했어요"));ul.appendChild(li)});w.appendChild(ul);
+    ctHead(w,"어종 기록 · "+r.log.filter(function(f){return f.n}).length+" / "+r.log.length+"종");var ul=pvEl("ul","app-list");r.log.forEach(function(f){var li=pvEl("li","qst-li"+(f.n?"":" got"));li.appendChild(pvEl("div","qst-t",(f.n?f.name:"???")+" · "+TIER_KO[f.tier]));li.appendChild(pvEl("small",null,"나오는 곳 · "+f.where));li.appendChild(pvEl("small",null,f.n?"잡은 수 "+f.n+" · 최대 "+f.best+"cm":"아직 낚지 못했어요"));ul.appendChild(li)});w.appendChild(ul);
   }
   load();
 }
