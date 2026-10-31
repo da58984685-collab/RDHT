@@ -135,13 +135,13 @@ const FURNI = [
   { id: 'plantpot', name: '관엽 화분', c: '#4f8a3a', mats: { '이끼': 3, '빈 공병': 1 }, w: 0.844 },
   { id: 'candle', name: '벽돌 벽난로', c: '#f0b93a', mats: { '먼지 낀 촛대': 2 }, w: 0.859 },
   { id: 'statue', name: '흔들 목마', c: '#8a8a8a', mats: { '균열난 기둥 파편': 4, '석상의 눈동자': 1 }, w: 1.033 },
-  { id: 'charm', name: '풍경 액자', c: '#e6d28a', mats: { '봉인 부적 조각': 2, '나뭇가지': 2 }, w: 0.695 },
+  { id: 'charm', name: '풍경 액자', c: '#e6d28a', mats: { '봉인 부적 조각': 2, '나뭇가지': 2 }, w: 0.695, wall: true },
   { id: 'aquarium', name: '수조', c: '#4a9fd0', mats: { '빈 공병': 3, '맑은 샘물': 2, '민물 생선': 1 }, w: 0.969 },
   { id: 'trophy', name: '유리 찬장', c: '#c9a227', mats: { [VARIANT_DROP]: 1, '나뭇가지': 3 }, w: 0.812 },
   { id: 'nest', name: '몬스터 잠자리', c: '#c48a5a', mats: { '새의 깃털': 6, '낡은 천조각': 3, '이끼': 2 }, fx: '육성 몬스터의 포만감이 20% 천천히 줄어듦', w: 1.333 },
-  { id: 'map', name: '원정 게시판', c: '#d9c08a', mats: { '낡은 천조각': 3, '잉크 병': 1, '오래된 열쇠': 1 }, fx: '원정을 두 마리까지 동시에 보냄', w: 0.797 },
+  { id: 'map', name: '원정 게시판', c: '#d9c08a', mats: { '낡은 천조각': 3, '잉크 병': 1, '오래된 열쇠': 1 }, fx: '원정을 두 마리까지 동시에 보냄', w: 0.797, wall: true },
   { id: 'abyss', name: '심연 스노우볼', c: '#7a5ad8', mats: { [ABYSS_MAT]: 3, '빈 공병': 1 }, w: 0.792 },
-  { id: 'moon', name: '커튼 창문', c: '#d4202e', mats: { '적월석 가루': 2, '수정 파편': 2 }, w: 0.906 },
+  { id: 'moon', name: '커튼 창문', c: '#d4202e', mats: { '적월석 가루': 2, '수정 파편': 2 }, w: 0.906, wall: true },
   // ── 추가 가구 (이미지 가구 세트) ──
   { id: 'bed_pink', name: '분홍 침대', c: '#d98aa8', mats: { '나뭇가지': 6, '낡은 천조각': 8, '새의 깃털': 3 }, w: 1.049 },
   { id: 'bed_bear', name: '곰인형 침대', c: '#d98aa8', mats: { '나뭇가지': 6, '낡은 천조각': 8, '새의 깃털': 3 }, w: 0.992 },
@@ -169,7 +169,7 @@ const FURNI = [
   { id: 'coatrack', name: '옷걸이 스탠드', c: '#9a6a44', mats: { '나뭇가지': 6, '녹슨 못': 3 }, w: 0.43 },
   { id: 'hanger', name: '옷 행거', c: '#d98aa8', mats: { '낡은 천조각': 5, '새의 깃털': 2 }, w: 0.922 },
   { id: 'mirror', name: '전신 거울', c: '#7ac0e0', mats: { '빈 공병': 3, '맑은 샘물': 2, '나뭇가지': 2 }, w: 0.68 },
-  { id: 'jarshelf', name: '병 선반', c: '#7ac0e0', mats: { '빈 공병': 3, '맑은 샘물': 2, '나뭇가지': 2 }, w: 1.293 },
+  { id: 'jarshelf', name: '병 선반', c: '#7ac0e0', mats: { '빈 공병': 3, '맑은 샘물': 2, '나뭇가지': 2 }, w: 1.293, wall: true },
   { id: 'minishelf', name: '미니 책장', c: '#6b4a32', mats: { '나뭇가지': 5, '찢어진 서책': 2 }, w: 0.711 },
   { id: 'nightstand', name: '협탁', c: '#9a6a44', mats: { '나뭇가지': 6, '녹슨 못': 3 }, w: 0.773 },
   { id: 'fishbowl', name: '금붕어 어항', c: '#7ac0e0', mats: { '빈 공병': 3, '맑은 샘물': 2, '나뭇가지': 2 }, w: 1.05 },
@@ -177,7 +177,7 @@ const FURNI = [
   { id: 'cooler', name: '정수기', c: '#7ac0e0', mats: { '빈 공병': 3, '맑은 샘물': 2, '나뭇가지': 2 }, w: 0.453 },
   { id: 'mailbox', name: '빨간 우체통', c: '#9aa4b0', mats: { '철광석 조각': 3, '녹슨 못': 4 }, w: 0.641 },
   { id: 'vineshelf', name: '덩굴 책장', c: '#6b4a32', mats: { '나뭇가지': 5, '찢어진 서책': 2 }, w: 0.758 },
-  { id: 'vinerack', name: '덩굴 선반', c: '#5a9a44', mats: { '이끼': 3, '빈 공병': 1, '들꽃': 2 }, w: 1.049 },
+  { id: 'vinerack', name: '덩굴 선반', c: '#5a9a44', mats: { '이끼': 3, '빈 공병': 1, '들꽃': 2 }, w: 1.049, wall: true },
   { id: 'wardrobe_m', name: '거울 옷장', c: '#8a5a3a', mats: { '나뭇가지': 12, '녹슨 못': 6 }, w: 0.672 },
   { id: 'chest', name: '보물 상자', c: '#9aa4b0', mats: { '철광석 조각': 3, '녹슨 못': 4 }, w: 1.103 },
   { id: 'pawseat', name: '발바닥 쿠션', c: '#d98aa8', mats: { '낡은 천조각': 5, '새의 깃털': 2 }, w: 1.14 },
@@ -219,13 +219,14 @@ const FURNI = [
   { id: 'sink_s', name: '작은 싱크대', c: '#9aa4b0', mats: { '철광석 조각': 3, '녹슨 못': 4 }, w: 0.914 },
   { id: 'dishcab', name: '그릇장', c: '#7ac0e0', mats: { '빈 공병': 3, '맑은 샘물': 2, '나뭇가지': 2 }, w: 0.719 },
   { id: 'plantladder', name: '화분 사다리', c: '#5a9a44', mats: { '이끼': 3, '빈 공병': 1, '들꽃': 2 }, w: 0.523 },
-  { id: 'hangplant', name: '행잉 화분', c: '#5a9a44', mats: { '이끼': 3, '빈 공병': 1, '들꽃': 2 }, w: 0.57 },
-  { id: 'potshelf', name: '화분 선반', c: '#5a9a44', mats: { '이끼': 3, '빈 공병': 1, '들꽃': 2 }, w: 1.085 },
+  { id: 'hangplant', name: '행잉 화분', c: '#5a9a44', mats: { '이끼': 3, '빈 공병': 1, '들꽃': 2 }, w: 0.57, wall: true },
+  { id: 'potshelf', name: '화분 선반', c: '#5a9a44', mats: { '이끼': 3, '빈 공병': 1, '들꽃': 2 }, w: 1.085, wall: true },
   { id: 'toybox', name: '인형 상자', c: '#d98aa8', mats: { '낡은 천조각': 5, '새의 깃털': 2 }, w: 0.898 },
   { id: 'laundry', name: '빨래 바구니', c: '#d98aa8', mats: { '낡은 천조각': 5, '새의 깃털': 2 }, w: 0.828 },
   { id: 'dryrack', name: '빨래 건조대', c: '#d98aa8', mats: { '낡은 천조각': 5, '새의 깃털': 2 }, w: 0.75 },
 ];
 const FURNI_BY = new Map(FURNI.map(f => [f.id, f]));
+const wallSlots = size => Math.max(3, Math.floor(size / 1.5));      // 벽 한 면에 거는 칸 수 (8칸 방 → 5칸)
 const ROOM_SIZE = { F: 8, E: 8, D: 9, C: 10, B: 11, A: 12, S: 12 };
 const WALLS = ['#ffffff', '#f2c9cf', '#c9d8f2', '#d9ecc9', '#5a4148'], FLOORS = ['#ffffff', '#b08a78', '#f0dcc0', '#b8c8b0', '#8a6a7a'];      // 방 이미지에 곱하기(multiply)로 입히는 색. 첫 칸은 원래 색
 const COZY_LIKES = 30;
@@ -681,8 +682,8 @@ function install(d) {
     const liked = !mine && !!(await db.get('SELECT 1 AS x FROM ct_room_like WHERE owner_id = ? AND user_id = ? AND day = ?', [owner.id, me.id, day]));
     const recipes = [];
     if (mine) for (const f of FURNI) recipes.push({ id: f.id, mats: Object.keys(f.mats).map(k => ({ item: k, qty: f.mats[k] })), have: await haveMats(me.id, f.mats) });
-    send(res, 200, { mine, hn: owner.hunter_name, size: ROOM_SIZE[owner.rank] || 8, wall: r.wall, floor: r.floor, walls: WALLS, floors: FLOORS, layout: parseLayout(r.layout), likes: r.likes, visits: r.visits, liked,
-      defs: FURNI.map(f => ({ id: f.id, name: f.name, c: f.c, w: f.w, fx: f.fx || '' })), furni: furni.map(x => ({ id: x.key, qty: x.qty })), recipes });
+    send(res, 200, { mine, hn: owner.hunter_name, size: ROOM_SIZE[owner.rank] || 8, wslots: wallSlots(ROOM_SIZE[owner.rank] || 8), wall: r.wall, floor: r.floor, walls: WALLS, floors: FLOORS, layout: parseLayout(r.layout), likes: r.likes, visits: r.visits, liked,
+      defs: FURNI.map(f => ({ id: f.id, name: f.name, c: f.c, w: f.w, wall: !!f.wall, fx: f.fx || '' })), furni: furni.map(x => ({ id: x.key, qty: x.qty })), recipes });
   });
   route('POST', '/api/room/save', async (req, res, ctx) => {
     const uid = ctx.user.id, u = await userById(uid), size = ROOM_SIZE[u.rank] || 8;
@@ -690,8 +691,15 @@ function install(d) {
     if (!lay) return fail(res, 400, 'bad_layout');
     const used = {}, cells = new Set(), clean = [];
     for (const it of lay) {
-      const k = String(it && it.k || ''), x = Number(it && it.x), y = Number(it && it.y), rot = Number(it && it.r) || 0;
-      if (!FURNI_BY.has(k) || !Number.isInteger(x) || !Number.isInteger(y) || x < 0 || y < 0 || x >= size || y >= size) return fail(res, 400, 'bad_layout');
+      const k = String(it && it.k || ''), x = Number(it && it.x), y = Number(it && it.y), rot = Number(it && it.r) || 0, f = FURNI_BY.get(k);
+      if (!f) return fail(res, 400, 'bad_layout');
+      if (f.wall) {      // 벽에 거는 가구: 왼쪽(L)·오른쪽(R) 벽의 칸 번호 x (0 ~ 벽 칸 수-1)
+        const w = it.w === 'L' ? 'L' : it.w === 'R' ? 'R' : '';
+        if (!w || !Number.isInteger(x) || x < 0 || x >= wallSlots(size)) return fail(res, 400, 'bad_layout');
+        if (cells.has(w + x)) return fail(res, 400, 'overlap');
+        cells.add(w + x); used[k] = (used[k] || 0) + 1; clean.push({ k, x, y: 0, r: 0, w }); continue;
+      }
+      if (!Number.isInteger(x) || !Number.isInteger(y) || x < 0 || y < 0 || x >= size || y >= size) return fail(res, 400, 'bad_layout');
       if (cells.has(x + ',' + y)) return fail(res, 400, 'overlap');
       cells.add(x + ',' + y); used[k] = (used[k] || 0) + 1; clean.push({ k, x, y, r: ((rot % 4) + 4) % 4 });
     }
