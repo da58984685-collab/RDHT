@@ -1,7 +1,7 @@
 'use strict';
 // 상시 컨텐츠 12종 (설계서: 적월협인 상시 컨텐츠 설계서)
 //  1 장비 강화 · 7 적월문 무한 심층 · 12 PVP 리그 티어 · 17 칭호 컬렉션 · 18 희귀 변종 · 20 요리 · 21 낚시
-//  22 육성 몬스터 원정 · 24 헌터 숙소 · 26 출석 도장판 · 27 시간대별 출몰 · 30 오늘의 운세
+//  22 육성 몬스터 원정 · 26 출석 도장판 · 27 시간대별 출몰 · 30 오늘의 운세
 // 판정·보상은 모두 서버(이 파일)가 정하고, 화면은 결과만 그립니다. 시간 기준은 한국 시간(KST).
 const G = require('./_game');
 
@@ -77,7 +77,6 @@ const TITLES = [
   { id: 'angler', name: '만선 어부', tier: 'l', hidden: 1, how: '전설 어종 낚기' },
   { id: 'regular', name: '개근 헌터', tier: 'e', hidden: 1, how: '출석 도장판 28칸 4번 완성' },
   { id: ABYSS_TITLE, name: '심연을 걸은 자', tier: 'l', how: '적월문 무한 심층 주간 1위 (한 주간)' },
-  { id: 'cozy', name: '아늑한 숙소', tier: 'r', how: '숙소 좋아요 30개' },
 ];
 const TITLE_BY = new Map(TITLES.map(t => [t.id, t]));
 
@@ -123,114 +122,6 @@ const EXPED = [
 ];
 const EXPED_BY = new Map(EXPED.map(x => [x.id, x]));
 
-// ───────── 24 헌터 숙소 ─────────
-// p: 8×8 도트 그림(0 빈칸, 1 테두리색, 2 본색) · c: 본색 · fx: 기능(없으면 꾸미기용)
-const FURNI = [
-  { id: 'bed', name: '파란 체크 침대', c: '#8a5a3a', mats: { '나뭇가지': 8, '낡은 천조각': 4 }, w: 1.153 },
-  { id: 'table', name: '나무 탁자', c: '#9a6a44', mats: { '나뭇가지': 6, '녹슨 못': 4 }, w: 1.174 },
-  { id: 'chair', name: '나무 의자', c: '#9a6a44', mats: { '나뭇가지': 4, '녹슨 못': 2 }, w: 0.711 },
-  { id: 'shelf', name: '책장', c: '#6b4a32', mats: { '나뭇가지': 6, '찢어진 서책': 3 }, w: 0.633 },
-  { id: 'lamp', name: '플로어 램프', c: '#f0c75e', mats: { '빈 공병': 1, '부싯돌': 2, '철광석 조각': 1 }, w: 0.477 },
-  { id: 'rug', name: '분홍 러그', c: '#a8202c', mats: { '낡은 천조각': 6, '붉은 물방울': 1 }, w: 1.91 },
-  { id: 'plantpot', name: '관엽 화분', c: '#4f8a3a', mats: { '이끼': 3, '빈 공병': 1 }, w: 0.844 },
-  { id: 'candle', name: '벽돌 벽난로', c: '#f0b93a', mats: { '먼지 낀 촛대': 2 }, w: 0.859 },
-  { id: 'statue', name: '흔들 목마', c: '#8a8a8a', mats: { '균열난 기둥 파편': 4, '석상의 눈동자': 1 }, w: 1.033 },
-  { id: 'charm', name: '풍경 액자', c: '#e6d28a', mats: { '봉인 부적 조각': 2, '나뭇가지': 2 }, w: 0.695, wall: true },
-  { id: 'aquarium', name: '수조', c: '#4a9fd0', mats: { '빈 공병': 3, '맑은 샘물': 2, '민물 생선': 1 }, w: 0.969 },
-  { id: 'trophy', name: '유리 찬장', c: '#c9a227', mats: { [VARIANT_DROP]: 1, '나뭇가지': 3 }, w: 0.812 },
-  { id: 'nest', name: '몬스터 잠자리', c: '#c48a5a', mats: { '새의 깃털': 6, '낡은 천조각': 3, '이끼': 2 }, fx: '육성 몬스터의 포만감이 20% 천천히 줄어듦', w: 1.333 },
-  { id: 'map', name: '원정 게시판', c: '#d9c08a', mats: { '낡은 천조각': 3, '잉크 병': 1, '오래된 열쇠': 1 }, fx: '원정을 두 마리까지 동시에 보냄', w: 0.797, wall: true },
-  { id: 'abyss', name: '심연 스노우볼', c: '#7a5ad8', mats: { [ABYSS_MAT]: 3, '빈 공병': 1 }, w: 0.792 },
-  { id: 'moon', name: '커튼 창문', c: '#d4202e', mats: { '적월석 가루': 2, '수정 파편': 2 }, w: 0.906, wall: true },
-  // ── 추가 가구 (이미지 가구 세트) ──
-  { id: 'bed_pink', name: '분홍 침대', c: '#d98aa8', mats: { '나뭇가지': 6, '낡은 천조각': 8, '새의 깃털': 3 }, w: 1.049 },
-  { id: 'bed_bear', name: '곰인형 침대', c: '#d98aa8', mats: { '나뭇가지': 6, '낡은 천조각': 8, '새의 깃털': 3 }, w: 0.992 },
-  { id: 'wardrobe', name: '원목 옷장', c: '#8a5a3a', mats: { '나뭇가지': 12, '녹슨 못': 6 }, w: 0.656 },
-  { id: 'dresser', name: '넓은 서랍장', c: '#8a5a3a', mats: { '나뭇가지': 12, '녹슨 못': 6 }, w: 0.992 },
-  { id: 'vanity', name: '거울 화장대', c: '#7ac0e0', mats: { '빈 공병': 3, '맑은 샘물': 2, '나뭇가지': 2 }, w: 0.727 },
-  { id: 'desk', name: '스탠드 책상', c: '#9a6a44', mats: { '나뭇가지': 6, '녹슨 못': 3 }, w: 0.867 },
-  { id: 'stool', name: '둥근 스툴', c: '#9a6a44', mats: { '나뭇가지': 6, '녹슨 못': 3 }, w: 0.841 },
-  { id: 'table_wide', name: '넓은 탁자', c: '#9a6a44', mats: { '나뭇가지': 6, '녹슨 못': 3 }, w: 1.347 },
-  { id: 'table_plant', name: '화분 탁자', c: '#5a9a44', mats: { '이끼': 3, '빈 공병': 1, '들꽃': 2 }, w: 1.103 },
-  { id: 'tvstand', name: 'TV 장식장', c: '#9aa4b0', mats: { '철광석 조각': 3, '녹슨 못': 4 }, w: 0.844 },
-  { id: 'shelf_plant', name: '화분 책장', c: '#6b4a32', mats: { '나뭇가지': 5, '찢어진 서책': 2 }, w: 0.867 },
-  { id: 'bigplant', name: '큰 관엽 화분', c: '#5a9a44', mats: { '이끼': 3, '빈 공병': 1, '들꽃': 2 }, w: 0.672 },
-  { id: 'cupboard', name: '그릇 찬장', c: '#7ac0e0', mats: { '빈 공병': 3, '맑은 샘물': 2, '나뭇가지': 2 }, w: 0.812 },
-  { id: 'stove', name: '가스레인지', c: '#c8ccd4', mats: { '철광석 조각': 6, '녹슨 못': 6, '빈 공병': 2 }, w: 0.844 },
-  { id: 'sink', name: '싱크대', c: '#9aa4b0', mats: { '철광석 조각': 3, '녹슨 못': 4 }, w: 0.969 },
-  { id: 'fridge', name: '냉장고', c: '#c8ccd4', mats: { '철광석 조각': 6, '녹슨 못': 6, '빈 공병': 2 }, w: 0.703 },
-  { id: 'washer', name: '세탁기', c: '#c8ccd4', mats: { '철광석 조각': 6, '녹슨 못': 6, '빈 공병': 2 }, w: 0.758 },
-  { id: 'microwave', name: '전자레인지 선반', c: '#9aa4b0', mats: { '철광석 조각': 3, '녹슨 못': 4 }, w: 0.93 },
-  { id: 'trashcan', name: '휴지통', c: '#9aa4b0', mats: { '철광석 조각': 3, '녹슨 못': 4 }, w: 0.765 },
-  { id: 'cushion_pink', name: '분홍 방석', c: '#d98aa8', mats: { '낡은 천조각': 5, '새의 깃털': 2 }, w: 1.412 },
-  { id: 'cushion_blue', name: '파란 방석', c: '#d98aa8', mats: { '낡은 천조각': 5, '새의 깃털': 2 }, w: 1.6 },
-  { id: 'flowerpot', name: '꽃 화분', c: '#5a9a44', mats: { '이끼': 3, '빈 공병': 1, '들꽃': 2 }, w: 0.764 },
-  { id: 'screen', name: '꽃무늬 병풍', c: '#9a6a44', mats: { '나뭇가지': 6, '녹슨 못': 3 }, w: 0.922 },
-  { id: 'coatrack', name: '옷걸이 스탠드', c: '#9a6a44', mats: { '나뭇가지': 6, '녹슨 못': 3 }, w: 0.43 },
-  { id: 'hanger', name: '옷 행거', c: '#d98aa8', mats: { '낡은 천조각': 5, '새의 깃털': 2 }, w: 0.922 },
-  { id: 'mirror', name: '전신 거울', c: '#7ac0e0', mats: { '빈 공병': 3, '맑은 샘물': 2, '나뭇가지': 2 }, w: 0.68 },
-  { id: 'jarshelf', name: '병 선반', c: '#7ac0e0', mats: { '빈 공병': 3, '맑은 샘물': 2, '나뭇가지': 2 }, w: 1.293, wall: true },
-  { id: 'minishelf', name: '미니 책장', c: '#6b4a32', mats: { '나뭇가지': 5, '찢어진 서책': 2 }, w: 0.711 },
-  { id: 'nightstand', name: '협탁', c: '#9a6a44', mats: { '나뭇가지': 6, '녹슨 못': 3 }, w: 0.773 },
-  { id: 'fishbowl', name: '금붕어 어항', c: '#7ac0e0', mats: { '빈 공병': 3, '맑은 샘물': 2, '나뭇가지': 2 }, w: 1.05 },
-  { id: 'gumball', name: '뽑기 기계', c: '#9aa4b0', mats: { '철광석 조각': 3, '녹슨 못': 4 }, w: 0.539 },
-  { id: 'cooler', name: '정수기', c: '#7ac0e0', mats: { '빈 공병': 3, '맑은 샘물': 2, '나뭇가지': 2 }, w: 0.453 },
-  { id: 'mailbox', name: '빨간 우체통', c: '#9aa4b0', mats: { '철광석 조각': 3, '녹슨 못': 4 }, w: 0.641 },
-  { id: 'vineshelf', name: '덩굴 책장', c: '#6b4a32', mats: { '나뭇가지': 5, '찢어진 서책': 2 }, w: 0.758 },
-  { id: 'vinerack', name: '덩굴 선반', c: '#5a9a44', mats: { '이끼': 3, '빈 공병': 1, '들꽃': 2 }, w: 1.049, wall: true },
-  { id: 'wardrobe_m', name: '거울 옷장', c: '#8a5a3a', mats: { '나뭇가지': 12, '녹슨 못': 6 }, w: 0.672 },
-  { id: 'chest', name: '보물 상자', c: '#9aa4b0', mats: { '철광석 조각': 3, '녹슨 못': 4 }, w: 1.103 },
-  { id: 'pawseat', name: '발바닥 쿠션', c: '#d98aa8', mats: { '낡은 천조각': 5, '새의 깃털': 2 }, w: 1.14 },
-  { id: 'vanity_pink', name: '분홍 화장대', c: '#7ac0e0', mats: { '빈 공병': 3, '맑은 샘물': 2, '나뭇가지': 2 }, w: 0.734 },
-  { id: 'roundtable', name: '꽃병 원탁', c: '#9a6a44', mats: { '나뭇가지': 6, '녹슨 못': 3 }, w: 0.695 },
-  { id: 'tvlow', name: '낮은 TV장', c: '#9aa4b0', mats: { '철광석 조각': 3, '녹슨 못': 4 }, w: 0.828 },
-  { id: 'clock', name: '괘종시계', c: '#9aa4b0', mats: { '철광석 조각': 3, '녹슨 못': 4 }, w: 0.484 },
-  { id: 'hatstand', name: '모자 걸이', c: '#9a6a44', mats: { '나뭇가지': 6, '녹슨 못': 3 }, w: 0.398 },
-  { id: 'drawer_pink', name: '분홍 서랍장', c: '#9a6a44', mats: { '나뭇가지': 6, '녹슨 못': 3 }, w: 0.852 },
-  { id: 'mirror_wood', name: '원목 거울', c: '#7ac0e0', mats: { '빈 공병': 3, '맑은 샘물': 2, '나뭇가지': 2 }, w: 0.648 },
-  { id: 'lamp_gold', name: '금빛 스탠드', c: '#9aa4b0', mats: { '철광석 조각': 3, '녹슨 못': 4 }, w: 0.469 },
-  { id: 'laptopdesk', name: '노트북 책상', c: '#9aa4b0', mats: { '철광석 조각': 3, '녹슨 못': 4 }, w: 1.174 },
-  { id: 'officechair', name: '분홍 회전의자', c: '#d98aa8', mats: { '낡은 천조각': 5, '새의 깃털': 2 }, w: 0.82 },
-  { id: 'bed_double', name: '체크 더블침대', c: '#d98aa8', mats: { '나뭇가지': 6, '낡은 천조각': 8, '새의 깃털': 3 }, w: 1.133 },
-  { id: 'armchair', name: '체크 안락의자', c: '#d98aa8', mats: { '낡은 천조각': 5, '새의 깃털': 2 }, w: 0.953 },
-  { id: 'stool_cream', name: '크림 스툴', c: '#9a6a44', mats: { '나뭇가지': 6, '녹슨 못': 3 }, w: 0.813 },
-  { id: 'bench', name: '파란 벤치', c: '#d98aa8', mats: { '낡은 천조각': 5, '새의 깃털': 2 }, w: 1.231 },
-  { id: 'nightstand_fl', name: '꽃 협탁', c: '#5a9a44', mats: { '이끼': 3, '빈 공병': 1, '들꽃': 2 }, w: 0.656 },
-  { id: 'plant_tall', name: '키 큰 화분', c: '#5a9a44', mats: { '이끼': 3, '빈 공병': 1, '들꽃': 2 }, w: 0.719 },
-  { id: 'screen_fl', name: '꽃 칸막이', c: '#9a6a44', mats: { '나뭇가지': 6, '녹슨 못': 3 }, w: 0.891 },
-  { id: 'cabinet_glass', name: '유리 수납장', c: '#7ac0e0', mats: { '빈 공병': 3, '맑은 샘물': 2, '나뭇가지': 2 }, w: 0.781 },
-  { id: 'nightstand_pl', name: '화분 협탁', c: '#5a9a44', mats: { '이끼': 3, '빈 공병': 1, '들꽃': 2 }, w: 0.703 },
-  { id: 'teatable', name: '티 테이블', c: '#9a6a44', mats: { '나뭇가지': 6, '녹슨 못': 3 }, w: 1.243 },
-  { id: 'pawrug', name: '발바닥 러그', c: '#d98aa8', mats: { '낡은 천조각': 5, '새의 깃털': 2 }, w: 1.662 },
-  { id: 'pawseat2', name: '발바닥 방석', c: '#d98aa8', mats: { '낡은 천조각': 5, '새의 깃털': 2 }, w: 1.212 },
-  { id: 'cattower', name: '캣타워', c: '#d98aa8', mats: { '낡은 천조각': 5, '새의 깃털': 2 }, w: 0.586 },
-  { id: 'doghouse', name: '강아지 집', c: '#9a6a44', mats: { '나뭇가지': 6, '녹슨 못': 3 }, w: 0.961 },
-  { id: 'foodbowl', name: '먹이 그릇', c: '#9aa4b0', mats: { '철광석 조각': 3, '녹슨 못': 4 }, w: 1.354 },
-  { id: 'waterbowl', name: '물그릇', c: '#7ac0e0', mats: { '빈 공병': 3, '맑은 샘물': 2, '나뭇가지': 2 }, w: 1.317 },
-  { id: 'terrarium', name: '테라리움', c: '#5a9a44', mats: { '이끼': 3, '빈 공병': 1, '들꽃': 2 }, w: 0.93 },
-  { id: 'fireplace_w', name: '흰 벽난로', c: '#d0b090', mats: { '부싯돌': 4, '철광석 조각': 2, '붉은 석재 조각': 3 }, w: 0.867 },
-  { id: 'globeshelf', name: '지구본 책장', c: '#6b4a32', mats: { '나뭇가지': 5, '찢어진 서책': 2 }, w: 0.867 },
-  { id: 'lowshelf', name: '낮은 수납장', c: '#9a6a44', mats: { '나뭇가지': 6, '녹슨 못': 3 }, w: 1.076 },
-  { id: 'locker_b', name: '파란 사물함', c: '#9aa4b0', mats: { '철광석 조각': 3, '녹슨 못': 4 }, w: 0.594 },
-  { id: 'locker_p', name: '분홍 사물함', c: '#9aa4b0', mats: { '철광석 조각': 3, '녹슨 못': 4 }, w: 0.562 },
-  { id: 'tallchest', name: '높은 서랍장', c: '#9a6a44', mats: { '나뭇가지': 6, '녹슨 못': 3 }, w: 0.484 },
-  { id: 'dining', name: '식탁 세트', c: '#8a5a3a', mats: { '나뭇가지': 12, '녹슨 못': 6 }, w: 1.008 },
-  { id: 'kitchen', name: '주방 조리대', c: '#c8ccd4', mats: { '철광석 조각': 6, '녹슨 못': 6, '빈 공병': 2 }, w: 1.164 },
-  { id: 'sink_s', name: '작은 싱크대', c: '#9aa4b0', mats: { '철광석 조각': 3, '녹슨 못': 4 }, w: 0.914 },
-  { id: 'dishcab', name: '그릇장', c: '#7ac0e0', mats: { '빈 공병': 3, '맑은 샘물': 2, '나뭇가지': 2 }, w: 0.719 },
-  { id: 'plantladder', name: '화분 사다리', c: '#5a9a44', mats: { '이끼': 3, '빈 공병': 1, '들꽃': 2 }, w: 0.523 },
-  { id: 'hangplant', name: '행잉 화분', c: '#5a9a44', mats: { '이끼': 3, '빈 공병': 1, '들꽃': 2 }, w: 0.57, wall: true },
-  { id: 'potshelf', name: '화분 선반', c: '#5a9a44', mats: { '이끼': 3, '빈 공병': 1, '들꽃': 2 }, w: 1.085, wall: true },
-  { id: 'toybox', name: '인형 상자', c: '#d98aa8', mats: { '낡은 천조각': 5, '새의 깃털': 2 }, w: 0.898 },
-  { id: 'laundry', name: '빨래 바구니', c: '#d98aa8', mats: { '낡은 천조각': 5, '새의 깃털': 2 }, w: 0.828 },
-  { id: 'dryrack', name: '빨래 건조대', c: '#d98aa8', mats: { '낡은 천조각': 5, '새의 깃털': 2 }, w: 0.75 },
-];
-const FURNI_BY = new Map(FURNI.map(f => [f.id, f]));
-const wallSlots = size => Math.max(3, Math.floor(size / 1.5));      // 벽 한 면에 거는 칸 수 (8칸 방 → 5칸)
-const ROOM_SIZE = { F: 8, E: 8, D: 9, C: 10, B: 11, A: 12, S: 12 };
-const WALLS = ['#ffffff', '#f2c9cf', '#c9d8f2', '#d9ecc9', '#5a4148'], FLOORS = ['#ffffff', '#b08a78', '#f0dcc0', '#b8c8b0', '#8a6a7a'];      // 방 이미지에 곱하기(multiply)로 입히는 색. 첫 칸은 원래 색
-const COZY_LIKES = 30;
-
 // ───────── 26 출석 도장판 ─────────
 const ATTEND_LEN = 28, ATTEND_GOLD = 300, ATTEND_STREAK = 7, ATTEND_TITLE_ROUNDS = 4;
 
@@ -272,9 +163,6 @@ const SQL = [
   "CREATE TABLE IF NOT EXISTS ct_fish_cast (user_id INTEGER PRIMARY KEY, fish TEXT NOT NULL, bite_at INTEGER NOT NULL, period INTEGER NOT NULL, w0 REAL NOT NULL, w1 REAL NOT NULL, at INTEGER NOT NULL)",
   "CREATE TABLE IF NOT EXISTS ct_fish_log (user_id INTEGER NOT NULL, fish TEXT NOT NULL, best INTEGER NOT NULL DEFAULT 0, n INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (user_id, fish))",
   "CREATE TABLE IF NOT EXISTS ct_fish_day (user_id INTEGER NOT NULL, day TEXT NOT NULL, n INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (user_id, day))",
-  "CREATE TABLE IF NOT EXISTS ct_room (user_id INTEGER PRIMARY KEY, wall INTEGER NOT NULL DEFAULT 0, floor INTEGER NOT NULL DEFAULT 0, layout TEXT NOT NULL DEFAULT '[]', likes INTEGER NOT NULL DEFAULT 0, visits INTEGER NOT NULL DEFAULT 0)",
-  "CREATE TABLE IF NOT EXISTS ct_room_like (owner_id INTEGER NOT NULL, user_id INTEGER NOT NULL, day TEXT NOT NULL, PRIMARY KEY (owner_id, user_id, day))",
-  "CREATE TABLE IF NOT EXISTS ct_furni (user_id INTEGER NOT NULL, key TEXT NOT NULL, qty INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (user_id, key))",
   "CREATE TABLE IF NOT EXISTS ct_news (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, title TEXT NOT NULL, body TEXT NOT NULL, at INTEGER NOT NULL)",
   "CREATE INDEX IF NOT EXISTS ct_news_user ON ct_news(user_id, id)",
   'ALTER TABLE users ADD COLUMN title TEXT NOT NULL DEFAULT \'\'',
@@ -296,7 +184,7 @@ const SQL = [
   'ALTER TABLE user_mons ADD COLUMN exp_from INTEGER NOT NULL DEFAULT 0',
   'ALTER TABLE user_mons ADD COLUMN exp_until INTEGER NOT NULL DEFAULT 0',
 ];
-const PURGE = ['ct_counter', 'ct_title', 'ct_attend', 'ct_fortune', 'ct_gate_week', 'ct_fish_cast', 'ct_fish_log', 'ct_fish_day', 'ct_room', 'ct_furni', 'ct_news'].map(t => ['DELETE FROM ' + t + ' WHERE user_id = ?']).concat([['DELETE FROM ct_room_like WHERE owner_id = ? OR user_id = ?', 2]]);
+const PURGE = ['ct_counter', 'ct_title', 'ct_attend', 'ct_fortune', 'ct_gate_week', 'ct_fish_cast', 'ct_fish_log', 'ct_fish_day', 'ct_news'].map(t => ['DELETE FROM ' + t + ' WHERE user_id = ?']);
 
 function install(d) {
   const { db, route, send, fail, limited, userById, grantGold, grantExp, logAcquire, giveItem, EQ_BY_ID, eqBonusOf } = d;
@@ -348,7 +236,7 @@ function install(d) {
       return a ? { name: a.name, tier: 'c' } : null;
     }
     const own = await db.get('SELECT until FROM ct_title WHERE user_id = ? AND tid = ?', [uid, tid]);
-    if (!own || (Number(own.until) && Number(own.until) < now)) { await db.run("UPDATE users SET title = '' WHERE id = ? AND title = ?", [uid, tid]); return null; }
+    if (!TITLE_BY.has(tid) || !own || (Number(own.until) && Number(own.until) < now)) { await db.run("UPDATE users SET title = '' WHERE id = ? AND title = ?", [uid, tid]); return null; }      // 없어진 칭호(예: 숙소)는 떼어 냄
     return { name: titleName(tid), tier: titleTier(tid) };
   }
   route('GET', '/api/titles', async (req, res, ctx) => {
@@ -428,13 +316,13 @@ function install(d) {
     for (let i = 0; i < 2; i++) { const m = pick(G.MATERIALS).name; await giveItem(uid, m, 1); got.push(m); }
     if (stamps === 7) { gold += 2000; await db.run('UPDATE users SET mon_food = MIN(99, mon_food + 3) WHERE id = ?', [uid]); got.push('몬스터 먹이 ×3'); }
     if (stamps === 14) { gold += 4000; for (let i = 0; i < 2; i++) { const m = pick(G.GATE_MATS.filter(x => x.tier === 'r')).name; await giveItem(uid, m, 1); got.push(m); } }
-    if (stamps === 21) { await giveItem(uid, 'PVP 회복 포션', 1); got.push('PVP 회복 포션'); const f = pick(FURNI); await addFurni(uid, f.id, 1); got.push('가구: ' + f.name); }
+    if (stamps === 21) { await giveItem(uid, 'PVP 회복 포션', 1); got.push('PVP 회복 포션'); gold += 1500; }
     if (stamps === 28) { gold += 8000; const m = pick(G.GATE_MATS.filter(x => x.tier === 'e')).name; await giveItem(uid, m, 1); got.push(m); await giveItem(uid, PROTECT, 1); got.push(PROTECT); }
     await grantGold(uid, gold); await logAcquire(uid, 'gold', '골드', gold, '출석 도장 ' + stamps + '칸', now);
     if (rounds >= ATTEND_TITLE_ROUNDS) await grantTitle(uid, 'regular');
     return { ok: true, stamps, rounds, streak, gold, got, big: [7, 14, 21, 28].includes(stamps) };
   }
-  const attendView = async uid => { const a = await db.get('SELECT last_day, stamps, rounds, streak FROM ct_attend WHERE user_id = ?', [uid]); return { stamps: a ? a.stamps : 0, rounds: a ? a.rounds : 0, streak: a ? a.streak : 0, today: !!a && a.last_day === dayKey(Date.now()), len: ATTEND_LEN, big: { 7: '2,000 G + 몬스터 먹이 3', 14: '4,000 G + 희귀 재료 2', 21: 'PVP 회복 포션 + 가구 1', 28: '8,000 G + 영웅 재료 + 강화 보호 부적' }, daily: ATTEND_GOLD }; };
+  const attendView = async uid => { const a = await db.get('SELECT last_day, stamps, rounds, streak FROM ct_attend WHERE user_id = ?', [uid]); return { stamps: a ? a.stamps : 0, rounds: a ? a.rounds : 0, streak: a ? a.streak : 0, today: !!a && a.last_day === dayKey(Date.now()), len: ATTEND_LEN, big: { 7: '2,000 G + 몬스터 먹이 3', 14: '4,000 G + 희귀 재료 2', 21: 'PVP 회복 포션 + 1,500 G', 28: '8,000 G + 영웅 재료 + 강화 보호 부적' }, daily: ATTEND_GOLD }; };
   route('POST', '/api/attend', async (req, res, ctx) => { send(res, 200, Object.assign(await attend(ctx.user.id, Date.now()), { view: await attendView(ctx.user.id) })); });
   route('GET', '/api/attend', async (req, res, ctx) => { send(res, 200, await attendView(ctx.user.id)); });
 
@@ -624,11 +512,10 @@ function install(d) {
   });
 
   // ═════════ 22 원정 ═════════
-  async function roomHas(uid, key) { const r = await db.get('SELECT layout FROM ct_room WHERE user_id = ?', [uid]); if (!r) return false; try { return JSON.parse(r.layout).some(x => x && x.k === key); } catch (_) { return false; } }
   route('GET', '/api/expedition', async (req, res, ctx) => {
     const uid = ctx.user.id, now = Date.now();
     const mons = await db.all('SELECT mon_id, nick, bond, walk_at, exp_spot, exp_until FROM user_mons WHERE user_id = ?', [uid]);
-    const cap = (await roomHas(uid, 'map')) ? 2 : 1;
+    const cap = 1;
     send(res, 200, { cap, spots: EXPED.map(x => ({ id: x.id, ko: x.ko, hours: x.hours, bond: x.bond, loot: x.loot.concat(x.epic || []) })),
       mons: mons.map(r => { const m = G.FRIENDLY_MON.find(x => x.id === r.mon_id) || {}; return { id: r.mon_id, name: r.nick || m.name, grade: m.grade, bond: r.bond, walking: r.walk_at > 0, spot: r.exp_spot || '', spotKo: r.exp_spot ? (EXPED_BY.get(r.exp_spot) || {}).ko : '', until: Number(r.exp_until) || 0, done: !!r.exp_spot && Number(r.exp_until) <= now }; }) });
   });
@@ -641,7 +528,7 @@ function install(d) {
     if (r.walk_at > 0) return fail(res, 409, 'walking');
     if (r.bond < sp.bond) return fail(res, 409, 'low_bond', { need: sp.bond });
     const busy = await db.get("SELECT COUNT(*) AS c FROM user_mons WHERE user_id = ? AND exp_spot <> ''", [uid]);
-    if (Number(busy.c) >= ((await roomHas(uid, 'map')) ? 2 : 1)) return fail(res, 409, 'cap');
+    if (Number(busy.c) >= 1) return fail(res, 409, 'cap');
     const w = await db.run("UPDATE user_mons SET exp_spot = ?, exp_from = ?, exp_until = ? WHERE user_id = ? AND mon_id = ? AND exp_spot = ''", [sp.id, now, now + sp.hours * HOUR, uid, id]);
     if (w.changes !== 1) return fail(res, 409, 'busy');
     send(res, 200, { ok: true, until: now + sp.hours * HOUR });
@@ -660,76 +547,8 @@ function install(d) {
     const got = {};
     for (let i = 0; i < n; i++) { const it = sp.epic && Math.random() < 0.08 ? pick(sp.epic) : pick(sp.loot); got[it] = (got[it] || 0) + 1; }
     for (const k of Object.keys(got)) { await giveItem(uid, k, got[k]); await logAcquire(uid, 'item', k, got[k], '원정 · ' + sp.ko, now); }
-    let found = null;
-    if (Math.random() < 0.05) { const f = pick(FURNI); await addFurni(uid, f.id, 1); found = f.name; }
     const m = G.FRIENDLY_MON.find(x => x.id === id) || {};
-    send(res, 200, { ok: true, got, found, diary: (r.nick || m.name) + '(이)가 ' + pick(sp.diary) });
-  });
-
-  // ═════════ 24 숙소 ═════════
-  async function addFurni(uid, key, n) { await db.run('INSERT INTO ct_furni (user_id, key, qty) VALUES (?, ?, ?) ON CONFLICT(user_id, key) DO UPDATE SET qty = qty + excluded.qty', [uid, key, n]); }
-  async function roomOf(uid) { await db.run('INSERT INTO ct_room (user_id) VALUES (?) ON CONFLICT(user_id) DO NOTHING', [uid]); return db.get('SELECT wall, floor, layout, likes, visits FROM ct_room WHERE user_id = ?', [uid]); }
-  const parseLayout = s => { try { const a = JSON.parse(s); return Array.isArray(a) ? a : []; } catch (_) { return []; } };
-  route('GET', '/api/room', async (req, res, ctx) => {
-    const q = new URL(req.url, 'http://x').searchParams, me = ctx.user;
-    const owner = q.get('hn') ? await d.HP.byName(q.get('hn')) : me;
-    if (!owner) return fail(res, 404, 'not_found');
-    const ac = await d.HP.access(me, owner);
-    if (!ac.open) return send(res, 200, { priv: true });
-    const r = await roomOf(owner.id), mine = owner.id === me.id, day = dayKey(Date.now());
-    if (!mine && q.get('visit') === '1') await db.run('UPDATE ct_room SET visits = visits + 1 WHERE user_id = ?', [owner.id]);
-    const furni = mine ? await db.all('SELECT key, qty FROM ct_furni WHERE user_id = ? AND qty > 0', [me.id]) : [];
-    const liked = !mine && !!(await db.get('SELECT 1 AS x FROM ct_room_like WHERE owner_id = ? AND user_id = ? AND day = ?', [owner.id, me.id, day]));
-    const recipes = [];
-    if (mine) for (const f of FURNI) recipes.push({ id: f.id, mats: Object.keys(f.mats).map(k => ({ item: k, qty: f.mats[k] })), have: await haveMats(me.id, f.mats) });
-    send(res, 200, { mine, hn: owner.hunter_name, size: ROOM_SIZE[owner.rank] || 8, wslots: wallSlots(ROOM_SIZE[owner.rank] || 8), wall: r.wall, floor: r.floor, walls: WALLS, floors: FLOORS, layout: parseLayout(r.layout), likes: r.likes, visits: r.visits, liked,
-      defs: FURNI.map(f => ({ id: f.id, name: f.name, c: f.c, w: f.w, wall: !!f.wall, fx: f.fx || '' })), furni: furni.map(x => ({ id: x.key, qty: x.qty })), recipes });
-  });
-  route('POST', '/api/room/save', async (req, res, ctx) => {
-    const uid = ctx.user.id, u = await userById(uid), size = ROOM_SIZE[u.rank] || 8;
-    const lay = Array.isArray(ctx.body.layout) ? ctx.body.layout.slice(0, 200) : null;
-    if (!lay) return fail(res, 400, 'bad_layout');
-    const used = {}, cells = new Set(), clean = [];
-    for (const it of lay) {
-      const k = String(it && it.k || ''), x = Number(it && it.x), y = Number(it && it.y), rot = Number(it && it.r) || 0, f = FURNI_BY.get(k);
-      if (!f) return fail(res, 400, 'bad_layout');
-      if (f.wall) {      // 벽에 거는 가구: 왼쪽(L)·오른쪽(R) 벽의 칸 번호 x (0 ~ 벽 칸 수-1)
-        const w = it.w === 'L' ? 'L' : it.w === 'R' ? 'R' : '';
-        if (!w || !Number.isInteger(x) || x < 0 || x >= wallSlots(size)) return fail(res, 400, 'bad_layout');
-        if (cells.has(w + x)) return fail(res, 400, 'overlap');
-        cells.add(w + x); used[k] = (used[k] || 0) + 1; clean.push({ k, x, y: 0, r: 0, w }); continue;
-      }
-      if (!Number.isInteger(x) || !Number.isInteger(y) || x < 0 || y < 0 || x >= size || y >= size) return fail(res, 400, 'bad_layout');
-      if (cells.has(x + ',' + y)) return fail(res, 400, 'overlap');
-      cells.add(x + ',' + y); used[k] = (used[k] || 0) + 1; clean.push({ k, x, y, r: ((rot % 4) + 4) % 4 });
-    }
-    const own = new Map((await db.all('SELECT key, qty FROM ct_furni WHERE user_id = ?', [uid])).map(r => [r.key, Number(r.qty)]));
-    for (const k of Object.keys(used)) if ((own.get(k) || 0) < used[k]) return fail(res, 400, 'not_owned', { item: k });
-    const wall = Math.max(0, Math.min(WALLS.length - 1, Number(ctx.body.wall) || 0)), floor = Math.max(0, Math.min(FLOORS.length - 1, Number(ctx.body.floor) || 0));
-    await roomOf(uid);
-    await db.run('UPDATE ct_room SET layout = ?, wall = ?, floor = ? WHERE user_id = ?', [JSON.stringify(clean), wall, floor, uid]);
-    send(res, 200, { ok: true });
-  });
-  route('POST', '/api/room/craft', async (req, res, ctx) => {
-    const f = FURNI_BY.get(String(ctx.body.id || '')), uid = ctx.user.id;
-    if (!f) return fail(res, 404, 'no_recipe');
-    const t = await take(uid, f.mats);
-    if (t.err) return fail(res, 400, 'no_mats', { item: t.item });
-    await addFurni(uid, f.id, 1);
-    send(res, 200, { ok: true, name: f.name });
-  });
-  route('POST', '/api/room/like', async (req, res, ctx) => {
-    const owner = await d.HP.byName(String(ctx.body.hn || ''));
-    if (!owner || owner.id === ctx.user.id) return fail(res, 404, 'not_found');
-    const ac = await d.HP.access(ctx.user, owner);
-    if (!ac.open) return fail(res, 403, 'private');
-    const ins = await db.run('INSERT INTO ct_room_like (owner_id, user_id, day) VALUES (?, ?, ?) ON CONFLICT(owner_id, user_id, day) DO NOTHING', [owner.id, ctx.user.id, dayKey(Date.now())]);
-    if (ins.changes !== 1) return fail(res, 409, 'already');
-    await roomOf(owner.id);
-    await db.run('UPDATE ct_room SET likes = likes + 1 WHERE user_id = ?', [owner.id]);
-    const r = await db.get('SELECT likes FROM ct_room WHERE user_id = ?', [owner.id]);
-    if (Number(r.likes) >= COZY_LIKES) await grantTitle(owner.id, 'cozy');
-    send(res, 200, { ok: true, likes: r.likes });
+    send(res, 200, { ok: true, got, diary: (r.nick || m.name) + '(이)가 ' + pick(sp.diary) });
   });
 
   // ═════════ 12 PVP 리그 ═════════
@@ -801,11 +620,11 @@ function install(d) {
   }
 
   return {
-    timeMod, bonus, roomHas, pickName, variantChance, rollVariant, onKill, bump, grantTitle, titleOf, abyssRecord, abyssSettle, leagueResult, leagueView, stateExtra, enhInfo, plusVal,
+    timeMod, bonus, pickName, variantChance, rollVariant, onKill, bump, grantTitle, titleOf, abyssRecord, abyssSettle, leagueResult, leagueView, stateExtra, enhInfo, plusVal,
     VARIANT_MUL, ABYSS_FROM, ABYSS_MAT, EXTRA_MAT_TIER, DISH, purge: id => PURGE.map(p => [p[0], p[1] === 2 ? [id, id] : [id]]),
   };
 }
 // 인벤토리 '조합 아이템' 탭에 들어가는 새 재료와 등급
 const EXTRA_MAT_TIER = new Map([[VARIANT_DROP, 'e'], [ABYSS_MAT, 'r'], ['민물 생선', 'c'], ['바다 새우', 'c'], ['붉은 월어', 'r'], ['그레이윅 금빛 잉어', 'e'], ['심연의 주인', 'l']]);
 
-module.exports = { install, SQL, timeMod, EXTRA_MAT_TIER, ENH, ENH_MAX, PROTECT, FURNI, LEAGUE, TITLES, COOK, FISH, EXPED, FISH_SPOTS };
+module.exports = { install, SQL, timeMod, EXTRA_MAT_TIER, ENH, ENH_MAX, PROTECT, LEAGUE, TITLES, COOK, FISH, EXPED, FISH_SPOTS };
