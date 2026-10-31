@@ -477,7 +477,7 @@ async function catchUp() {
   catchUpRun = catchUpNow().finally(() => { catchUpRun = null; });
   return catchUpRun;
 }
-async function catchUpNow() { await corruptTick(); await tickSpawns(); await resolveDue(); await purgeMonsters(); await tickBoard(); await tickRumors(); await sweepExchange(); }
+async function catchUpNow() { await corruptTick(); await tickSpawns(); await resolveDue(); await purgeMonsters(); await tickBoard(); await sweepExchange(); }
 
 // ── 업적 (정의는 DB에 저장되어 모든 헌터에게 똑같이 적용됩니다) ──
 let achCache = { at: 0, defs: null }, achSeeded = false;
@@ -671,22 +671,20 @@ async function buildState(u, now) {
   await syncAchEarned(u, now);
   // 기기 '업적' 앱의 새 업적 표시: 마지막으로 업적 앱을 본 뒤에 얻은 업적 수 (처음 한 번은 기준만 잡습니다)
   if (!Number(u.ach_seen)) { await db.run('UPDATE users SET ach_seen = ? WHERE id = ? AND ach_seen = 0', [now, u.id]); u.ach_seen = now; }
-  // 화면 숫자(알림·메시지·의뢰·선물 등)는 한 번의 질문으로 묶어서 가져옵니다 (질문마다 붙는 통신 부담을 줄임)
+  // 화면 숫자(알림·메시지·선물 등)는 한 번의 질문으로 묶어서 가져옵니다 (질문마다 붙는 통신 부담을 줄임)
   const cnt = await db.get(`SELECT
     (SELECT COUNT(*) FROM ach_earned WHERE user_id = ? AND at > ?) AS ach,
     (SELECT COUNT(*) FROM notices WHERE id > ?) AS un,
     (SELECT COUNT(*) FROM messages m JOIN friends f ON f.user_id = m.to_id AND f.friend_id = m.from_id WHERE m.to_id = ? AND m.id > f.last_read) AS um,
     (SELECT COUNT(*) FROM friend_requests WHERE to_id = ?) AS frq,
-    (SELECT COUNT(*) FROM rumors r WHERE r.status = 'open' AND r.ends > ? AND NOT EXISTS (SELECT 1 FROM rumor_votes v WHERE v.rumor_id = r.id AND v.user_id = ?)) AS rum,
-    (SELECT COUNT(*) FROM daily_quests WHERE user_id = ? AND day = ? AND claimed = 0 AND prog >= need) AS qrdy,
     (SELECT COUNT(*) FROM friends f JOIN users x ON x.id = f.friend_id WHERE f.user_id = ? AND x.corrupt_flag = 1) AS resq,
     (SELECT COUNT(*) FROM gifts WHERE to_id = ? AND seen = 0) AS gift,
     (SELECT COALESCE(MAX(id), 0) FROM board_posts) AS board,
     ${SYSMSG.NEXT_SQL}`,
-    [u.id, Number(u.ach_seen), u.notice_seen, u.id, u.id, now, u.id, u.id, kstDay(now), u.id, u.id, now - SYSMSG.LIVE_MS, u.id]);
+    [u.id, Number(u.ach_seen), u.notice_seen, u.id, u.id, u.id, u.id, now - SYSMSG.LIVE_MS, u.id]);
   const achNew = Number(cnt.ach);
   // 보이는 몬스터: 서버 공통 S급 + 내 몬스터(F~A). 예전 공통 F~A 몬스터는 보이지 않습니다.
-  const vis = "((owner_id IS NULL AND (rank = 'SS' OR corrupt_of IS NOT NULL OR rumor_id IS NOT NULL)) OR owner_id = ?)";
+  const vis = "((owner_id IS NULL AND (rank = 'SS' OR corrupt_of IS NOT NULL)) OR owner_id = ?)";
   const mons = await db.all(`SELECT id, region, name, rank, spawned_at, rumor_id, corrupt_of FROM monsters
     WHERE ${vis} AND (spawned_at > ? OR (rank = 'SS' AND spawned_at > ?) OR (corrupt_of IS NOT NULL AND spawned_at > ?) OR id IN (SELECT id FROM monsters WHERE ${vis} ORDER BY id DESC LIMIT 12))
       AND id NOT IN (SELECT monster_id FROM s_close WHERE ok = 0)
@@ -705,7 +703,7 @@ async function buildState(u, now) {
     db.all(`SELECT a.id, a.success, a.exp_gain, a.gold_gain, a.taint_gain, a.level_up, a.hp_loss, m.name FROM s_attempts a JOIN monsters m ON m.id = a.monster_id
             WHERE a.user_id = ? AND a.resolved = 1 AND a.notified = 0 ORDER BY a.id`, [u.id]),
   ]);
-  // 일일 의뢰(수령 가능 수) · 구조가 필요한 친구 수 · 나를 구해 준 친구 알림(한 번만)
+  // 구조가 필요한 친구 수 · 나를 구해 준 친구 알림(한 번만)
   const rescued = await db.all('SELECT r.id, r.at, x.hunter_name AS hn FROM rescues r JOIN users x ON x.id = r.rescuer_id WHERE r.target_id = ? AND r.seen = 0 ORDER BY r.id LIMIT 5', [u.id]);
   if (rescued.length) await db.run('UPDATE rescues SET seen = 1 WHERE target_id = ? AND seen = 0 AND id <= ?', [u.id, rescued[rescued.length - 1].id]);
   const inv = await db.all('SELECT i.item, i.qty, s.eff_stat, s.eff_amt FROM inventory i LEFT JOIN shop_items s ON s.name = i.item WHERE i.user_id = ? AND i.qty > 0 ORDER BY i.item', [u.id]);
@@ -732,7 +730,7 @@ async function buildState(u, now) {
     now,
     user: { pinned: pinnedList(u, await loadAch()), bio: u.bio || '', lv: u.lv, exp: u.exp, gold: u.gold, region: u.region, country: G.countryOf(u.region), hunterName: u.hunter_name, private: !!u.is_private, stats: statsOf(u), eq: await equipBonus(u.id), dyingUntil: u.dying_until > now ? u.dying_until : 0, blocked: u.block_flags | 0, adminChar: !!u.admin_char, inqUnread: (await db.get('SELECT COUNT(*) AS c FROM inquiries WHERE user_id = ? AND from_admin = 1 AND id > ?', [u.id, u.inq_read])).c, corruptUntil: corruptLock(u, now) ? u.corrupt_until : 0, tainted: (JSON.parse(u.stats).taint || 0) >= 100, fx: fxOf(JSON.parse(u.stats)) },
     monsters: mons.map(m => ({
-      id: m.id, region: m.region, rname: G.placeName(m.region), mon: m.rumor_id ? '[괴담] ' + m.name : m.name, r: m.rank, ts: m.spawned_at,
+      id: m.id, region: m.region, rname: G.placeName(m.region), mon: m.name, r: m.rank, ts: m.spawned_at,
       done: killed.has(m.id), cd: cdm.get(m.id) || 0,
       parts: m.rank === 'SS' && m.corrupt_of == null ? (pm.get(m.id) || 0) : undefined,
       c: m.corrupt_of != null ? 1 : undefined,
@@ -747,7 +745,7 @@ async function buildState(u, now) {
     unreadMsgs: Number(cnt.um),
     board: Number(cnt.board),
     friendReqs: Number(cnt.frq),
-    questReady: Number(cnt.qrdy), rumorNew: Number(cnt.rum), battle: await (async () => { const bb = await battleLive(u.id, now); return bb ? btView(bb) : null; })(), rescueReq: Number(cnt.resq), rescued: rescued.map(x => ({ hn: x.hn, at: x.at })),
+    battle: await (async () => { const bb = await battleLive(u.id, now); return bb ? btView(bb) : null; })(), rescueReq: Number(cnt.resq), rescued: rescued.map(x => ({ hn: x.hn, at: x.at })),
     sWin: swin.map(x => ({ id: x.id, mon: x.name, part: !!x.part, exp: x.exp || 0, gold: x.gold || 0, taint: x.taint || 0, minAt: Number(x.min_at) || 0 })),
     sAuto, sHoldMs: SWIN_HOLD_MS,
     rec: await getRec(),
@@ -1286,7 +1284,6 @@ route('POST', '/api/survey', async (req, res, ctx) => {
     const f = await db.get('SELECT at FROM survey_marks WHERE user_id = ? AND region = ? AND idx = ?', [cur.id, region, idx]);
     return fail(res, 429, 'cooldown', { until: (f ? Number(f.at) : 0) + SURVEY_CD, now });
   }
-  await questProg(cur, 'survey', 1);
   try {
     // 대부분 이 지역의 재료를 찾고, 가끔 상점 아이템이나 골드를 찾습니다.
     let pick = null, qty = 1;
@@ -1316,61 +1313,7 @@ route('POST', '/api/survey', async (req, res, ctx) => {
     throw e;
   }
 });
-// ═════════════ 일일 계약 의뢰 ═════════════
-// 하루(한국 시간 0시 기준)에 3개. 토벌·조사·탐험을 하면 자동으로 진행되고, 완료하면 의뢰 앱에서 보상을 받습니다.
-const QRANKS = ['F', 'E', 'D', 'C', 'B', 'A', 'S'];
-const kstDay = now => new Date(now + 9 * 3600000).toISOString().slice(0, 10);
-const questText = q => q.kind === 'kill' ? '몬스터 ' + q.need + '마리 처치'
-  : q.kind === 'killr' ? QRANKS[q.arg] + '급 이상 몬스터 ' + q.need + '마리 처치'
-  : q.kind === 'survey' ? '적월문에서 ' + q.need + '번 조사하기'
-  : '적월문 심층 탐험으로 ' + q.need + '개 층 내려가기';
-async function ensureQuests(u, now) {
-  const day = kstDay(now);
-  const have = await db.get('SELECT COUNT(*) AS c FROM daily_quests WHERE user_id = ? AND day = ?', [u.id, day]);
-  if (Number(have.c) >= 3) return day;
-  const ri = Math.max(0, QRANKS.indexOf(u.rank));
-  const minR = Math.min(5, Math.max(1, ri - 1));
-  const third = G.rnd(0, 1) ? ['survey', 0, G.rnd(3, 5)] : ['floor', 0, G.rnd(2, 4)];
-  const defs = [
-    [0, 'kill', 0, 3 + ri, 80 + ri * 50, 8 + ri * 5],
-    [1, 'killr', minR, 2 + Math.floor(ri / 2), 120 + ri * 70, 12 + ri * 7],
-    [2, third[0], third[1], third[2], 100 + ri * 60, 10 + ri * 6],
-  ];
-  for (const d of defs) {
-    await db.run('INSERT INTO daily_quests (user_id, day, slot, kind, arg, need, gold, exp) VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT(user_id, day, slot) DO NOTHING',
-      [u.id, day, d[0], d[1], d[2], d[3], d[4], d[5]]);
-  }
-  return day;
-}
-// kind: 'kill'(rankIdx 필요) | 'survey' | 'floor'
-async function questProg(u, kind, n, rankIdx) {
-  try {
-    const day = await ensureQuests(u, Date.now());
-    if (kind === 'kill') await db.run("UPDATE daily_quests SET prog = MIN(need, prog + ?) WHERE user_id = ? AND day = ? AND claimed = 0 AND (kind = 'kill' OR (kind = 'killr' AND arg <= ?))", [n, u.id, day, rankIdx]);
-    else await db.run('UPDATE daily_quests SET prog = MIN(need, prog + ?) WHERE user_id = ? AND day = ? AND claimed = 0 AND kind = ?', [n, u.id, day, kind]);
-  } catch (e) { if (process.env.DEBUG_QUEST) console.error("questProg", e); }
-}
-route('GET', '/api/quests', async (req, res, ctx) => {
-  const u = await userById(ctx.user.id), now = Date.now();
-  const day = await ensureQuests(u, now);
-  const rows = await db.all('SELECT slot, kind, arg, need, prog, gold, exp, claimed FROM daily_quests WHERE user_id = ? AND day = ? ORDER BY slot', [u.id, day]);
-  const left = 24 * 3600000 - ((now + 9 * 3600000) % (24 * 3600000));
-  send(res, 200, { resetIn: left, quests: rows.map(q => ({ slot: q.slot, text: questText(q), need: q.need, prog: q.prog, gold: q.gold, exp: q.exp, claimed: !!q.claimed })) });
-});
-route('POST', '/api/quests/claim', async (req, res, ctx) => {
-  const u = await userById(ctx.user.id), now = Date.now(), slot = Number(ctx.body.slot);
-  if (!Number.isInteger(slot)) return fail(res, 400, 'bad_slot');
-  const day = kstDay(now);
-  const q = await db.get('SELECT gold, exp, kind, arg, need FROM daily_quests WHERE user_id = ? AND day = ? AND slot = ?', [u.id, day, slot]);
-  if (!q) return fail(res, 404, 'no_quest');
-  const c = await db.run('UPDATE daily_quests SET claimed = 1 WHERE user_id = ? AND day = ? AND slot = ? AND claimed = 0 AND prog >= need', [u.id, day, slot]);
-  if (c.changes !== 1) return fail(res, 409, 'not_ready');
-  const g = await grantExp(u.id, q.exp);
-  await grantGold(u.id, q.gold);
-  await logAcquire(u.id, 'exp', '경험치', q.exp, '일일 의뢰', now);
-  await logAcquire(u.id, 'gold', '골드', q.gold, '일일 의뢰', now);
-  send(res, 200, { ok: true, gold: q.gold, exp: q.exp, levelUp: !!(g && g.up) });
-});
+const kstDay = now => new Date(now + 9 * 3600000).toISOString().slice(0, 10);      // 한국 시간 날짜 (YYYY-MM-DD)
 
 const giveItem = (uid, item, qty) => db.run('INSERT INTO inventory (user_id, item, qty) VALUES (?, ?, ?) ON CONFLICT(user_id, item) DO UPDATE SET qty = MIN(9999, qty + excluded.qty)', [uid, item, qty]);
 require('./_qna').install({ db, route, send, fail, limited });      // Q&A (관리자가 올리고 헌터가 읽음)
@@ -1389,118 +1332,6 @@ async function sweepExchange() {
   }
 }
 
-// ═════════════ 도시 괴담 소문 ═════════════
-// 시민들 사이에 괴담 소문이 돕니다. 헌터들이 '믿는다 / 의심한다'로 표를 던지고, 한쪽이 RUMOR_NEED 명에 이르면 진실이 가려집니다.
-//  · 믿는 쪽이 이기고 진짜 → 그 지역에 괴담 몬스터가 실제로 나타남 (30분, 누구나 토벌 가능). 믿은 사람은 보상.
-//  · 믿는 쪽이 이기고 거짓 → 헛소문. 믿은 사람은 골드를 잃고, 의심한 사람은 보상.
-//  · 의심하는 쪽이 이기고 거짓 → 의심한 사람 보상. 진짜였다면 소문은 묻히고 아무 일도 없음.
-//  · 아무도 결론을 못 내고 6시간이 지나면 잊혀짐.
-const rumorPlace = r => G.placeLong(r.region);
-let lastRumorTick = 0;
-async function tickRumors() {
-  const now = Date.now();
-  if (now - lastRumorTick < 20000) return;
-  lastRumorTick = now;
-  await db.run("DELETE FROM rumor_votes WHERE rumor_id IN (SELECT id FROM rumors WHERE status <> 'open' AND resolved > 0 AND resolved < ?)", [now - 7 * 24 * 3600000]);
-  await db.run("DELETE FROM rumors WHERE status <> 'open' AND resolved > 0 AND resolved < ?", [now - 7 * 24 * 3600000]);
-  const old = await db.all("SELECT id FROM rumors WHERE status = 'open' AND ends <= ? LIMIT 20", [now]);
-  for (const o of old) await db.run("UPDATE rumors SET status = 'faded', resolved = ? WHERE id = ? AND status = 'open'", [now, o.id]);
-  const open = await db.get("SELECT COUNT(*) AS c FROM rumors WHERE status = 'open'");
-  if (Number(open.c) >= G.RUMOR_MAX_OPEN) return;
-  const row = await db.get("SELECT next_at FROM spawn_state WHERE tier = 'rumor'");
-  if (!row) await db.run("INSERT OR IGNORE INTO spawn_state (tier, next_at) VALUES ('rumor', 0)");
-  const from = row ? row.next_at : 0;
-  if (from > now) return;
-  const claim = await db.run("UPDATE spawn_state SET next_at = ? WHERE tier = 'rumor' AND next_at = ?", [now + G.RUMOR_GAP_MS + G.rnd(0, 30) * G.MIN, from]);
-  if (claim.changes !== 1) return;
-  await makeRumor(now);
-}
-async function makeRumor(now, forceTruth) {
-  const live = await db.all("SELECT tpl FROM rumors WHERE status = 'open'");
-  const used = new Set(live.map(x => x.tpl));
-  const idxs = G.RUMOR_TPL.map((_, i) => i).filter(i => !used.has(i));
-  const i = idxs[G.rnd(0, idxs.length - 1)], tp = G.RUMOR_TPL[i];
-  const region = G.SPAWN_REGIONS[G.rnd(0, G.SPAWN_REGIONS.length - 1)].id;
-  const place = G.placeName(region);
-  const truth = forceTruth === undefined ? (G.chance01() < 0.5 ? 1 : 0) : (forceTruth ? 1 : 0);
-  const title = tp.t.replace('{p}', place), body = tp.body.replace('{p}', place);
-  const r = await db.run('INSERT INTO rumors (title, body, region, mon_name, rank, tpl, truth, status, created, ends) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-    [title, body, region, tp.mon, tp.rank, i, truth, 'open', now, now + G.RUMOR_OPEN_MS]);
-  await db.run('INSERT INTO board_posts (who, title, body, tag, at) VALUES (?, ?, ?, ?, ?)', ['익명의 시민', '[괴담] ' + title, body + ' 헌터 기기의 괴담 앱에서 믿을지 의심할지 정해 주세요.', '괴담', now]);
-  return r.lastId;
-}
-// side: 'believe' | 'doubt' — 이긴 쪽
-async function resolveRumor(r, side, now) {
-  const status = side === 'believe' ? (r.truth ? 'true' : 'false') : (r.truth ? 'buried' : 'debunked');
-  const claim = await db.run("UPDATE rumors SET status = ?, resolved = ? WHERE id = ? AND status = 'open'", [status, now, r.id]);
-  if (claim.changes !== 1) return null;
-  const votes = await db.all('SELECT user_id, vote FROM rumor_votes WHERE rumor_id = ?', [r.id]);
-  const RW = G.RUMOR_REWARD;
-  const pay = async (uid, rw) => {
-    let delta = 0;
-    if (rw.gold > 0) { await grantGold(uid, rw.gold); await logAcquire(uid, 'gold', '골드', rw.gold, '괴담 소문', now); delta = rw.gold; }
-    if (rw.gold < 0) {
-      const cur = await db.get('SELECT gold FROM users WHERE id = ?', [uid]);
-      delta = -Math.min(Number(cur ? cur.gold : 0), -rw.gold);
-      if (delta < 0) await db.run('UPDATE users SET gold = gold - MIN(gold, ?) WHERE id = ?', [-delta, uid]);
-    }
-    if (rw.exp > 0) { await grantExp(uid, rw.exp); await logAcquire(uid, 'exp', '경험치', rw.exp, '괴담 소문', now); }
-    await db.run(`INSERT INTO rumor_stats (user_id, gained, lost, last_delta, last_at) VALUES (?, ?, ?, ?, ?)
-      ON CONFLICT(user_id) DO UPDATE SET gained = gained + excluded.gained, lost = lost + excluded.lost, last_delta = excluded.last_delta, last_at = excluded.last_at`,
-      [uid, delta > 0 ? delta : 0, delta < 0 ? -delta : 0, delta, now]);
-  };
-  if (status === 'true') {
-    await db.run('INSERT INTO monsters (region, name, rank, spawned_at, rumor_id) VALUES (?, ?, ?, ?, ?)', [r.region, r.mon_name, r.rank, now, r.id]);
-    await db.run('INSERT INTO board_posts (who, title, body, tag, at) VALUES (?, ?, ?, ?, ?)', ['익명의 시민', '[괴담] 소문이 사실이었다', G.placeName(r.region) + '에 "' + r.mon_name + '"이(가) 실제로 나타났습니다. 조심하세요.', '괴담', now]);
-    for (const v of votes) await pay(v.user_id, v.vote === 1 ? RW.believeTrue : { gold: 0, exp: 0 });
-  } else if (status === 'false') {
-    for (const v of votes) await pay(v.user_id, v.vote === 1 ? RW.believeFalse : RW.doubtFalse);
-  } else if (status === 'buried') {
-    for (const v of votes) await pay(v.user_id, { gold: 0, exp: 0 });
-  } else if (status === 'debunked') {
-    for (const v of votes) await pay(v.user_id, v.vote === 0 ? RW.doubtFalse : { gold: 0, exp: 0 });
-  }
-  return status;
-}
-const rumorMine = async (uid) => {
-  const m = new Map((await db.all('SELECT rumor_id, vote FROM rumor_votes WHERE user_id = ?', [uid])).map(x => [x.rumor_id, x.vote]));
-  return m;
-};
-route('GET', '/api/rumors', async (req, res, ctx) => {
-  await tickRumors();
-  const now = Date.now();
-  const rows = await db.all("SELECT id, title, body, region, mon_name, rank, tpl, truth, status, created, ends, resolved FROM rumors WHERE status = 'open' OR resolved > ? ORDER BY id DESC LIMIT 12", [now - 24 * 3600000]);
-  const cnt = new Map((await db.all('SELECT rumor_id, vote, COUNT(*) AS c FROM rumor_votes WHERE rumor_id IN (SELECT id FROM rumors WHERE status = \'open\' OR resolved > ?) GROUP BY rumor_id, vote', [now - 24 * 3600000])).map(x => [x.rumor_id + ':' + x.vote, Number(x.c)]));
-  const mine = await rumorMine(ctx.user.id);
-  const HOAX = i => (G.RUMOR_TPL[i] || {}).hoax || '';
-  const rs = await db.get('SELECT gained, lost, last_delta, last_at FROM rumor_stats WHERE user_id = ?', [ctx.user.id]);
-  send(res, 200, { need: G.RUMOR_NEED, stats: { gained: rs ? Number(rs.gained) : 0, lost: rs ? Number(rs.lost) : 0, last: rs ? Number(rs.last_delta) : null }, rumors: rows.map(r => {
-    const open = r.status === 'open', my = mine.has(r.id) ? mine.get(r.id) : null;
-    const o = { id: r.id, title: r.title, body: r.body, place: rumorPlace(r), status: r.status, believers: cnt.get(r.id + ':1') || 0, doubters: cnt.get(r.id + ':0') || 0, my, endsIn: open ? Math.max(0, r.ends - now) : 0 };
-    if (!open) {
-      o.truth = !!r.truth; o.mon = r.mon_name; o.hoax = r.truth ? '' : HOAX(r.tpl);
-      const RW = G.RUMOR_REWARD;
-      if (my !== null) o.reward = r.status === 'true' && my === 1 ? RW.believeTrue : r.status === 'false' ? (my === 1 ? RW.believeFalse : RW.doubtFalse) : r.status === 'debunked' && my === 0 ? RW.doubtFalse : null;
-    }
-    return o;
-  }) });
-});
-route('POST', '/api/rumors/vote', async (req, res, ctx) => {
-  if (await limited('rumor:' + ctx.user.id, 30, 60000)) return fail(res, 429, 'rate_limited');
-  const now = Date.now(), id = Number(ctx.body.id) || 0, vote = ctx.body.vote === 'believe' ? 1 : ctx.body.vote === 'doubt' ? 0 : -1;
-  if (vote < 0) return fail(res, 400, 'bad_vote');
-  const r = await db.get('SELECT id, title, body, region, mon_name, rank, tpl, truth, status, created, ends, resolved FROM rumors WHERE id = ?', [id]);
-  if (!r) return fail(res, 404, 'no_rumor');
-  if (r.status !== 'open' || r.ends <= now) return fail(res, 409, 'closed');
-  const ins = await db.run('INSERT OR IGNORE INTO rumor_votes (rumor_id, user_id, vote, at) VALUES (?, ?, ?, ?)', [id, ctx.user.id, vote, now]);
-  if (ins.changes !== 1) return fail(res, 409, 'already_voted');
-  const c = await db.all('SELECT vote, COUNT(*) AS n FROM rumor_votes WHERE rumor_id = ? GROUP BY vote', [id]);
-  const bel = Number((c.find(x => x.vote === 1) || {}).n || 0), dou = Number((c.find(x => x.vote === 0) || {}).n || 0);
-  let status = 'open';
-  const side = vote === 1 ? (bel >= G.RUMOR_NEED ? 'believe' : null) : (dou >= G.RUMOR_NEED ? 'doubt' : null);
-  if (side) status = (await resolveRumor(r, side, now)) || 'open';
-  send(res, 200, { ok: true, status, believers: bel, doubters: dou });
-});
 
 // ═════════════ 오염된 친구 구조 의뢰 ═════════════
 // 오염 폭주(오염도 100)에 빠진 친구에게 정화 아이템을 써서 구해 줍니다. 구한 사람에게는 보상, 구해진 친구는 오염도가 40으로 내려가고 폭주가 풀립니다.
@@ -1576,6 +1407,12 @@ async function equipBonus(uid) {
   b.hpGuard = Math.min(80, b.hpGuard); b.taintRes = Math.min(70, b.taintRes);
   return b;
 }
+// 착용 중인(내구도가 남은) 무기의 속성 — 없으면 '' (몬스터 속성 상성: 턴제 전투의 [속성 공격])
+async function weaponEl(uid) {
+  const rows = await db.all('SELECT key FROM equip_inv WHERE user_id = ? AND equipped = 1 AND dur > 0', [uid]);
+  for (const r of rows) { const e = EQ_BY_ID.get(r.key); if (e && e.slot === 'weapon' && e.el) return e.el; }
+  return '';
+}
 const withEq = (st, eb) => Object.assign({}, st, { agi: (Number(st.agi) || 0) + eb.agi, luck: (Number(st.luck) || 0) + eb.luck, str: (Number(st.str) || 0) + eb.str });
 const eqTaint = (t, eb) => Math.max(0, Math.round(t * (1 - eb.taintRes / 100) * 10) / 10);
 // 토벌 한 번마다 착용 중인 장비의 내구도가 1씩 줄어듭니다.
@@ -1585,7 +1422,7 @@ async function equipWear(uid) { await db.run('UPDATE equip_inv SET dur = dur - 1
 const EQ_MAX_OWN = 40;
 const eqView = e => { const x = eqBonusOf(e), sl = G.EQ_SLOTS[e.slot], g = G.EQ_GRADE[e.grade];
   const sk = e.bonus ? EQ_STAT_KO[e.bonus.stat] : [sl.ko_stat, sl.unit];
-  return { id: e.id, name: e.name, slot: e.slot, slotKo: sl.ko, grade: e.grade, desc: e.desc, stat: sk[0], val: x.val, unit: sk[1], maxDur: g.dur, repair: g.repair }; };
+  return { id: e.id, name: e.name, slot: e.slot, slotKo: sl.ko, grade: e.grade, desc: e.desc, stat: sk[0], val: x.val, unit: sk[1], maxDur: g.dur, repair: g.repair, el: e.el || undefined }; };
 route('GET', '/api/equip', async (req, res, ctx) => {
   const inv = new Map((await db.all('SELECT item, qty FROM inventory WHERE user_id = ? AND qty > 0', [ctx.user.id])).map(r => [r.item, Number(r.qty)]));
   const mine = await db.all('SELECT id, key, dur, equipped FROM equip_inv WHERE user_id = ? ORDER BY equipped DESC, id', [ctx.user.id]);
@@ -1804,7 +1641,6 @@ route('POST', '/api/gate/descend', async (req, res, ctx) => {
   const w = await db.run('UPDATE gate_run SET floor = ?, best = ?, loot = ?, gold = gold + ? WHERE user_id = ? AND active = 1 AND floor = ?',
     [n, Math.max(r.best, n), JSON.stringify(loot), gold, cur.id, r.floor]);
   if (w.changes !== 1) return fail(res, 409, 'busy');
-  await questProg(cur, 'floor', 1);
   let bonus = null;
   const ms = gateMilestone(n);
   if (n > r.best && ms) {
@@ -2460,7 +2296,7 @@ route('POST', '/api/hunt', async (req, res, ctx) => {
   if (cur.block_flags & 1) return fail(res, 403, 'blocked', { what: 'hunt' });      // 운영자가 토벌을 막아 둠
   const m = await db.get('SELECT id, region, name, rank, spawned_at, owner_id, rumor_id, corrupt_of FROM monsters WHERE id = ?', [Number(ctx.body.id)]);
   if (!m) return fail(res, 410, 'expired');
-  if ((m.owner_id != null && m.owner_id !== cur.id) || (m.owner_id == null && m.rank !== 'SS' && m.corrupt_of == null && m.rumor_id == null)) return fail(res, 404, 'no_monster');
+  if ((m.owner_id != null && m.owner_id !== cur.id) || (m.owner_id == null && m.rank !== 'SS' && m.corrupt_of == null)) return fail(res, 404, 'no_monster');
   const cm = m.corrupt_of != null;
   if (corruptLock(cur, now)) return fail(res, 409, 'corrupted', { until: cur.corrupt_until });   // 오염도 100: 1시간 활동 불가
   if ((Number(JSON.parse(cur.stats).taint) || 0) >= 100) return fail(res, 409, 'tainted');          // 오염도를 줄여야 토벌 가능
@@ -2540,7 +2376,6 @@ async function huntWin(cur, m, eb, now) {
   await logHunt(cur.id, m, 'success', gain, now);
   await logAcquire(cur.id, 'exp', '경험치', gain, m.name + ' 토벌', now);
   await logAcquire(cur.id, 'gold', '골드', gold, m.name + ' 토벌', now);
-  await questProg(cur, 'kill', 1, G.RANK_IDX[m.rank]);
   return { payload: { result: 'success', gain, gold, taint, taintNow, levelUp: r.up, lv: r.lv, exp: r.exp, note: note || undefined } };
 }
 // 토벌 실패 처리
@@ -2567,10 +2402,10 @@ async function huntLose(cur, m, myStats, eb, now) {
 // ═════════════ 턴제 전투 ═════════════
 const btView = (b, extra) => Object.assign({
   mon: b.mname, rank: b.mrank, mhp: b.mhp, mmax: b.mmax, php: b.php, pmax: b.pmax, round: b.round, intent: b.intent,
-  heavyCd: b.cd_heavy, guarded: !!b.buff, log: (() => { try { return JSON.parse(b.log); } catch (_) { return []; } })(), id: b.monster_id,
+  heavyCd: b.cd_heavy, guarded: !!b.buff, melem: G.elemOf(b.mname), wel: b.wel || '', elemCd: Number(b.cd_elem) || 0, log: (() => { try { return JSON.parse(b.log); } catch (_) { return []; } })(), id: b.monster_id,
 }, extra || {});
 async function battleLive(uid, now) {
-  const b = await db.get('SELECT user_id, monster_id, mname, mrank, mhp, mmax, php, pmax, round, intent, cd_heavy, buff, log, ver, started, upd FROM battles WHERE user_id = ?', [uid]);
+  const b = await db.get('SELECT user_id, monster_id, mname, mrank, mhp, mmax, php, pmax, round, intent, cd_heavy, buff, log, ver, started, upd, cd_elem, wel FROM battles WHERE user_id = ?', [uid]);
   if (!b) return null;
   const m = await db.get('SELECT id, spawned_at, rank, corrupt_of FROM monsters WHERE id = ?', [b.monster_id]);
   if (now - b.upd > G.BT.idleMs || !m || now - m.spawned_at >= G.activeMsOf(m.rank)) {        // 오래 방치했거나 몬스터가 사라짐: 불이익 없이 취소
@@ -2585,12 +2420,23 @@ async function battleStart(cur, m, myStats, now) {
   if (have) return have.monster_id === m.id ? { view: btView(have) } : { error: 'in_battle', view: btView(have) };
   const pl = G.btPlayer(cur.lv, myStats), hl = m.name === '오염 사냥꾼' ? await hunterLv(cur.id) : 0, mo = G.btMon(m.rank, m.name, pl, hl);
   const log = JSON.stringify([m.name + '이(가) 나타났다!' + (hl > 0 ? ' (강화 ' + hl + '단계)' : '') + ' 전투 시작.']);
-  const ins = await db.run('INSERT OR IGNORE INTO battles (user_id, monster_id, mname, mrank, mhp, mmax, php, pmax, round, intent, cd_heavy, buff, log, ver, started, upd) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, 0, 0, ?, 0, ?, ?)',
-    [cur.id, m.id, m.name, m.rank, mo.hp, mo.hp, pl.max, pl.max, 'atk', log, now, now]);
-  const b = await db.get('SELECT user_id, monster_id, mname, mrank, mhp, mmax, php, pmax, round, intent, cd_heavy, buff, log, ver, started, upd FROM battles WHERE user_id = ?', [cur.id]);
+  const wel = await weaponEl(cur.id);
+  const ins = await db.run('INSERT OR IGNORE INTO battles (user_id, monster_id, mname, mrank, mhp, mmax, php, pmax, round, intent, cd_heavy, buff, log, ver, started, upd, cd_elem, wel) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, 0, 0, ?, 0, ?, ?, 0, ?)',
+    [cur.id, m.id, m.name, m.rank, mo.hp, mo.hp, pl.max, pl.max, 'atk', log, now, now, wel]);
+  const b = await db.get('SELECT user_id, monster_id, mname, mrank, mhp, mmax, php, pmax, round, intent, cd_heavy, buff, log, ver, started, upd, cd_elem, wel FROM battles WHERE user_id = ?', [cur.id]);
   if (ins.changes !== 1 && b.monster_id !== m.id) return { error: 'in_battle', view: btView(b) };
   return { view: btView(b) };
 }
+// 몬스터 속성 도감: 속성별 몬스터 · 속성 무기 · 지금 무기 속성 (기기 앱 '속성 도감', 마법소녀 테마일 때만)
+route('GET', '/api/affinity', async (req, res, ctx) => {
+  if ((await themeState()) !== 'magic') return fail(res, 404, 'event_off');      // 속성 도감은 마법소녀 테마(이벤트)일 때만
+  const monsters = {}, weapons = {};
+  G.ELEM_KEYS.forEach(k => { monsters[k] = []; weapons[k] = []; });
+  const names = [].concat(...['F', 'E', 'D', 'C', 'B', 'A', 'S', 'SS'].map(r => (G.MON[r] || []).map(n => n + ' (' + r + ')')), ['오염 사냥꾼', '혈월의 잔영']);
+  names.forEach(n => { const k = G.elemOf(n.replace(/ \([A-Z]+\)$/, '')); monsters[k].push(n); });
+  G.EQUIPS.forEach(e => { if (e.slot === 'weapon' && e.el && !e.legacy) weapons[e.el].push(e.name); });
+  send(res, 200, { monsters, weapons, myEl: await weaponEl(ctx.user.id) });
+});
 route('GET', '/api/battle', async (req, res, ctx) => {
   const b = await battleLive(ctx.user.id, Date.now());
   send(res, 200, { battle: b ? btView(b) : null });
@@ -2598,17 +2444,21 @@ route('GET', '/api/battle', async (req, res, ctx) => {
 route('POST', '/api/battle/act', async (req, res, ctx) => {
   if (await limited('btl:' + ctx.user.id, 120, 60000)) return fail(res, 429, 'rate_limited');
   const now = Date.now(), action = String(ctx.body.action || '');
-  if (!['attack', 'heavy', 'guard', 'flee'].includes(action)) return fail(res, 400, 'bad_action');
+  if (!['attack', 'heavy', 'guard', 'flee', 'elem'].includes(action)) return fail(res, 400, 'bad_action');
   const cur = await userById(ctx.user.id);
   const b = await battleLive(cur.id, now);
   if (!b) return fail(res, 404, 'no_battle');
   if (corruptLock(cur, now)) return fail(res, 409, 'corrupted', { until: cur.corrupt_until });
   if (action === 'heavy' && b.cd_heavy > 0) return fail(res, 409, 'heavy_cd', { battle: btView(b) });
+  const wel = await weaponEl(cur.id);      // 전투 중 무기를 바꿨을 수도 있어 매번 다시 확인
+  if (action === 'elem' && !wel) return fail(res, 409, 'no_elem', { battle: btView(Object.assign({}, b, { wel })) });
+  if (action === 'elem' && Number(b.cd_elem) > 0) return fail(res, 409, 'elem_cd', { battle: btView(b) });
   const m = await db.get('SELECT id, region, name, rank, spawned_at, owner_id, rumor_id, corrupt_of FROM monsters WHERE id = ?', [b.monster_id]);
   const eb = await equipBonus(cur.id), myStats = withEq(JSON.parse(cur.stats), eb);
   const pl = G.btPlayer(cur.lv, myStats), hl = b.mname === '오염 사냥꾼' ? await hunterLv(cur.id) : 0, mo = G.btMon(b.mrank, b.mname, pl, hl), BT = G.BT;
   const log = [];
-  let mhp = b.mhp, php = b.php, buff = b.buff, cd = Math.max(0, b.cd_heavy - 1), outcome = null;
+  let mhp = b.mhp, php = b.php, buff = b.buff, cd = Math.max(0, b.cd_heavy - 1), cdE = Math.max(0, (Number(b.cd_elem) || 0) - 1), outcome = null, hit = null;
+  const mel = G.elemOf(b.mname);
   const rr = (lo, hi) => lo + Math.random() * (hi - lo);
   // 내 행동
   if (action === 'flee') {
@@ -2617,9 +2467,10 @@ route('POST', '/api/battle/act', async (req, res, ctx) => {
   } else if (action === 'guard') {
     buff = 1; log.push('방어 자세를 취했다. (이번 라운드 피해 감소 · 다음 공격 강화)');
   } else {
-    let hit = true, mul = 1;
-    if (action === 'heavy') { mul = BT.heavy.mul; cd = BT.heavy.cd; hit = Math.random() < BT.heavy.hit; }
-    if (!hit) log.push('강타가 빗나갔다!');
+    let ok = true, mul = 1, aff = 1;
+    if (action === 'heavy') { mul = BT.heavy.mul; cd = BT.heavy.cd; ok = Math.random() < BT.heavy.hit; }
+    if (action === 'elem') { aff = G.affMul(wel, mel); mul = BT.elem.mul * aff; cdE = BT.elem.cd; }
+    if (!ok) log.push('강타가 빗나갔다!');
     else {
       let dmg = pl.atk * mul * rr(0.85, 1.15);
       if (buff) { dmg *= 1 + BT.guardBonus; buff = 0; }
@@ -2629,7 +2480,9 @@ route('POST', '/api/battle/act', async (req, res, ctx) => {
       const sp = G.SPECIAL_MON[b.mname];
       const held = !!(sp && sp.minRounds && mhp <= 0 && b.round < sp.minRounds + G.hunterScale(hl).rounds);      // 오염 사냥꾼: 10라운드가 지나기 전에는 쓰러지지 않음
       if (held) mhp = 1;
-      log.push((action === 'heavy' ? '강타! ' : '공격! ') + b.mname + '에게 ' + dmg + ' 피해' + (crit ? ' (치명타!)' : '') + '.');
+      hit = { action, dmg, crit, el: action === 'elem' ? wel : '', mul: aff };
+      const elTxt = action === 'elem' ? G.ELEMS[wel].ko + ' 속성 공격! ' + (aff > 1 ? '약점을 찔렀다! ' : aff < 1 ? '내성에 막혔다… ' : '') : '';
+      log.push((action === 'elem' ? elTxt : action === 'heavy' ? '강타! ' : '공격! ') + b.mname + '에게 ' + dmg + ' 피해' + (crit ? ' (치명타!)' : '') + (action === 'elem' && aff !== 1 ? ' (×' + aff + ')' : '') + '.');
       if (held) log.push(b.mname + '은(는) 쓰러지지 않고 버텨냈다!');
     }
   }
@@ -2656,16 +2509,16 @@ route('POST', '/api/battle/act', async (req, res, ctx) => {
   const prevLog = (() => { try { return JSON.parse(b.log); } catch (_) { return []; } })();
   const nlog = prevLog.concat(['— ' + b.round + '라운드 —'], log).slice(-40);
   if (!outcome) {
-    const w = await db.run('UPDATE battles SET mhp = ?, php = ?, round = ?, intent = ?, cd_heavy = ?, buff = ?, log = ?, ver = ver + 1, upd = ? WHERE user_id = ? AND ver = ?',
-      [mhp, php, round, intent, cd, buff, JSON.stringify(nlog), now, cur.id, b.ver]);
+    const w = await db.run('UPDATE battles SET mhp = ?, php = ?, round = ?, intent = ?, cd_heavy = ?, buff = ?, log = ?, ver = ver + 1, upd = ?, cd_elem = ?, wel = ? WHERE user_id = ? AND ver = ?',
+      [mhp, php, round, intent, cd, buff, JSON.stringify(nlog), now, cdE, wel, cur.id, b.ver]);
     if (w.changes !== 1) return fail(res, 409, 'busy');
-    const nb = await db.get('SELECT user_id, monster_id, mname, mrank, mhp, mmax, php, pmax, round, intent, cd_heavy, buff, log, ver, started, upd FROM battles WHERE user_id = ?', [cur.id]);
-    return send(res, 200, { done: false, battle: btView(nb, { last: log }) });
+    const nb = await db.get('SELECT user_id, monster_id, mname, mrank, mhp, mmax, php, pmax, round, intent, cd_heavy, buff, log, ver, started, upd, cd_elem, wel FROM battles WHERE user_id = ?', [cur.id]);
+    return send(res, 200, { done: false, battle: btView(nb, { last: log, hit }) });
   }
   // 전투 종료: 먼저 전투 기록을 지워 한 번만 정산합니다
   const del = await db.run('DELETE FROM battles WHERE user_id = ? AND ver = ?', [cur.id, b.ver]);
   if (del.changes !== 1) return fail(res, 409, 'busy');
-  const finalView = btView(Object.assign({}, b, { mhp, php, round: b.round, intent: b.intent, log: JSON.stringify(nlog), cd_heavy: cd, buff }), { last: log });
+  const finalView = btView(Object.assign({}, b, { mhp, php, round: b.round, intent: b.intent, log: JSON.stringify(nlog), cd_heavy: cd, buff, cd_elem: cdE, wel }), { last: log, hit });
   if (outcome === 'fled') return send(res, 200, { done: true, outcome, battle: finalView, result: null });
   if (!m) return send(res, 200, { done: true, outcome: 'fled', battle: finalView, result: null });
   if (outcome === 'win') {
@@ -3803,9 +3656,6 @@ async function purgeUser(id) {
     ['DELETE FROM battles WHERE user_id = ?', [id]],
     ['DELETE FROM exchange WHERE seller_id = ?', [id]],
     ['DELETE FROM equip_inv WHERE user_id = ?', [id]],
-    ['DELETE FROM rumor_votes WHERE user_id = ?', [id]],
-    ['DELETE FROM rumor_stats WHERE user_id = ?', [id]],
-    ['DELETE FROM daily_quests WHERE user_id = ?', [id]],
     ['DELETE FROM gate_run WHERE user_id = ?', [id]],
     ['DELETE FROM rescues WHERE target_id = ? OR rescuer_id = ?', [id, id]],
     ['DELETE FROM visit_counts WHERE user_id = ?', [id]],
@@ -3862,7 +3712,6 @@ async function compactOld(now) {
   await compactLogs('acquire_log', ['kind', 'name', 'source'], ['qty'], 80);
   const day = kstDay(now - 7 * 24 * 3600000);
   await db.run('DELETE FROM pact_log WHERE day < ?', [day]);
-  await db.run('DELETE FROM daily_quests WHERE day < ?', [day]);
   // 이틀이 지난 개인 몬스터(처치 기록 포함)는 더 이상 쓰이지 않습니다
   const old = now - 2 * 24 * 3600000;
   await db.run('DELETE FROM kills WHERE monster_id IN (SELECT id FROM monsters WHERE owner_id IS NOT NULL AND corrupt_of IS NULL AND rumor_id IS NULL AND spawned_at < ?)', [old]);
