@@ -326,19 +326,6 @@ CREATE TABLE IF NOT EXISTS rescues (
 );
 CREATE INDEX IF NOT EXISTS rescues_target ON rescues(target_id, seen);
 CREATE INDEX IF NOT EXISTS rescues_rescuer ON rescues(rescuer_id, at);
-CREATE TABLE IF NOT EXISTS daily_quests (
-  user_id INTEGER NOT NULL,
-  day     TEXT NOT NULL,
-  slot    INTEGER NOT NULL,
-  kind    TEXT NOT NULL,
-  arg     INTEGER NOT NULL DEFAULT 0,
-  need    INTEGER NOT NULL,
-  prog    INTEGER NOT NULL DEFAULT 0,
-  gold    INTEGER NOT NULL DEFAULT 0,
-  exp     INTEGER NOT NULL DEFAULT 0,
-  claimed INTEGER NOT NULL DEFAULT 0,
-  PRIMARY KEY (user_id, day, slot)
-);
 CREATE TABLE IF NOT EXISTS gate_run (
   user_id    INTEGER PRIMARY KEY,
   active     INTEGER NOT NULL DEFAULT 0,
@@ -369,13 +356,6 @@ CREATE TABLE IF NOT EXISTS exchange (
   ends      INTEGER NOT NULL
 );
 CREATE INDEX IF NOT EXISTS exchange_ends ON exchange(ends);
-CREATE TABLE IF NOT EXISTS rumor_stats (
-  user_id    INTEGER PRIMARY KEY,
-  gained     INTEGER NOT NULL DEFAULT 0,
-  lost       INTEGER NOT NULL DEFAULT 0,
-  last_delta INTEGER NOT NULL DEFAULT 0,
-  last_at    INTEGER NOT NULL DEFAULT 0
-);
 CREATE TABLE IF NOT EXISTS battles (
   user_id    INTEGER PRIMARY KEY,
   monster_id INTEGER NOT NULL,
@@ -400,27 +380,6 @@ CREATE TABLE IF NOT EXISTS pact_log (
   pid     TEXT NOT NULL,
   at      INTEGER NOT NULL,
   PRIMARY KEY (user_id, day, pid)
-);
-CREATE TABLE IF NOT EXISTS rumors (
-  id       INTEGER PRIMARY KEY AUTOINCREMENT,
-  title    TEXT NOT NULL,
-  body     TEXT NOT NULL,
-  region   TEXT NOT NULL,
-  mon_name TEXT NOT NULL,
-  rank     TEXT NOT NULL,
-  tpl      INTEGER NOT NULL DEFAULT 0,
-  truth    INTEGER NOT NULL DEFAULT 0,
-  status   TEXT NOT NULL DEFAULT 'open',
-  created  INTEGER NOT NULL,
-  ends     INTEGER NOT NULL,
-  resolved INTEGER NOT NULL DEFAULT 0
-);
-CREATE TABLE IF NOT EXISTS rumor_votes (
-  rumor_id INTEGER NOT NULL,
-  user_id  INTEGER NOT NULL,
-  vote     INTEGER NOT NULL,
-  at       INTEGER NOT NULL,
-  PRIMARY KEY (rumor_id, user_id)
 );
 CREATE TABLE IF NOT EXISTS s_min (
   user_id    INTEGER NOT NULL,
@@ -502,6 +461,8 @@ const MIGRATIONS = [
   'CREATE INDEX IF NOT EXISTS gw_mentions_target ON gw_mentions(target_id, id)',
   'CREATE INDEX IF NOT EXISTS gw_mentions_post ON gw_mentions(post_id)',
   'ALTER TABLE monsters ADD COLUMN rumor_id INTEGER',
+  'ALTER TABLE battles ADD COLUMN cd_elem INTEGER NOT NULL DEFAULT 0',      // 속성 공격 쉬는 라운드
+  "ALTER TABLE battles ADD COLUMN wel TEXT NOT NULL DEFAULT ''",      // 전투 중 착용한 무기의 속성
   // 오래된 기록을 한 줄로 합칠 때 원래 몇 건이었는지 (기본 1건)
   'ALTER TABLE hunt_log ADD COLUMN n INTEGER NOT NULL DEFAULT 1',
   'ALTER TABLE acquire_log ADD COLUMN n INTEGER NOT NULL DEFAULT 1',
