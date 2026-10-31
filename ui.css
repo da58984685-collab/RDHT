@@ -1,0 +1,86 @@
+/* ── 화면 다듬기 (ui.css) ──
+   index.html 의 <link rel="stylesheet" href="ui.css"> 한 줄을 지우면 원래 화면으로 돌아갑니다.
+   색은 모두 index.html 의 --red·--line·--card 변수를 따르므로 마법소녀 테마(magic.css)에서도 그대로 동작합니다.
+   빌려 쓴 요소:
+   - Lucian UX/UI Prompt #228 · MIT License (c) 2026 Seokwoooo · https://lucianlabs.dev/uxui-prompt/#228  (창 테두리 커서 빛)
+   - Lucian UX/UI Prompt #211 · MIT License (c) 2026 Seokwoooo · https://lucianlabs.dev/uxui-prompt/#211  (주 버튼 둘레를 도는 빛)
+   - Lucian UX/UI Prompt #013 · MIT License (c) 2026 Seokwoooo · https://lucianlabs.dev/uxui-prompt/#013  (늘어나는 스위치) */
+
+:root{--ui-ease:cubic-bezier(.2,.8,.2,1);--ui-spring:cubic-bezier(.34,1.45,.64,1);--ui-hair:color-mix(in srgb,var(--line) 72%,transparent);--ui-shadow:0 1px 0 rgba(255,255,255,.04) inset,0 22px 44px -28px rgba(0,0,0,.85)}
+
+/* ── 창(section·대화창): 얇은 테두리 + 커서를 따라 번지는 빛 (#228) ──
+   ui.js 가 창마다 커서 좌표(--cx,--cy)와 세기(--o)를 넣어, 한 점의 조명이 이웃 창 가장자리까지 함께 비춥니다. */
+section,.dialog{--cx:-500px;--cy:-500px;--o:0;border:1px solid transparent;
+  background:
+    radial-gradient(220px circle at var(--cx) var(--cy),color-mix(in srgb,var(--red2) calc(var(--o) * 13%),transparent),transparent 60%) padding-box,
+    linear-gradient(180deg,color-mix(in srgb,var(--card) 88%,#fff 2%),color-mix(in srgb,var(--bg1) 92%,var(--card))) padding-box,
+    radial-gradient(160px circle at var(--cx) var(--cy),color-mix(in srgb,var(--red2) calc(var(--o) * 100%),transparent),color-mix(in srgb,var(--deep) calc(var(--o) * 50%),transparent) 40%,transparent 70%) border-box,
+    linear-gradient(var(--ui-hair),var(--ui-hair)) border-box;
+  box-shadow:var(--ui-shadow)}
+.dialog{box-shadow:0 1px 0 rgba(255,255,255,.05) inset,0 40px 80px -30px rgba(0,0,0,.9),0 0 0 1px color-mix(in srgb,var(--red) 30%,transparent)}
+/* 모서리 꺾쇠: 가늘고 은은하게, 창 위에 커서가 오면 또렷해집니다 */
+section::before,section::after,.dialog::before,.dialog::after{width:14px;height:14px;border-width:2px!important;opacity:.55;transition:opacity .3s var(--ui-ease)}
+section:hover::before,section:hover::after,.dialog::before,.dialog::after{opacity:1}
+
+/* 창 머리줄: 무거운 붉은 띠 대신 왼쪽에서 옅어지는 빛 */
+h2{background:linear-gradient(90deg,color-mix(in srgb,var(--red) 22%,transparent),color-mix(in srgb,var(--red) 4%,transparent) 65%,transparent);border-bottom:1px solid var(--ui-hair);letter-spacing:.1em}
+h2 .ic{width:22px;height:22px;padding:4px;border-radius:7px;background:color-mix(in srgb,var(--red2) 16%,transparent);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--red2) 35%,transparent)}
+
+/* ── 상단 HUD: 유리 막대 ── */
+.hud{border:1px solid var(--ui-hair);background:linear-gradient(90deg,color-mix(in srgb,var(--bar1) 85%,transparent),color-mix(in srgb,var(--bar2) 80%,transparent));-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px);box-shadow:var(--ui-shadow)}
+
+/* ── 일반 버튼: 은은한 면 + 떠오르는 반응 ── */
+.hud-btn,.actions button,#result button,.pw button,.genders button,.x,.mbtn,.al-go,.bgm button,.todo-add button,.fp-tb button,.btl-acts button{
+  background:linear-gradient(180deg,color-mix(in srgb,var(--field) 80%,#fff 4%),var(--field));border-color:var(--ui-hair);
+  box-shadow:0 1px 0 rgba(255,255,255,.05) inset,0 6px 14px -10px rgba(0,0,0,.9);
+  transition:transform .25s var(--ui-spring),border-color .2s,box-shadow .25s var(--ui-ease),background .2s}
+.hud-btn:hover,.actions button:hover,#result button:hover,.pw button:hover,.genders button:hover,.x:hover,.mbtn:hover,.al-go:hover,.bgm button:hover,.todo-add button:hover,.fp-tb button:hover,.btl-acts button:hover{
+  transform:translateY(-1px);border-color:color-mix(in srgb,var(--red2) 70%,transparent);
+  box-shadow:0 1px 0 rgba(255,255,255,.06) inset,0 10px 22px -12px color-mix(in srgb,var(--red2) 70%,transparent)}
+.hud-btn:active,.actions button:active,#result button:active,.pw button:active,.genders button:active,.mbtn:active,.btl-acts button:active{transform:translateY(1px) scale(.98)}
+.genders button[aria-pressed=true]{background:linear-gradient(135deg,var(--red),color-mix(in srgb,var(--red) 55%,#000))}
+
+/* ── 주 버튼: 둘레를 천천히 도는 색 빛 (#211) ──
+   커서를 올리면 빛이 빨라지고 버튼이 살짝 떠오릅니다. */
+@property --ui-a{syntax:'<angle>';inherits:false;initial-value:0deg}
+@keyframes ui-a{to{--ui-a:360deg}}
+.actions .primary{border:1.5px solid transparent;
+  background:linear-gradient(135deg,#e5303e,#8f0f1b) padding-box,conic-gradient(from var(--ui-a),var(--red2),#ffb36b,#ffd2d6,var(--deep),var(--red),var(--red2)) border-box;
+  animation:ui-a 4s linear infinite;box-shadow:0 12px 28px -14px var(--red2),0 0 22px -6px color-mix(in srgb,var(--red2) 55%,transparent);
+  transition:transform .3s cubic-bezier(.3,1.6,.5,1),box-shadow .3s}
+.actions .primary:hover{animation-duration:1.4s;transform:translateY(-2px);border-color:transparent;box-shadow:0 16px 34px -14px var(--red2),0 0 34px -4px color-mix(in srgb,var(--red2) 75%,transparent)}
+.actions .primary:focus-visible{outline:2px solid var(--text);outline-offset:4px}
+
+/* ── 입력칸: 초점이 오면 테두리와 부드러운 고리 ── */
+input[type=text],input[type=number],input[type=password],input[type=url],textarea,select{border-color:var(--ui-hair);background:color-mix(in srgb,var(--field) 90%,#000);transition:border-color .2s,box-shadow .2s var(--ui-ease),background .2s}
+input[type=text]:hover,input[type=number]:hover,input[type=password]:hover,input[type=url]:hover,textarea:hover{border-color:color-mix(in srgb,var(--red2) 45%,var(--line))}
+input[type=text]:focus,input[type=number]:focus,input[type=password]:focus,input[type=url]:focus,textarea:focus{outline:none;border-color:var(--red2);background:var(--field);box-shadow:0 0 0 3px color-mix(in srgb,var(--red2) 22%,transparent)}
+
+/* ── 설정 체크 상자 → 늘어나는 스위치 (#013) ──
+   손잡이가 옮겨 가는 동안 길게 늘어났다가 튕기며(ui.js 가 잠깐 .is-stretch), 손잡이 안 ✕ 가 ✓ 로 바뀝니다. */
+#gpriv,input[id^="gwn-"],input[id^="hpn-"]{position:relative;width:46px;height:26px;border-radius:999px;border:0;
+  background:color-mix(in srgb,var(--field) 70%,#000);box-shadow:inset 0 2px 6px rgba(0,0,0,.35),inset 0 0 0 1px var(--ui-hair);transition:box-shadow .5s var(--ui-ease),background .45s var(--ui-ease)}
+#gpriv::after,input[id^="gwn-"]::after,input[id^="hpn-"]::after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;margin:0;border:0;border-radius:999px;transform:none;
+  background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23A3A0AA' stroke-width='3' stroke-linecap='round'%3E%3Cpath d='M7.5 7.5l9 9M16.5 7.5l-9 9'/%3E%3C/svg%3E") center/11px no-repeat;
+  box-shadow:0 1px 0 rgba(255,255,255,.9) inset,0 4px 10px -3px rgba(0,0,0,.4);transition:left .5s var(--ui-spring),width .32s var(--ui-ease)}
+#gpriv:checked,input[id^="gwn-"]:checked,input[id^="hpn-"]:checked{border:0;background:linear-gradient(135deg,var(--red2),var(--red) 55%,color-mix(in srgb,var(--red) 60%,#000));box-shadow:inset 0 2px 6px rgba(0,0,0,.2),0 10px 22px -12px var(--red2)}
+#gpriv:checked::after,input[id^="gwn-"]:checked::after,input[id^="hpn-"]:checked::after{left:23px;transform:none;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23d4202e' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5.5 12.5l4.5 4.5 8.5-9'/%3E%3C/svg%3E")}
+#gpriv.is-stretch::after,input[id^="gwn-"].is-stretch::after,input[id^="hpn-"].is-stretch::after{width:28px;transition:left .5s var(--ui-spring),width .18s var(--ui-ease)}
+#gpriv.is-stretch:checked::after,input[id^="gwn-"].is-stretch:checked::after,input[id^="hpn-"].is-stretch:checked::after{left:15px}
+#gpriv:focus-visible,input[id^="gwn-"]:focus-visible,input[id^="hpn-"]:focus-visible{outline:2px solid var(--deep);outline-offset:3px}
+.privrow{border-color:var(--ui-hair);transition:border-color .2s,background .2s}
+
+/* ── 안내 상자·스크롤바 ── */
+#msg:not(:empty),.hmsg:not(:empty){border-radius:10px;border-color:var(--ui-hair);border-left-color:var(--red2);background:color-mix(in srgb,var(--card) 85%,var(--red) 6%)}
+@media (min-width:1100px){html{scrollbar-width:thin;scrollbar-color:color-mix(in srgb,var(--red) 70%,transparent) transparent}}
+
+/* ── 첫 화면 제목: 살짝 더 또렷한 빛 ── */
+.hero h1,.gate h1{filter:drop-shadow(0 6px 22px color-mix(in srgb,var(--red2) 45%,transparent))}
+.hero .body{padding:32px 24px 26px}
+
+@media (prefers-reduced-motion:reduce){
+  .actions .primary{animation:none}
+  section::before,section::after,.dialog::before,.dialog::after,#gpriv::after,input[id^="gwn-"]::after,input[id^="hpn-"]::after{transition:none}
+  .hud-btn,.actions button,#result button,.pw button,.genders button,.mbtn,.btl-acts button{transition:none;transform:none!important}
+}
