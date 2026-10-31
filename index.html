@@ -408,6 +408,8 @@ body.tn3 .rwrap{filter:sepia(.5) saturate(2) hue-rotate(-40deg);box-shadow:0 0 2
 .mchh{display:flex;align-items:center;gap:12px;margin-bottom:10px}
 .mchh b{font:700 1.05rem/1.2 "Nanum Myeongjo",serif}
 .mmsgs{list-style:none;margin:0 0 10px;padding:10px;display:flex;flex-direction:column;gap:8px;height:260px;overflow-y:auto;background:var(--field);border:1px solid var(--line)}
+#qmsgs li.q-sep{align-self:stretch;max-width:none;margin:6px 0 0;padding:0;border:0;background:none;text-align:center;font-size:.72rem;font-weight:700;color:#f0c75e;letter-spacing:.06em}
+#qmsgs li.q-start{border-color:#c9a227;box-shadow:inset 3px 0 0 #c9a227}
 .mmsgs li{max-width:80%;padding:7px 10px;font-size:.88rem;line-height:1.45;overflow-wrap:anywhere;background:#1c1416;border:1px solid var(--line);align-self:flex-start;border-radius:2px 10px 10px 10px}
 .mmsgs li.me{align-self:flex-end;background:#3a1218;border-color:var(--red);border-radius:10px 2px 10px 10px}
 .mmsgs li small{display:block;margin-top:2px;font-size:.68rem;color:var(--sub)}
@@ -514,6 +516,11 @@ label[for="name"]::after,label[for="age"]::after,label[for="hname"]::after,#gl::
 .app-list{list-style:none;margin:0;padding:0;display:grid;gap:6px;font-size:.84rem}
 .app-list li{padding:7px 9px;background:#161012;border:1px solid var(--line);border-radius:6px}
 .gold-tag{margin:0 0 8px;color:#e0b25a;font-size:.84rem;font-weight:700}
+.dish-px{display:block;width:44px;height:44px;image-rendering:pixelated;image-rendering:crisp-edges}
+.app-list li.ck-li{display:grid;grid-template-columns:48px minmax(0,1fr);column-gap:12px;align-items:start;text-align:left}.app-list li.ck-li>.dish-px{grid-row:1 / span 4;align-self:center;width:48px;height:48px}.app-list li.ck-li>*:not(.dish-px){grid-column:2;min-width:0}
+.ck-tip{margin:0 0 6px;font-size:.76rem;color:var(--sub);line-height:1.5}.ck-f{display:block;margin:0 0 8px;font-size:.78rem;color:var(--sub);cursor:pointer}
+.shop-tabs{display:flex;gap:6px;margin:0 0 10px}.shop-tab{flex:1;min-height:36px;padding:0 10px;border:1px solid var(--line);border-radius:8px;background:var(--field);color:var(--sub);font:700 .85rem "Noto Sans KR",sans-serif;cursor:pointer}.shop-tab[aria-selected=true]{border-color:var(--red2);color:var(--text);background:var(--bar1)}
+.shop-uses{color:var(--sub)}
 .shop-q{display:flex;align-items:center;gap:4px;margin-top:6px}
 .shop-qb{flex:none;min-width:30px;min-height:30px;padding:0 8px;color:var(--text);background:var(--field);border:1px solid var(--line);border-radius:4px;cursor:pointer;font:700 .85rem/1 "Noto Sans KR",sans-serif}
 .shop-qb:hover{border-color:var(--red2)}
@@ -3343,12 +3350,17 @@ function loadAch(){
 function goldTag(){return gold.toLocaleString("ko-KR")+" G"}
 function setGoldTag(){var e=document.getElementById("goldtag");if(e)e.textContent="보유 "+goldTag()}
 function addGoldTag(scr){var p=document.createElement("p");p.id="goldtag";p.className="gold-tag";p.textContent="보유 "+goldTag();scr.appendChild(p)}
+var shopTab="item";      /* 상점 탭: item 일반 물품 · cook 요리 재료 */
 function loadShop(){
-  var scr=$("phscr");
-  api("GET","/api/shop").then(function(r){
-    if(devApp!=="shop")return;
+  var scr=$("phscr"),tabNow=shopTab;
+  api("GET",tabNow==="cook"?"/api/shop/cook":"/api/shop").then(function(r){
+    if(devApp!=="shop"||tabNow!==shopTab)return;
     if(r.error||!r.items){appFail(scr,loadShop);return}
-    var box=scr.querySelector(".app-empty,.app-list");if(box)box.remove();
+    var box;while((box=scr.querySelector(".app-empty,.app-list,.app-note,.shop-tabs")))box.remove();
+    var tabs=document.createElement("div");tabs.className="shop-tabs";tabs.setAttribute("role","tablist");
+    [["item","일반 물품"],["cook","요리 재료"]].forEach(function(t){var b=document.createElement("button");b.type="button";b.className="shop-tab";b.setAttribute("role","tab");b.setAttribute("aria-selected",t[0]===tabNow?"true":"false");b.textContent=t[1];
+      b.addEventListener("click",function(){if(shopTab===t[0])return;shopTab=t[0];loadShop()});tabs.appendChild(b)});
+    scr.appendChild(tabs);
     var list=(r.items||[]).slice().sort(function(a,b){return String(a.name).localeCompare(String(b.name),"ko")});if(r.gold!==undefined){gold=r.gold;setGoldTag()}      // 가나다 순
     if(!list.length){var p=document.createElement("p");p.className="app-empty";p.textContent="판매 중인 물품이 없습니다.";scr.appendChild(p);return}
     if(r.markup){var mk=document.createElement("p");mk.className="app-note";mk.textContent="오염도가 높아 상점 가격이 "+r.markup+"% 올라 있습니다. (아래 가격에 이미 반영됨)";scr.appendChild(mk)}      /* 오염 단계 */
@@ -3357,6 +3369,7 @@ function loadShop(){
       var li=document.createElement("li");li.textContent=it.name;
       if(it.desc){var sm=document.createElement("small");sm.textContent=it.desc;li.appendChild(sm)}
       if(it.eff){var sf=document.createElement("small");sf.className="inv-fx";sf.textContent="사용 효과 · "+fxText(it.eff);li.appendChild(sf)}
+      if(tabNow==="cook"){var su=document.createElement("small");su.className="shop-uses";su.textContent="보유 "+it.have+(it.uses&&it.uses.length?" · 쓰이는 요리: "+it.uses.join(", "):"");li.appendChild(su)}
       var qrow=document.createElement("div");qrow.className="shop-q";
       var qm=document.createElement("button");qm.type="button";qm.className="shop-qb";qm.textContent="−";qm.setAttribute("aria-label",it.name+" 수량 줄이기");
       var qi=document.createElement("input");qi.type="number";qi.className="shop-qi";qi.min="1";qi.max="9999";qi.step="1";qi.value="1";qi.inputMode="numeric";qi.setAttribute("aria-label",it.name+" 구매 수량");
@@ -3376,10 +3389,10 @@ function loadShop(){
       qrow.appendChild(qm);qrow.appendChild(qi);qrow.appendChild(qp);qrow.appendChild(q10);
       b.addEventListener("click",function(){
         var n=qty();sync();b.disabled=true;
-        api("POST","/api/shop/buy",{id:it.id,qty:n}).then(function(x){
+        (tabNow==="cook"?api("POST","/api/shop/cook/buy",{name:it.name,qty:n}):api("POST","/api/shop/buy",{id:it.id,qty:n})).then(function(x){
           b.disabled=false;b.textContent=x.ok?(x.qty>1?x.qty+"개 구매 완료 ✓":"구매 완료 ✓"):x.error==="no_gold"?"골드가 부족합니다":x.error==="max_qty"?(x.room>0?"최대 "+x.room+"개까지 살 수 있습니다":"더 가질 수 없습니다"):x.error==="blocked"?"운영자가 제한함":x.error==="corrupted"?"활동 불가 상태입니다":"구매 실패";
           setTimeout(function(){b.textContent=lbl},1400);
-          if(x.ok){gold=x.gold;setGoldTag();if(x.food!=null)raiFood=x.food;pollState(false)}
+          if(x.ok){gold=x.gold;setGoldTag();if(x.food!=null)raiFood=x.food;pollState(false);if(tabNow==="cook")setTimeout(function(){if(devApp==="shop"&&shopTab==="cook")loadShop()},1500)}
         });
       });
       li.appendChild(qrow);li.appendChild(b);ul.appendChild(li);
@@ -3553,7 +3566,7 @@ function applyState(st,first){
   if(isg!==invSig){invSig=isg;inventory=st.inventory||[];if(devApp==="inv")renderDevice();else if(devApp==="craft")drawCraft()}
   SI=st.s;pendingList=st.pending||[];var mu=st.unreadMsgs||0;if(msgInit&&mu>msgSrv&&!(!mmodal.hidden&&mFriend))msgPing();msgInit=true;msgSrv=mu;var su=st.unreadNotices||0;if(sysInit&&su>srvUnread)sysPing();sysInit=true;srvUnread=su;unreadNotices=su;giftUnread=st.giftUnread||0;unreadMsgs=st.unreadMsgs||0;friendReqs=st.friendReqs||0;cmUpdate(st.board||0);
   if(st.user&&!privBusy){var pcb=$("gpriv");if(pcb)pcb.checked=!!st.user.private}
-  if(st.user){inqUnread=st.user.inqUnread|0;isAdminChar=!!st.user.adminChar;updInq();blockedBits=st.user.blocked|0;corruptUntil=st.user.corruptUntil||0;taintedNow=!!st.user.tainted;dyingUntil=st.user.dyingUntil||0;statFx=st.user.fx||null;updFx();updDying()}
+  if(st.user){var inqPrev=inqUnread;inqUnread=st.user.inqUnread|0;if(inqUnread>inqPrev&&!first&&qmodal.hidden)gwToast("운영자 메시지가 도착했어요 · 위쪽 '문의'에서 확인해 주세요",6000);isAdminChar=!!st.user.adminChar;updInq();blockedBits=st.user.blocked|0;corruptUntil=st.user.corruptUntil||0;taintedNow=!!st.user.tainted;dyingUntil=st.user.dyingUntil||0;statFx=st.user.fx||null;updFx();updDying()}
   if(!paused||first){
     var prev=seenIds;seenIds={};
     alerts=st.monsters.map(function(m){
@@ -4206,10 +4219,11 @@ $("msendf").addEventListener("submit",function(e){
 /* ───── 문의 (관리자에게만 보내는 메신저) ───── */
 var qmodal=$("qmodal"),qMode="user",qOpener=null,qTimer=null,qLast=0,qCode="",qView="chat",qTab="c";
 function qAdd(m){
+  if(m.start){var sep=document.createElement("li");sep.className="q-sep";sep.textContent="운영자가 보낸 메시지";$("qmsgs").appendChild(sep)}      /* 관리자가 먼저 보낸 문의: 구분선 */
   var li=document.createElement("li");
-  var mine=qMode==="user"?!m.admin:m.admin;if(mine)li.className="me";
+  var mine=qMode==="user"?!m.admin:m.admin;li.className=(mine?"me":"")+(m.start?" q-start":"");
   li.appendChild(document.createTextNode(m.t));
-  var sm=document.createElement("small");sm.textContent=(m.admin?"관리자 · ":qMode==="inbox"?$("qchname").textContent+" · ":"")+fmtTime(m.ts);li.appendChild(sm);
+  var sm=document.createElement("small");sm.textContent=(m.start?"운영자 메시지 · ":m.admin?"관리자 · ":qMode==="inbox"?$("qchname").textContent+" · ":"")+fmtTime(m.ts);li.appendChild(sm);
   $("qmsgs").appendChild(li);if(m.id>qLast)qLast=m.id;
 }
 function qScroll(){var l=$("qmsgs");l.scrollTop=l.scrollHeight}
@@ -6167,15 +6181,50 @@ function ctFortune(scr){
 }
 
 /* ───── 20 요리 ───── */
+/* ───── 20 요리 픽셀아트: 16×16 도안 + 요리별 색 ─────
+   o 테두리 · b/c 그릇 밝은/어두운 면 · f/e 음식 밝은/어두운 면 · g 고명 · h 하이라이트 · s 김 */
+var DISH_PX={
+bowl:["................","....s.....s.....",".....s.....s....","....s.....s.....","................","oooooooooooooooo","ofgffeffgfffeffo","ohbbbbbbbbbbbbco",".obbbbbbbbbbbco.",".obbbbbbbbbbbco.","..obbbbbbbbbco..","...obbbbbbbco...","....ooooooooo...",".....occccco....",".....ooooooo....","................"],
+rice:["................","................","......oooo......","....oohhffoo....","...ofhffffeffo..","..offffffeffffo.","..offgffffffefo.",".oooooooooooooo.",".obbbbbbbbbbbco.","..obbbbbbbbbco..","...obbbbbbbco...","....ooooooooo...",".....occccco....",".....ooooooo....","................","................"],
+plate:["................","................","................","................",".....oooooo.....","....offgfffo....","...ofhfffeffo...","...offffgfeefo..","..ooofffffeeooo.",".obbbooooooobbbo","obhbbbbbbbbbbbco",".obbbbbbbbbbbco.","..ooooooooooooo.","................","................","................"],
+skewer:["................",".......oo.......",".......oh.......",".....oooooo.....","....offffffo....","....ofhffeeo....",".....oooooo.....","....oggggggo....","....oghggggo....",".....oooooo.....","....offffffo....","....ofhffeeo....",".....oooooo.....",".......oh.......",".......oo.......","................"],
+cup:["................","..........oo....",".........ogo....","........ogo.....","...ooooogoooo...","...obbbbgbbbo...","...offffgfffo...","...ohfffffffo...","...ohfffffefo...","...ohfffffefo...","...ohfffffefo...","....offfffeo....","....offffeeo....","....ooooooo.....","................","................"],
+mug:["................","................",".....s...s......","......s...s.....",".....s...s......","..ooooooooo.....","..offfffffo.....","..ohbbbbbbcooo..","..ohbbbbbbco.o..","..ohbbbbbbco.o..","..ohbbbbbbcooo..","..obbbbbbbco....","...ooooooo......",".oooooooooooo...","..occcccccco....","..oooooooooo...."],
+bun:["................","................","................","................","......oooo......","....oohhffoo....","...ohhffffffo...","..ohffffgfffeo..","..offfgfffffeo..","..offffffffeeo..","..oeffffffeeeo..","...ooooooooooo..",".obbbbbbbbbbbbo.","..oooooooooooo..","................","................"],
+cake:["................","................","................","................",".......oo.......",".....ooggo......","...oohhhhhoo....","..ohhhhhhhhhoo..","..offffffffffo..","..oggggggggggo..","..offffffffffo..","..oggggggggggo..","..offffffffeeo..","..oooooooooooo..","................","................"],
+noodle:["...........oo...","..........oo....",".........oo.....","........oo......",".......oo.......","oooooooooooooooo","ofgfffgffffgfffo","ohbbbbbbbbbbbbco",".obbbbbbbbbbbco.",".obbbbbbbbbbbco.","..obbbbbbbbbco..","...obbbbbbbco...","....ooooooooo...",".....occccco....",".....ooooooo....","................"],
+fishplate:["................","................","................","................","................","................","...ooooooooo....","..offhffffffo.oo",".ogfffffffffoofo",".offffffffeeeoo.","..offeeeeeeeo.oo","...ooooooooo....",".obbbbbbbbbbbbo.","obhbbbbbbbbbbbco",".oooooooooooooo.","................"],
+pot:["................",".....s....s.....","......s....s....",".....s....s.....","................","..oooooooooooo..","oofgfffgffffgfoo","obhbbbbbbbbbbbco","oobbbbbbbbbbbcoo","..obbbbbbbbbbco.","..obbbbbbbbbbco.","...oooooooooo...","................","................","................","................"],
+onigiri:["................","................","................",".......oo.......","......ohho......",".....ohhffo.....","....ohffffeo....","...offffffffo...","..offffffffeeo..","..offggggggeeo..",".offgggggggeeeo.",".ooggggggggggoo.","..oooooooooooo..","................","................","................"],
+pancake:["................","................","................","................","......oggo......","...oooogooooo...","..offgggggggfo..","..offffffffffo..","..oeeeeeeeeeeo..","..offffffffffo..","..oeeeeeeeeeeo..","..offffffffffo..","..oeeeeeeeeeeo..",".obbbbbbbbbbbbo.","..oooooooooooo..","................"]
+};
+var DISH_BOX={bowl:["#ece6dc","#b8aea0"],rice:["#ece6dc","#b8aea0"],noodle:["#ece6dc","#b8aea0"],plate:["#f2eee6","#c9c0b0"],fishplate:["#f2eee6","#c9c0b0"],bun:["#f2eee6","#c9c0b0"],pancake:["#f2eee6","#c9c0b0"],pot:["#4a4a52","#2c2c32"],cup:["#d8eef4","#9cc4d0"],mug:["#d8c0a0","#a88a68"],skewer:["#c8a070","#8a6a40"],cake:["#f2eee6","#c9c0b0"],onigiri:["#f2eee6","#c9c0b0"]};
+function dishShade(hex,k){var n=parseInt(hex.slice(1),16),r=n>>16,g=n>>8&255,b=n&255;function m(v){return Math.max(0,Math.min(255,Math.round(k>0?v+(255-v)*k:v*(1+k))))}return "rgb("+m(r)+","+m(g)+","+m(b)+")"}
+var dishCache={};
+function dishArt(art,size){      /* 요리 그림 캔버스 (같은 그림은 한 번만 그려 두고 복사) */
+  art=art||{s:"plate",f:"#c8843a",g:"#7cbf5a"};var key=JSON.stringify(art),src=dishCache[key];
+  if(!src){
+    src=document.createElement("canvas");src.width=src.height=16;var x=src.getContext("2d"),rows=DISH_PX[art.s]||DISH_PX.plate,bx=DISH_BOX[art.s]||DISH_BOX.plate;
+    var C={o:"#24161a",b:art.b||bx[0],c:art.b?dishShade(art.b,-0.3):bx[1],f:art.f,e:dishShade(art.f,-0.25),g:art.g||"#7cbf5a",h:dishShade(art.f,0.55),s:"rgba(255,255,255,.55)"};
+    rows.forEach(function(row,y){for(var i=0;i<16;i++){var ch=row.charAt(i);if(!ch||ch===".")continue;x.fillStyle=C[ch]||C.f;x.fillRect(i,y,1,1)}});
+    dishCache[key]=src;
+  }
+  var cv=document.createElement("canvas");cv.width=cv.height=16;cv.getContext("2d").drawImage(src,0,0);cv.className="dish-px";cv.setAttribute("aria-hidden","true");if(size)cv.style.width=cv.style.height=size+"px";return cv;
+}
 function ctCook(scr){
   var w=pvEl("div","ct-w");scr.appendChild(w);var note="";
   function load(){api("GET","/api/cook").then(function(r){if(!w.isConnected)return;if(!r||!r.list){w.textContent="불러오지 못했어요.";return}draw(r)})}
   function draw(r){
     w.textContent="";
     ctNote(w,(note?note+" · ":"")+(r.buff?"지금 버프 · "+r.buff.name+(r.buff.fine?" (일품)":"")+" — "+r.buff.txt+" · "+ctLeft(r.buff.until-Date.now())+" 남음":"지금 버프 없음")+" · 한 번에 한 요리만, 같은 요리는 시간이 더해져요(최대 3시간). PVP에는 적용되지 않아요.");
-    if(r.dishes.length){ctHead(w,"가진 요리");var ul=pvEl("ul","app-list");r.dishes.forEach(function(d){var li=pvEl("li","qst-li");li.appendChild(pvEl("div","qst-t",d.item+" ×"+d.qty));li.appendChild(pvEl("small",null,d.txt+(d.fine?" · 효과 ×1.5":"")));var row=pvEl("div","rum-v");ctBtn(row,"먹기",false,function(){api("POST","/api/cook/eat",{item:d.item}).then(function(x){note=x.ok?d.item+"을(를) 먹었어요"+(x.replaced?" ("+x.replaced+" 버프는 사라짐)":""):"먹지 못했어요";pollState(false);load()})});li.appendChild(row);ul.appendChild(li)});w.appendChild(ul)}
-    ctHead(w,"요리법");var ul2=pvEl("ul","app-list");
-    r.list.forEach(function(c){var ok=ctMatsOk(c.mats,c.have),li=pvEl("li","qst-li"+(ok?"":" got"));li.appendChild(pvEl("div","qst-t",c.name+" · "+c.txt+" · "+c.min+"분"));li.appendChild(pvEl("small",null,ctMats(c.mats,c.have)));var row=pvEl("div","rum-v");ctBtn(row,"요리하기",!ok,function(){api("POST","/api/cook",{id:c.id}).then(function(x){note=x.ok?x.item+" 완성"+(x.fine?" · 일품!":""):"재료가 모자라요";load()})});li.appendChild(row);ul2.appendChild(li)});
+    if(r.dishes.length){ctHead(w,"가진 요리");var ul=pvEl("ul","app-list");r.dishes.forEach(function(d){var li=pvEl("li","qst-li ck-li");li.appendChild(dishArt(d.art));li.appendChild(pvEl("div","qst-t",d.item+" ×"+d.qty));li.appendChild(pvEl("small",null,d.txt+(d.fine?" · 효과 ×1.5":"")));var row=pvEl("div","rum-v");ctBtn(row,"먹기",false,function(){api("POST","/api/cook/eat",{item:d.item}).then(function(x){note=x.ok?d.item+"을(를) 먹었어요"+(x.replaced?" ("+x.replaced+" 버프는 사라짐)":""):"먹지 못했어요";pollState(false);load()})});li.appendChild(row);ul.appendChild(li)});w.appendChild(ul)}
+    var can=r.list.filter(function(c){return ctMatsOk(c.mats,c.have)}).length;
+    ctHead(w,"요리법 · "+r.list.length+"종 (지금 만들 수 있는 것 "+can+")");
+    var tip=pvEl("p","ck-tip","쌀·달걀·고기 같은 요리 재료는 상점의 '요리 재료' 탭에서 살 수 있어요. 물고기는 낚시로, 나머지는 채집·토벌로 모아요.");w.appendChild(tip);
+    var fl=pvEl("label","ck-f");var fc=document.createElement("input");fc.type="checkbox";fc.checked=!!ctCook.canOnly;fl.appendChild(fc);fl.appendChild(document.createTextNode(" 지금 만들 수 있는 것만"));w.appendChild(fl);
+    fc.addEventListener("change",function(){ctCook.canOnly=fc.checked;Array.prototype.forEach.call(ul2.children,function(li){li.hidden=fc.checked&&li.classList.contains("got")})});
+    var ul2=pvEl("ul","app-list");
+    r.list.forEach(function(c){var ok=ctMatsOk(c.mats,c.have),li=pvEl("li","qst-li ck-li"+(ok?"":" got"));li.hidden=!!ctCook.canOnly&&!ok;li.appendChild(dishArt(c.art));li.appendChild(pvEl("div","qst-t",c.name+" · "+c.txt+" · "+c.min+"분"));li.appendChild(pvEl("small",null,ctMats(c.mats,c.have)));var row=pvEl("div","rum-v");ctBtn(row,"요리하기",!ok,function(){api("POST","/api/cook",{id:c.id}).then(function(x){note=x.ok?x.item+" 완성"+(x.fine?" · 일품!":""):"재료가 모자라요";load()})});li.appendChild(row);ul2.appendChild(li)});
     w.appendChild(ul2);
   }
   load();
