@@ -521,6 +521,7 @@ label[for="name"]::after,label[for="age"]::after,label[for="hname"]::after,#gl::
 .ck-tip{margin:0 0 6px;font-size:.76rem;color:var(--sub);line-height:1.5}.ck-f{display:block;margin:0 0 8px;font-size:.78rem;color:var(--sub);cursor:pointer}
 .shop-tabs{display:flex;gap:6px;margin:0 0 10px}.shop-tab{flex:1;min-height:36px;padding:0 10px;border:1px solid var(--line);border-radius:8px;background:var(--field);color:var(--sub);font:700 .85rem "Noto Sans KR",sans-serif;cursor:pointer}.shop-tab[aria-selected=true]{border-color:var(--red2);color:var(--text);background:var(--bar1)}
 .shop-uses{color:var(--sub)}
+.cr-lv{display:inline-block;margin-left:6px;padding:1px 7px;border:1px solid #6fd08c;border-radius:999px;font-size:.66rem;font-weight:700;color:#6fd08c;vertical-align:middle}.cr-lv.off{border-color:var(--sub);color:var(--sub)}
 .shop-q{display:flex;align-items:center;gap:4px;margin-top:6px}
 .shop-qb{flex:none;min-width:30px;min-height:30px;padding:0 8px;color:var(--text);background:var(--field);border:1px solid var(--line);border-radius:4px;cursor:pointer;font:700 .85rem/1 "Noto Sans KR",sans-serif}
 .shop-qb:hover{border-color:var(--red2)}
@@ -5966,7 +5967,7 @@ function drawEquip(){
     var d=document.createElement("small");d.textContent=e.slotKo+" · "+eqFx(e)+" · 내구도 "+e.maxDur+" · 수리 "+e.repair+" G · "+e.desc;
     var ok=true,m=document.createElement("small");m.textContent="재료 · "+e.mats.map(function(x){if(x.have<x.qty)ok=false;return x.item+" "+x.have+"/"+x.qty}).join(", ");
     var row=document.createElement("div");row.className="rum-v";var bt=document.createElement("button");bt.type="button";bt.className="ach-btn";bt.textContent="조합";bt.disabled=!ok;
-    bt.addEventListener("click",function(){bt.disabled=true;api("POST","/api/equip/craft",{id:e.id}).then(function(x){eqNote=x.ok?e.name+" 조합 완료!":x.error==="no_mats"?"재료가 부족합니다.":x.error==="full"?"장비는 최대 40개까지 가질 수 있습니다.":x.error==="corrupted"?"오염이 폭주해 조합할 수 없습니다.":"조합하지 못했습니다.";pollState(false);if(devApp==="inv")renderDevice();loadEquip()})});
+    bt.addEventListener("click",function(){bt.disabled=true;api("POST","/api/equip/craft",{id:e.id}).then(function(x){eqNote=x.ok?e.name+" 조합 완료!":x.error==="no_mats"?"재료가 부족합니다.":x.error==="full"?"장비는 최대 40개까지 가질 수 있습니다.":x.error==="corrupted"?"오염이 폭주해 조합할 수 없습니다.":x.error==="lv_limit"?x.max+"레벨 이하만 만들 수 있는 조합법입니다.":"조합하지 못했습니다.";pollState(false);if(devApp==="inv")renderDevice();loadEquip()})});
     row.appendChild(bt);li.appendChild(t);li.appendChild(d);li.appendChild(m);li.appendChild(row);ul2.appendChild(li);
   });
   scr.appendChild(ul2);
@@ -6349,17 +6350,19 @@ function drawCraft(){
   craftData.recipes.forEach(function(rc){
     var li=document.createElement("li");li.className="nt";
     var tx=document.createElement("div");tx.className="nt-tx";tx.appendChild(document.createTextNode(rc.name));
+    var lvNow=craftData.lv||power.lv||1,lvOver=rc.maxLv&&lvNow>rc.maxLv;      /* 초보 전용 조합법 (20레벨 이하) */
+    if(rc.maxLv){var lt=document.createElement("span");lt.className="cr-lv"+(lvOver?" off":"");lt.textContent=rc.maxLv+"레벨 이하 전용";tx.appendChild(lt)}
     var d=document.createElement("small");d.textContent=rc.desc;tx.appendChild(d);
     var ok=true,m=document.createElement("small");
     m.textContent="재료 · "+rc.mats.map(function(x){var h=have[x.item]||0;if(h<x.qty)ok=false;return x.item+" "+h+"/"+x.qty}).join(", ");tx.appendChild(m);
     var f=document.createElement("small");f.className="inv-fx";f.textContent="사용 효과 · "+fxText(rc.eff);tx.appendChild(f);
     li.appendChild(tx);
     var ac=document.createElement("div");ac.className="inv-act";
-    var b=document.createElement("button");b.type="button";b.className="use-btn";b.textContent="조합";b.disabled=!ok;
+    var b=document.createElement("button");b.type="button";b.className="use-btn";b.textContent=lvOver?"레벨 초과":"조합";b.disabled=!ok||lvOver;
     b.addEventListener("click",function(){
       b.disabled=true;
       api("POST","/api/craft",{id:rc.id}).then(function(x){
-        craftNote=x.ok?rc.name+" 조합 완료!":x.error==="no_mats"?"재료가 부족합니다.":x.error==="max_qty"?"더 가질 수 없습니다.":x.error==="corrupted"?"오염이 폭주해 조합할 수 없습니다.":"조합하지 못했습니다.";
+        craftNote=x.ok?rc.name+" 조합 완료!":x.error==="no_mats"?"재료가 부족합니다.":x.error==="max_qty"?"더 가질 수 없습니다.":x.error==="corrupted"?"오염이 폭주해 조합할 수 없습니다.":x.error==="lv_limit"?x.max+"레벨 이하만 만들 수 있는 조합법입니다.":"조합하지 못했습니다.";
         drawCraft();pollState(false);
       });
     });
