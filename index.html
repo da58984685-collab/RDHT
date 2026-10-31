@@ -156,8 +156,15 @@ main.landing{display:flex;align-items:center;justify-content:center;max-width:no
 .hud-btn:hover{border-color:var(--red2)}
 .g-grid{display:grid;gap:0 16px;grid-template-columns:minmax(0,1fr)}
 .g-col{display:contents}
-#gchar{order:1}#gradar{order:2}#galert{order:3}#gstat{order:5}#gmap{order:6}#gdev{order:4}
-@media (min-width:1100px){.g-grid{grid-template-columns:minmax(0,1.5fr) minmax(0,3fr) minmax(0,1.5fr);align-items:stretch}.g-col{display:flex;flex-direction:column;min-width:0}.g-col>section:last-child{flex:1 1 auto}}
+#gchar{order:1}#gbgm{order:2}#gtodo{order:3}#gradar{order:4}#galert{order:5}#gstat{order:7}#gmap{order:8}#gdev{order:6}
+@media (min-width:1100px){.g-grid{grid-template-columns:minmax(0,1.5fr) minmax(0,3fr) minmax(0,1.5fr);align-items:stretch}.g-col{display:flex;flex-direction:column;min-width:0}.g-col>section:last-child{flex:1 1 auto}
+  /* 빈 공간 줄이기: 3열은 알림 목록이 남는 높이를 채우고(목록은 안에서 스크롤) 기기 카드는 내용 높이만큼만, 2열은 지역 이동 대신 아래 할 일 카드가 늘어남 */
+  #galert{display:flex;flex-direction:column;flex:1 1 0;min-height:300px}
+  #galert .body{flex:1;min-height:0;display:flex;flex-direction:column}
+  #galert .alerts{flex:1;min-height:0;overflow-y:auto;align-content:start;scrollbar-width:thin;scrollbar-color:var(--red) transparent}
+  .g-col>#gdev:last-child{flex:none}
+  #gtodo{display:flex;flex-direction:column;order:9}#gtodo .body{flex:1}
+}
 .cwin{display:flex;gap:14px;align-items:flex-start}
 .imgrow{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0 4px}
 .imgrow .hud-btn{flex:1 1 0;min-width:110px;white-space:nowrap}
@@ -182,7 +189,10 @@ main.landing{display:flex;align-items:center;justify-content:center;max-width:no
 .pm-l li.ok b{color:var(--red2)}
 .pm-l li::before{content:"✕";color:var(--sub);font-size:.8rem}
 .pm-l li.ok::before{content:"✓";color:var(--red2)}
-#gchar .lbl{margin:16px 0 4px}
+#gchar .lbl,#gbgm .lbl{margin:16px 0 4px}
+#gbgm .body>.lbl:first-child,#sbgmrow>.lbl:first-child{margin-top:0}
+#sbgmrow[hidden]+.lbl{display:none}
+#gtodo .todo{margin-top:8px}
 .bgm{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
 .bgm-note{flex:1 1 100%;margin:0;font-size:.78rem;color:var(--sub)}
 .sbgm-mq{overflow:hidden;white-space:nowrap;margin-top:4px;opacity:.5;font-size:.7rem;line-height:1.4;color:var(--sub)}
@@ -358,8 +368,6 @@ body.tn3 .rwrap{filter:sepia(.5) saturate(2) hue-rotate(-40deg);box-shadow:0 0 2
 .bar{height:10px;background:var(--field);border:1px solid var(--line);overflow:hidden}
 .bar i{display:block;height:100%;width:100%;transform:scaleX(0);transform-origin:left;background:linear-gradient(90deg,#9a9a9a,#fff);box-shadow:none;transition:transform 1s cubic-bezier(.2,.8,.2,1)}
 .st[data-k="taint"] .ic{color:var(--sub)}
-.st[data-k="fame"] .ic{color:#f0b93a}
-.st[data-k="fame"] .bar i{background:linear-gradient(90deg,#8a5a10,#f0b93a 60%,#fff3c4);box-shadow:0 0 8px rgba(240,185,58,.4)}
 .st[data-k="taint"] .bar i{background:linear-gradient(90deg,#1c0508,#5e0a14 60%,#a01020);box-shadow:none}
 .st-v{text-align:right;font:400 .95rem/1 "Share Tech Mono",monospace}
 .st-eq{margin-left:4px;color:#6fd08c;font:400 .78rem/1 "Share Tech Mono",monospace;white-space:nowrap}
@@ -527,6 +535,27 @@ label[for="name"]::after,label[for="age"]::after,label[for="hname"]::after,#gl::
 #gstat{display:flex;flex-direction:column}
 #gstat .body{flex:1;display:flex;flex-direction:column}
 #gstat .stats{flex:1;display:flex;flex-direction:column;justify-content:space-between;gap:13px}
+/* 스탯 창: 가로로 밀어서 기본 스탯 ↔ PVP 스탯 전환 (오른쪽 페이지 = PVP 스탯) */
+.sttab{position:absolute;top:7px;right:12px;z-index:2;display:flex;padding:2px;gap:2px;border:1px solid var(--line);border-radius:999px;background:rgba(0,0,0,.35)}
+.sttab button{min-height:24px;padding:0 10px;border:0;border-radius:999px;background:none;color:var(--sub);font:600 .74rem/1 "Noto Sans KR",sans-serif;letter-spacing:.04em;cursor:pointer}
+.sttab button[aria-selected="true"]{background:linear-gradient(135deg,var(--red2),var(--red));color:#fff}
+.sttab button:focus-visible{outline:2px solid #fff;outline-offset:1px}
+.stsl{flex:1;display:flex;margin:-4px -16px 0;overflow-x:auto;overflow-y:hidden;scroll-snap-type:x mandatory;overscroll-behavior-x:contain;scrollbar-width:none;-webkit-overflow-scrolling:touch;touch-action:pan-x pan-y}
+.stsl::-webkit-scrollbar{display:none}
+.stsl.drag{scroll-snap-type:none;cursor:grabbing;user-select:none}
+.stpg{flex:0 0 100%;min-width:0;padding:4px 16px 0;scroll-snap-align:start;scroll-snap-stop:always;display:flex;flex-direction:column}
+.stpg-pvp{position:relative}
+.stpg-in{position:absolute;inset:0;padding:4px 16px 20px;-webkit-mask-image:linear-gradient(#000 calc(100% - 20px),transparent);mask-image:linear-gradient(#000 calc(100% - 20px),transparent);overflow-y:auto;overscroll-behavior-y:contain;scrollbar-width:thin;scrollbar-color:var(--red) transparent}
+.stpg-in .pvs-hint{margin:0 0 10px}
+.stpg-pvp .pvs-w{gap:10px}
+.stpg-pvp .pvs-top{justify-content:center;gap:10px}
+.stpg-pvp .pvs-svg{width:min(230px,100%)}
+.stpg-pvp .pvs-side{flex:1 1 100%;min-width:0;gap:4px}
+.stpg-pvp .pvs-ls li{padding:7px 9px}
+.stpg-pvp .pvs-ac{justify-content:stretch}.stpg-pvp .pvs-ac button{flex:1}
+.stdots{display:flex;justify-content:center;gap:6px;margin-top:10px}
+.stdots i{width:6px;height:6px;border-radius:50%;background:var(--line);transition:background .2s,width .2s}
+.stdots i.on{width:16px;border-radius:3px;background:var(--red2)}
 .al[data-r="SS"]{border-color:var(--red2);box-shadow:0 0 18px rgba(255,59,74,.55)}
 .al[data-r="S"]{border-color:#f0b93a;box-shadow:0 0 12px rgba(240,185,58,.4)}
 .al[data-r="S"] .al-r{background:linear-gradient(135deg,#f0b93a,#a3300f);border-color:#f0b93a}
@@ -887,7 +916,6 @@ input[type=checkbox]:focus-visible{outline:2px solid var(--deep);outline-offset:
 .cw-note{margin:0;min-height:1.3em;font-size:.82rem;color:#f0b93a}
 .cw-acts{display:flex;gap:8px;flex-wrap:wrap}.cw-acts .hud-btn{flex:1;min-width:70px;padding:10px 8px}.cw-acts .hud-btn:disabled{opacity:.4}
 #cwopen{margin-left:8px}
-.pvs-open{display:block;width:100%;margin:10px 0 4px;padding:9px 12px;border:1px solid var(--red2);border-radius:8px;background:linear-gradient(180deg,#3a0a11,#1a0709);color:var(--text);font:600 .9rem "Noto Sans KR",sans-serif;cursor:pointer}
 .pvs-hint{margin:2px 0 0;font-size:.74rem;color:var(--sub);line-height:1.4}
 .pvs-w{display:flex;flex-direction:column;gap:12px}
 .pvs-top{display:flex;gap:14px;align-items:center;flex-wrap:wrap}
@@ -1056,7 +1084,7 @@ body{overflow-x:clip}      /* 어떤 요소가 넘쳐도 화면 전체가 가로
 <body>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
 <symbol id="i-heart" viewBox="0 0 7 7"><path d="M3 0h1v1H3zM2 1h3v1H2zM1 2h5v1H1zM0 3h7v1H0zM1 4h5v1H1zM2 5h3v1H2zM3 6h1v1H3z"/></symbol>
-<symbol id="i-hlw" viewBox="0 0 7 7"><path d="M2 0h3v1H2zM1 1h5v1H1zM0 2h2v1H0zM3 2h1v1H3zM5 2h2v1H5zM0 3h7v1H0zM0 4h7v1H0zM0 5h7v1H0zM0 6h1v1H0zM2 6h1v1H2zM4 6h1v1H4zM6 6h1v1H6z"/></symbol><symbol id="i-home" viewBox="0 0 7 7"><path d="M1 0h5v1H1zM0 1h7v1H0zM0 2h2v4H0zM5 2h2v4H5zM0 6h7v1H0z"/></symbol><symbol id="i-dex" viewBox="0 0 7 7"><path d="M0 0h6v1H0zM0 1h1v5H0zM2 2h3v1H2zM2 4h3v1H2zM0 6h7v1H0zM6 1h1v5H6z"/></symbol><symbol id="i-wkr" viewBox="0 0 7 7"><path d="M0 6h7v1H0zM1 3h1v3H1zM3 1h1v5H3zM5 4h1v2H5z"/></symbol><symbol id="i-hof" viewBox="0 0 7 7"><path d="M1 0h5v1H1zM0 1h1v2H0zM6 1h1v2H6zM1 1h5v3H1zM3 4h1v1H3zM2 5h3v1H2zM1 6h5v1H1z"/></symbol><symbol id="i-wnt" viewBox="0 0 7 7"><path d="M3 0h1v2H3zM3 5h1v2H3zM0 3h2v1H0zM5 3h2v1H5zM3 3h1v1H3z"/></symbol><symbol id="i-pvp" viewBox="0 0 7 7"><path d="M0 0h1v1H0zM1 1h1v1H1zM2 2h1v1H2zM3 3h1v1H3zM4 4h1v1H4zM5 5h1v1H5zM6 6h1v1H6zM6 0h1v1H6zM5 1h1v1H5zM4 2h1v1H4zM2 4h1v1H2zM1 5h1v1H1zM0 6h1v1H0z"/></symbol><symbol id="i-rai" viewBox="0 0 7 7"><path d="M2 0h3v1H2zM1 1h5v2H1zM0 3h7v2H0zM1 5h5v1H1zM2 6h3v1H2z"/></symbol><symbol id="i-star" viewBox="0 0 7 7"><path d="M3 0h1v7H3zM0 3h7v1H0zM2 2h3v3H2z"/></symbol>
+<symbol id="i-hlw" viewBox="0 0 7 7"><path d="M2 0h3v1H2zM1 1h5v1H1zM0 2h2v1H0zM3 2h1v1H3zM5 2h2v1H5zM0 3h7v1H0zM0 4h7v1H0zM0 5h7v1H0zM0 6h1v1H0zM2 6h1v1H2zM4 6h1v1H4zM6 6h1v1H6z"/></symbol><symbol id="i-home" viewBox="0 0 7 7"><path d="M1 0h5v1H1zM0 1h7v1H0zM0 2h2v4H0zM5 2h2v4H5zM0 6h7v1H0z"/></symbol><symbol id="i-dex" viewBox="0 0 7 7"><path d="M0 0h6v1H0zM0 1h1v5H0zM2 2h3v1H2zM2 4h3v1H2zM0 6h7v1H0zM6 1h1v5H6z"/></symbol><symbol id="i-wkr" viewBox="0 0 7 7"><path d="M0 6h7v1H0zM1 3h1v3H1zM3 1h1v5H3zM5 4h1v2H5z"/></symbol><symbol id="i-hof" viewBox="0 0 7 7"><path d="M1 0h5v1H1zM0 1h1v2H0zM6 1h1v2H6zM1 1h5v3H1zM3 4h1v1H3zM2 5h3v1H2zM1 6h5v1H1z"/></symbol><symbol id="i-wnt" viewBox="0 0 7 7"><path d="M3 0h1v2H3zM3 5h1v2H3zM0 3h2v1H0zM5 3h2v1H5zM3 3h1v1H3z"/></symbol><symbol id="i-pvp" viewBox="0 0 7 7"><path d="M0 0h1v1H0zM1 1h1v1H1zM2 2h1v1H2zM3 3h1v1H3zM4 4h1v1H4zM5 5h1v1H5zM6 6h1v1H6zM6 0h1v1H6zM5 1h1v1H5zM4 2h1v1H4zM2 4h1v1H2zM1 5h1v1H1zM0 6h1v1H0z"/></symbol><symbol id="i-rai" viewBox="0 0 7 7"><path d="M2 0h3v1H2zM1 1h5v2H1zM0 3h7v2H0zM1 5h5v1H1zM2 6h3v1H2z"/></symbol><symbol id="i-note" viewBox="0 0 7 7"><path d="M4 0h3v1H4zM4 1h1v3H4zM6 1h1v1H6zM1 4h4v1H1zM0 5h5v1H0zM1 6h3v1H1z"/></symbol><symbol id="i-chk" viewBox="0 0 7 7"><path d="M6 0h1v1H6zM5 1h1v1H5zM0 2h1v1H0zM4 2h1v1H4zM1 3h1v1H1zM3 3h1v1H3zM2 4h1v1H2zM0 6h7v1H0z"/></symbol><symbol id="i-star" viewBox="0 0 7 7"><path d="M3 0h1v7H3zM0 3h7v1H0zM2 2h3v3H2z"/></symbol>
 <symbol id="i-person" viewBox="0 0 8 8"><path d="M3 0h2v1H3zM2 1h4v2H2zM3 3h2v1H3zM1 4h6v1H1zM0 5h8v3H0z"/></symbol>
 <symbol id="i-chat" viewBox="0 0 8 7"><path d="M0 0h8v5H0zM1 5h2v1H1zM1 6h1v1H1z"/></symbol>
 <symbol id="i-plus" viewBox="0 0 8 8"><path d="M3 0h2v8H3zM0 3h8v2H0z"/></symbol>
@@ -1140,6 +1168,13 @@ body{overflow-x:clip}      /* 어떤 요소가 넘쳐도 화면 전체가 가로
           <label class="privrow"><input type="checkbox" id="gpriv"><span>비공개 유저</span></label>
           <div class="bioBox"><p class="lbl">프로필 소개글</p><textarea id="gbio" maxlength="200" rows="3" placeholder="친구 프로필에 보일 소개글을 적어보세요. (최대 200자)" aria-label="프로필 소개글"></textarea>
             <div class="bio-r"><small id="gbiomsg" role="status">친구에게 보입니다.</small><button type="button" id="gbiosave">저장</button></div></div>
+          <p class="lbl">오늘의 추천</p>
+          <div class="rec" id="grec"></div>
+        </div>
+      </section>
+      <section id="gbgm">
+        <h2><svg class="ic"><use href="#i-note"/></svg>BGM</h2>
+        <div class="body">
           <div id="sbgmrow" hidden>
             <p class="lbl">서버 BGM</p>
             <div class="bgm">
@@ -1150,7 +1185,7 @@ body{overflow-x:clip}      /* 어떤 요소가 넘쳐도 화면 전체가 가로
             <div id="sbgmbox" aria-hidden="true"></div>
             <div class="sbgm-mq" aria-label="해당 BGM은 저작권 무료 음악임을 밝힙니다."><span aria-hidden="true">해당 BGM은 저작권 무료 음악임을 밝힙니다.</span></div>
           </div>
-          <p class="lbl">BGM</p>
+          <p class="lbl">내 BGM</p>
           <form class="bgm" id="bgmf">
             <input id="bgmurl" type="url" inputmode="url" autocomplete="off" placeholder="유튜브 링크를 붙여넣으세요" aria-label="유튜브 링크">
             <button type="submit">적용</button>
@@ -1159,16 +1194,18 @@ body{overflow-x:clip}      /* 어떤 요소가 넘쳐도 화면 전체가 가로
             <p class="bgm-note" id="bgmnote" role="status"></p>
           </form>
           <div id="bgmbox" aria-hidden="true"></div>
-          <p class="lbl">할 일</p>
-          <form class="todo-add" id="todof"><input id="todoin" maxlength="60" autocomplete="off" placeholder="할 일을 입력하세요" aria-label="할 일 입력"><button type="submit">추가</button></form>
-          <ul class="todo" id="todol"></ul>
-          <p class="lbl">오늘의 추천</p>
-          <div class="rec" id="grec"></div>
         </div>
       </section>
       <section id="gstat">
         <h2><svg class="ic"><use href="#i-star"/></svg>스탯</h2>
-        <div class="body"><div class="pow" id="gpow"></div><p class="sprow" id="gsp" hidden></p><ul class="stats" id="gstats"></ul><p class="eqsum" id="geq" hidden></p><button type="button" class="pvs-open" id="gpvs">PVP 스탯 (오각형)</button><p class="pvs-hint">장비 효과는 토벌에서만 적용돼요. PVP는 PVP 스탯과 동행 몬스터만 영향을 줍니다.</p><p class="dying-note" id="dyingnote" role="status" hidden></p><p class="twarn" id="twarn" role="status" hidden></p></div>
+        <div class="sttab" role="tablist" aria-label="스탯 창 선택"><button type="button" role="tab" id="sttab0" aria-controls="stpg0" aria-selected="true">기본</button><button type="button" role="tab" id="sttab1" aria-controls="stpg1" aria-selected="false" tabindex="-1">PVP</button></div>
+        <div class="body">
+          <div class="stsl" id="stsl">
+            <div class="stpg" id="stpg0" role="tabpanel" aria-labelledby="sttab0"><div class="pow" id="gpow"></div><p class="sprow" id="gsp" hidden></p><ul class="stats" id="gstats"></ul><p class="eqsum" id="geq" hidden></p><p class="dying-note" id="dyingnote" role="status" hidden></p><p class="twarn" id="twarn" role="status" hidden></p></div>
+            <div class="stpg stpg-pvp" id="stpg1" role="tabpanel" aria-labelledby="sttab1" inert><div class="stpg-in"><p class="pvs-hint">장비 효과는 토벌에서만 적용돼요. PVP는 PVP 스탯과 동행 몬스터만 영향을 줍니다.</p><div id="gpvsbox"></div></div></div>
+          </div>
+          <div class="stdots" aria-hidden="true"><i class="on"></i><i></i></div>
+        </div>
       </section>
     </div>
     <div class="g-col">
@@ -1203,6 +1240,13 @@ body{overflow-x:clip}      /* 어떤 요소가 넘쳐도 화면 전체가 가로
           <p class="pwnote" id="mapmsg" role="status"></p>
         </div>
       </section>
+      <section id="gtodo">
+        <h2><svg class="ic"><use href="#i-chk"/></svg>할 일</h2>
+        <div class="body">
+          <form class="todo-add" id="todof"><input id="todoin" maxlength="60" autocomplete="off" placeholder="할 일을 입력하세요" aria-label="할 일 입력"><button type="submit">추가</button></form>
+          <ul class="todo" id="todol"></ul>
+        </div>
+      </section>
     </div>
     <div class="g-col">
       <section id="galert">
@@ -1216,6 +1260,45 @@ body{overflow-x:clip}      /* 어떤 요소가 넘쳐도 화면 전체가 가로
     </div>
   </div>
 </div>
+<div id="mprog" aria-hidden="true"></div>
+<nav id="mnav" aria-label="화면 이동">
+  <button type="button" data-t="gchar" aria-current="true"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 12a4 4 0 100-8 4 4 0 000 8zm0 2c-4 0-8 2-8 5v1h16v-1c0-3-4-5-8-5z"/></svg>캐릭터</button>
+  <button type="button" data-t="gradar"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 100 18 9 9 0 000-18zm0 3a6 6 0 11-6 6h6V6z"/></svg>지도</button>
+  <button type="button" data-t="galert"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 22a2.5 2.5 0 002.4-2h-4.8A2.5 2.5 0 0012 22zm7-6V11a7 7 0 00-5-6.7V3a2 2 0 10-4 0v1.3A7 7 0 005 11v5l-2 2v1h18v-1z"/></svg>알림</button>
+  <button type="button" data-t="gdev"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 2h10a2 2 0 012 2v16a2 2 0 01-2 2H7a2 2 0 01-2-2V4a2 2 0 012-2zm5 19a1 1 0 100-2 1 1 0 000 2zM7 5v12h10V5z"/></svg>기기</button>
+  <button type="button" data-t="gstat"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2l2.9 6.3 6.9.8-5.1 4.7 1.4 6.8L12 17l-6.1 3.6 1.4-6.8L2.2 9.1l6.9-.8z"/></svg>스탯</button>
+  <button type="button" data-t="gmap"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a7 7 0 00-7 7c0 5 7 13 7 13s7-8 7-13a7 7 0 00-7-7zm0 9.5A2.5 2.5 0 1112 6.5a2.5 2.5 0 010 5z"/></svg>이동</button>
+</nav>
+<button type="button" id="mtop" aria-label="맨 위로">↑</button>
+<script>
+(function(){
+  var g=document.getElementById("game"),nav=document.getElementById("mnav"),top=document.getElementById("mtop"),bar=document.getElementById("mprog"),hud=g&&g.querySelector(".hud");
+  if(!g||!nav||!hud)return;
+  var mq=window.matchMedia("(max-width:1099px)"),ids=["gchar","gradar","galert","gdev","gstat","gmap"],tick=0;
+  function hh(){g.style.setProperty("--hudh",(hud.offsetHeight+8)+"px")}
+  function upd(){
+    tick=0;if(!mq.matches||g.hidden)return;
+    var y=window.pageYOffset||document.documentElement.scrollTop,H=document.documentElement.scrollHeight-window.innerHeight;
+    bar.style.width=(H>0?Math.min(100,y/H*100):0)+"%";
+    top.classList.toggle("on",y>600);
+    if(y>160&&!hud.classList.contains("mc")){hud.classList.add("mc");hh()}
+    else if(y<40&&hud.classList.contains("mc")){hud.classList.remove("mc");hh()}
+    var cur=ids[0],line=hud.offsetHeight+60;
+    ids.forEach(function(id){var e=document.getElementById(id);if(e&&e.getBoundingClientRect().top<=line)cur=id});
+    if(H>0&&y>=H-4)cur=ids[ids.length-1];
+    Array.prototype.forEach.call(nav.children,function(b){b.setAttribute("aria-current",b.getAttribute("data-t")===cur?"true":"false")});
+  }
+  function req(){if(!tick)tick=requestAnimationFrame(upd)}
+  window.addEventListener("scroll",req,{passive:true});window.addEventListener("resize",function(){hh();req()});
+  nav.addEventListener("click",function(e){
+    var b=e.target.closest("button");if(!b)return;var t=document.getElementById(b.getAttribute("data-t"));if(!t)return;
+    var rm=window.matchMedia("(prefers-reduced-motion:reduce)").matches;
+    t.scrollIntoView({behavior:rm?"auto":"smooth",block:"start"});
+  });
+  top.addEventListener("click",function(){var rm=window.matchMedia("(prefers-reduced-motion:reduce)").matches;window.scrollTo({top:0,behavior:rm?"auto":"smooth"})});
+  hh();upd();
+})();
+</script>
 </div>
 <div class="modal" id="modal" hidden>
   <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="dtitle">
@@ -1529,6 +1612,30 @@ body{overflow-x:clip}      /* 어떤 요소가 넘쳐도 화면 전체가 가로
 
 .gwempty{padding:24px 8px;text-align:center;color:var(--deep);font-size:.9rem}
 </style>
+<style id="mui">
+/* ── 모바일 UI 개선 (1100px 미만): 상단 고정바 · 하단 탭바 · 맨 위로 · 스크롤 표시 ── */
+#mnav,#mtop,#mprog{display:none}
+@media (max-width:1099px){
+  html{scrollbar-width:thin;scrollbar-color:var(--red) #1a0d10}
+  .g-wrap{padding:0 14px calc(96px + env(safe-area-inset-bottom,0px))}
+  .hud{position:sticky;top:0;z-index:9;margin:0 -14px 16px;padding:10px 14px;gap:8px;border-left:0;border-right:0;border-top:0;background:linear-gradient(180deg,rgba(26,7,10,.97),rgba(14,8,10,.94));-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+  .hud-m{font-size:.92rem}
+  .hud-r{grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:6px}
+  .hud-r .hud-btn{min-height:38px;padding:0 2px!important;font-size:.74rem;overflow:hidden;text-overflow:ellipsis}
+  .hud.mc .hud-r{display:none}
+  .g-grid>.g-col>section,.g-grid section{scroll-margin-top:var(--hudh,96px);margin-bottom:18px}
+  #mprog{display:block;position:fixed;left:0;top:0;height:3px;width:0;z-index:12;background:linear-gradient(90deg,var(--red),var(--red2));pointer-events:none}
+  #mnav{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:9;padding:6px 4px calc(8px + env(safe-area-inset-bottom,0px));background:rgba(14,9,10,.96);border-top:1px solid var(--line);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
+  #mnav button{flex:1 1 0;min-width:0;min-height:48px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;background:none;border:0;color:var(--sub);font:600 .68rem/1.1 "Noto Sans KR",sans-serif;cursor:pointer;white-space:nowrap}
+  #mnav button svg{width:20px;height:20px;fill:currentColor}
+  #mnav button[aria-current="true"]{color:var(--red2)}
+  #mnav button[aria-current="true"] svg{filter:drop-shadow(0 0 6px var(--glow))}
+  #mtop{display:grid;place-items:center;position:fixed;right:14px;bottom:calc(76px + env(safe-area-inset-bottom,0px));z-index:9;width:44px;height:44px;border-radius:50%;border:1px solid var(--red2);background:var(--red);color:#fff;font:800 1.1rem/1 "Noto Sans KR",sans-serif;box-shadow:0 6px 20px rgba(224,48,62,.5);cursor:pointer;opacity:0;pointer-events:none;transition:opacity .2s}
+  #mtop.on{opacity:1;pointer-events:auto}
+}
+@media (prefers-reduced-motion:reduce){#mtop{transition:none}}
+</style>
+
 <div class="modal" id="cmodal" hidden>
   <div class="dialog" role="dialog" aria-modal="true" aria-labelledby="cmtitle">
     <button type="button" class="x" id="cmclose" aria-label="닫기"><svg class="ic"><use href="#i-x"/></svg></button>
@@ -2185,7 +2292,7 @@ function fxText(e){if(e.stat==="pvp_hp")return "PVP 체력 전체 회복";return
 var STAT_TIP={hp:"토벌에 실패하면 줄어듭니다. 5 이하가 되면 빈사 상태입니다.",str:"몬스터 토벌 성공 확률",agi:"체력 하락 방지 확률",luck:"즉시 재토벌 가능 확률"};
 var STAT_INV={str:1,agi:1,luck:1};
 var blockedBits=0,dyingUntil=0,statFx=null,corruptUntil=0,taintedNow=false;
-var STAT_DEF=[["hp","체력","i-hp"],["str","근력","i-str"],["agi","민첩","i-agi"],["luck","행운","i-luck"],["taint","오염","i-taint"],["fame","명성","i-star"]];
+var STAT_DEF=[["hp","체력","i-hp"],["taint","오염","i-taint"],["str","근력","i-str"],["agi","민첩","i-agi"],["luck","행운","i-luck"]];
 var HUNT_DIFF={F:"쉬움",E:"쉬움",D:"쉬움",C:"보통",B:"보통",A:"어려움",S:"매우 어려움"};
 var curRegion="city",alerts=[],pollTimer=null,skew=0,polling=false,paused=false;
 var sysInit=false,srvUnread=0;
@@ -2409,7 +2516,7 @@ function renderStats(st){
     var used=Math.max(0,((power&&power.lv)||1)-1-sp);       // 지금까지 투자한 포인트
     if(used>0){var rb=document.createElement("button");rb.type="button";rb.className="sp-reset";rb.textContent="일괄 초기화";rb.title="투자한 스탯포인트 "+used+"개를 한 번에 모두 돌려받습니다 · "+(STAT_RESET_BASE+used*STAT_RESET_PER)+" G";spb.appendChild(rb);rb.addEventListener("click",function(){resetStats(rb,used)})}}
   STAT_DEF.forEach(function(d){
-    var v=st[d[0]]||0,max=d[0]==="taint"?100:d[0]==="fame"?Math.max(1000,v):d[0]==="hp"?Math.max(100,v):Math.max(100,v);
+    var v=st[d[0]]||0,max=d[0]==="taint"?100:Math.max(100,v);
     var li=document.createElement("li");li.className="st";li.dataset.k=d[0];
     li.appendChild(svgUse(d[2]));
     var l=document.createElement("span");l.textContent=d[1];
@@ -2866,7 +2973,7 @@ var globe=(function(){
       if(!P)build();
       size();var cc=COUNTRY_BY_ID[curCountry];if(cc)rot=-cc.lo;vel=0.18;hover=null;tapSel=null;
       wrap.classList.add("is-globe");box.removeAttribute("inert");$("radar").setAttribute("aria-hidden","true");
-      stats();clearInterval(stT);stT=setInterval(function(){if(document.hidden||(window.pollIdle&&window.pollIdle()>IDLE_SLOW))return;stats()},30000);
+      stats();clearInterval(stT);stT=setInterval(stats,8000);
       draw();run();
       setTimeout(function(){if(on)cv.focus({preventScroll:true})},300);
     }else{
@@ -3335,10 +3442,8 @@ function applyState(st,first){
   showResults(st.results||[]);
 }
 var POLL_MS=10000,pollHid=0,lastInput=Date.now();   // 상태 확인 간격(ms): 줄이면 알림이 빨라지고 DB 사용량이 늘어납니다
-var IDLE_SLOW=180000,IDLE_DEEP=600000;   // 3분 넘게 손대지 않으면 확인을 느리게, 10분 넘으면 상태 확인만 1분에 한 번 (나머지 알림 확인은 쉼). 다시 만지면 바로 전부 확인합니다.
-window.pollIdle=function(){return Date.now()-lastInput};
-["pointerdown","keydown","touchstart","wheel","mousemove"].forEach(function(ev){window.addEventListener(ev,function(){var was=Date.now()-lastInput>IDLE_SLOW;lastInput=Date.now();if(was&&pollTimer){pollState();if(typeof window.gwnPoll==="function")window.gwnPoll();if(typeof hpnPoll==="function")hpnPoll()}},{passive:true,capture:true})});
-document.addEventListener("visibilitychange",function(){if(!document.hidden&&typeof pollTimer!=="undefined"&&pollTimer){pollState();if(typeof window.gwnPoll==="function")window.gwnPoll()}});
+["pointerdown","keydown","touchstart","wheel"].forEach(function(ev){window.addEventListener(ev,function(){var was=Date.now()-lastInput>900000;lastInput=Date.now();if(was&&pollTimer)pollState()},{passive:true,capture:true})});
+document.addEventListener("visibilitychange",function(){if(!document.hidden&&typeof pollTimer!=="undefined"&&pollTimer){pollState();if(typeof gwnPoll==="function")gwnPoll()}});
 var pollAgain=false;
 function pollState(first){
   if($("game").hidden)return;
@@ -4189,7 +4294,7 @@ function enterGame(me){
   taintStgInit=false;renderChar(d);renderStats(d.stats);buildCountries();buildRegions();devApp=null;renderPower(false);
   statSig="";applyState(me.state,true);
   moveTo(curRegion,true);$("mapmsg").textContent=sAutoMsg;sAutoMsg="";
-  clearInterval(pollTimer);pollTimer=setInterval(function(){if(document.hidden)return;var idl=Date.now()-lastInput,ev=(idl>IDLE_DEEP?6:idl>IDLE_SLOW?3:1);if(ev>1&&(++pollHid%ev))return;pollState()},POLL_MS);       // 평소 10초마다 확인. 숨은 탭은 쉬고, 3분 넘게 안 만진 화면은 30초, 10분 넘으면 1분에 한 번 (DB 전송량 절약)svData={};svSync();
+  clearInterval(pollTimer);pollTimer=setInterval(function(){if(document.hidden)return;var ev=(Date.now()-lastInput>900000?3:1);if(ev>1&&(++pollHid%ev))return;pollState()},POLL_MS);       // 평소 10초마다 확인. 숨은 탭은 20초, 15분 넘게 아무것도 안 만진 화면은 30초에 한 번 (서버·DB 사용량 절약)svData={};svSync();
   var h=$("hudloc");h.tabIndex=-1;h.focus();
 }
 // ── 커뮤니티 (읽기 전용) ──
@@ -4506,7 +4611,7 @@ var cwReadyAt=0;
 function cwSetCd(s){cwReadyAt=Date.now()+Math.max(0,Number(s)||0)*1000;cwTick()}
 function cwTick(){var el=document.querySelector('#regions .rg[data-id="cw-isle"] .rg-cd');if(!el)return;var s=Math.ceil((cwReadyAt-Date.now())/1000);el.hidden=s<=0;if(s>0)el.textContent="입장 가능까지 "+("0"+Math.floor(s/60)).slice(-2)+" : "+("0"+(s%60)).slice(-2)}
 setInterval(cwTick,1000);
-setInterval(function(){if(curRegion!==undefined&&!document.hidden&&!(window.pollIdle&&window.pollIdle()>IDLE_DEEP))api("GET","/api/cw/state").then(function(r){if(r&&!r.error&&typeof r.cd==="number")cwSetCd(r.cd)}).catch(function(){})},30000);
+setInterval(function(){if(curRegion!==undefined&&!document.hidden)api("GET","/api/cw/state").then(function(r){if(r&&!r.error&&typeof r.cd==="number")cwSetCd(r.cd)}).catch(function(){})},30000);
 function cwFmt(s){s=Math.max(0,Math.floor(s));return Math.floor(s/60)+":"+("0"+(s%60)).slice(-2)}
 function cwUpdateBtn(){var b=$("cwopen");if(b)b.hidden=curRegion!=="cw-isle"}
 function cwOpen(){
@@ -5197,7 +5302,51 @@ function closeBig(){
   devApp=null;renderDevice();
 }
 document.addEventListener("keydown",function(e){if(e.key==="Escape"&&bigOpen)closeBig()});
-$("gpvs").addEventListener("click",function(){openBig("pvs")});
+/* ───── 스탯 창 가로 슬라이드: 왼쪽 = 기본 스탯, 오른쪽 = PVP 스탯 ───── */
+var stIdx=0;
+(function(){
+  var sl=$("stsl"),tabs=[$("sttab0"),$("sttab1")],pgs=[$("stpg0"),$("stpg1")],dots=document.querySelectorAll(".stdots i"),tk=0,drag=null,snapT=0;
+  if(!sl)return;
+  function rm(){return window.matchMedia("(prefers-reduced-motion:reduce)").matches}
+  function go(i,smooth){sl.scrollTo({left:i*sl.clientWidth,behavior:smooth&&!rm()?"smooth":"auto"})}
+  function set(i){
+    if(i===stIdx)return;stIdx=i;
+    tabs.forEach(function(t,k){t.setAttribute("aria-selected",k===i?"true":"false");t.tabIndex=k===i?0:-1});
+    pgs.forEach(function(p,k){if(k===i)p.removeAttribute("inert");else p.setAttribute("inert","")});
+    Array.prototype.forEach.call(dots,function(d,k){d.classList.toggle("on",k===i)});
+    if(i===1)pvsPanel(false);
+  }
+  function sync(){tk=0;var w=sl.clientWidth;if(w)set(Math.round(sl.scrollLeft/w)>=1?1:0)}
+  sl.addEventListener("scroll",function(){if(!tk)tk=requestAnimationFrame(sync)},{passive:true});
+  tabs.forEach(function(t,k){
+    t.addEventListener("click",function(){go(k,true);set(k)});
+    t.addEventListener("keydown",function(e){if(e.key!=="ArrowLeft"&&e.key!=="ArrowRight")return;e.preventDefault();var n=e.key==="ArrowRight"?1:0;go(n,true);set(n);tabs[n].focus()});
+  });
+  if(window.ResizeObserver)new ResizeObserver(function(){go(stIdx,false)}).observe(sl);
+  /* 마우스로도 끌어서 넘길 수 있게 (터치·트랙패드는 기본 가로 스크롤로 동작) */
+  sl.addEventListener("pointerdown",function(e){
+    if(e.pointerType!=="mouse"||e.button!==0||e.target.closest("button,input,textarea,select,a,label,.st-l"))return;
+    clearTimeout(snapT);drag={x:e.clientX,l:sl.scrollLeft,id:e.pointerId,mv:false};
+  });
+  sl.addEventListener("pointermove",function(e){
+    if(!drag||e.pointerId!==drag.id)return;var dx=e.clientX-drag.x;
+    if(!drag.mv){if(Math.abs(dx)<6)return;drag.mv=true;sl.classList.add("drag");try{sl.setPointerCapture(e.pointerId)}catch(_){}}
+    sl.scrollLeft=drag.l-dx;
+  });
+  function end(e){
+    if(!drag||e.pointerId!==drag.id)return;var d=drag;drag=null;if(!d.mv)return;
+    var dx=e.clientX-d.x,from=Math.round(d.l/Math.max(1,sl.clientWidth)),to=Math.abs(dx)>40?(dx<0?1:0):from;
+    go(to,true);set(to);snapT=setTimeout(function(){sl.classList.remove("drag")},450);
+  }
+  sl.addEventListener("pointerup",end);sl.addEventListener("pointercancel",end);
+  window.stReset=function(){go(0,false);set(0)};
+})();
+/* PVP 스탯 페이지: 넘어올 때마다 새로 불러옵니다(저장하지 않은 변경이 있으면 그대로 둠) */
+function pvsPanel(force){
+  var box=$("gpvsbox");if(!box)return;
+  if(!force&&box.firstChild&&pvsVal&&pvsSaved&&pvsVal.join()!==pvsSaved.join())return;
+  box.textContent="";loadPvs(box);
+}
 Array.prototype.forEach.call(document.querySelectorAll(".ph-nav .nv-back"),function(b){b.addEventListener("click",devBack)});
 $("bigapp").addEventListener("mousedown",function(e){if(e.target===this)closeBig()});
 
@@ -5303,7 +5452,7 @@ function hpnPoll(){
     if(parts.length){hpPing();gwToast("던전로그 · "+parts.join(" · "))}
   }).catch(function(){});
 }
-function hpnStart(){clearInterval(hpnTimer);hpnTimer=setInterval(function(){if(document.hidden||window.pollIdle()>IDLE_DEEP)return;hpnPoll()},30000);setTimeout(hpnPoll,3500)}
+function hpnStart(){clearInterval(hpnTimer);hpnTimer=setInterval(function(){if(document.hidden)return;hpnPoll()},15000);setTimeout(hpnPoll,3500)}
 [["hpn-cmt","cmt"],["hpn-rep","rep"]].forEach(function(x){
   $(x[0]).addEventListener("change",function(){
     var t=hpnSettings(),was=hpnAny();t[x[1]]=this.checked;try{localStorage.setItem(hpnKey(),JSON.stringify(t))}catch(e){}
@@ -6275,8 +6424,7 @@ function gwnPoll(){
     if(parts.length){gwPing();gwToast("게이트웨이브 · "+parts.join(" · "))}
   }).catch(function(){});
 }
-function gwnStart(){clearInterval(gwnTimer);gwnTimer=setInterval(function(){if(document.hidden||(window.pollIdle&&window.pollIdle()>600000))return;gwnPoll()},30000);setTimeout(gwnPoll,2500)}
-window.gwnPoll=gwnPoll;      /* 오래 쉬었다 돌아오면 상태 확인과 함께 바로 알림 확인 */
+function gwnStart(){clearInterval(gwnTimer);gwnTimer=setInterval(function(){if(document.hidden)return;gwnPoll()},15000);setTimeout(gwnPoll,2500)}
 [["gwn-p0","p0"],["gwn-p1","p1"],["gwn-p2","p2"],["gwn-p3","p3"],["gwn-cmt","cmt"],["gwn-rep","rep"],["gwn-men","men"]].forEach(function(x){
   $(x[0]).addEventListener("change",function(){
     var t=gwSettings(),was=gwAny();t[x[1]]=this.checked;gwSaveSet();
@@ -6622,7 +6770,7 @@ function leaveGame(note){
   $("game").hidden=true;forceFront=false;showFront();
   if(note){var hm=$("hmsg");if(hm){hm.textContent=note;hm.className="hmsg"}}
 }
-$("logout").addEventListener("click",function(){api("POST","/api/logout",{}).then(function(){leaveGame()})});
+$("logout").addEventListener("click",function(){api("POST","/api/logout",{}).then(function(){leaveGame();if(window.stReset)stReset();var pb=$("gpvsbox");if(pb)pb.textContent=""})});
 $("pausebtn").addEventListener("click",function(){paused=!paused;this.textContent=paused?"알림 재개":"알림 멈춤";this.setAttribute("aria-pressed",paused?"true":"false");if(!paused)pollState()});
 function startSession(tries){
   tries=tries||0;
