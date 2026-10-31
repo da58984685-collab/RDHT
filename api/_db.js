@@ -453,6 +453,7 @@ const MIGRATIONS = [
   ...require('./_qna').SQL,        // Q&A 표
   ...require('./_sysmsg').SQL,     // 시스템 팝업 표
   ...require('./_home').SQL,       // HOME: 개인 홈페이지 표
+  ...require('./_content').SQL,    // 상시 컨텐츠 12종 표·열 (api/_content.js)
   // 게이트웨이브 댓글·대댓글 좋아요 (한 사람이 한 댓글에 한 번)
   'CREATE TABLE IF NOT EXISTS wanted_claims (user_id INTEGER NOT NULL, day TEXT NOT NULL, PRIMARY KEY (user_id, day))',
   'CREATE TABLE IF NOT EXISTS gw_likes (comment_id INTEGER NOT NULL, user_id INTEGER NOT NULL, PRIMARY KEY (comment_id, user_id))',
