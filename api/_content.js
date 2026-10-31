@@ -101,17 +101,61 @@ COOK.forEach(c => { DISH.set(c.name, { c, q: 1 }); DISH.set(c.name + ' (일품)'
 const BUFF_MAX = 3 * HOUR, FINE_P = 0.1;
 
 // ───────── 21 낚시 ─────────
+// w: 물 종류(fresh 민물 · sea 바다 · any 둘 다) · spots: 이 지역에서만 · slot: 이 시간대에만(dawn/morning/day/night) · day: 이 요일에만(0=일) · hours: [시작, 끝) KST
+// 등급 기본값: 판정 칸(win)·눈금 속도(speed) — 일반 .30/1.0 · 희귀 .22/1.3 · 영웅 .15/1.7 · 전설 .10/2.2
+const FISH_TIER = { c: { win: 0.30, speed: 1.0 }, r: { win: 0.22, speed: 1.3 }, e: { win: 0.15, speed: 1.7 }, l: { win: 0.10, speed: 2.2 } };
 const FISH = [
-  { name: '민물 생선', tier: 'c', at: 'fresh', cm: [15, 45], win: 0.30, speed: 1.0, gold: 20 },
-  { name: '바다 새우', tier: 'c', at: 'sea', cm: [5, 18], win: 0.30, speed: 1.0, gold: 20 },
-  { name: '붉은 월어', tier: 'r', at: 'night', cm: [30, 70], win: 0.20, speed: 1.4, gold: 80 },
-  { name: '그레이윅 금빛 잉어', tier: 'e', at: 'cw', cm: [40, 90], win: 0.14, speed: 1.8, gold: 250 },
-  { name: '심연의 주인', tier: 'l', at: 'deep', cm: [120, 300], win: 0.09, speed: 2.4, gold: 1500 },
-];
+  { name: '민물 생선', tier: 'c', w: 'fresh', cm: [15, 45], gold: 20 },
+  { name: '바다 새우', tier: 'c', w: 'sea', cm: [5, 18], gold: 20 },
+  { name: '붉은 월어', tier: 'r', w: 'any', slot: 'night', cm: [30, 70], win: 0.20, speed: 1.4, gold: 80 },
+  { name: '그레이윅 금빛 잉어', tier: 'e', w: 'any', spots: ['cw-isle'], cm: [40, 90], win: 0.14, speed: 1.8, gold: 250 },
+  { name: '심연의 주인', tier: 'l', w: 'any', spots: ['gt-lake'], hours: [0, 4], cm: [120, 300], win: 0.09, speed: 2.4, gold: 1500 },
+  // ── 추가 어종 30종 ──
+  { name: '붕어', tier: 'c', w: 'fresh', cm: [10, 35], gold: 22 },
+  { name: '피라미', tier: 'c', w: 'fresh', slot: 'morning', cm: [6, 15], gold: 24 },
+  { name: '메기', tier: 'c', w: 'fresh', slot: 'night', cm: [25, 80], gold: 30 },
+  { name: '운하 잉어', tier: 'c', w: 'fresh', spots: ['it-venice', 'fr-seine', 'in-ganges'], cm: [20, 60], gold: 30 },
+  { name: '고등어', tier: 'c', w: 'sea', cm: [20, 45], gold: 22 },
+  { name: '전갱이', tier: 'c', w: 'sea', slot: 'morning', cm: [15, 35], gold: 24 },
+  { name: '오징어', tier: 'c', w: 'sea', slot: 'night', cm: [20, 50], gold: 28 },
+  { name: '꽃게', tier: 'c', w: 'sea', cm: [10, 25], gold: 26 },
+  { name: '보름 해파리', tier: 'c', w: 'sea', slot: 'dawn', cm: [10, 40], gold: 30 },
+  { name: '송어', tier: 'r', w: 'fresh', spots: ['ru-baikal', 'cn-gorge', 'fr-seine', 'jp-onsen'], cm: [30, 70], gold: 70 },
+  { name: '쏘가리', tier: 'r', w: 'fresh', spots: ['river', 'cn-gorge'], cm: [20, 50], gold: 80 },
+  { name: '피라냐', tier: 'r', w: 'fresh', spots: ['br-amazon', 'br-falls'], cm: [15, 35], gold: 75 },
+  { name: '나일 농어', tier: 'r', w: 'fresh', spots: ['eg-nile'], cm: [50, 150], gold: 90 },
+  { name: '수정 가재', tier: 'r', w: 'fresh', spots: ['jp-onsen', 'it-venice', 'us-bayou'], cm: [8, 20], gold: 85 },
+  { name: '달빛 은어', tier: 'r', w: 'fresh', slot: 'dawn', cm: [12, 30], gold: 90 },
+  { name: '그림자 장어', tier: 'r', w: 'any', slot: 'night', cm: [40, 120], gold: 95 },
+  { name: '참돔', tier: 'r', w: 'sea', slot: 'day', cm: [30, 80], gold: 80 },
+  { name: '광어', tier: 'r', w: 'sea', spots: ['port', 'jp-bay', 'ru-port'], cm: [35, 90], gold: 85 },
+  { name: '문어', tier: 'r', w: 'sea', slot: 'night', cm: [40, 120], gold: 80 },
+  { name: '복어', tier: 'r', w: 'sea', spots: ['jp-bay', 'in-mumbai', 'eg-suez'], cm: [15, 40], gold: 100 },
+  { name: '흰동가리', tier: 'r', w: 'sea', spots: ['au-reef', 'au-sydney'], cm: [6, 12], gold: 90 },
+  { name: '아로와나', tier: 'e', w: 'fresh', spots: ['br-amazon'], slot: 'dawn', cm: [50, 100], gold: 260 },
+  { name: '철갑상어', tier: 'e', w: 'fresh', spots: ['ru-baikal'], cm: [100, 250], gold: 300 },
+  { name: '황금 메기', tier: 'e', w: 'fresh', spots: ['us-bayou', 'mg-river'], slot: 'night', cm: [60, 150], gold: 280 },
+  { name: '성스러운 마하시르', tier: 'e', w: 'fresh', spots: ['in-ganges'], slot: 'day', cm: [60, 140], gold: 300 },
+  { name: '참다랑어', tier: 'e', w: 'sea', spots: ['jp-bay', 'au-sydney', 'it-genoa', 'fr-marseille'], slot: 'dawn', cm: [100, 300], gold: 320 },
+  { name: '황새치', tier: 'e', w: 'sea', spots: ['br-beach', 'mg-coast', 'au-road', 'us-harbor'], cm: [120, 300], gold: 300 },
+  { name: '적월 해마', tier: 'e', w: 'any', spots: ['gt-lake'], slot: 'night', cm: [15, 35], gold: 350 },
+  { name: '실러캔스', tier: 'l', w: 'sea', spots: ['mg-coast', 'mg-port'], slot: 'dawn', cm: [120, 200], gold: 1800 },
+  { name: '용왕 비늘잉어', tier: 'l', w: 'fresh', spots: ['cn-gorge'], day: 0, cm: [150, 280], gold: 2000 },
+].map(f => Object.assign({}, FISH_TIER[f.tier], f));
 const FISH_BY = new Map(FISH.map(f => [f.name, f]));
 const FISH_DAY = 20, FISH_TOL = 450;          // 하루 횟수 · 판정 여유(ms, 통신 지연)
 const FISH_SPOTS = new Set(G.REGIONS.filter(r => r.icon === 'i-wave' || r.icon === 'i-port').map(r => r.id).concat(['gt-lake', 'cw-isle']));
-const SEA_SPOTS = new Set(G.REGIONS.filter(r => r.icon === 'i-port').map(r => r.id).concat(['gt-lake']));
+// 바다: 항구 + 해안가(물결 아이콘이지만 바다인 곳) + 적월문 푸른 바다
+const SEA_SPOTS = new Set(G.REGIONS.filter(r => r.icon === 'i-port').map(r => r.id).concat(['gt-lake', 'mg-coast', 'br-beach', 'au-reef', 'au-road']));
+const FISH_SLOT_KO = { dawn: '새벽', morning: '아침', day: '낮', night: '밤' }, FISH_DAY_KO = ['일', '월', '화', '수', '목', '금', '토'];
+// 어종 기록에 보여 줄 '나오는 곳'
+function fishWhere(f) {
+  const out = [f.spots ? f.spots.map(id => (G.placeLong(id) || id).split(' · ').pop()).join('·') : f.w === 'fresh' ? '민물' : f.w === 'sea' ? '바다' : '모든 물가'];
+  if (f.slot) out.push(FISH_SLOT_KO[f.slot]);
+  if (f.day !== undefined) out.push(FISH_DAY_KO[f.day] + '요일');
+  if (f.hours) out.push(f.hours[0] + '~' + f.hours[1] + '시');
+  return out.join(' · ');
+}
 
 // ───────── 22 육성 몬스터 원정 ─────────
 const EXPED = [
@@ -448,32 +492,32 @@ function install(d) {
 
   // ═════════ 21 낚시 ═════════
   function fishPool(region, now, extra) {
-    const t = timeMod(now), out = [];
-    const sea = SEA_SPOTS.has(region), cw = region === 'cw-isle';
-    for (const f of FISH) {
-      if (f.at === 'fresh' && sea) continue;
-      if (f.at === 'sea' && !sea) continue;
-      if (f.at === 'night' && !t.night) continue;
-      if (f.at === 'cw' && !cw) continue;
-      if (f.at === 'deep' && !(region === 'gt-lake' && kst(now).getUTCHours() < 4)) continue;
-      out.push(f);
-    }
-    return out;
+    const t = timeMod(now), d = kst(now), h = d.getUTCHours(), wd = d.getUTCDay(), sea = SEA_SPOTS.has(region);
+    return FISH.filter(f => {
+      if (f.spots) { if (!f.spots.includes(region)) return false; }
+      else if ((f.w === 'fresh' && sea) || (f.w === 'sea' && !sea)) return false;
+      if (f.slot && f.slot !== t.slot) return false;
+      if (f.day !== undefined && f.day !== wd) return false;
+      if (f.hours && !(h >= f.hours[0] && h < f.hours[1])) return false;
+      return true;
+    });
   }
   function fishRoll(pool, luck, extra) {
+    // 등급을 먼저 뽑고(그 자리에 있는 등급만), 그 등급 안에서 고르게 뽑음 → 어종이 많아도 등급 확률은 그대로
     const w = { c: 70, r: 22, e: 7, l: 1 }, lk = Math.min(10, luck * 0.08) + (extra || 0) * 100;
-    const ws = pool.map(f => f.tier === 'c' ? Math.max(5, w.c - lk) : w[f.tier] + lk * (f.tier === 'r' ? 0.6 : f.tier === 'e' ? 0.3 : 0.1));
-    let x = Math.random() * ws.reduce((a, b) => a + b, 0);
-    for (let i = 0; i < pool.length; i++) { x -= ws[i]; if (x <= 0) return pool[i]; }
-    return pool[0];
+    const tiers = ['c', 'r', 'e', 'l'].filter(k => pool.some(f => f.tier === k));
+    const ws = tiers.map(k => k === 'c' ? Math.max(5, w.c - lk) : w[k] + lk * (k === 'r' ? 0.6 : k === 'e' ? 0.3 : 0.1));
+    let x = Math.random() * ws.reduce((a, b) => a + b, 0), tier = tiers[tiers.length - 1];
+    for (let i = 0; i < tiers.length; i++) { x -= ws[i]; if (x <= 0) { tier = tiers[i]; break; } }
+    return pick(pool.filter(f => f.tier === tier));
   }
   const fishDay = async (uid, now) => { const r = await db.get('SELECT n FROM ct_fish_day WHERE user_id = ? AND day = ?', [uid, dayKey(now)]); return r ? Number(r.n) : 0; };
   route('GET', '/api/fish', async (req, res, ctx) => {
     const uid = ctx.user.id, now = Date.now(), u = await userById(uid);
     const here = FISH_SPOTS.has(u.region);
     const log = await db.all('SELECT fish, best, n FROM ct_fish_log WHERE user_id = ?', [uid]);
-    send(res, 200, { here, place: G.placeLong(u.region), left: Math.max(0, FISH_DAY - await fishDay(uid, now)), max: FISH_DAY, pool: here ? fishPool(u.region, now).map(f => ({ name: f.name, tier: f.tier })) : [], spots: Array.from(FISH_SPOTS).map(id => G.placeLong(id)),
-      log: FISH.map(f => { const l = log.find(x => x.fish === f.name); return { name: f.name, tier: f.tier, best: l ? l.best : 0, n: l ? l.n : 0 }; }) });
+    send(res, 200, { here, place: G.placeLong(u.region), left: Math.max(0, FISH_DAY - await fishDay(uid, now)), max: FISH_DAY, pool: here ? fishPool(u.region, now).map(f => ({ name: f.name, tier: f.tier, known: !!log.find(x => x.fish === f.name) })) : [], spots: Array.from(FISH_SPOTS).map(id => G.placeLong(id)),
+      log: FISH.map(f => { const l = log.find(x => x.fish === f.name); return { name: f.name, tier: f.tier, where: fishWhere(f), best: l ? l.best : 0, n: l ? l.n : 0 }; }) });
   });
   route('POST', '/api/fish/cast', async (req, res, ctx) => {
     if (await limited('fish:' + ctx.user.id, 60, 60000)) return fail(res, 429, 'rate_limited');
@@ -625,6 +669,6 @@ function install(d) {
   };
 }
 // 인벤토리 '조합 아이템' 탭에 들어가는 새 재료와 등급
-const EXTRA_MAT_TIER = new Map([[VARIANT_DROP, 'e'], [ABYSS_MAT, 'r'], ['민물 생선', 'c'], ['바다 새우', 'c'], ['붉은 월어', 'r'], ['그레이윅 금빛 잉어', 'e'], ['심연의 주인', 'l']]);
+const EXTRA_MAT_TIER = new Map([[VARIANT_DROP, 'e'], [ABYSS_MAT, 'r']].concat(FISH.map(f => [f.name, f.tier])));      // 어종은 모두 조합 재료로
 
 module.exports = { install, SQL, timeMod, EXTRA_MAT_TIER, ENH, ENH_MAX, PROTECT, LEAGUE, TITLES, COOK, FISH, EXPED, FISH_SPOTS };
