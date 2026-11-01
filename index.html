@@ -15,11 +15,11 @@ html{scroll-padding-top:env(safe-area-inset-top,0px)}
 *{box-sizing:border-box}
 [hidden]{display:none!important}
 body{margin:0;background:var(--bg1);color:var(--text);font-family:"Noto Sans KR","Apple SD Gothic Neo","Malgun Gothic",sans-serif;line-height:1.55;font-size:16px}
-#bg{position:fixed;inset:0;z-index:0;overflow:hidden;pointer-events:none;background:radial-gradient(70vmax 60vmax at 50% -15%,rgba(150,16,28,.38),transparent 62%),radial-gradient(90vmax 45vmax at 50% 112%,rgba(190,24,38,.5),transparent 65%),radial-gradient(50vmax 45vmax at 100% 100%,rgba(110,10,20,.3),transparent 60%),linear-gradient(180deg,#0a0607,#120608)}
+#bg{position:fixed;inset:0;z-index:0;overflow:hidden;pointer-events:none;contain:strict;background:radial-gradient(70vmax 60vmax at 50% -15%,rgba(150,16,28,.38),transparent 62%),radial-gradient(90vmax 45vmax at 50% 112%,rgba(190,24,38,.5),transparent 65%),radial-gradient(50vmax 45vmax at 100% 100%,rgba(110,10,20,.3),transparent 60%),linear-gradient(180deg,#0a0607,#120608)}
 #bg::before{content:"";position:absolute;top:-14vmax;left:50%;width:34vmax;height:34vmax;margin-left:-17vmax;border-radius:50%;background:radial-gradient(circle at 40% 38%,#ff4a55,#b0121f 55%,#3d060d);opacity:.2;animation:moon 9s ease-in-out infinite alternate}
 #bg::after{content:"門";position:absolute;right:-3vmin;bottom:-6vmin;font:800 46vmin/1 "Nanum Myeongjo",serif;color:rgba(212,32,46,.06)}
 @keyframes moon{to{opacity:.32;transform:scale(1.05)}}
-.fl{position:absolute;bottom:-10px;border-radius:50%;background:#ff4a58;box-shadow:0 0 8px 2px rgba(255,59,74,.7);opacity:0;animation:rise linear infinite}
+.fl{position:absolute;bottom:-10px;border-radius:50%;background:#ff4a58;box-shadow:0 0 8px 2px rgba(255,59,74,.7);opacity:0;animation:rise linear infinite;will-change:transform,opacity}
 @keyframes rise{0%{transform:translate(0,0);opacity:0}10%{opacity:.9}100%{transform:translate(var(--dx,0),-110vh);opacity:0}}
 .ic{width:16px;height:16px;flex:none;fill:currentColor;shape-rendering:crispEdges}
 main{position:relative;z-index:1;max-width:600px;margin:0 auto;padding:24px 16px 56px}
@@ -137,7 +137,7 @@ main.landing{display:flex;align-items:center;justify-content:center;max-width:no
 .wname{margin:0 0 6px;font:700 1.3rem/1.4 "Nanum Myeongjo",serif;color:var(--deep)}
 #lcode{letter-spacing:.08em}
 .sm{position:absolute;bottom:-25vmin;background:radial-gradient(circle at 50% 50%,rgba(0,0,0,.92),rgba(6,2,3,.6) 45%,transparent 70%);opacity:0;animation:smoke linear infinite;will-change:transform,opacity}
-@keyframes smoke{0%{transform:translate(0,0) scale(.6) rotate(0);opacity:0}15%{opacity:.85}60%{opacity:.6}100%{transform:translate(var(--sx,0),-120vh) scale(1.7) rotate(var(--sr,30deg));opacity:0}}
+@keyframes smoke{0%{transform:translate(0,0) scale(calc(.6 * var(--k,1))) rotate(0);opacity:0}15%{opacity:.85}60%{opacity:.6}100%{transform:translate(var(--sx,0),-120vh) scale(calc(1.7 * var(--k,1))) rotate(var(--sr,30deg));opacity:0}}
 .rhn{margin:0 0 8px;font:700 1.1rem/1.4 "Nanum Myeongjo",serif;color:var(--text)}
 .rankrow{display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:14px;color:var(--sub);font-size:.9rem}
 .rk{display:inline-flex;align-items:center;justify-content:center;width:46px;height:46px;font:800 1.7rem/1 "Nanum Myeongjo",serif;color:#fff;background:var(--field);border:1px solid var(--red2);box-shadow:0 0 12px var(--glow)}
@@ -333,6 +333,8 @@ main.landing{display:flex;align-items:center;justify-content:center;max-width:no
 .gift-btn:hover{border-color:var(--red2)}
 .gift-gold{display:block;margin:0 0 10px;min-height:36px}
 .gift-h{margin:14px 0 6px;font-size:.84rem;color:var(--sub)}
+.gift-h{display:flex;align-items:center;gap:8px}.gift-del{flex:none;min-width:30px;min-height:30px;padding:0 6px;border:1px solid var(--line);border-radius:8px;background:var(--field);color:var(--text);font-size:.85rem;line-height:1;cursor:pointer}.gift-del:hover{border-color:var(--red2)}.gift-del:disabled{opacity:.5}.gift-del.all{margin-left:auto;font:600 .74rem "Noto Sans KR",sans-serif;padding:0 10px}
+.app-list li.gift-li{position:relative;padding-right:46px}.gift-li>.gift-del{position:absolute;top:8px;right:8px}
 .gift-new{margin-left:6px;padding:1px 6px;font-size:.66rem;color:#fff;background:var(--red);border-radius:999px}
 .gfsel{width:100%;padding:10px 12px;font:inherit;color:var(--text);background:var(--field);border:1px solid var(--line);border-radius:9px}
 .gfsel:focus{outline:2px solid var(--red2);outline-offset:1px}
@@ -479,18 +481,21 @@ label[for="name"]::after,label[for="age"]::after,label[for="hname"]::after,#gl::
 @media (max-width:640px){.hud-m{flex:1 1 100%;order:-1}.hud-r{flex:1 1 100%}.hud-r .hud-btn{flex:1 1 0;min-width:0;padding:0 8px;white-space:nowrap}.hud-r{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}}
 
 .radar{position:relative;width:100%;max-width:520px;aspect-ratio:1/1;margin:0 auto;background:radial-gradient(circle,#161616 0,#000 74%);border:1px solid #6a6a6a;box-shadow:inset 0 0 40px rgba(0,0,0,.8)}
-.radar svg{display:block;width:100%;height:100%}
+.radar svg{display:block;width:100%;height:100%}#radarsvg{position:relative}
 .rd-ring{fill:none;stroke:#5a5a5a;stroke-width:.8}
 .rd-axis{stroke:#4a4a4a;stroke-width:.6;stroke-dasharray:2 3}
-.rd-sweep{transform-origin:100px 100px;animation:rdspin 5s linear infinite}
+.rd-sweep-ov{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;animation:rdspin 5s linear infinite;will-change:transform}      /* 렉 줄이기: 레이더 회전 빛을 따로 겹쳐 놓고 통째로 돌려 GPU가 처리 (SVG 전체를 매 프레임 다시 그리지 않음) */
 @keyframes rdspin{to{transform:rotate(360deg)}}
 .rd-me{fill:#fff}
-.rd-me-p{fill:none;stroke:#fff;stroke-width:.8;transform-origin:100px 100px;animation:rdpulse 2s ease-out infinite}
+/* 렉 줄이기: 내 위치 맥박·출몰 점 깜빡임은 SVG 밖 HTML 층에서 transform/opacity 로만 움직여 GPU가 처리 */
+.rd-ov{position:absolute;inset:0;pointer-events:none}
+.rd-pulse{position:absolute;left:46.25%;top:46.25%;width:7.5%;height:7.5%;border:1.5px solid #fff;border-radius:50%;box-sizing:border-box;animation:rdpulse 2s ease-out infinite;will-change:transform,opacity}
+.rd-dotv{position:absolute;width:1.9%;height:1.9%;margin:-.95% 0 0 -.95%;border-radius:50%;background:var(--red2);box-shadow:0 0 0 1px #000;animation:blink .9s steps(2) infinite;will-change:opacity}
 @keyframes rdpulse{from{transform:scale(.3);opacity:.9}to{transform:scale(1.6);opacity:0}}
 .rd-ic{fill:#8c8c8c;shape-rendering:crispEdges}
 .rd-ic.hot{fill:#fff}
 .rd-dot{fill:var(--red2);stroke:#000;stroke-width:.6;animation:blink .9s steps(2) infinite}
-.rd-lbl{font:400 6px "Share Tech Mono",monospace;fill:#9a9a9a;letter-spacing:.04em}
+.rd-lbl{font:400 5.2px "Share Tech Mono",monospace;fill:#9a9a9a;letter-spacing:.04em}
 .rd-lbl.hot{fill:#fff}
 .rd-cur{fill:none;stroke:#fff;stroke-width:1}
 .rd-cap{margin:10px 0 0;text-align:center;font:400 .8rem/1.4 "Share Tech Mono",monospace;letter-spacing:.1em;color:#b5b5b5}
@@ -522,6 +527,32 @@ label[for="name"]::after,label[for="age"]::after,label[for="hname"]::after,#gl::
 .shop-tabs{display:flex;gap:6px;margin:0 0 10px}.shop-tab{flex:1;min-height:36px;padding:0 10px;border:1px solid var(--line);border-radius:8px;background:var(--field);color:var(--sub);font:700 .85rem "Noto Sans KR",sans-serif;cursor:pointer}.shop-tab[aria-selected=true]{border-color:var(--red2);color:var(--text);background:var(--bar1)}
 .shop-uses{color:var(--sub)}
 .cr-lv{display:inline-block;margin-left:6px;padding:1px 7px;border:1px solid #6fd08c;border-radius:999px;font-size:.66rem;font-weight:700;color:#6fd08c;vertical-align:middle}.cr-lv.off{border-color:var(--sub);color:var(--sub)}
+/* 원정: 가독성 위주 (큰 글자 · 한 줄에 한 정보 · 상태를 색 칩으로) */
+.ex-w{display:flex;flex-direction:column;gap:10px}
+.ex-msg{margin:0;padding:10px 12px;border:1px solid #2f7a4a;border-radius:10px;background:rgba(111,208,140,.1);color:var(--text);font-size:.9rem;line-height:1.5}.ex-msg.bad{border-color:var(--red2);background:rgba(255,59,74,.08)}
+.ex-empty{margin:0;padding:16px;text-align:center;color:var(--sub);font-size:.92rem}
+.ex-sum{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:var(--field)}.ex-sum b{font-size:1.05rem;color:var(--text)}.ex-sum span{font-size:.86rem;color:var(--sub)}
+.ex-rule{margin:-2px 2px 0;font-size:.8rem;line-height:1.55;color:var(--sub)}
+.ex-h{margin:8px 2px 0;font-size:.95rem;font-weight:800;color:var(--text)}
+.ex-card{display:flex;flex-direction:column;gap:8px;padding:14px;border:1px solid var(--line);border-radius:12px;background:var(--card)}
+.ex-hd{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.ex-hd b{font-size:1.02rem;color:var(--text)}.ex-hd .ex-chip{margin-left:auto}
+.ex-grade{font:700 .8rem "Share Tech Mono",monospace;color:var(--deep)}
+.ex-chip{display:inline-flex;align-items:center;padding:3px 9px;border:1px solid var(--line);border-radius:999px;background:var(--field);font-size:.78rem;color:var(--text);line-height:1.3}
+.ex-chip.go{border-color:#5a8fd8;color:#a8c8ff}.ex-chip.ok{border-color:#6fd08c;color:#8fe3b0}.ex-chip.time{border-color:var(--red2);color:var(--text);font-weight:700}.ex-chip.epic{border-color:#c9a227;color:#f0c75e}
+.ex-dest{margin:0;font-size:.92rem;color:var(--text)}
+.ex-bar{height:10px;border-radius:5px;background:var(--bar1);overflow:hidden;box-shadow:inset 0 0 0 1px var(--line)}.ex-bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--red),var(--red2));transition:width .6s linear}.ex-away.done .ex-bar i{background:#6fd08c}
+.ex-time{margin:0;font:600 .88rem "Share Tech Mono",monospace;color:var(--text)}
+.ex-loot{display:flex;flex-wrap:wrap;gap:5px;align-items:center}.ex-loot small{flex-basis:100%;font-size:.76rem;color:var(--sub)}
+.ex-go{align-self:stretch;min-height:42px;border:1px solid var(--red2);border-radius:10px;background:linear-gradient(180deg,var(--red),#8a1420);color:#fff;font:800 .92rem "Noto Sans KR",sans-serif;cursor:pointer}
+.ex-go:disabled{border-color:var(--line);background:var(--field);color:var(--sub);font-weight:600;cursor:default}
+.ex-pick{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:8px}
+.ex-mon{display:flex;flex-direction:column;gap:6px;padding:12px;text-align:left;border:1px solid var(--line);border-radius:12px;background:var(--field);color:var(--text);font:inherit;cursor:pointer}
+.ex-mon.on{border-color:var(--red2);box-shadow:0 0 0 1px var(--red2) inset;background:var(--bar1)}.ex-mon.dim{opacity:.6}
+.ex-mt{display:flex;align-items:center;gap:6px}.ex-mt b{font-size:.98rem}.ex-mon small{font-size:.8rem;color:var(--sub)}
+.ex-bond{height:6px;border-radius:3px;background:var(--bar2);overflow:hidden;box-shadow:inset 0 0 0 1px var(--line)}.ex-bond i{display:block;height:100%;background:#e88aa8}
+.ex-spots{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px}
+.ex-need{margin:0;font-size:.84rem;color:var(--sub)}.ex-need.bad{color:var(--err)}
+.ex-spot.off{opacity:.78}
 .shop-q{display:flex;align-items:center;gap:4px;margin-top:6px}
 .shop-qb{flex:none;min-width:30px;min-height:30px;padding:0 8px;color:var(--text);background:var(--field);border:1px solid var(--line);border-radius:4px;cursor:pointer;font:700 .85rem/1 "Noto Sans KR",sans-serif}
 .shop-qb:hover{border-color:var(--red2)}
@@ -539,8 +570,8 @@ label[for="name"]::after,label[for="age"]::after,label[for="hname"]::after,#gl::
 .msg-n{margin:0 0 3px;font:400 .72rem/1 "Share Tech Mono",monospace;letter-spacing:.1em;color:var(--sub)}
 .msg-b{margin:0;padding:8px 10px;font-size:.84rem;line-height:1.5;color:var(--text);background:#1c1416;border:1px solid var(--line);border-radius:2px 10px 10px 10px;overflow-wrap:anywhere}
 .app-empty{margin:auto;text-align:center;color:var(--sub);font-size:.84rem}
-.fx-off .rd-sweep,.fx-off .rd-me-p{animation:none}
-@media (prefers-reduced-motion:reduce){.rd-sweep,.rd-me-p,.rd-dot{animation:none}}
+.fx-off .rd-sweep-ov,.fx-off .rd-pulse{animation:none}
+@media (prefers-reduced-motion:reduce){.rd-sweep-ov,.rd-pulse,.rd-dotv{animation:none}}
 #gstat{display:flex;flex-direction:column}
 #gstat .body{flex:1;display:flex;flex-direction:column}
 #gstat .stats{flex:1;display:flex;flex-direction:column;justify-content:space-between;gap:13px}
@@ -811,7 +842,7 @@ input[type=text],input[type=number],input[type=password],input[type=url],textare
 .ct.hot::after{content:"!";display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;margin-left:6px;font:800 .65rem/1 "Noto Sans KR",sans-serif;color:#fff;background:var(--red);border-radius:50%;box-shadow:0 0 8px var(--red2)}
 .rd-s{fill:rgba(212,32,46,.35);stroke:var(--red2);stroke-width:1;transform-box:fill-box;transform-origin:center;animation:rdsp 1.4s ease-in-out infinite}
 @keyframes rdsp{0%,100%{transform:scale(1)}50%{transform:scale(1.35)}}
-.rd-st{font:800 9px "Noto Sans KR",sans-serif;fill:#fff}
+.rd-st{font:800 7px "Noto Sans KR",sans-serif;fill:#fff}
 /* ── 레이더 → 지구본 확장 (Lucian UX/UI #385 · MIT) ── */
 .rwrap{position:relative;width:100%;max-width:520px;margin:0 auto;aspect-ratio:1/1}
 .rwrap .radar{position:absolute;inset:0;max-width:none;margin:0;transition:opacity .55s,transform .7s cubic-bezier(.3,1.1,.4,1),filter .55s}
@@ -1302,14 +1333,14 @@ html.mgl.mgn .u353{--ux-shadow-strong:rgba(0,0,0,.72);--u353-metal:#4a2a37;--u35
         <h2><svg class="ic"><use href="#i-gate"/></svg>레이더 지도</h2>
         <div class="body">
           <div class="rwrap" id="rwrap">
-          <div class="radar" id="radar" role="img" aria-label="게이트 레이더 지도"><svg viewBox="0 0 200 200" id="radarsvg" aria-hidden="true">
+          <div class="radar" id="radar" role="img" aria-label="게이트 레이더 지도"><svg class="rd-sweep-ov" viewBox="0 0 200 200" aria-hidden="true"><g class="rd-sweep"><path d="M100 100 L100 10 A90 90 0 0 0 36.4 36.4 Z" fill="url(#rdg)"/><line x1="100" y1="100" x2="100" y2="10" stroke="#fff" stroke-width="1"/></g></svg><svg viewBox="0 0 200 200" id="radarsvg" aria-hidden="true">
             <defs><linearGradient id="rdg" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#fff" stop-opacity=".38"/></linearGradient></defs>
             <circle class="rd-ring" cx="100" cy="100" r="30"/><circle class="rd-ring" cx="100" cy="100" r="60"/><circle class="rd-ring" cx="100" cy="100" r="90"/><circle class="rd-ring" cx="100" cy="100" r="97" style="stroke-dasharray:1 5"/>
             <line class="rd-axis" x1="100" y1="3" x2="100" y2="197"/><line class="rd-axis" x1="3" y1="100" x2="197" y2="100"/>
-            <g class="rd-sweep"><path d="M100 100 L100 10 A90 90 0 0 0 36.4 36.4 Z" fill="url(#rdg)"/><line x1="100" y1="100" x2="100" y2="10" stroke="#fff" stroke-width="1"/></g>
+            
             <g id="rdpts"></g>
-            <circle class="rd-me-p" cx="100" cy="100" r="10"/><circle class="rd-me" cx="100" cy="100" r="2.4"/>
-          </svg></div>
+            <circle class="rd-me" cx="100" cy="100" r="1.9"/>
+          </svg><div class="rd-ov" id="rdov" aria-hidden="true"><i class="rd-pulse"></i></div></div>
           <div class="globe" id="globe" inert>
             <canvas id="glcv" tabindex="0" role="img" aria-label="세계 지구본. 끌어서 돌리고, 나라를 누르면 그 나라로 이동합니다"></canvas>
             <div class="gl-hd"><small>전체 헌터</small><b id="gln">0</b></div>
@@ -2103,7 +2134,8 @@ function makeBg(){
   for(var j=0;j<11;j++){
     var m=document.createElement("span"),sz=36+Math.random()*34,rd=function(){return 38+Math.round(Math.random()*24)};
     m.className="sm";
-    m.style.cssText="left:"+Math.round(Math.random()*110-15)+"%;width:"+sz.toFixed(0)+"vmin;height:"+(sz*(0.8+Math.random()*0.4)).toFixed(0)+"vmin;border-radius:"+rd()+"% "+rd()+"% "+rd()+"% "+rd()+"%;animation-duration:"+(16+Math.random()*14).toFixed(1)+"s;animation-delay:-"+(Math.random()*28).toFixed(1)+"s;--sx:"+Math.round(Math.random()*40-20)+"vw;--sr:"+Math.round(Math.random()*80-40)+"deg";
+    var hz=sz*(0.8+Math.random()*0.4),K=4;      /* 렉 줄이기: 실제 크기의 1/4로 만들고 4배로 키워 보여 줌 (그라데이션이라 모양은 같고, GPU가 다루는 그림 크기는 1/16) */
+    m.style.cssText="left:calc("+Math.round(Math.random()*110-15)+"% + "+(sz*(1-1/K)/2).toFixed(1)+"vmin);bottom:calc(-25vmin + "+(hz*(1-1/K)/2).toFixed(1)+"vmin);--k:"+K+";width:"+(sz/K).toFixed(1)+"vmin;height:"+(hz/K).toFixed(1)+"vmin;border-radius:"+rd()+"% "+rd()+"% "+rd()+"% "+rd()+"%;animation-duration:"+(16+Math.random()*14).toFixed(1)+"s;animation-delay:-"+(Math.random()*28).toFixed(1)+"s;--sx:"+Math.round(Math.random()*40-20)+"vw;--sr:"+Math.round(Math.random()*80-40)+"deg";
     bg.appendChild(m);
   }
   for(var i=0;i<26;i++){
@@ -2937,6 +2969,7 @@ $("btlacts").addEventListener("click",function(e){
   btlBusy=true;btlRender();
   api("POST","/api/battle/act",{action:b.dataset.a}).then(function(r){
     if(r._status===401){leaveGame("로그인이 만료되었어요. 다시 로그인해주세요.");return}
+    if(r.afxNew)gwToast("속성 도감 · "+(r.afxNew.newEl?"새 속성 해금! ":"")+r.afxNew.mon+" 기록됨",5000);      /* 마법소녀 이벤트: 스킬을 써 본 몬스터가 도감에 열림 */
     if(r.error){
       btlBusy=false;
       if(r.error==="no_battle"||r.error==="expired"){btlActive=false;$("btl").hidden=true;document.body.style.overflow="";$("mapmsg").textContent="전투가 끝났거나 취소되었습니다.";pollState(false);return}
@@ -2952,24 +2985,26 @@ $("btlacts").addEventListener("click",function(e){
 $("btlok").addEventListener("click",function(){$("btl").hidden=true;document.body.style.overflow=(!rmodal.hidden||!mmodal.hidden||!$("cmodal").hidden)?"hidden":"";if(!rmodal.hidden){fillR()}});
 
 /* ───── 레이더 / 기기 ───── */
+var RD_PX=10;      /* 레이더 지역 아이콘 크기 (지도 200칸 기준 · 예전 14) */
 function drawRadar(){
   var g=$("rdpts");if(!g||!COUNTRY_BY_ID[curCountry])return;
   var NS="http://www.w3.org/2000/svg",hotN=0;g.innerHTML="";
+  var ov=$("rdov");if(ov)Array.prototype.slice.call(ov.querySelectorAll(".rd-dotv")).forEach(function(n){n.remove()});
   COUNTRY_BY_ID[curCountry].regions.forEach(function(rg){
     var p=rg.pos,hot=alerts.some(function(a){return a.r!=="SS"&&a.region===rg.id&&isActive(a)});
     if(hot)hotN++;
-    if(rg.id===curRegion){var c=document.createElementNS(NS,"circle");c.setAttribute("class","rd-cur");c.setAttribute("cx",p[0]);c.setAttribute("cy",p[1]);c.setAttribute("r",11);g.appendChild(c)}
+    if(rg.id===curRegion){var c=document.createElementNS(NS,"circle");c.setAttribute("class","rd-cur");c.setAttribute("cx",p[0]);c.setAttribute("cy",p[1]);c.setAttribute("r",RD_PX*0.8);g.appendChild(c)}
     var u=document.createElementNS(NS,"use");u.setAttribute("href","#"+rg.icon);u.setAttribute("class","rd-ic"+(hot?" hot":""));
-    u.setAttribute("x",p[0]-7);u.setAttribute("y",p[1]-7);u.setAttribute("width",14);u.setAttribute("height",14);g.appendChild(u);
-    if(hot){var d=document.createElementNS(NS,"circle");d.setAttribute("class","rd-dot");d.setAttribute("cx",p[0]+7);d.setAttribute("cy",p[1]-7);d.setAttribute("r",2.4);g.appendChild(d)}
-    var t=document.createElementNS(NS,"text");t.setAttribute("class","rd-lbl"+(hot?" hot":""));if(p[0]>=150){t.setAttribute("x",p[0]-10);t.setAttribute("text-anchor","end")}else t.setAttribute("x",p[0]+10);t.setAttribute("y",p[1]+3);t.textContent=rg.name;g.appendChild(t);
+    u.setAttribute("x",p[0]-RD_PX/2);u.setAttribute("y",p[1]-RD_PX/2);u.setAttribute("width",RD_PX);u.setAttribute("height",RD_PX);g.appendChild(u);
+    if(hot&&ov){var d=document.createElement("i");d.className="rd-dotv";d.style.left=((p[0]+RD_PX/2)/2)+"%";d.style.top=((p[1]-RD_PX/2)/2)+"%";ov.appendChild(d)}
+    var t=document.createElementNS(NS,"text");t.setAttribute("class","rd-lbl"+(hot?" hot":""));if(p[0]>=150){t.setAttribute("x",p[0]-RD_PX/2-2.5);t.setAttribute("text-anchor","end")}else t.setAttribute("x",p[0]+RD_PX/2+2.5);t.setAttribute("y",p[1]+2.5);t.textContent=rg.name;g.appendChild(t);
   });
   // SS급은 나라 단위로 출몰하므로, 이 나라에 출몰 중이면 레이더 아래쪽에 크게 표시합니다
   var sA=alerts.filter(function(a){return a.r==="SS"&&!a.c&&isActive(a)&&a.region===curCountry})[0];
   if(sA){
     hotN++;
-    var sc=document.createElementNS(NS,"circle");sc.setAttribute("class","rd-s");sc.setAttribute("cx",100);sc.setAttribute("cy",176);sc.setAttribute("r",9);g.appendChild(sc);
-    var st=document.createElementNS(NS,"text");st.setAttribute("class","rd-st");st.setAttribute("x",100);st.setAttribute("y",179);st.setAttribute("text-anchor","middle");st.textContent="S";g.appendChild(st);
+    var sc=document.createElementNS(NS,"circle");sc.setAttribute("class","rd-s");sc.setAttribute("cx",100);sc.setAttribute("cy",177);sc.setAttribute("r",7);g.appendChild(sc);
+    var st=document.createElementNS(NS,"text");st.setAttribute("class","rd-st");st.setAttribute("x",100);st.setAttribute("y",179.5);st.setAttribute("text-anchor","middle");st.textContent="S";g.appendChild(st);
     var sl=document.createElementNS(NS,"text");sl.setAttribute("class","rd-lbl hot");sl.setAttribute("x",100);sl.setAttribute("y",194);sl.setAttribute("text-anchor","middle");sl.textContent=sA.mon;g.appendChild(sl);
   }
   drawScene();
@@ -5188,8 +5223,20 @@ var RAI_HS=null,RAI_MS=null,RAI_MC=null,RAI_BG=null,raiMode="cmp",raiTimer=null;
 /* 색: 바탕(어두운 검붉은색) · 메인(붉은색) · 포인트(밝은 크림색) 세 가지만 씁니다 */
 var RC={base:"#0f0809",main:"#d4202e",point:"#f3e9e7"};
 /* 크기 비교: 사람(170cm 고정)과 선택한 몬스터를 가로 눈금선(cm·M)이 그려진 칸에 나란히 그립니다 */
+/* 두 그림 사이 빈칸은 언제나 1cm(CSS 1cm = 96/2.54 px). 그림 양옆의 빈 칸(투명 열)은 빼고 잽니다.
+   큰 몬스터라 칸에 다 안 들어가면 겹치게 두지 않고, 눈금 범위(max)를 넓혀 둘 다 작게 그립니다. */
+function raiBounds(rows){var l=rows[0].length,r=-1;rows.forEach(function(s){var a=s.indexOf("1"),b=s.lastIndexOf("1");if(a>=0){if(a<l)l=a;if(b>r)r=b}});return r<0?[0,rows[0].length]:[l,r+1]}
+var RAI_HB=null,RAI_MB=null,RAI_GAP=96/2.54;
 function raiCmp(x,S){
-  var max=raiCm>190?Math.ceil(raiCm*1.1/100)*100:200,top=Math.round(S*0.06)+8,bot=Math.round(S*0.06)+10,ph=S-top-bot,yb=top+ph;
+  if(!RAI_HB){RAI_HB=raiBounds(RAI_H);RAI_MB=raiBounds(RAI_M)}
+  var top=Math.round(S*0.06)+8,bot=Math.round(S*0.06)+10,ph=S-top-bot,yb=top+ph,hx=Math.round(S*0.12),right=S-Math.round(S*0.03);
+  var max=raiCm>190?Math.ceil(raiCm*1.1/100)*100:200,hh,hw,mh=0,mw=0;
+  for(var guard=0;guard<60;guard++){
+    hh=170/max*ph;hw=hh*(RAI_HB[1]-RAI_HB[0])/RAI_H.length;
+    if(raiCm>0){mh=Math.max(raiCm/max*ph,2);mw=mh*(RAI_MB[1]-RAI_MB[0])/RAI_M.length}
+    if(raiCm<=0||hx+hw+RAI_GAP+mw<=right)break;
+    max=Math.ceil(max*1.15/100)*100;
+  }
   function Y(cm){return yb-cm/max*ph}
   x.fillStyle=RC.base;x.fillRect(0,0,S,S);
   var step=max>200?20:10,fs=Math.max(6,Math.round(S*0.02));
@@ -5202,12 +5249,8 @@ function raiCmp(x,S){
     if(c%100===0){x.font="600 "+Math.round(S*0.045)+"px sans-serif";if(c===0){x.textBaseline="top";x.fillText("0M",2,y+1);x.textBaseline="bottom"}else x.fillText((c/100)+"M",2,y-1)}
     else if(c>0&&Math.min(c%100,100-c%100)/max*ph>=S*0.05&&(step/max*ph>=9||c%50===0)){x.font=fs+"px sans-serif";x.globalAlpha=.7;x.fillText(String(c),2,y-1);x.globalAlpha=1}
   }
-  var hh=170/max*ph,hw=hh*RAI_H[0].length/RAI_H.length,hx=Math.round(S*0.12);
-  x.drawImage(RAI_HS,hx,yb-hh-0.5,hw,hh);
-  if(raiCm>0){
-    var mh=Math.max(raiCm/max*ph,2),mw=mh*RAI_M[0].length/RAI_M.length;
-    x.drawImage(RAI_MS,S-mw-Math.round(S*0.03),yb-mh-0.5,mw,mh);
-  }
+  x.drawImage(RAI_HS,RAI_HB[0],0,RAI_HB[1]-RAI_HB[0],RAI_H.length,hx,yb-hh-0.5,hw,hh);
+  if(raiCm>0)x.drawImage(RAI_MS,RAI_MB[0],0,RAI_MB[1]-RAI_MB[0],RAI_M.length,hx+hw+RAI_GAP,yb-mh-0.5,mw,mh);      /* 사람 바로 오른쪽 1cm 띄워서 */
 }
 /* 자세히 보기: 88x88 칸짜리 도트 풍경(밤하늘·달·산·소나무·땅) 위에 몬스터만 세웁니다 */
 function raiBg(){
@@ -6265,24 +6308,63 @@ function ctFish(scr){
 }
 
 /* ───── 22 육성 몬스터 원정 ───── */
-function ctExped(scr){
-  var w=pvEl("div","ct-w");scr.appendChild(w);var note="";
+function ctExped(scr){      /* 원정: 원정 중 카드 → 보낼 몬스터 고르기 → 원정지 카드(보내기) 순서로, 한 화면에 한 가지 일만 보이게 */
+  var w=pvEl("div","ct-w ex-w");scr.appendChild(w);var note="",noteOk=true,tick=0;
   function load(){api("GET","/api/expedition").then(function(r){if(!w.isConnected)return;if(!r||!r.mons){w.textContent="불러오지 못했어요.";return}draw(r)})}
+  function chip(t,cls){return pvEl("span","ex-chip"+(cls?" "+cls:""),t)}
   function draw(r){
-    w.textContent="";
-    ctNote(w,(note?note+" · ":"")+"키우는 몬스터를 원정 보내면 접속하지 않아도 시간이 지나 재료를 가져와요. 동시에 "+r.cap+"마리 · 원정 중에는 먹이·목욕·동행을 할 수 없어요.");
-    if(!r.mons.length){ctNote(w,"아직 키우는 몬스터가 없어요. 그레이윅 섬에서 몬스터를 만나 보세요.");return}
-    var busy=r.mons.filter(function(m){return m.spot}).length;
-    var ul=pvEl("ul","app-list");
-    r.mons.forEach(function(m){
-      var li=pvEl("li","qst-li"+(m.done?" done":""));li.appendChild(pvEl("div","qst-t","["+m.grade+"] "+m.name+" · 친밀도 "+m.bond+(m.walking?" · 동행 중":"")));
-      var row=pvEl("div","rum-v ct-wrap");
-      if(m.spot){li.appendChild(pvEl("small",null,m.spotKo+" 원정 · "+(m.done?"돌아왔어요!":ctLeft(m.until-Date.now())+" 남음")));if(m.done)ctBtn(row,"보상 받기",false,function(){api("POST","/api/expedition/claim",{id:m.id}).then(function(x){note=x.ok?x.diary+" · "+Object.keys(x.got).map(function(k){return k+" ×"+x.got[k]}).join(", "):"받지 못했어요";pollState(false);load()})})}
-      else r.spots.forEach(function(s){ctBtn(row,s.ko+" ("+s.hours+"시간"+(s.bond?" · 친밀도 "+s.bond:"")+")",m.walking||m.bond<s.bond||busy>=r.cap,function(){api("POST","/api/expedition/send",{id:m.id,spot:s.id}).then(function(x){note=x.ok?m.name+"(이)가 "+s.ko+"(으)로 떠났어요":x.error==="cap"?"동시에 보낼 수 있는 수를 넘었어요":x.error==="walking"?"동행을 먼저 해제하세요":x.error==="low_bond"?"친밀도가 모자라요":"보내지 못했어요";load()})})});
-      li.appendChild(row);ul.appendChild(li);
+    clearInterval(tick);w.textContent="";
+    var skew=(r.now||Date.now())-Date.now();
+    if(note){var nb=pvEl("p","ex-msg"+(noteOk?"":" bad"),note);nb.setAttribute("role","status");w.appendChild(nb)}
+    if(!r.mons.length){w.appendChild(pvEl("p","ex-empty","아직 키우는 몬스터가 없어요. 그레이윅 섬에서 몬스터를 만나 보세요."));return}
+    var away=r.mons.filter(function(m){return m.spot}),free=r.cap-away.length;
+    var sum=pvEl("div","ex-sum");sum.appendChild(pvEl("b",null,"원정 자리 "+away.length+" / "+r.cap));
+    sum.appendChild(pvEl("span",null,free>0?"지금 보낼 수 있어요":"자리가 비면 다시 보낼 수 있어요"));w.appendChild(sum);
+    w.appendChild(pvEl("p","ex-rule","접속하지 않아도 시간이 지나면 재료를 들고 돌아와요. 원정 중에는 먹이·목욕·동행을 할 수 없어요."));
+    /* 1) 원정 중 */
+    away.forEach(function(m){
+      var c=pvEl("section","ex-card ex-away"+(m.done?" done":""));
+      var hd=pvEl("div","ex-hd");hd.appendChild(pvEl("span","ex-grade","["+m.grade+"]"));hd.appendChild(pvEl("b",null,m.name));hd.appendChild(chip(m.done?"돌아왔어요":"원정 중",m.done?"ok":"go"));c.appendChild(hd);
+      c.appendChild(pvEl("p","ex-dest",m.spotKo));
+      var bar=pvEl("div","ex-bar");var fi=pvEl("i");bar.appendChild(fi);c.appendChild(bar);var tl=pvEl("p","ex-time");c.appendChild(tl);
+      function upd(){var now=Date.now()+skew,tot=Math.max(1,m.until-(m.from||m.until-3600000)),p=m.done?1:Math.min(1,Math.max(0,(now-(m.from||m.until-tot))/tot));fi.style.width=(p*100).toFixed(1)+"%";tl.textContent=m.done||now>=m.until?"보상을 받을 수 있어요":ctLeft(m.until-now)+" 남음 · "+Math.round(p*100)+"%"}
+      upd();
+      var sp=r.spots.filter(function(s){return s.id===m.spot})[0];
+      if(sp){var lt=pvEl("div","ex-loot");lt.appendChild(pvEl("small",null,"가져올 수 있는 것"));sp.loot.forEach(function(n){lt.appendChild(chip(n,sp.epic.indexOf(n)>=0?"epic":""))});c.appendChild(lt)}
+      if(m.done){var b=ctBtn(c,"보상 받기",false,function(){api("POST","/api/expedition/claim",{id:m.id}).then(function(x){noteOk=!!x.ok;note=x.ok?x.diary+" · "+Object.keys(x.got).map(function(k){return k+" ×"+x.got[k]}).join(", "):"받지 못했어요";pollState(false);load()})},"ex-go")}
+      c.__upd=upd;w.appendChild(c);
     });
-    w.appendChild(ul);
-    ctHead(w,"원정지");var ul2=pvEl("ul","app-list");r.spots.forEach(function(s){var li=pvEl("li","qst-li");li.appendChild(pvEl("div","qst-t",s.ko+" · "+s.hours+"시간"+(s.bond?" · 친밀도 "+s.bond+" 이상":"")));li.appendChild(pvEl("small",null,"주로 가져오는 것 · "+s.loot.join(", ")));ul2.appendChild(li)});w.appendChild(ul2);
+    /* 2) 보낼 몬스터 고르기 */
+    var home=r.mons.filter(function(m){return !m.spot});
+    if(home.length){
+      w.appendChild(pvEl("h4","ex-h","보낼 몬스터"));
+      var ok=home.filter(function(m){return !m.walking});
+      if(!ctExped.sel||!home.some(function(m){return m.id===ctExped.sel}))ctExped.sel=(ok[0]||home[0]).id;
+      var pick=pvEl("div","ex-pick");pick.setAttribute("role","radiogroup");pick.setAttribute("aria-label","보낼 몬스터");
+      home.forEach(function(m){
+        var b=pvEl("button","ex-mon"+(m.id===ctExped.sel?" on":"")+(m.walking?" dim":""));b.type="button";b.setAttribute("role","radio");b.setAttribute("aria-checked",m.id===ctExped.sel?"true":"false");
+        var t=pvEl("span","ex-mt");t.appendChild(pvEl("span","ex-grade","["+m.grade+"]"));t.appendChild(pvEl("b",null,m.name));b.appendChild(t);
+        var bb=pvEl("span","ex-bond");var bi=pvEl("i");bi.style.width=Math.min(100,m.bond)+"%";bb.appendChild(bi);b.appendChild(bb);
+        b.appendChild(pvEl("small",null,"친밀도 "+m.bond+(m.walking?" · 동행 중(먼저 해제)":"")));
+        b.addEventListener("click",function(){ctExped.sel=m.id;draw(r)});pick.appendChild(b);
+      });
+      w.appendChild(pick);
+    }
+    /* 3) 원정지 */
+    var selM=home.filter(function(m){return m.id===ctExped.sel})[0];
+    w.appendChild(pvEl("h4","ex-h","원정지"+(selM?" · "+selM.name+"(으)로 보내기":"")));
+    var grid=pvEl("div","ex-spots");
+    r.spots.forEach(function(s){
+      var lack=selM?Math.max(0,s.bond-selM.bond):0,why=!selM?"원정 중이 아닌 몬스터가 없어요":free<=0?"원정 자리가 꽉 찼어요":selM.walking?"동행 중이에요":lack?"친밀도 "+lack+" 더 필요":"";
+      var c=pvEl("section","ex-card ex-spot"+(why?" off":""));
+      var hd=pvEl("div","ex-hd");hd.appendChild(pvEl("b",null,s.ko));hd.appendChild(chip(s.hours+"시간","time"));c.appendChild(hd);
+      c.appendChild(pvEl("p","ex-need"+(lack?" bad":""),s.bond?"필요 친밀도 "+s.bond:"누구나 갈 수 있어요"));
+      var lt=pvEl("div","ex-loot");s.loot.forEach(function(n){lt.appendChild(chip(n,s.epic.indexOf(n)>=0?"epic":""))});c.appendChild(lt);
+      ctBtn(c,why||"보내기",!!why,function(){api("POST","/api/expedition/send",{id:selM.id,spot:s.id}).then(function(x){noteOk=!!x.ok;note=x.ok?selM.name+"(이)가 "+s.ko+"(으)로 떠났어요":x.error==="cap"?"동시에 보낼 수 있는 수를 넘었어요":x.error==="walking"?"동행을 먼저 해제하세요":x.error==="low_bond"?"친밀도가 모자라요":"보내지 못했어요";load()})},"ex-go");
+      grid.appendChild(c);
+    });
+    w.appendChild(grid);
+    if(away.length)tick=setInterval(function(){if(!w.isConnected){clearInterval(tick);return}Array.prototype.forEach.call(w.querySelectorAll(".ex-away"),function(c){c.__upd&&c.__upd()})},1000);
   }
   load();
 }
@@ -6391,10 +6473,17 @@ setInterval(function(){if(!document.hidden&&!$("maint").hidden)maintCheck(false)
 function loadGifts(scr){
   api("GET","/api/gifts").then(function(r){
     if(devApp!=="inv"||r.error||!r.gifts||!r.gifts.length)return;
-    var h=document.createElement("p");h.className="gift-h";h.textContent="받은 선물";scr.appendChild(h);
+    var h=document.createElement("p");h.className="gift-h";h.textContent="받은 선물";
     var ul=document.createElement("ul");ul.className="app-list";
+    function gone(){if(!ul.children.length){h.remove();ul.remove()}}
+    var all=document.createElement("button");all.type="button";all.className="gift-del all";all.textContent="🗑️ 전체 지우기";all.setAttribute("aria-label","받은 선물 기록 전체 지우기");
+    all.addEventListener("click",function(){if(!confirm("받은 선물 기록을 모두 지울까요? (받은 아이템과 골드는 그대로예요)"))return;all.disabled=true;api("POST","/api/gifts/delete",{all:true}).then(function(x){all.disabled=false;if(x.ok){ul.textContent="";gone()}})});
+    h.appendChild(all);scr.appendChild(h);
     r.gifts.forEach(function(g){
-      var li=document.createElement("li");
+      var li=document.createElement("li");li.className="gift-li";
+      var del=document.createElement("button");del.type="button";del.className="gift-del";del.textContent="🗑️";del.title="이 기록 지우기";del.setAttribute("aria-label",g.from+"님 선물 기록 지우기");
+      del.addEventListener("click",function(){del.disabled=true;api("POST","/api/gifts/delete",{id:g.id}).then(function(x){if(x.ok){li.remove();gone()}else del.disabled=false})});
+      li.appendChild(del);
       li.appendChild(document.createTextNode(g.from+"님 · "+(g.kind==="gold"?g.qty.toLocaleString("ko-KR")+" G":g.item+" ×"+g.qty)));
       if(g.isNew){var nw=document.createElement("span");nw.className="gift-new";nw.textContent="NEW";li.appendChild(nw)}
       var sm=document.createElement("small");sm.textContent=cmAgo(g.ts);li.appendChild(sm);ul.appendChild(li);
