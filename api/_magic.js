@@ -40,7 +40,7 @@ const COS_KEYS = ['r', 's', 'c', 'w'];
 const EL_KEYS = ['fire', 'ice', 'water', 'lightning', 'earth', 'poison', 'blast', 'holy', 'arcane', 'shadow'];
 const EL_KO = { fire: '화염', ice: '빙결', water: '물', lightning: '번개', earth: '대지', poison: '독', blast: '폭발', holy: '신성', arcane: '비전', shadow: '어둠' };
 const FAIRY_EL = { lumi: 'holy', pio: 'earth', nea: 'shadow' };      // 루미(별빛) 신성 · 피오(꽃잎) 대지 · 네아(달빛) 어둠
-const OUTFIT_COST = 6, RUNE_PRICE = 300;
+const OUTFIT_COST = 6, RUNE_PRICE = 3000;      // 속성 룬 1개 가격(G)
 const runeName = el => EL_KO[el] + ' 속성 룬';
 const RUNE_BY_NAME = new Map(EL_KEYS.map(el => [runeName(el), el]));
 const cosOk = o => COS_KEYS.every(k => COS[k].some(p => p[0] === o[k]) || COS_SHOP.some(p => p[0] === k && p[1] === o[k])) && (!o.e || EL_KEYS.includes(o.e));      // 기본 부품 + 거울 상점 부품
@@ -241,6 +241,7 @@ const SQL = [
   "ALTER TABLE mg_state ADD COLUMN shards INTEGER NOT NULL DEFAULT 0",
   "ALTER TABLE mg_state ADD COLUMN mirror_wins INTEGER NOT NULL DEFAULT 0",
   "CREATE TABLE IF NOT EXISTS mg_mirror (user_id INTEGER NOT NULL, week TEXT NOT NULL, tries INTEGER NOT NULL DEFAULT 0, win INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (user_id, week))",
+  "CREATE TABLE IF NOT EXISTS mg_mirror_fight (user_id INTEGER PRIMARY KEY, week TEXT NOT NULL, turn INTEGER NOT NULL DEFAULT 0, st TEXT NOT NULL, at INTEGER NOT NULL DEFAULT 0)",      // 거울 나라: 진행 중인 수동 전투
   "CREATE TABLE IF NOT EXISTS mg_cos_own (user_id INTEGER NOT NULL, k TEXT NOT NULL, v TEXT NOT NULL, at INTEGER NOT NULL, PRIMARY KEY (user_id, k, v))",
   "CREATE TABLE IF NOT EXISTS mg_mail (id INTEGER PRIMARY KEY AUTOINCREMENT, from_id INTEGER NOT NULL, to_id INTEGER NOT NULL, text TEXT NOT NULL, taint REAL NOT NULL DEFAULT 0, at INTEGER NOT NULL, seen INTEGER NOT NULL DEFAULT 0, heart INTEGER NOT NULL DEFAULT 0)",
   "CREATE INDEX IF NOT EXISTS mg_mail_to ON mg_mail(to_id, id)",
@@ -923,19 +924,57 @@ function install(d) {
     const wk = weekKey(now), m = await pvpMine(uid, now), r = (await db.get('SELECT tries, win FROM mg_mirror WHERE user_id = ? AND week = ?', [uid, wk])) || { tries: 0, win: 0 };
     const s = await db.get('SELECT shards, mirror_wins FROM mg_state WHERE user_id = ?', [uid]);
     return { set: !!m.u.pvp_set, tries: Number(r.tries), max: MIRROR_TRIES, won: !!Number(r.win), shards: Number(s && s.shards) || 0, wins: Number(s && s.mirror_wins) || 0,
-      reward: SHARD_WIN, weekEnd: Date.parse(addDay(wk, 7) + 'T00:00:00Z') - 9 * HOUR, shop: await shopView(uid), titleNeed: MIRROR_TITLE };
+      reward: SHARD_WIN, weekEnd: Date.parse(addDay(wk, 7) + 'T00:00:00Z') - 9 * HOUR, shop: await shopView(uid), titleNeed: MIRROR_TITLE, fight: await mirFight(uid, now) };
+  }
+  // 수동 전투: 진행 중인 판 (지난주에 시작한 판은 버림)
+  async function mirFightRow(uid, now) {
+    const f = await db.get('SELECT week, turn, st FROM mg_mirror_fight WHERE user_id = ?', [uid]);
+    if (!f) return null;
+    if (f.week !== weekKey(now)) { await db.run('DELETE FROM mg_mirror_fight WHERE user_id = ?', [uid]); return null; }
+    try { return { turn: Number(f.turn), st: JSON.parse(f.st) }; } catch (_) { return null; }
+  }
+  async function mirFight(uid, now) { const f = await mirFightRow(uid, now); return f ? { hp: f.st.hp, turn: f.turn, max: G.PVP.HP, maxTurns: G.PVP.MAX_TURNS, minTurns: G.PVP.MIN_TURNS } : null; }
+  const MIR_ACTS = ['attack', 'smash', 'guard', 'flee'];
+  // 거울 속 나의 행동: 체력이 낮으면 방어를 조금 더, 내 체력이 낮으면 강타를 조금 더
+  function mirPick(st, rnd) {
+    const me = st.hp[1], foe = st.hp[0];
+    const w = { attack: 55, smash: foe < 35 ? 35 : 22, guard: me < 30 ? 30 : 18 };
+    let x = rnd() * (w.attack + w.smash + w.guard);
+    for (const k of ['attack', 'smash', 'guard']) { if ((x -= w[k]) < 0) return k; }
+    return 'attack';
   }
   route('GET', '/api/mg/mirror', async (req, res, ctx) => { if (!(await on())) return off(res); send(res, 200, await mirrorView(ctx.user.id, Date.now())); });
-  route('POST', '/api/mg/mirror/fight', async (req, res, ctx) => {
+  route('POST', '/api/mg/mirror/fight', async (req, res, ctx) => {      // 거울 속으로 들어가기 (도전 1번 사용, 이후 한 턴씩 직접 고름)
     if (!(await on())) return off(res);
     if (await limited('mgmr:' + ctx.user.id, 10, 60000)) return fail(res, 429, 'rate_limited');
     const uid = ctx.user.id, now = Date.now(), wk = weekKey(now), m = await pvpMine(uid, now);
     if (!m.u.pvp_set) return fail(res, 409, 'no_stats');
+    if (await mirFightRow(uid, now)) return send(res, 200, Object.assign({ ok: true, resumed: true }, await mirrorView(uid, now)));      // 이미 싸우는 중이면 이어서
     await db.run('INSERT INTO mg_mirror (user_id, week) VALUES (?, ?) ON CONFLICT(user_id, week) DO NOTHING', [uid, wk]);
     const w = await db.run('UPDATE mg_mirror SET tries = tries + 1 WHERE user_id = ? AND week = ? AND tries < ? AND win = 0', [uid, wk, MIRROR_TRIES]);
     if (w.changes !== 1) { const r = await db.get('SELECT win FROM mg_mirror WHERE user_id = ? AND week = ?', [uid, wk]); return fail(res, 409, Number(r && r.win) ? 'won' : 'no_tries'); }
-    const mir = flip(m.a), rnd = G.mulberry32((hash(uid + ':' + now) ^ Math.floor(Math.random() * 1e9)) >>> 0);
-    const bt = G.pvpBattle(m.a, compFx(m.comp), mir, null, rnd), win = bt.winner === 0;
+    const st = { hp: [G.PVP.HP, G.PVP.HP], turn: 0, hits: [0, 0], pool: [0, 0] };
+    await db.run('INSERT INTO mg_mirror_fight (user_id, week, turn, st, at) VALUES (?, ?, 0, ?, ?) ON CONFLICT(user_id) DO UPDATE SET week = excluded.week, turn = 0, st = excluded.st, at = excluded.at', [uid, wk, JSON.stringify(st), now]);
+    send(res, 200, Object.assign({ ok: true }, await mirrorView(uid, now)));
+  });
+  route('POST', '/api/mg/mirror/act', async (req, res, ctx) => {      // 한 턴: 공격 · 강타 · 방어 · 도주 중 하나
+    if (!(await on())) return off(res);
+    if (await limited('mgma:' + ctx.user.id, 90, 60000)) return fail(res, 429, 'rate_limited');
+    const uid = ctx.user.id, now = Date.now(), wk = weekKey(now), act = String(ctx.body.act || '');
+    if (!MIR_ACTS.includes(act)) return fail(res, 400, 'bad_act');
+    const f = await mirFightRow(uid, now);
+    if (!f) return fail(res, 409, 'no_fight');
+    const m = await pvpMine(uid, now), rnd = G.mulberry32((hash(uid + ':' + now + ':' + f.turn) ^ Math.floor(Math.random() * 1e9)) >>> 0);
+    const F = [G.pvpFighter(m.a, compFx(m.comp)), G.pvpFighter(flip(m.a), null)];
+    const foe = mirPick(f.st, rnd), r = G.pvpResolve(F, f.st, [act, foe], rnd, ['나', '거울 속 나']);
+    if (!r.over) {
+      const u = await db.run('UPDATE mg_mirror_fight SET turn = ?, st = ?, at = ? WHERE user_id = ? AND turn = ?', [r.st.turn, JSON.stringify(r.st), now, uid, f.turn]);
+      if (u.changes !== 1) return fail(res, 409, 'busy');
+      return send(res, 200, { ok: true, over: false, lines: r.lines, foe, hp: r.st.hp, turn: r.st.turn, max: G.PVP.HP, maxTurns: G.PVP.MAX_TURNS });
+    }
+    const d = await db.run('DELETE FROM mg_mirror_fight WHERE user_id = ? AND turn = ?', [uid, f.turn]);
+    if (d.changes !== 1) return fail(res, 409, 'busy');
+    const win = r.winner === 0;
     let title = false;
     if (win) {
       await db.run('UPDATE mg_mirror SET win = 1 WHERE user_id = ? AND week = ?', [uid, wk]);
@@ -944,7 +983,7 @@ function install(d) {
       const s = await db.get('SELECT mirror_wins FROM mg_state WHERE user_id = ?', [uid]);
       if (Number(s.mirror_wins) >= MIRROR_TITLE) { try { title = await CT.grantTitle(uid, 'mg_mirror'); } catch (_) {} }
     }
-    send(res, 200, Object.assign({ ok: true, win, title, battle: { log: bt.log, hp: bt.hp, turns: bt.turns, max: G.PVP.HP } }, await mirrorView(uid, now)));
+    send(res, 200, Object.assign({ ok: true, over: true, win, kind: r.kind, title, lines: r.lines, foe, hp: r.st.hp, turn: r.st.turn, max: G.PVP.HP }, await mirrorView(uid, now)));
   });
   route('POST', '/api/mg/mirror/buy', async (req, res, ctx) => {
     if (!(await on())) return off(res);
