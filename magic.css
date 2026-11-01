@@ -698,3 +698,5 @@ html.mgn{--mg-star:url('data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/200
 /* 라이트 모드 지구본: 밝은 바탕에서도 점·글자가 보이도록 (밤 모드는 그대로) */
 html:not(.mgn) .globe{background:radial-gradient(80% 80% at 50% 45%,#fff3f8,#fbe2ee 78%)}
 html:not(.mgn) #glcv{filter:invert(1) hue-rotate(160deg) saturate(1.8) contrast(1.15) brightness(.95)}
+/* 오염도 글리치: 마법소녀 낮 모드(밝은 바탕)에서도 보이도록 띠 색을 진하게 (밤·기본 테마는 그대로) */
+html.mgl:not(.mgn) .tglitch i{mix-blend-mode:multiply;background:linear-gradient(90deg,rgba(226,40,110,.42),rgba(120,20,80,.12) 45%,rgba(0,150,190,.38));-webkit-backdrop-filter:invert(.12) hue-rotate(60deg) saturate(2.2);backdrop-filter:invert(.12) hue-rotate(60deg) saturate(2.2)}
