@@ -18,12 +18,13 @@ var RM=window.matchMedia&&window.matchMedia("(prefers-reduced-motion: reduce)").
 function on(){return document.documentElement.classList.contains("mgl")}
 
 /* ═════════ 코스튬 부품 이름 (도트 그림은 지웠고, 고른 부품을 글자로 보여 줍니다) ═════════ */
-var COS_KO={r:{bow:"큰 나비 리본",star:"별 리본",heart:"하트 리본",cat:"고양이 귀 리본",crown:"작은 왕관"},s:{puff:"퍼프 치마",frill:"프릴 치마",bell:"종 치마",tulip:"튤립 치마",long:"긴 드레스"},
+var COS_KO={r:{bow:"큰 나비 리본",star:"별 리본",heart:"하트 리본",cat:"고양이 귀 리본",crown:"작은 왕관"},s:{pants:"일자 바지",shorts:"반바지",cargo:"카고 바지",puff:"퍼프 치마",frill:"프릴 치마",bell:"종 치마",tulip:"튤립 치마",long:"긴 드레스"},
   c:{sakura:"벚꽃",sky:"하늘",lemon:"레몬",lavender:"라벤더",mint:"민트"},w:{star:"별",heart:"하트",moon:"초승달",gem:"보석",flower:"꽃"}};
 var COS_COL={sakura:"#ff9cc6",sky:"#8cc8ff",lemon:"#ffd95e",lavender:"#b9a2ff",mint:"#7fe0c0"};
-var PART_KO={r:"머리 장식",s:"치마 모양",c:"색 테마",w:"지팡이 끝"};
+var PART_KO={r:"머리 장식",s:"하의 (바지·치마)",c:"색 테마",w:"지팡이 끝",e:"마법 의상"};
 function partName(k,v){return (COS_KO[k]&&COS_KO[k][v])||v}
-function cosText(c){c=c||{};return ["r","s","c","w"].filter(function(k){return c[k]}).map(function(k){return partName(k,c[k])+(k==="c"?" 테마":k==="w"?" 지팡이":"")}).join(" · ")}
+var EL_KO={fire:"화염",ice:"빙결",water:"물",lightning:"번개",earth:"대지",poison:"독",blast:"폭발",holy:"신성",arcane:"비전",shadow:"어둠"};
+function cosText(c){c=c||{};return ["r","s","c","w"].filter(function(k){return c[k]}).map(function(k){return partName(k,c[k])+(k==="c"?" 테마":k==="w"?" 지팡이":"")}).concat(c.e&&EL_KO[c.e]?[EL_KO[c.e]+" 마법 의상"]:[]).join(" · ")}
 function cosTag(c,cls){var t=el("span","mgs-costag"+(cls?" "+cls:""));t.style.setProperty("--cc",COS_COL[c&&c.c]||COS_COL.sakura);t.appendChild(el("i"));t.appendChild(document.createTextNode(cosText(c)||"기본 코스튬"));t.title="마법소녀 코스튬";return t}
 
 /* ═════════ 변신 팝업 (별빛 변신 팝업을 옮김) ═════════ */
@@ -201,7 +202,7 @@ function tfBuild(){
 }
 
 /* ═════════ 기기 앱 '마법소녀' ═════════ */
-var TABS=[["tf","변신"],["fairy","요정"],["diary","일기장"],["mail","우체통"],["ribbon","리본"],["mirror","거울 나라"],["spell","주문"],["cos","코스튬"],["team","팀"],["song","정화의 노래"],["star","별자리"]];
+var TABS=[["tf","변신"],["fairy","요정"],["diary","일기장"],["mail","우체통"],["ribbon","리본"],["mirror","거울 나라"],["spell","주문"],["cos","코스튬"],["song","정화의 노래"],["star","별자리"]];
 var cur="tf",D=null,timer=0,root=null;
 function mount(scr){
   root=el("div","mgs-w");scr.appendChild(root);
@@ -211,7 +212,7 @@ function mount(scr){
   TABS.forEach(function(t){var b=btn("mgs-tab",t[1],function(){cur=t[0];paint()});b.setAttribute("role","tab");b.dataset.k=t[0];var n=t[0]==="mail"?ST.mail:t[0]==="ribbon"?ST.ribReq:t[0]==="fairy"?ST.letters:0;if(n){b.appendChild(el("span","mgs-tabn",String(n)));b.setAttribute("aria-label",t[1]+" (새 소식 "+n+")")}tb.appendChild(b)});
   function paint(){Array.prototype.forEach.call(tb.children,function(b){var o=b.dataset.k===cur;b.classList.toggle("on",o);b.setAttribute("aria-selected",o?"true":"false");if(o&&tb._show)tb._show(b)});body.innerHTML="";clearInterval(timer);songStop();
     if(!D){body.appendChild(el("p","app-empty","불러오는 중…"));return}
-    ({tf:vTf,fairy:vFairy,diary:vDiary,mail:vMail,ribbon:vRibbon,mirror:vMirror,spell:vSpell,cos:vCos,team:vTeam,song:vSong,star:vStar})[cur](body)}
+    ({tf:vTf,fairy:vFairy,diary:vDiary,mail:vMail,ribbon:vRibbon,mirror:vMirror,spell:vSpell,cos:vCos,song:vSong,star:vStar})[cur](body)}
   root._paint=paint;
   load();
 }
@@ -269,14 +270,14 @@ function vTf(body){
       if(!r||r._status!==200){go.disabled=false;toast(r&&r.error==="cooldown"?"아직 다음 변신까지 시간이 남았어요.":r&&r.error==="event_off"?"마법소녀 이벤트가 끝났어요.":"변신하지 못했어요.");if(r&&r.next){D.tf.next=r.next;tick()}return}
       D.tf.until=r.until;D.tf.next=r.next;D.tf.today++;D.tf.total++;D._skew=Date.now()-r.now;
       var lines=[D.buffMin+"분 동안 경험치·골드 +"+Math.round(fx.exp*100)+"% · 체력 피해 -"+fx.hpGuard+"%"];
-      lines.push(r.joint?"✦ 합동 변신! 팀 '"+r.team+"' 모두 변신해서 경험치·골드 +"+Math.round(D.joint.exp*100)+"% · 행운 +"+D.joint.luck+" 추가":r.team?"팀원이 모두 오늘 변신하면 '합동 변신' 보너스가 붙어요.":"오늘도 출동 준비 끝!");
+      lines.push(r.fairy&&r.fairy.extra?"요정 "+r.fairy.ko+"의 기분이 좋아서 변신 시간 +"+r.fairy.extra+"분":"오늘도 출동 준비 끝!");
       tfBuild().open({chant:r.chant,top:r.top,lines:lines,onClose:function(){if(root&&root.isConnected)root._paint()}});
       tick();if(window.pollState)window.pollState(false);
     });
   });
   var c1=card(body,"오늘의 기록");
   var ul=el("ul","mgs-kv");c1.appendChild(ul);
-  [["오늘 변신",D.tf.today+"회"],["지금까지",D.tf.total+"회"],["팀 합동 변신",D.teamOn?(D.jointOn?"오늘 달성 ✦":"팀원 모두 변신하면 달성"):"팀이 없어요 (팀 탭)"],["오늘의 별자리",D.star.done?D.star.ko+" · "+D.star.txt:"아직 잇지 않았어요 (별자리 탭)"]].forEach(function(x){var li=el("li");li.appendChild(el("small",null,x[0]));li.appendChild(el("b",null,x[1]));ul.appendChild(li)});
+  [["오늘 변신",D.tf.today+"회"],["지금까지",D.tf.total+"회"],["오늘의 별자리",D.star.done?D.star.ko+" · "+D.star.txt:"아직 잇지 않았어요 (별자리 탭)"]].forEach(function(x){var li=el("li");li.appendChild(el("small",null,x[0]));li.appendChild(el("b",null,x[1]));ul.appendChild(li)});
   var c2=card(body,"변신 주문");
   c2.appendChild(el("p","mgs-chant","‘"+(D.spell?D.spell.text:D.defSpell)+"’"));
   if(!D.spell)note(c2,"아직 내 주문이 없어서 기본 주문을 외쳐요. 주문 탭에서 직접 지어 보세요.");
@@ -307,7 +308,7 @@ function vSpell(body){
 
 /* ── 2 코스튬 ── */
 function vCos(body){
-  var sel=Object.assign({r:"bow",s:"puff",c:"sakura",w:"star"},D.cos||{});
+  var sel=Object.assign({r:"bow",s:"pants",c:"sakura",w:"star"},D.cos||{});
   var wrap=el("div","mgs-cosw");body.appendChild(wrap);
   var now=el("div","mgs-cosnow");now.appendChild(el("small",null,"지금 고른 코스튬"));var tagBox=el("div");now.appendChild(tagBox);wrap.appendChild(now);
   var pane=el("div","mgs-cosp");wrap.appendChild(pane);
@@ -316,8 +317,21 @@ function vCos(body){
     D.parts[k].concat((D.shop||[]).filter(function(x){return x.k===k}).map(function(x){return [x.v,x.ko,x]})).forEach(function(p){var sh=p[2],b=btn("mgs-chip"+(k==="c"?" col":"")+(sh?" shop":""),sh&&!sh.own?"🔒 "+p[1]+" · 조각 "+sh.cost:p[1]);if(sh&&!sh.own){b.disabled=true;b.title="거울 나라 탭의 거울 상점에서 살 수 있어요"}if(k==="c")b.style.setProperty("--c",COS_COL[p[0]]);b.setAttribute("aria-pressed",sel[k]===p[0]?"true":"false");
       b.addEventListener("click",function(){sel[k]=p[0];Array.prototype.forEach.call(row.children,function(x){x.setAttribute("aria-pressed","false")});b.setAttribute("aria-pressed","true");redraw()});row.appendChild(b)});
     pane.appendChild(g)});
-  var sv=btn("mgs-go","코스튬 저장");pane.appendChild(sv);var msg=note(pane,"능력치는 없고 꾸미기만 해요. 저장한 코스튬은 간단 프로필과 PVP 대전 화면에 이름표로 보여요.");
-  sv.addEventListener("click",function(){sv.disabled=true;call("POST","/api/mg/costume",sel).then(function(r){sv.disabled=false;if(r&&r.ok){D.cos=r.cos;msg.textContent="코스튬을 저장했어요!"}else msg.textContent="저장하지 못했어요."})});
+  /* 마법 의상: 입은 의상의 속성 마법을 전투에서 쓸 수 있어요 (요정의 기본 속성 의상은 처음부터 가지고 있음 · 그 밖의 의상은 거울 조각으로) */
+  var mg=el("div","mgs-parts mgs-outfit");mg.appendChild(el("b",null,PART_KO.e+" · 속성 마법"));var orow=el("div","mgs-chips");mg.appendChild(orow);var onote=el("p","mgs-note","불러오는 중…");mg.appendChild(onote);pane.appendChild(mg);
+  var sv=btn("mgs-go","코스튬 저장");pane.appendChild(sv);var msg=note(pane,"저장한 코스튬은 간단 프로필과 PVP 대전 화면에 이름표로 보여요. 마법 의상을 갈아입으면 전투의 속성 공격에 그 속성 마법이 더해져요.");
+  function outfits(){call("GET","/api/mg/magic").then(function(M){if(!orow.isConnected)return;orow.innerHTML="";
+    if(!M||M._status!==200){onote.textContent="불러오지 못했어요.";return}
+    if(!M.fairy){onote.textContent="요정과 계약하면 그 요정의 기본 속성 마법을 쓸 수 있어요. (요정 탭)"}
+    else onote.textContent="계약한 요정의 기본 속성: "+M.elKo[M.base]+" (늘 사용) · 다른 속성은 의상을 갈아입거나(거울 조각 "+M.outfits[0].cost+"개) 상점의 속성 룬(1개 = 1번)으로 · 가진 조각 "+M.shards+"개";
+    var none=btn("mgs-chip","입지 않음");none.setAttribute("aria-pressed",!sel.e?"true":"false");none.addEventListener("click",function(){delete sel.e;outfits();redraw()});orow.appendChild(none);
+    M.outfits.forEach(function(o){var b=btn("mgs-chip el"+(o.own?"":" shop"),(o.own?"":"🔒 ")+o.name+(o.base?" ✦기본":"")+(o.own?"":" · 조각 "+o.cost));b.setAttribute("aria-pressed",sel.e===o.el?"true":"false");
+      b.addEventListener("click",function(){
+        if(o.own){sel.e=o.el;Array.prototype.forEach.call(orow.children,function(x){x.setAttribute("aria-pressed","false")});b.setAttribute("aria-pressed","true");redraw();return}
+        if(b.dataset.ok!=="1"){b.dataset.ok="1";b.textContent="조각 "+o.cost+"개로 살까요? 한 번 더 누르세요";return}
+        b.disabled=true;call("POST","/api/mg/outfit/buy",{el:o.el}).then(function(q){if(q&&q.ok){toast("✦ "+q.name+"을(를) 샀어요! 입고 저장하면 "+EL_KO[o.el]+" 속성 마법을 쓸 수 있어요.");sel.e=o.el;redraw();outfits()}else{b.disabled=false;b.dataset.ok="";b.textContent="🔒 "+o.name+" · 조각 "+o.cost;toast(q&&q.error==="no_shards"?"거울 조각이 모자라요. (거울 나라 탭에서 얻어요)":"사지 못했어요.")}})});orow.appendChild(b)})})}
+  outfits();
+  sv.addEventListener("click",function(){sv.disabled=true;call("POST","/api/mg/costume",sel).then(function(r){sv.disabled=false;if(r&&r.ok){D.cos=r.cos;msg.textContent="코스튬을 저장했어요!"+(r.cos.e?" 전투에서 "+EL_KO[r.cos.e]+" 속성 마법을 쓸 수 있어요.":"");if(window.pollState)window.pollState(false)}else msg.textContent=r&&r.error==="not_owned"?"아직 사지 않은 의상이 있어요.":"저장하지 못했어요."})});
 }
 
 /* ── 3 팀 ── */
@@ -400,8 +414,7 @@ function vSong(body){
 
 /* ── 5 별자리 잇기 ──
    판 배경: 커서와 이어지는 별자리 그물 · Lucian UX/UI Prompt #341 · MIT License (c) 2026 Seokwoooo · https://lucianlabs.dev/uxui-prompt/#341
-   떠다니는 점들이 가까워지면 옅은 선으로 이어지고, 커서도 하나의 점이 되어 주변 점과 밝은 선으로 이어지며 살며시 끌어당깁니다.
-   누르면 그 자리에서 새 점 9개가 터지듯 퍼져 나옵니다. 왼쪽 위에 지금 이어진 선의 수. (별자리 판의 별·선은 그 위 캔버스에 그립니다) */
+   떠다니는 점들이 가까워지면 옅은 선으로 이어집니다. (커서에는 반응하지 않고, 이어야 하는 별자리와 헷갈리지 않게 옅게) 왼쪽 위에 지금 이어진 선의 수. (별자리 판의 별·선은 그 위 캔버스에 그립니다) */
 function net341(root,cv,ct,W,H){
   var cx=cv.getContext("2d"),rm=RM,dpr=Math.min(2,window.devicePixelRatio||1),LINK=72,PL=120,MAX=120;
   cv.width=W*dpr;cv.height=H*dpr;cx.scale(dpr,dpr);
@@ -411,10 +424,10 @@ function net341(root,cv,ct,W,H){
   function draw(now){
     cx.clearRect(0,0,W,H);var links=0;
     for(var a=0;a<P.length;a++){for(var b=a+1;b<P.length;b++){var dx=P[a].x-P[b].x,dy=P[a].y-P[b].y;if(Math.abs(dx)>LINK||Math.abs(dy)>LINK)continue;var d=Math.hypot(dx,dy);if(d>LINK)continue;links++;
-      var hue=210+(P[a].x/W)*90;cx.strokeStyle="hsla("+hue.toFixed(0)+",90%,75%,"+((1-d/LINK)*.45).toFixed(2)+")";cx.lineWidth=1;cx.beginPath();cx.moveTo(P[a].x,P[a].y);cx.lineTo(P[b].x,P[b].y);cx.stroke()}}
+      var hue=210+(P[a].x/W)*90;cx.strokeStyle="hsla("+hue.toFixed(0)+",70%,80%,"+((1-d/LINK)*.16).toFixed(2)+")";cx.lineWidth=1;cx.beginPath();cx.moveTo(P[a].x,P[a].y);cx.lineTo(P[b].x,P[b].y);cx.stroke()}}
     if(ptr){P.forEach(function(p){var d=Math.hypot(p.x-ptr.x,p.y-ptr.y);if(d>PL)return;links++;cx.strokeStyle="rgba(255,224,130,"+((1-d/PL)*.8).toFixed(2)+")";cx.lineWidth=1.3;cx.beginPath();cx.moveTo(ptr.x,ptr.y);cx.lineTo(p.x,p.y);cx.stroke()});
       cx.fillStyle="#FFE082";cx.beginPath();cx.arc(ptr.x,ptr.y,3.5,0,6.2832);cx.fill()}
-    P.forEach(function(p){var age=(now-p.b)/600,r=p.b&&age<1?1.6+(1-age)*2.4:1.6;cx.fillStyle="#E7ECFF";cx.beginPath();cx.arc(p.x,p.y,r,0,6.2832);cx.fill()});
+    P.forEach(function(p){var age=(now-p.b)/600,r=p.b&&age<1?1.2+(1-age)*1.8:1.2;cx.fillStyle="rgba(231,236,255,.38)";cx.beginPath();cx.arc(p.x,p.y,r,0,6.2832);cx.fill()});
     ct.textContent=links+" 연결";
   }
   var vis=true,raf=0,last=0;
@@ -453,9 +466,7 @@ function vStar(body){
   draw();
   function loc(e){var r=cv.getBoundingClientRect();return {x:(e.clientX-r.left)*Wd/r.width,y:(e.clientY-r.top)*Hd/r.height}}
   function starAt(x,y){var best=-1,bd=16*16;s.stars.forEach(function(st,i){var p=pos(st),d=(p[0]-x)*(p[0]-x)+(p[1]-y)*(p[1]-y);if(d<bd){bd=d;best=i}});return best}
-  cv.addEventListener("pointermove",function(e){NET.move(loc(e))});
-  cv.addEventListener("pointerleave",function(){NET.leave()});
-  cv.addEventListener("pointerdown",function(e){NET.burst(loc(e))});
+  /* 배경 그물은 커서에 반응하지 않고 혼자 흘러갑니다 (이어야 하는 별자리와 헷갈리지 않게 옅게) */
   cv.addEventListener("click",function(e){if(done)return;var q=loc(e),i=starAt(q.x,q.y);if(i<0)return;
     if(selA<0||selA===i){selA=selA===i?-1:i;draw();return}
     var a=Math.min(selA,i),b=Math.max(selA,i),ix=edges.findIndex(function(z){return z[0]===a&&z[1]===b});if(ix>=0)edges.splice(ix,1);else edges.push([a,b]);selA=-1;draw()});
@@ -790,11 +801,11 @@ function petDraw(cv,k,stage){
 function petCanvas(k,stage,sil){var cv=el("canvas","mgs-pet"+(sil?" sil":""));cv.width=18;cv.height=16;cv.setAttribute("role","img");cv.setAttribute("aria-label",sil?"아직 만나지 못한 꼬마 마물":"꼬마 마물");petDraw(cv,k,stage);return cv}
 
 /* ═════════ 2차 묶음: 상태 (/api/state 의 mg) ═════════ */
-var ST={letters:0,shoot:null,duel:0,mail:0,ribReq:0};
+var ST={letters:0,shoot:null,duel:0,mail:0,ribReq:0,els:[]};
 function onState(mg,now){
   if(!mg){ST={letters:0,shoot:null,duel:0};shootSync(null);return}
   if(now)SH.skew=now-Date.now();
-  ST.letters=mg.letters||0;ST.duel=mg.duel||0;ST.mail=mg.mail||0;ST.ribReq=mg.ribReq||0;MS.fairy=mg.fairy||null;
+  ST.letters=mg.letters||0;ST.duel=mg.duel||0;ST.mail=mg.mail||0;ST.ribReq=mg.ribReq||0;ST.els=mg.els||[];MS.fairy=mg.fairy||null;
   (mg.wishPaid||[]).forEach(function(w){toast("✦ 소원 별똥별 보상 · "+w.n+"명이 함께 빌어서 골드 +"+w.gold+" · 경험치 +"+w.exp,5200)});
   shootSync(mg.shoot||null);
   if(MS.row)msUpdRow();
@@ -1014,7 +1025,7 @@ function duelView(w,back){
     cardC.querySelectorAll(":scope > :not(h4)").forEach(function(x){x.remove()});
     if(!r.cards.length)cardC.appendChild(el("p","mgs-note","대결에서 이기면 상대 코스튬 부품 하나를 구경하는 카드가 생겨요."));
     var g=el("div","mgs-cards");r.cards.forEach(function(c){var d=el("div","mgs-card2");d.appendChild(el("small",null,PART_KO[c.k]));d.appendChild(el("b",null,c.ko));d.appendChild(el("span",null,c.from+" 님의 코스튬"));
-      var me=Object.assign({r:"bow",s:"puff",c:"sakura",w:"star"},r.cos||{});me[c.k]=c.v;d.appendChild(cosTag(me));d.title="내 코스튬에 이 부품을 대 보면";g.appendChild(d)});cardC.appendChild(g);
+      var me=Object.assign({r:"bow",s:"pants",c:"sakura",w:"star"},r.cos||{});me[c.k]=c.v;d.appendChild(cosTag(me));d.title="내 코스튬에 이 부품을 대 보면";g.appendChild(d)});cardC.appendChild(g);
   }
   function reveal(x){
     stage.hidden=false;stage.innerHTML="";var rows=el("div","mgs-dturns");stage.appendChild(el("p","mgs-dvs","나  vs  "+x.vs));stage.appendChild(rows);var fin=el("p","mgs-dfin");stage.appendChild(fin);
@@ -1065,13 +1076,11 @@ function vMirror(body){
   var box=el("div","mgs-mir");body.appendChild(box);box.appendChild(el("p","app-empty","불러오는 중…"));
   var KO={no_stats:"먼저 전장 앱에서 PVP 스탯을 배분해 주세요.",no_tries:"이번 주 도전을 모두 썼어요. 다음 주에 다시 나타나요.",won:"이번 주 거울 속 나는 이미 쓰러뜨렸어요.",no_shards:"거울 조각이 모자라요.",owned:"이미 산 부품이에요.",rate_limited:"잠시 뒤에 다시 해 주세요."};
   function draw(r,bt){box.innerHTML="";
-    var c=card(box,"거울 나라의 나");note(c,"내 PVP 스탯을 거꾸로 뒤집은 ‘거울 속 나’가 한 주에 한 번 나타나요. (1↔5, 2↔4) 한 주에 "+r.max+"번까지 도전할 수 있고, 쓰러뜨리면 거울 조각 "+r.reward+"개. 전장 체력은 줄지 않아요.");
-    var tb=el("div","mgs-mirt");[["","나","거울 속 나"]].concat(r.keys.map(function(k,i){return [r.ko[k],r.me[i],r.mirror[i]]})).forEach(function(row,ri){var d=el("div",ri?"":"h");d.appendChild(el("span",null,row[0]));
-      [1,2].forEach(function(j){var s=el("b");if(ri){for(var q=0;q<5;q++)s.appendChild(el("i",q<row[j]?"on":""));s.setAttribute("aria-label",row[j]+" / 5")}else s.textContent=row[j];d.appendChild(s)});tb.appendChild(d)});c.appendChild(tb);
+    var c=card(box,"거울 나라의 나");note(c,"‘거울 속 나’가 한 주에 한 번 나타나요. 한 주에 "+r.max+"번까지 도전할 수 있고, 쓰러뜨리면 거울 조각 "+r.reward+"개. 전장 체력은 줄지 않아요.");
     var st=el("div","mgs-mirb");st.hidden=true;c.appendChild(st);
     var row=el("div","mgs-row");var go=btn("mgs-go mgs-sm",r.won?"이번 주 승리 ✦":"거울 속으로 들어가기 ("+(r.max-r.tries)+"번 남음)");go.disabled=r.won||r.tries>=r.max||!r.set;row.appendChild(go);c.appendChild(row);
     var m=note(c,!r.set?KO.no_stats:r.won?"다음 주 월요일에 새 거울이 나타나요 ("+leftTxt(r.weekEnd-Date.now())+" 뒤).":"");
-    go.addEventListener("click",function(){go.disabled=true;call("POST","/api/mg/mirror/fight").then(function(q){if(!q||!q.ok){go.disabled=false;m.textContent=KO[q&&q.error]||"들어가지 못했어요.";return}play(q,st,function(){draw(q);var mm=box.querySelector(".mgs-mirres");if(mm)mm.scrollIntoView({block:"nearest"})})})});
+    go.addEventListener("click",function(){go.disabled=true;call("POST","/api/mg/mirror/fight").then(function(q){if(!q||!q.ok){go.disabled=false;m.textContent=KO[q&&q.error]||"들어가지 못했어요.";return}play(q,st,function(){draw(q,q);var mm=box.querySelector(".mgs-mirres");if(mm)mm.scrollIntoView({block:"nearest"})})})});
     if(bt){var res=el("p","mgs-mirres "+(bt.win?"win":"lose"),bt.win?"✦ 거울 속 나를 쓰러뜨렸어요! 거울 조각 +"+r.reward+(bt.title?" · 칭호 ‘거울을 넘은 자’":""):"거울 속 나에게 졌어요. "+(r.max-r.tries>0?"다시 도전할 수 있어요.":"다음 주에 다시 나타나요."));c.insertBefore(res,row)}
     var sc=card(box,"거울 상점 · 가진 조각 "+r.shards+"개");note(sc,"산 부품은 코스튬 탭에서 고를 수 있어요. (지금까지 거울을 넘은 횟수 "+r.wins+"번 · "+r.titleNeed+"번이면 칭호)");
     var g=el("div","mgs-shop");r.shop.forEach(function(p){var d=el("div","mgs-shopi"+(p.own?" own":""));d.appendChild(el("small",null,PART_KO[p.k]));d.appendChild(el("b",null,p.ko));
@@ -1137,6 +1146,31 @@ function vRibbon(body){
   call("GET","/api/mg/ribbon").then(function(r){if(!box.isConnected)return;if(!r||r._status!==200){box.innerHTML="";box.appendChild(el("p","app-empty","불러오지 못했어요."));return}draw(r)});
 }
 
+
+/* ═════════ 전투 속성 마법 고르기 (전투 화면의 '속성' 버튼) ═════════ */
+var SRC_KO={fairy:"요정",outfit:"마법 의상",rune:"룬",weapon:"무기"};
+function elemList(wel){var L=(ST.els||[]).slice();if(wel&&!L.some(function(x){return x.el===wel}))L.unshift({el:wel,ko:EL_KO[wel]||wel,src:"weapon"});else if(wel)L.forEach(function(x){if(x.el===wel)x.weapon=true});return on()?L:(wel?[{el:wel,ko:EL_KO[wel]||wel,src:"weapon"}]:[])}
+var PICK=null;
+function elemPick(anchor,wel,cb){
+  if(PICK){PICK.remove();PICK=null}
+  var L=elemList(wel);if(!L.length){cb(null);return}
+  if(L.length===1){cb(L[0].src==="weapon"?"":L[0].el);return}
+  var box=el("div","mgs-w mgs-epick");box.setAttribute("role","menu");box.setAttribute("aria-label","속성 마법 고르기");
+  box.appendChild(el("small",null,"어떤 속성으로 공격할까요?"));
+  L.forEach(function(x){var b=el("button","mgs-ep");b.type="button";b.setAttribute("role","menuitem");if(window.AFX&&AFX.iconImg){var ic=el("span","ic");ic.innerHTML=AFX.iconImg(x.el);b.appendChild(ic)}
+    b.appendChild(el("b",null,x.ko));b.appendChild(el("small",null,x.src==="rune"?"룬 "+x.n+"개 (1개 사용)":x.src==="fairy"?"요정 "+(x.from||"")+" · 기본":SRC_KO[x.src]+(x.weapon?" · 무기":"")));
+    b.addEventListener("click",function(){close();if(x.src==="rune"){ST.els.forEach(function(y){if(y.el===x.el&&y.src==="rune")y.n--});ST.els=ST.els.filter(function(y){return y.src!=="rune"||y.n>0})}cb(x.src==="weapon"?"":x.el)});box.appendChild(b)});
+  var cx=btn("mgs-ghost mgs-sm","취소",function(){close()});box.appendChild(cx);
+  document.body.appendChild(box);PICK=box;
+  var r=anchor.getBoundingClientRect(),bw=Math.min(260,window.innerWidth-16);box.style.width=bw+"px";
+  var left=Math.max(8,Math.min(window.innerWidth-bw-8,r.left+r.width/2-bw/2));box.style.left=left+"px";
+  var h=box.offsetHeight,top=r.top-h-8;if(top<8)top=Math.min(window.innerHeight-h-8,r.bottom+8);box.style.top=top+"px";
+  box.querySelector(".mgs-ep").focus();
+  function close(){if(PICK===box){box.remove();PICK=null}document.removeEventListener("keydown",key,true);document.removeEventListener("pointerdown",out,true)}
+  function key(e){if(e.key==="Escape"){e.stopPropagation();close()}}
+  function out(e){if(!box.contains(e.target))close()}
+  document.addEventListener("keydown",key,true);setTimeout(function(){document.addEventListener("pointerdown",out,true)},0);
+}
 /* ═════════ 다른 화면에 붙이기 ═════════ */
 // 간단 프로필: 사진 오른쪽 아래에 코스튬, 이름 아래에 팀 이름
 function decorateProfile(pg,mg,f){
@@ -1150,5 +1184,5 @@ function decorateProfile(pg,mg,f){
 // PVP 대전 화면: 각 헌터 이름 위에 코스튬
 function pvpSide(d,S){if(!S||!S.cos||!on())return;d.appendChild(cosTag(S.cos,"pv"))}
 
-window.MG={school:school,state:onState,msgRow:msRow,msgSig:function(){return on()+":"+ST.letters+":"+(MS.fairy?MS.fairy.kind+MS.fairy.moodKo:"")},msgReset:msReset,pets:petsView,raiRow:raiRow,pvpEntry:pvpEntry,duel:duelView,diary:diaryDlg,mount:mount,transform:function(o){tfBuild().open(o)},oath:function(phrase,done){tfBuild().oath({phrase:phrase,onDone:done})},decorateProfile:decorateProfile,pvpSide:pvpSide,stop:function(){songStop();clearInterval(timer);clearInterval(DUELT)}};
+window.MG={elemList:elemList,elemPick:elemPick,school:school,state:onState,msgRow:msRow,msgSig:function(){return on()+":"+ST.letters+":"+(MS.fairy?MS.fairy.kind+MS.fairy.moodKo:"")},msgReset:msReset,pets:petsView,raiRow:raiRow,pvpEntry:pvpEntry,duel:duelView,diary:diaryDlg,mount:mount,transform:function(o){tfBuild().open(o)},oath:function(phrase,done){tfBuild().oath({phrase:phrase,onDone:done})},decorateProfile:decorateProfile,pvpSide:pvpSide,stop:function(){songStop();clearInterval(timer);clearInterval(DUELT)}};
 })();
