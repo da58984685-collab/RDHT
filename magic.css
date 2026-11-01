@@ -108,10 +108,10 @@ body.tn3 .rwrap{box-shadow:0 0 26px rgba(235,99,148,0.45)}
 .rd-ring{stroke:#f6c1d4}
 .rd-axis{stroke:#f6c1d4}
 .rd-me{fill:#4c2e39}
-.rd-me-p{stroke:#4c2e39}
+.rd-me-p{stroke:#4c2e39}.rd-pulse{border-color:#4c2e39}
 .rd-ic{fill:#af798d}
 .rd-ic.hot{fill:#4c2e39}
-.rd-dot{stroke:#f6c1d4}
+.rd-dot{stroke:#f6c1d4}.rd-dotv{box-shadow:0 0 0 1px #f6c1d4}
 .rd-lbl{fill:#a76c82}
 .rd-lbl.hot{fill:#4c2e39}
 .rd-cur{stroke:#4c2e39}
@@ -490,9 +490,9 @@ html.mgn .radar{background:radial-gradient(circle,#2a161d 0,#24131c 74%);border:
 html.mgn .rd-ring{stroke:#4f2b38}
 html.mgn .rd-axis{stroke:#4f2b38}
 html.mgn .rd-me{fill:#e0ccd4}
-html.mgn .rd-me-p{stroke:#e0ccd4}
+html.mgn .rd-me-p{stroke:#e0ccd4}html.mgn .rd-pulse{border-color:#e0ccd4}
 html.mgn .rd-ic.hot{fill:#e0ccd4}
-html.mgn .rd-dot{stroke:#4f2b38}
+html.mgn .rd-dot{stroke:#4f2b38}html.mgn .rd-dotv{box-shadow:0 0 0 1px #4f2b38}
 html.mgn .rd-lbl.hot{fill:#e0ccd4}
 html.mgn .rd-cur{stroke:#e0ccd4}
 html.mgn .rd-cap{color:#cba9b6}
