@@ -23,7 +23,9 @@ const OATH = '눈물은 칼집에, 맹세는 칼끝에';
 const oathNorm = t => String(t == null ? '' : t).normalize('NFC').replace(/\s+/g, ' ').trim();
 
 // ───────── 1 변신 주문 ─────────
-const SPELL_MAX = 30, VOTE_WEEK = 5;      // 주문 30자 · 한 주에 '반짝' 5번 (같은 주문엔 한 번)
+const SPELL_MAX = 30, VOTE_WEEK = 3;      // 주문 30자 · 하루에 '반짝' 3번 (같은 주문엔 한 번)
+// 주문 짓기·투표는 매일(한국 시간) 새로: 어제 가장 많이 받은 주문이 오늘 모든 헌터의 변신 주문이 됩니다. (예전 주간 기록과 겹치지 않게 'd' + 날짜로 저장)
+const spellDay = now => 'd' + dayKey(now);
 
 // ───────── 2 코스튬 ─────────
 const COS = {
@@ -91,6 +93,17 @@ function starToday(now) {
   return { C, day, stars: order.map(i => ({ id: idOf(i), x: pts[i].x, y: pts[i].y })).sort((a, b) => a.id - b.id), edges: C.e.map(e => [idOf(e[0]), idOf(e[1])]) };
 }
 const edgeKey = e => Math.min(e[0], e[1]) + '-' + Math.max(e[0], e[1]);
+function splitEdges(edges, stars) {      // 선분 위에 놓인 별에서 선을 끊어 이웃한 별끼리의 선으로 바꿈
+  const out = [];
+  for (const [a, b] of edges) {
+    const A = stars[a], B = stars[b];
+    if (!A || !B) continue;
+    const on = stars.filter((p, i) => i !== a && i !== b && (B.x - A.x) * (p.y - A.y) - (B.y - A.y) * (p.x - A.x) === 0 && Math.min(A.x, B.x) <= p.x && p.x <= Math.max(A.x, B.x) && Math.min(A.y, B.y) <= p.y && p.y <= Math.max(A.y, B.y));
+    const chain = [A].concat(on.sort((p, q) => Math.hypot(p.x - A.x, p.y - A.y) - Math.hypot(q.x - A.x, q.y - A.y)), [B]);
+    for (let i = 0; i + 1 < chain.length; i++) out.push([chain[i].id, chain[i + 1].id]);
+  }
+  return out;
+}
 
 // ═════════════ 2차 묶음 ═════════════
 // ───────── 6 요정의 편지 ─────────
@@ -233,6 +246,7 @@ const SQL = [
   "CREATE INDEX IF NOT EXISTS mg_mail_to ON mg_mail(to_id, id)",
   "CREATE INDEX IF NOT EXISTS mg_mail_from ON mg_mail(from_id, at)",
   "CREATE TABLE IF NOT EXISTS mg_rib (user_id INTEGER PRIMARY KEY, partner INTEGER NOT NULL, color TEXT NOT NULL, at INTEGER NOT NULL)",
+  "CREATE TABLE IF NOT EXISTS mg_elem (user_id INTEGER NOT NULL, el TEXT NOT NULL, n INTEGER NOT NULL DEFAULT 0, at INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (user_id, el))",      // 속성 공격에 쓴 속성 횟수 (폭주 몬스터의 속성)
   "CREATE TABLE IF NOT EXISTS mg_rib_off (from_id INTEGER NOT NULL, to_id INTEGER NOT NULL, color TEXT NOT NULL, at INTEGER NOT NULL, PRIMARY KEY (from_id, to_id))",
 ];
 
@@ -302,17 +316,15 @@ function install(d) {
     send(res, 200, { ok: true });
   });
 
-  // ── 주간 1위 주문 (지난주 1위가 있으면 그것, 없으면 이번 주 선두) ──
-  async function topSpell(now) {
-    for (const [wk, label] of [[prevWeek(now), '지난주 1위'], [weekKey(now), '이번 주 1위']]) {
-      const r = await db.get('SELECT s.text, s.votes, u.hunter_name FROM mg_spell s JOIN users u ON u.id = s.user_id WHERE s.week = ? AND s.votes > 0 ORDER BY s.votes DESC, s.at ASC LIMIT 1', [wk]);
-      if (r) return { text: r.text, by: r.hunter_name, votes: Number(r.votes), label };
-    }
-    return null;
+  // ── 오늘의 주문 = 어제 가장 많은 '반짝'을 받은 주문 (없으면 기본 주문) · 오늘 선두는 내일의 주문 후보 ──
+  async function dayTop(key) {
+    const r = await db.get('SELECT s.text, s.votes, u.hunter_name FROM mg_spell s JOIN users u ON u.id = s.user_id WHERE s.week = ? AND s.votes > 0 ORDER BY s.votes DESC, s.at ASC LIMIT 1', [key]);
+    return r ? { text: r.text, by: r.hunter_name, votes: Number(r.votes) } : null;
   }
+  async function topSpell(now) { const t = await dayTop(spellDay(now - 24 * HOUR)); return t ? Object.assign(t, { label: '어제 1위' }) : null; }
+  async function todayChant(now) { const t = await topSpell(now); return t ? t.text : DEF_SPELL; }      // 모든 헌터의 오늘 변신 주문
   async function mySpell(uid, now) {
-    const r = await db.get('SELECT text, votes FROM mg_spell WHERE user_id = ? AND week = ?', [uid, weekKey(now)])
-      || await db.get('SELECT text, 0 AS votes FROM mg_spell WHERE user_id = ? ORDER BY week DESC LIMIT 1', [uid]);
+    const r = await db.get('SELECT text, votes FROM mg_spell WHERE user_id = ? AND week = ?', [uid, spellDay(now)]);
     return r ? { text: r.text, votes: Number(r.votes) || 0 } : null;
   }
 
@@ -344,7 +356,7 @@ function install(d) {
     send(res, 200, {
       now, buffMin: TF_BUFF / MIN, cdMin: TF_CD / MIN, fx: TF_FX, joint: JOINT_FX,
       tf: { until: Number(s.tf_until) > now ? Number(s.tf_until) : 0, next: Number(s.tf_next) > now ? Number(s.tf_next) : 0, total: Number(s.tf_total) || 0, today: Number(dr.tf) || 0 },
-      spell: await mySpell(uid, now), top: await topSpell(now), defSpell: DEF_SPELL,
+      spell: await mySpell(uid, now), top: await topSpell(now), chant: await todayChant(now), defSpell: DEF_SPELL,
       cos: cosParse(s.cos), parts: COS, shop: await shopView(uid),
       teamOn: false, jointOn: false,
       song: { left: Math.max(0, SONG_DAY - (Number(dr.song) || 0)), max: SONG_DAY, purge: SONG_MAX, taint: await taintNow(uid) },
@@ -368,22 +380,23 @@ function install(d) {
     await act(uid, 'tf');
     const team = null, joint = false;      // 팀 기능 없앰
     const sp = await mySpell(uid, now);
-    send(res, 200, { ok: true, now, until: now + buff, next: now + TF_CD, chant: sp ? sp.text : DEF_SPELL, top: await topSpell(now), joint, team: team ? team.name : '', fairy: fy ? { ko: FAIRIES[fy.kind].ko, extra } : null });
+    send(res, 200, { ok: true, now, until: now + buff, next: now + TF_CD, chant: await todayChant(now), top: await topSpell(now), joint, team: team ? team.name : '', fairy: fy ? { ko: FAIRIES[fy.kind].ko, extra } : null });
   });
 
   // ═════════ 1 변신 주문 ═════════
   route('GET', '/api/mg/spells', async (req, res, ctx) => {
     if (!(await on())) return off(res);
-    const uid = ctx.user.id, now = Date.now(), wk = weekKey(now);
+    const uid = ctx.user.id, now = Date.now(), wk = spellDay(now);
     const rows = await db.all('SELECT s.user_id, s.text, s.votes, u.hunter_name FROM mg_spell s JOIN users u ON u.id = s.user_id WHERE s.week = ? ORDER BY s.votes DESC, s.at ASC LIMIT 40', [wk]);
     const mine = new Set((await db.all('SELECT owner FROM mg_vote WHERE voter = ? AND week = ?', [uid, wk])).map(r => r.owner));
-    send(res, 200, { week: wk, left: Math.max(0, VOTE_WEEK - mine.size), max: SPELL_MAX, top: await topSpell(now), mine: await mySpell(uid, now),
+    send(res, 200, { day: wk.slice(1), left: Math.max(0, VOTE_WEEK - mine.size), votes: VOTE_WEEK, max: SPELL_MAX, top: await topSpell(now), chant: await todayChant(now), defSpell: DEF_SPELL, mine: await mySpell(uid, now),
+      resetIn: Date.parse(addDay(dayKey(now), 1) + 'T00:00:00Z') - 9 * HOUR - now,
       list: rows.map((r, i) => ({ no: i + 1, id: r.user_id, text: r.text, by: r.hunter_name, votes: Number(r.votes), me: r.user_id === uid, voted: mine.has(r.user_id) })) });
   });
   route('POST', '/api/mg/spell', async (req, res, ctx) => {
     if (!(await on())) return off(res);
     if (await limited('mgsp:' + ctx.user.id, 10, HOUR)) return fail(res, 429, 'rate_limited');
-    const uid = ctx.user.id, now = Date.now(), wk = weekKey(now), text = String(ctx.body.text == null ? '' : ctx.body.text).replace(/\s+/g, ' ').trim();
+    const uid = ctx.user.id, now = Date.now(), wk = spellDay(now), text = String(ctx.body.text == null ? '' : ctx.body.text).replace(/\s+/g, ' ').trim();
     if (!text || cp(text) > SPELL_MAX) return fail(res, 400, 'bad_text');
     const old = await db.get('SELECT text FROM mg_spell WHERE user_id = ? AND week = ?', [uid, wk]);
     if (old && old.text === text) return send(res, 200, { ok: true, same: true });
@@ -394,7 +407,7 @@ function install(d) {
   });
   route('POST', '/api/mg/spell/vote', async (req, res, ctx) => {
     if (!(await on())) return off(res);
-    const uid = ctx.user.id, now = Date.now(), wk = weekKey(now), owner = Number(ctx.body.id) || 0;
+    const uid = ctx.user.id, now = Date.now(), wk = spellDay(now), owner = Number(ctx.body.id) || 0;
     if (owner === uid) return fail(res, 400, 'self');
     if (!(await db.get('SELECT 1 AS x FROM mg_spell WHERE user_id = ? AND week = ?', [owner, wk]))) return fail(res, 404, 'not_found');
     const n = await db.get('SELECT COUNT(*) AS c FROM mg_vote WHERE voter = ? AND week = ?', [uid, wk]);
@@ -537,8 +550,10 @@ function install(d) {
     if (await limited('mgst:' + ctx.user.id, 30, 60000)) return fail(res, 429, 'rate_limited');
     const uid = ctx.user.id, now = Date.now(), st = starToday(now), dr = await dayRow(uid, now);
     if (dr.star === st.C.k) return fail(res, 409, 'done');
-    const got = Array.isArray(ctx.body.edges) ? ctx.body.edges.slice(0, 40).filter(e => Array.isArray(e) && e.length === 2).map(e => edgeKey([Number(e[0]) | 0, Number(e[1]) | 0])) : [];
-    const need = new Set(st.edges.map(edgeKey)), have = new Set(got);
+    const n = st.stars.length;
+    const got = Array.isArray(ctx.body.edges) ? ctx.body.edges.slice(0, 40).filter(e => Array.isArray(e) && e.length === 2).map(e => [Number(e[0]) | 0, Number(e[1]) | 0]).filter(e => e[0] !== e[1] && e[0] >= 0 && e[1] >= 0 && e[0] < n && e[1] < n) : [];
+    // 한 직선 위에 별이 셋 이상 있으면(예: 백조자리 세로줄) 끝 별끼리 바로 이은 선도 그림과 같으므로, 선을 지나는 별마다 잘라서 비교합니다
+    const need = new Set(splitEdges(st.edges, st.stars).map(edgeKey)), have = new Set(splitEdges(got, st.stars).map(edgeKey));
     const ok = have.size === need.size && [...need].every(k => have.has(k));
     if (!ok) return send(res, 200, { ok: false, right: [...have].filter(k => need.has(k)).length, need: need.size });
     await ensureDay(uid, now);
@@ -1126,6 +1141,47 @@ function install(d) {
     const u = await db.get('SELECT gold FROM users WHERE id = ?', [uid]);
     send(res, 200, { ok: true, qty, gold: Number(u.gold) || 0 });
   });
+
+  // ── 폭주(오염도 100) 몬스터의 속성: 폭주 직전까지 가장 많이 쓴 속성 (없으면 계약한 요정의 기본 속성) ──
+  async function elemUsed(uid, el) {
+    if (!EL_KEYS.includes(el) || !(await on())) return;
+    await db.run('INSERT INTO mg_elem (user_id, el, n, at) VALUES (?, ?, 1, ?) ON CONFLICT(user_id, el) DO UPDATE SET n = mg_elem.n + 1, at = excluded.at', [uid, el, Date.now()]);
+  }
+  async function corruptElem(uid) {      // 이벤트가 꺼져 있으면 '' (예전처럼 보통 오염 몬스터)
+    if (!(await on())) return '';
+    const r = await db.get('SELECT el FROM mg_elem WHERE user_id = ? ORDER BY n DESC, at DESC LIMIT 1', [uid]);
+    if (r && EL_KEYS.includes(r.el)) return r.el;
+    const f = await fairyRow(uid);
+    return f ? FAIRY_EL[f.kind] : EL_KEYS[hash('corrupt:' + uid) % EL_KEYS.length];
+  }
+
+  // ── 업적용 마법소녀 기록 (_app.js 의 업적 종류 'mg') ──
+  async function achStats(uid) {
+    const one = async (sql, args) => { try { const r = await db.get(sql, args); return Number(r && r.c) || 0; } catch (_) { return 0; } };
+    const st = (await db.get('SELECT tf_total, mirror_wins, oath FROM mg_state WHERE user_id = ?', [uid])) || {};
+    const f = await db.get('SELECT kind, bond FROM mg_fairy WHERE user_id = ?', [uid]);
+    const today = 'd' + dayKey(Date.now());
+    return {
+      oath: st.oath ? 1 : 0, tf: Number(st.tf_total) || 0, fairy: f ? 1 : 0, bond: f ? Number(f.bond) : 0,
+      letter: await one('SELECT COUNT(*) AS c FROM mg_letter WHERE user_id = ? AND pick >= 0', [uid]),
+      star: await one("SELECT COUNT(*) AS c FROM mg_day WHERE user_id = ? AND star <> ''", [uid]),
+      song: await one('SELECT COALESCE(SUM(song), 0) AS c FROM mg_day WHERE user_id = ?', [uid]),
+      wish: await one('SELECT COUNT(*) AS c FROM mg_wish WHERE user_id = ?', [uid]),
+      pet: await one('SELECT COUNT(*) AS c FROM mg_pet WHERE user_id = ?', [uid]),
+      petdone: await one('SELECT COUNT(*) AS c FROM mg_pet WHERE user_id = ? AND done = 1', [uid]),
+      duel: await one("SELECT COUNT(*) AS c FROM mg_duel WHERE win = ? AND st = 'done'", [uid]),
+      card: await one('SELECT COUNT(*) AS c FROM mg_card WHERE user_id = ?', [uid]),
+      mailsent: await one('SELECT COUNT(*) AS c FROM mg_mail WHERE from_id = ?', [uid]),
+      heart: await one('SELECT COUNT(*) AS c FROM mg_mail WHERE from_id = ? AND heart = 1', [uid]),
+      rib: await one('SELECT COUNT(*) AS c FROM mg_rib WHERE user_id = ?', [uid]),
+      mirror: Number(st.mirror_wins) || 0,
+      cert: await one('SELECT COUNT(*) AS c FROM mg_cert WHERE user_id = ?', [uid]),
+      diary: await one("SELECT COUNT(*) AS c FROM mg_diary WHERE user_id = ? AND data LIKE '%\"filled\":true%'", [uid]),
+      outfit: (await one("SELECT COUNT(*) AS c FROM mg_cos_own WHERE user_id = ? AND k = 'e' AND v <> ?", [uid, f ? FAIRY_EL[f.kind] : ''])) + (f ? 1 : 0),
+      elem: await one('SELECT COALESCE(SUM(n), 0) AS c FROM mg_elem WHERE user_id = ?', [uid]),
+      spellwin: await one("SELECT COUNT(*) AS c FROM mg_spell s WHERE s.user_id = ? AND s.week LIKE 'd%' AND s.week < ? AND s.votes > 0 AND NOT EXISTS (SELECT 1 FROM mg_spell t WHERE t.week = s.week AND (t.votes > s.votes OR (t.votes = s.votes AND t.at < s.at)))", [uid, today]),
+    };
+  }
   async function stateExtra(uid, now) {      // /api/state 의 mg 에 더할 2차 묶음 정보
     await fairyTick(uid, now);
     const lt = await db.get('SELECT COUNT(*) AS c FROM mg_letter WHERE user_id = ? AND seen = 0', [uid]);
@@ -1137,7 +1193,7 @@ function install(d) {
     return { letters: Number(lt.c) || 0, shoot, wishPaid: await wishSettle(uid, now), duel: Number(dv.c) || 0, fairy: fairyView(await fairyRow(uid)), mail: Number(ml.c) || 0, ribReq: Number(ro.c) || 0, els: ((await elemsOf(uid)) || { list: [] }).list };
   }
 
-  return { stateOf, cosOf, profileExtra, oathNeed, newEpoch, onPurify, act, elemCheck, runeUse, OATH, SQL };
+  return { stateOf, cosOf, profileExtra, oathNeed, newEpoch, onPurify, act, elemCheck, runeUse, elemUsed, corruptElem, achStats, OATH, SQL };
 }
 
 module.exports = { install, SQL, COS, STARS, PETS, FAIRIES, TF_BUFF, TF_CD };
