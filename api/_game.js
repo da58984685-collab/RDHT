@@ -137,17 +137,17 @@ const FRIEND_FX = {
   fm03: ['품속 온기', 'guard', '도토리 던지기', 'crit'],
   fm04: ['이끼 길', 'free', '이끼 쿠션', 'guard'],
   fm06: ['단단한 곁', 'hp', '굴러 박치기', 'atk'],
-  fm05: ['별자리 춤', 'fame', '반딧불 신호', 'crit'],
+  fm05: ['별자리 춤', 'exp', '반딧불 신호', 'crit'],
   fm07: ['해안 등불', 'taint', '눈부신 빛', 'evade'],
   fm08: ['가시 갑옷', 'hp', '가시 반격', 'thorn'],
   fm09: ['달 방아', 'free', '방아 찧기', 'atk'],
   fm11: ['소식 전하기', 'gold', '종이 접기', 'guard'],
-  fm10: ['자개 광택', 'fame', '오색 비늘', 'evade'],
+  fm10: ['자개 광택', 'gold', '오색 비늘', 'evade'],
   fm12: ['여우비 내림', 'taint', '홀리기', 'critd'],
   fm13: ['도깨비 방망이', 'gold', '수줍은 일격', 'critd'],
   fm14: ['녹 먹기', 'exp', '쇠 이빨', 'atk'],
   fm15: ['호랑이 기운', 'win', '호랑이 발톱', 'crit'],
-  fm23: ['색동 빛', 'fame', '날개 가루', 'erode'],
+  fm23: ['색동 빛', 'win', '날개 가루', 'erode'],
   fm22: ['들판 지킴', 'guard', '허수아비 춤', 'evade'],
   fm21: ['바람 길', 'free', '질풍', 'critd'],
   fm18: ['그늘 사냥', 'win', '불시 기습', 'critd'],
@@ -172,7 +172,6 @@ const FX_HUNT = {   // 1단계당 수치 · 설명
   free:  [2, v => `시간 제한 없이 재토벌 확률 +${v}%p`],
   hp:    [3, v => `토벌 실패 시 체력 감소량 -${v}%`],
   taint: [4, v => `토벌 시 오염도 증가량 -${v}%`],
-  fame:  [3, v => `토벌 명성 획득량 +${v}%`],
 };
 const FX_PVP = {   // 종류: [등급별 수치 E·D·C·B·A·S, 설명]  (시뮬레이션으로 종류마다 같은 가치가 되게 맞춘 값)
   atk:   [[2, 4, 6, 8, 10, 12],        v => `PvP 공격 피해 +${v}%`],
@@ -398,8 +397,8 @@ const activeMsOf = rank => (rank === 'F' ? ACTIVE_MS_F : rank === 'SS' ? ACTIVE_
 // 명성: 전투력(레벨)이 오를 때, 헌터 등급이 오를 때만 함께 오릅니다 (시작은 항상 0)
 const STAT_RESET_BASE = 1500, STAT_RESET_PER = 100;                 // 스탯 일괄 초기화: 기본 요금 + 되돌려 받는 포인트 1개당 골드
 const statResetCost = (t) => t > 0 ? STAT_RESET_BASE + t * STAT_RESET_PER : 0;
-const STAT_MAX = 100, FAME_MAX = 1000;                             // 근력·민첩·행운 최대치 / 명성 최대치
-const FAME_PER_LV = 5, FAME_PER_RANK = 20;                       // 출몰 후 토벌 가능한 시간
+const STAT_MAX = 100;                                             // 근력·민첩·행운 최대치 (명성 제도는 삭제됨)
+                       // 출몰 후 토벌 가능한 시간
 
 // 등급별 처치 골드(G) 범위 [최소, 최대]
 // 몬스터 토벌 골드: 기본값의 60% (40% 감소)
@@ -410,11 +409,12 @@ const rollGold = rank => { const r = KILL_GOLD[rank] || [0, 0]; return r[0] + Ma
 const RANK_IDX = { F: 0, E: 1, D: 2, C: 3, B: 4, A: 5, S: 6, SS: 7 };   // SS 는 몬스터 전용 (헌터 등급은 S 까지)
 // 새 종류: visit(지역/나라:횟수 방문) · visits(전체 이동 횟수) · countries(방문한 나라 수) · collect(아이템:수집 개수) · slay(몬스터 이름:처치 수)
 //          surveys(적월문 조사 횟수) · crafts(조합 횟수) · fails(토벌 실패 횟수) · friends(친구 수) · gifts(보낸 선물 횟수)
-//          gold(보유 골드) · fame(명성) · taint(오염도) · hrank(헌터 등급 이상) · stat(근력/민첩/행운:값)
+//          gold(보유 골드) · taint(오염도) · hrank(헌터 등급 이상) · stat(근력/민첩/행운:값)
+// 명성 대신 추가: pvpwin(PVP 승리 수) · lp(리그 최고 LP) · floor(적월문 심층 최고 층) · fishsp(낚은 어종 수) · cooks(요리 횟수) · attend(출석 도장판 완주 횟수) · dex(속성 도감 해금 속성 수)
 const ACH_KINDS = ['always', 'kills', 'rank', 'sTry', 'sWin', 'lv', 'manual',
-  'visit', 'visits', 'countries', 'collect', 'slay', 'surveys', 'crafts', 'fails', 'friends', 'gifts', 'gold', 'fame', 'taint', 'hrank', 'stat'];
+  'visit', 'visits', 'countries', 'collect', 'slay', 'surveys', 'crafts', 'fails', 'friends', 'gifts', 'gold', 'taint', 'hrank', 'stat', 'pvpwin', 'lp', 'floor', 'fishsp', 'cooks', 'attend', 'dex'];
 const ACH_COMPOUND = ['visit', 'collect', 'slay', 'stat'];       // 값이 '대상:숫자' 형태인 종류
-const ACH_NUM = ['kills', 'sTry', 'sWin', 'lv', 'visits', 'countries', 'surveys', 'crafts', 'fails', 'friends', 'gifts', 'gold', 'fame', 'taint'];
+const ACH_NUM = ['kills', 'sTry', 'sWin', 'lv', 'visits', 'countries', 'surveys', 'crafts', 'fails', 'friends', 'gifts', 'gold', 'taint', 'pvpwin', 'lp', 'floor', 'fishsp', 'cooks', 'attend', 'dex'];
 // 처음 서버가 켜질 때 한 번만 넣는 기본 업적 (이후에는 관리자가 자유롭게 수정·삭제)
 const ACH_SEED = [
   { id: 'reg',  name: '헌터 등록',   desc: '게이트 앞에서 헌터로 등록했다.', kind: 'always', val: '' },
@@ -461,8 +461,6 @@ const ACH_SEED2 = [
   { id: 'gf5', name: '선물의 달인', desc: '친구에게 선물을 5번 보냈다.', kind: 'gifts', val: '5' },
   { id: 'gd1k', name: '두둑한 주머니', desc: '골드를 1,000 G 이상 모았다.', kind: 'gold', val: '1000' },
   { id: 'tt50', name: '붉은 달에 물든 자', desc: '오염도가 50% 이상이 되었다.', kind: 'taint', val: '50' },
-  { id: 'fm100', name: '이름이 알려진 헌터', desc: '명성 100을 달성했다.', kind: 'fame', val: '100' },
-  { id: 'fm500', name: '전설의 이름', desc: '명성 500을 달성했다.', kind: 'fame', val: '500' },
   { id: 'hE', name: 'E급 헌터', desc: '헌터 등급이 E급 이상이 되었다.', kind: 'hrank', val: 'E' },
   { id: 'hD', name: 'D급 헌터', desc: '헌터 등급이 D급 이상이 되었다.', kind: 'hrank', val: 'D' },
   { id: 'hC', name: 'C급 헌터', desc: '헌터 등급이 C급 이상이 되었다.', kind: 'hrank', val: 'C' },
@@ -493,10 +491,45 @@ const ACH_SEED3 = [
   // ── 어려운 업적 5개 ──
   { id: 'u-core', name: '적월의 심장을 훔친 자', desc: '적월의 핵을 2개 모았다. 적월문 가장 깊은 곳에서만 나온다.', kind: 'collect', val: '적월의 핵:2' },
   { id: 'u-luck100', name: '운명이 먼저 인사하는 자', desc: '행운을 100까지 끌어올렸다.', kind: 'stat', val: 'luck:100' },
-  { id: 'u-fame', name: '불멸의 이름', desc: '명성을 최대치인 1000까지 올렸다.', kind: 'fame', val: '1000' },
   { id: 'u-rich', name: '붉은 달의 부호', desc: '골드를 100,000 G 이상 모았다.', kind: 'gold', val: '100000' },
   { id: 'u-k1000', name: '천 번째 사냥', desc: '몬스터를 1000마리 처치했다.', kind: 'kills', val: '1000' },
 ];
+// 네 번째 기본 업적 묶음: 명성 업적을 대신하는 30개 (한 번만 추가 · 뒤로 갈수록 어렵고, 마지막 셋은 '전설급' 칭호)
+const ACH_SEED4 = [
+  { id: 'n-pw10', name: '결투의 맛', desc: 'PVP에서 10번 이겼다.', kind: 'pvpwin', val: '10' },
+  { id: 'n-pw100', name: '투기장의 주인', desc: 'PVP에서 100번 이겼다.', kind: 'pvpwin', val: '100' },
+  { id: 'n-lpg', name: '황금빛 리거', desc: 'PVP 리그에서 골드 티어(700 LP)에 올랐다.', kind: 'lp', val: '700' },
+  { id: 'n-lpd', name: '다이아몬드의 눈', desc: 'PVP 리그에서 다이아 티어(1800 LP)에 올랐다.', kind: 'lp', val: '1800' },
+  { id: 'n-lpl', name: '레전드 리거', desc: 'PVP 리그 최고 티어 레전드(2500 LP)에 올랐다.', kind: 'lp', val: '2500' },
+  { id: 'n-fl10', name: '심층의 손님', desc: '적월문 심층 10층에 닿았다.', kind: 'floor', val: '10' },
+  { id: 'n-fl50', name: '심연을 본 자', desc: '적월문 심층 50층에 닿았다.', kind: 'floor', val: '50' },
+  { id: 'n-fl100', name: '심연 너머의 발자국', desc: '무한 심층 100층에 닿았다.', kind: 'floor', val: '100' },
+  { id: 'n-fs10', name: '초보 강태공', desc: '서로 다른 물고기 10종을 낚았다.', kind: 'fishsp', val: '10' },
+  { id: 'n-fs25', name: '물고기 박사', desc: '서로 다른 물고기 25종을 낚았다.', kind: 'fishsp', val: '25' },
+  { id: 'n-fs35', name: '전설의 낚시꾼', desc: '모든 물고기 35종을 낚았다. 용왕 비늘잉어와 심연의 주인까지.', kind: 'fishsp', val: '35' },
+  { id: 'n-ck10', name: '부엌의 헌터', desc: '요리를 10번 만들었다.', kind: 'cooks', val: '10' },
+  { id: 'n-ck100', name: '적월 셰프', desc: '요리를 100번 만들었다.', kind: 'cooks', val: '100' },
+  { id: 'n-ck500', name: '전설의 미식가', desc: '요리를 500번 만들었다.', kind: 'cooks', val: '500' },
+  { id: 'n-at1', name: '개근 헌터', desc: '출석 도장판 28칸을 한 번 다 채웠다.', kind: 'attend', val: '1' },
+  { id: 'n-at12', name: '일 년의 약속', desc: '출석 도장판을 12번 완주했다.', kind: 'attend', val: '12' },
+  { id: 'n-dex5', name: '속성 탐구자', desc: '속성 도감에서 속성 5개를 해금했다.', kind: 'dex', val: '5' },
+  { id: 'n-dex10', name: '속성의 현자', desc: '속성 도감의 속성 10개를 모두 해금했다.', kind: 'dex', val: '10' },
+  { id: 'n-lv30', name: '전투력 Lv.30', desc: '전투력 30레벨을 달성했다.', kind: 'lv', val: '30' },
+  { id: 'n-lv50', name: '전투력 Lv.50', desc: '전투력 50레벨을 달성했다.', kind: 'lv', val: '50' },
+  { id: 'n-lv100', name: '하늘을 찌르는 힘', desc: '전투력 100레벨을 달성했다.', kind: 'lv', val: '100' },
+  { id: 'n-k3000', name: '삼천 번의 붉은 달', desc: '몬스터를 3000마리 처치했다.', kind: 'kills', val: '3000' },
+  { id: 'n-sv500', name: '느낌표의 지배자', desc: '적월문에서 500번 조사했다.', kind: 'surveys', val: '500' },
+  { id: 'n-cr300', name: '연금의 대가', desc: '아이템을 300번 조합했다.', kind: 'crafts', val: '300' },
+  { id: 'n-gf100', name: '베푸는 손', desc: '친구에게 선물을 100번 보냈다.', kind: 'gifts', val: '100' },
+  { id: 'n-gd1m', name: '황금의 군주', desc: '골드를 1,000,000 G 이상 모았다.', kind: 'gold', val: '1000000' },
+  { id: 'n-sw10', name: '재앙의 사냥꾼', desc: 'SS급 몬스터를 10번 처치했다.', kind: 'sWin', val: '10' },
+  // ── 전설급 칭호 3개: 아주 오래, 아주 많이 싸운 헌터만 ──
+  { id: 'n-legend', name: '전설', desc: '몬스터를 10,000마리 처치했다. 이제 이름 대신 이 두 글자로 불린다.', kind: 'kills', val: '10000' },
+  { id: 'n-living', name: '살아있는 전설', desc: 'PVP에서 1,000번 이겼다.', kind: 'pvpwin', val: '1000' },
+  { id: 'n-immortal', name: '불멸의 이름', desc: 'SS급 몬스터를 100번 처치했다. 붉은 달이 지지 않는 한 이 이름도 지지 않는다.', kind: 'sWin', val: '100' },
+];
+// 칭호로 달았을 때 보여 줄 등급 (나머지 업적 칭호는 일반)
+const ACH_TITLE_TIER = { 'n-legend': 'l', 'n-living': 'l', 'n-immortal': 'l', 'n-lpl': 'e', 'n-fl100': 'e', 'n-fs35': 'e', 'n-ck500': 'e', 'n-at12': 'e', 'n-lv100': 'e', 'n-gd1m': 'e', 'n-dex10': 'r', 'n-pw100': 'r', 'n-lpd': 'r', 'n-fl50': 'r', 'n-sw10': 'r', 'u-core': 'e', 'u-luck100': 'e', 'u-rich': 'e', 'u-k1000': 'r' };
 // 헌터 등급 승급: F→E, E→D 는 전투력(레벨)만 오르면 됩니다. D→C 부터는 처치 기록 등 조건이 더해지고, 위로 갈수록 어려워집니다.
 //  kills: [{ min: 해당 등급 이상 몬스터, n: 처치 수 }], sTry: S급 토벌 도전 횟수, taintMax: 오염도(%) 이하여야 함
 const PROMO = {
@@ -584,7 +617,7 @@ function rollStats(rank) {
   while (high.size < n) high.add(keys[rnd(0, 2)]);
   const out = { hp: HP_START };
   keys.forEach(k => { out[k] = high.has(k) ? rnd(lo, hi) : rnd(1, 9); });
-  out.taint = 0; out.fame = 0; out.sp = 0;      // sp: 투자하지 않은 스탯포인트 (전투력 레벨이 1 오를 때마다 1)
+  out.taint = 0; out.sp = 0;      // sp: 투자하지 않은 스탯포인트 (전투력 레벨이 1 오를 때마다 1)
   return out;
 }
 
@@ -857,8 +890,8 @@ const isTurnBased = (monRank, hunterRank) => monRank !== 'SS' && RANK_IDX[monRan
 
 module.exports = {
   BT, btMon, btPlayer, isTurnBased, taintStage, TAINT_SHOP_PCT, TAINT_BAN_DANGER, taintPrice, TAINT_LOSE_GOLD_MUL, HUNTER_CHANCE, HUNTER_LV_MAX, hunterScale, RARE_CHANCE, SPECIAL_MON,
-  SV_MARKS, MATERIALS, GATE_MATS, GATE_ZONES, EQ_GRADE, EQ_SLOTS, EQUIPS, ELEMS, ELEM_KEYS, MON_ELEM, elemOf, affMul, RECIPES, CRAFT_DEFS,
-  STAT_MAX, STAT_RESET_BASE, STAT_RESET_PER, statResetCost, FAME_MAX, rnd, chance01, SPAWN_COUNTRIES, SPAWN_REGIONS, REGIONS, REGION_BY_ID, COUNTRIES, COUNTRY_BY_ID, countryOf, placeName, placeLong, MON, FRIENDLY_MON, PVP, PVP_STAT_TEXT, BOND_STEP, BOND_MAX, BOND_MUL, bondStage, friendFx, pvpBattle, pvpFighter, pvpResolve, pvpPower, mulberry32, PVP_MIN, PVP_MAX, PVP_TOTAL, PVP_KEYS, PVP_KO, pvpStatsOk, pvpDerive, TIERS, ACTIVE_MS, ACTIVE_MS_F, ACTIVE_MS_S, activeMsOf, FAME_PER_LV, FAME_PER_RANK, KILL_EXP, KILL_GOLD, KILL_TAINT, rollTaint, garble, RANK_IDX, ACH_KINDS, ACH_COMPOUND, ACH_NUM, ACH_SEED, ACH_SEED2, ACH_SEED3, PROMO, ACH_PIN_MAX, rollGold, HUNT_DIFF,
+  SV_MARKS, MATERIALS, GATE_MATS, GATE_ZONES, EQ_GRADE, EQ_SLOTS, EQUIPS, ELEMS, ELEM_KEYS, MON_ELEM, elemOf, affMul, RECIPES, CRAFT_DEFS, ACH_SEED4, ACH_TITLE_TIER,
+  STAT_MAX, STAT_RESET_BASE, STAT_RESET_PER, statResetCost, rnd, chance01, SPAWN_COUNTRIES, SPAWN_REGIONS, REGIONS, REGION_BY_ID, COUNTRIES, COUNTRY_BY_ID, countryOf, placeName, placeLong, MON, FRIENDLY_MON, PVP, PVP_STAT_TEXT, BOND_STEP, BOND_MAX, BOND_MUL, bondStage, friendFx, pvpBattle, pvpFighter, pvpResolve, pvpPower, mulberry32, PVP_MIN, PVP_MAX, PVP_TOTAL, PVP_KEYS, PVP_KO, pvpStatsOk, pvpDerive, TIERS, ACTIVE_MS, ACTIVE_MS_F, ACTIVE_MS_S, activeMsOf, KILL_EXP, KILL_GOLD, KILL_TAINT, rollTaint, garble, RANK_IDX, ACH_KINDS, ACH_COMPOUND, ACH_NUM, ACH_SEED, ACH_SEED2, ACH_SEED3, PROMO, ACH_PIN_MAX, rollGold, HUNT_DIFF,
   RAID_NEED, RAID_ATTEMPTS, S_MAX, S_WINDOW_MS, S_WAIT_MS, powNeed, cdOf, huntChance,
   rollRank, rollStats, PROB_CAP, STR_WIN, guardChance, freeChance, HP_START, HP_MIN, HP_DYING_MS, HP_REVIVE, hpLoss, makeCode, addExp, MIN, HOUR,
 };
