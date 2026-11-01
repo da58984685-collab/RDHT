@@ -344,13 +344,15 @@ async function corruptCheck(userId, row) {
   if (claim.changes !== 1) return true;
   // 이미 이 헌터의 오염 몬스터가 출몰 중이면 새로 만들지 않고, 그 몬스터의 출몰 시간만 지금부터 다시 시작합니다.
   const live = await db.get('SELECT id FROM monsters WHERE corrupt_of = ? AND spawned_at > ? ORDER BY id DESC LIMIT 1', [u.id, now - CORRUPT_MON_MS]);
+  // 마법소녀 이벤트 중: 폭주한 헌터는 무조건 특수 몬스터(픽셀 실루엣 · 턴제 전투)로, 속성은 폭주 직전까지 가장 많이 쓴 속성
+  const mgVar = await MG.corruptElem(u.id).catch(() => '');
   if (live) {
-    await db.run('UPDATE monsters SET spawned_at = ?, name = ?, rank = ? WHERE id = ?', [now, u.hunter_name, u.rank, live.id]);
+    await db.run('UPDATE monsters SET spawned_at = ?, name = ?, rank = ?, variant = ? WHERE id = ?', [now, u.hunter_name, u.rank, mgVar || '', live.id]);
     await db.run('UPDATE monsters SET spawned_at = 0 WHERE corrupt_of = ? AND id <> ? AND spawned_at > 0', [u.id, live.id]);     // 혹시 겹쳐 있던 것은 정리
     return true;
   }
   const region = G.SPAWN_REGIONS[Math.floor(Math.random() * G.SPAWN_REGIONS.length)].id;
-  await db.run('INSERT INTO monsters (region, name, rank, spawned_at, corrupt_of) VALUES (?, ?, ?, ?, ?)', [region, u.hunter_name, u.rank, now, u.id]);
+  await db.run('INSERT INTO monsters (region, name, rank, spawned_at, corrupt_of, variant) VALUES (?, ?, ?, ?, ?, ?)', [region, u.hunter_name, u.rank, now, u.id, mgVar || '']);
   return true;
 }
 let lastCorrupt = 0;
@@ -498,6 +500,11 @@ async function loadAchDb() {
     await db.run("DELETE FROM achievements WHERE kind = 'fame'");
     await db.run("INSERT OR IGNORE INTO settings (key, value) VALUES ('fame_removed', '1')");
   }
+  if (!(await db.get("SELECT 1 AS x FROM settings WHERE key = 'ach_seeded5'"))) {      // 다섯 번째 기본 업적 묶음(마법소녀 이벤트 30개): 한 번만 추가
+    const t0 = Date.now() + 1000;
+    await db.batch(G.ACH_SEED5.map((a, i) => ['INSERT OR IGNORE INTO achievements (id, name, descr, kind, val, at) VALUES (?, ?, ?, ?, ?, ?)', [a.id, a.name, a.desc, a.kind, a.val, t0 + i]]));
+    await db.run("INSERT OR IGNORE INTO settings (key, value) VALUES ('ach_seeded5', '1')");
+  }
   if (!(await db.get("SELECT 1 AS x FROM settings WHERE key = 'ach_seeded4'"))) {      // 네 번째 기본 업적 묶음(명성 대신 30개): 한 번만 추가
     const t0 = Date.now();
     await db.batch(G.ACH_SEED4.map((a, i) => ['INSERT OR IGNORE INTO achievements (id, name, descr, kind, val, at) VALUES (?, ?, ?, ?, ?, ?)', [a.id, a.name, a.desc, a.kind, a.val, t0 + i]]));
@@ -516,7 +523,7 @@ async function achStats(u, defs) {
     db.get("SELECT COALESCE(SUM(n), 0) AS c FROM hunt_log WHERE user_id = ? AND result = 'success' AND rank = 'SS'", [u.id])]);
   const s = { kills: k.c, maxRank: rs.reduce((m, r) => Math.max(m, G.RANK_IDX[r.rank] == null ? -1 : G.RANK_IDX[r.rank]), -1), sTry: st.c, sWin: sw.c, lv: u.lv,
     visitBy: {}, visits: 0, countries: 0, collected: {}, slain: {}, surveys: 0, crafts: 0, fails: 0, friends: 0, gifts: 0, gold: Number(u.gold) || 0,
-    rankIdx: G.RANK_IDX[u.rank] == null ? -1 : G.RANK_IDX[u.rank], stats: {}, pvpwin: Number(u.pvp_win) || 0, lp: Number(u.lp_peak) || 0, floor: 0, fishsp: 0, cooks: 0, attend: 0, dex: 0 };
+    rankIdx: G.RANK_IDX[u.rank] == null ? -1 : G.RANK_IDX[u.rank], stats: {}, pvpwin: Number(u.pvp_win) || 0, lp: Number(u.lp_peak) || 0, floor: 0, fishsp: 0, cooks: 0, attend: 0, dex: 0, mg: {} };
   try { s.stats = JSON.parse(u.stats) || {}; } catch (_) { s.stats = {}; }
   const jobs = [];
   if (need('visit', 'visits', 'countries')) jobs.push(db.all('SELECT region, n FROM visit_counts WHERE user_id = ?', [u.id]).then(rows => {
@@ -540,6 +547,7 @@ async function achStats(u, defs) {
   if (need('fishsp')) jobs.push(db.get('SELECT COUNT(*) AS c FROM ct_fish_log WHERE user_id = ? AND n > 0', [u.id]).then(r => { s.fishsp = Number(r.c) || 0; }));
   if (need('cooks')) jobs.push(db.get("SELECT COALESCE(SUM(n), 0) AS c FROM acquire_log WHERE user_id = ? AND source = '요리'", [u.id]).then(r => { s.cooks = Number(r.c) || 0; }));
   if (need('attend')) jobs.push(db.get('SELECT rounds FROM ct_attend WHERE user_id = ?', [u.id]).then(r => { s.attend = r ? Number(r.rounds) || 0 : 0; }));
+  if (need('mg')) jobs.push(MG.achStats(u.id).then(o => { s.mg = o || {}; }).catch(() => {}));      // 마법소녀 이벤트 기록
   if (need('dex')) jobs.push(db.get('SELECT COUNT(DISTINCT el) AS c FROM ct_aff WHERE user_id = ?', [u.id]).then(r => { s.dex = Number(r.c) || 0; }));
   await Promise.all(jobs);
   return s;
@@ -576,6 +584,7 @@ const achMet = (a, s) => {
     case 'collect': { const [k, c] = splitVal(a.val); return c > 0 && (s.collected[k] || 0) >= c; }
     case 'slay': { const [k, c] = splitVal(a.val); return c > 0 && (s.slain[k] || 0) >= c; }
     case 'stat': { const [k, c] = splitVal(a.val); return c > 0 && (Number(s.stats[k]) || 0) >= c; }
+    case 'mg': { const [k, c] = splitVal(a.val); return c > 0 && (Number(s.mg[k]) || 0) >= c; }
     default: return false;            // manual: 관리자 부여만
   }
 };
@@ -583,7 +592,7 @@ const achMet = (a, s) => {
 // 오염도 업적(예: 붉은 달에 물든 자)은 '한 번이라도 달성하면' 계속 달성한 것으로 둡니다. 정화해서 오염도가 내려가도 사라지지 않고, 다시 새 업적으로 알리지도 않습니다.
 // 기록이 줄지 않는 종류(심층 최고 층·리그 최고 LP·PVP 승리·어종·요리·출석·도감)도 한 번 얻으면 그대로 둡니다.
 // (잠깐이라도 '미달성'으로 읽히면 기록이 지워졌다가 다시 생기면서 NEW 가 또 뜨던 문제 방지)
-const STICKY_ACH = new Set(['taint', 'floor', 'lp', 'pvpwin', 'fishsp', 'cooks', 'attend', 'dex']);
+const STICKY_ACH = new Set(['taint', 'floor', 'lp', 'pvpwin', 'fishsp', 'cooks', 'attend', 'dex', 'mg']);
 async function achOf(u) {
   const defs = await loadAch();
   const [s, gr, er] = await Promise.all([achStats(u, defs), db.all('SELECT ach_id FROM ach_grants WHERE user_id = ?', [u.id]),
@@ -2402,7 +2411,7 @@ route('POST', '/api/hunt', async (req, res, ctx) => {
   const cd = cm ? null : await db.get('SELECT until FROM fail_cd WHERE user_id = ? AND monster_id = ?', [cur.id, m.id]);
   if (cd && cd.until > now) return fail(res, 429, 'cooldown', { until: cd.until });
   // 내 등급과 같거나 높은 몬스터는 턴제 전투로 진행합니다 (오염 몬스터는 예전처럼 바로 처치)
-  if (!cm && (G.SPECIAL_MON[m.name] || m.variant || G.isTurnBased(m.rank, cur.rank))) {      // 희귀 변종도 항상 턴제 전투      // 오염 사냥꾼·혈월의 잔영은 등급과 상관없이 항상 턴제 전투
+  if ((!cm && (G.SPECIAL_MON[m.name] || m.variant || G.isTurnBased(m.rank, cur.rank))) || (cm && m.variant)) {      // 폭주 특수 몬스터(마법소녀 이벤트)도 턴제 전투      // 희귀 변종도 항상 턴제 전투      // 오염 사냥꾼·혈월의 잔영은 등급과 상관없이 항상 턴제 전투
     const bv = await battleStart(cur, m, myStats, now);
     if (bv.error) return fail(res, 409, bv.error, { battle: bv.view });
     return send(res, 200, { result: 'battle', battle: bv.view });
@@ -2478,7 +2487,7 @@ async function battleLive(uid, now) {
   const b = await db.get('SELECT user_id, monster_id, mname, mrank, mhp, mmax, php, pmax, round, intent, cd_heavy, buff, log, ver, started, upd, cd_elem, wel, mvar FROM battles WHERE user_id = ?', [uid]);
   if (!b) return null;
   const m = await db.get('SELECT id, spawned_at, rank, corrupt_of FROM monsters WHERE id = ?', [b.monster_id]);
-  if (now - b.upd > G.BT.idleMs || !m || now - m.spawned_at >= G.activeMsOf(m.rank)) {        // 오래 방치했거나 몬스터가 사라짐: 불이익 없이 취소
+  if (now - b.upd > G.BT.idleMs || !m || now - m.spawned_at >= (m.corrupt_of != null ? CORRUPT_MON_MS : G.activeMsOf(m.rank))) {        // 오래 방치했거나 몬스터가 사라짐: 불이익 없이 취소
     await db.run('DELETE FROM battles WHERE user_id = ? AND ver = ?', [uid, b.ver]);
     return null;
   }
@@ -2533,6 +2542,7 @@ route('POST', '/api/battle/act', async (req, res, ctx) => {
   if (action === 'elem' && !useEl) return fail(res, 409, 'no_elem', { battle: btView(Object.assign({}, b, { wel })) });
   if (action === 'elem' && Number(b.cd_elem) > 0) return fail(res, 409, 'elem_cd', { battle: btView(b) });
   if (mgEl && mgEl.src === 'rune' && !(await MG.runeUse(cur.id, useEl))) return fail(res, 409, 'no_rune', { battle: btView(b) });
+  if (action === 'elem') await MG.elemUsed(cur.id, useEl).catch(() => {});      // 가장 많이 쓴 속성 기록 (폭주 몬스터의 속성)
   const m = await db.get('SELECT id, region, name, rank, spawned_at, owner_id, rumor_id, corrupt_of, variant FROM monsters WHERE id = ?', [b.monster_id]);
   const eb = await fullBonus(cur.id, now), myStats = withEq(JSON.parse(cur.stats), eb);
   const pl = G.btPlayer(cur.lv, myStats), hl = b.mname === '오염 사냥꾼' ? await hunterLv(cur.id) : 0, mo = G.btMon(b.mrank, b.mname, pl, hl), BT = G.BT;
@@ -3603,6 +3613,7 @@ route('POST', '/api/admin/achievements/save', async (req, res, ctx) => {
     if (!Number.isInteger(c) || c < 1 || c > 99999 || !k.trim() || cp(k) > 30 || k.includes(':')) return fail(res, 400, 'bad_val');
     if (kind === 'visit' && !G.REGION_BY_ID[k] && !G.COUNTRY_BY_ID[k]) return fail(res, 400, 'bad_val');
     if (kind === 'stat' && !['str', 'agi', 'luck'].includes(k)) return fail(res, 400, 'bad_val');
+    if (kind === 'mg' && !G.MG_ACH_KEYS.includes(k)) return fail(res, 400, 'bad_val');
     val = k.trim() + ':' + c;
   }
   else val = '';
