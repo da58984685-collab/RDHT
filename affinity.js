@@ -171,6 +171,7 @@ const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',
 '.afx-tile.on{outline-color:var(--red2,#ff4d5e)}.afx-tile canvas{display:block;width:100%;aspect-ratio:1;image-rendering:pixelated}'+
 '.afx-tile span{position:absolute;left:0;right:0;bottom:3px;text-align:center;font-size:.64rem;color:#e6dce0;text-shadow:0 1px 0 #000,0 0 4px #000}'+
 '.afx-tile>i{position:absolute;top:4px;right:4px}.afx-tile>i i{display:block;width:8px;height:8px;box-shadow:0 0 0 1px #000}'+
+'.afx-tile.lock span{color:#8c8494}.afx-tile>i.afx-q{top:3px;right:6px;font:700 .7rem/1 monospace;font-style:normal;color:#8c8494;text-shadow:0 1px 0 #000}.afx-dex>div.lock b{color:#8c8494}'+
 '.afx-info{margin:10px 0;padding:12px;border:1px solid var(--line,#3a2328);border-radius:10px;background:var(--field,#120b0d)}'+
 '.afx-info h4{margin:0;display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:1rem}'+
 '.afx-lore{margin:6px 0 8px;font-size:.8rem;line-height:1.5;color:var(--sub,#a99)}'+
@@ -278,32 +279,39 @@ function tileMon(c,m,f,t){const b=m.draw(f,t),ox=Math.round((R-b.w)/2),bob=m.fly
 
 /* ---------- 기기 앱 '속성 도감': 속성 고르기 · 이펙트 시험 · 속성별 상성 · 게임 몬스터 목록 ---------- */
 // data: { monsters: { fire: ['몬스터 이름', ...], ... }, weapons: { fire: ['무기 이름'], ... }, myEl: 'fire' }
+// data.open: 해금된 속성 목록 (몬스터에게 강타·속성 공격을 써 봐야 열림) · data.total: 속성별 몬스터 수
+function tileSil(c,m,f,t){const b=m.draw(f,t),ox=Math.round((R-b.w)/2),oy=m.fly?TG-b.h-4:TG-b.h;c.fillStyle='#07060a';
+  for(let y=0;y<b.h;y++)for(let x=0;x<b.w;x++)if(b.get(x,y))c.fillRect(ox+x,oy+y,1,1)}
 function mountDex(root,data){
-  data=data||{};const mons=data.monsters||{},weps=data.weapons||{};
+  data=data||{};const mons=data.monsters||{},weps=data.weapons||{},total=data.total||{};
+  const open=Array.isArray(data.open)?data.open:KEYS.slice(),isOpen=function(el){return open.indexOf(el)>=0};
   root.innerHTML='';
   const note=document.createElement('p');note.className='app-note';
   note.innerHTML='현재 속성 · '+(data.myEl&&ELEM[data.myEl]?'<b style="color:'+ELEM[data.myEl].c+'">'+iconImg(data.myEl)+ELEM[data.myEl].name+'</b>':'없음');
   root.appendChild(note);
+  const prog=document.createElement('p');prog.className='app-note';prog.textContent='도감 해금 '+KEYS.filter(isOpen).length+' / '+KEYS.length+' · 몬스터에게 강타나 속성 공격을 직접 써 보면 그 몬스터와 속성이 열려요.';root.appendChild(prog);
   const tw=document.createElement('div');tw.className='afx-tiles';root.appendChild(tw);
-  const tiles=KEYS.map(function(el,i){const b=document.createElement('button');b.type='button';b.className='afx-tile';b.setAttribute('aria-label',ELEM[el].name+' 속성');
-    b.innerHTML='<canvas width="'+R+'" height="'+R+'"></canvas><span>'+ELEM[el].name+'</span><i>'+iconImg(el,'x')+'</i>';
+  const tiles=KEYS.map(function(el,i){const b=document.createElement('button');b.type='button';b.className='afx-tile'+(isOpen(el)?'':' lock');b.setAttribute('aria-label',isOpen(el)?ELEM[el].name+' 속성':'미공개 속성');
+    b.innerHTML='<canvas width="'+R+'" height="'+R+'"></canvas><span>'+(isOpen(el)?ELEM[el].name:'???')+'</span>'+(isOpen(el)?'<i>'+iconImg(el,'x')+'</i>':'<i class="afx-q">?</i>');
     b.addEventListener('click',function(){select(i)});tw.appendChild(b);return b.querySelector('canvas').getContext('2d')});
   const ar=Arena(root);ar.el.style.marginTop='8px';
   const info=document.createElement('div');info.className='afx-info';info.setAttribute('aria-live','polite');root.appendChild(info);
   function btn(id,k,mul){return '<button type="button" class="afx-btn '+k+'" data-id="'+id+'" data-k="'+(k==='w'?'weak':'res')+'">'+iconImg(ELEM_OF[id],'afx-ic')+'<span>'+FXK[id]+' '+mul+'<small>'+ELEM[ELEM_OF[id]].name+' 속성</small></span></button>'}
-  function select(i){const el=KEYS[i],e=ELEM[el],ch=CHART[el];ar.setEl(el);
+  function select(i){const el=KEYS[i],e=ELEM[el],ch=CHART[el];
     Array.prototype.forEach.call(tw.children,function(t,k){t.classList.toggle('on',k===i)});
-    const list=(mons[el]||[]).join(', ');
+    if(!isOpen(el)){ar.el.hidden=true;info.innerHTML='<h4>??? <span class="afx-chip">미공개 속성</span></h4><p class="afx-lore">아직 이 속성의 몬스터에게 스킬을 써 본 적이 없어요. 전투에서 강타나 속성 공격을 써 보면 자동으로 해금돼요.</p>';return}
+    ar.el.hidden=false;ar.setEl(el);
+    const known=mons[el]||[],list=known.join(', '),left=Math.max(0,(total[el]||0)-known.length);
     info.innerHTML='<h4>'+esc(SPRITE[el])+' <span class="afx-chip" style="color:'+e.c+'">'+iconImg(el)+e.name+' 속성</span></h4>'+
       '<p class="afx-lore">'+LORE[el]+'</p>'+
       '<div class="afx-row"><b style="color:#ff5a6a">약점</b>'+ch.weak.map(function(w){return btn(HIT[w],'w','×2')}).join('')+'</div>'+
       '<div class="afx-row"><b style="color:#6ab8ff">내성</b>'+btn(HIT[ch.res],'r','×0.5')+'</div>'+
-      (list?'<p class="afx-lore" style="margin:10px 0 0">이 속성의 몬스터 · '+esc(list)+'</p>':'')+
+      '<p class="afx-lore" style="margin:10px 0 0">이 속성의 몬스터 · '+(list?esc(list):'')+(left?(list?' · ':'')+'??? '+left+'마리 미공개':'')+'</p>'+
       ((weps[el]||[]).length?'<p class="afx-lore" style="margin:4px 0 0">이 속성이 깃든 무기 · '+esc(weps[el].join(', '))+'</p>':'');
     Array.prototype.forEach.call(info.querySelectorAll('.afx-btn'),function(b){b.addEventListener('click',function(){ar.cast(b.getAttribute('data-id'),b.getAttribute('data-k'))})})}
   const h=document.createElement('p');h.className='afx-h';h.textContent='속성 상성표';root.appendChild(h);
   const dx=document.createElement('div');dx.className='afx-dex';
-  dx.innerHTML=KEYS.map(function(k){const e=ELEM[k],good=KEYS.filter(function(m){return CHART[m].weak.indexOf(k)>=0}).map(function(m){return ELEM[m].name}),bad=KEYS.filter(function(m){return CHART[m].res===k}).map(function(m){return ELEM[m].name});
+  dx.innerHTML=KEYS.map(function(k){if(!isOpen(k))return '<div class="lock"><b>??? 미공개</b><small>스킬을 써 보면 상성이 기록돼요</small></div>';const e=ELEM[k],good=KEYS.filter(function(m){return CHART[m].weak.indexOf(k)>=0}).map(function(m){return ELEM[m].name}),bad=KEYS.filter(function(m){return CHART[m].res===k}).map(function(m){return ELEM[m].name});
     return '<div><b style="color:'+e.c+'">'+iconImg(k)+e.name+'</b><small><span class="w">약점</span> '+CHART[k].weak.map(function(w){return ELEM[w].name}).join(' · ')+' · <span class="r">내성</span> '+ELEM[CHART[k].res].name+'</small>'+
       '<small>'+e.name+' 공격이 잘 듣는 속성: '+(good.join(', ')||'-')+'</small></div>'}).join('');
   root.appendChild(dx);
@@ -311,9 +319,9 @@ function mountDex(root,data){
   let T=0,prev=performance.now(),raf=0;
   (function loop(now){if(!root.isConnected||!tw.isConnected){ar.stop();return}
     const dt=Math.max(0,Math.min(.05,(now-prev)/1000));prev=now;T+=dt;
-    if(!document.hidden)KEYS.forEach(function(el,i){const m=monOf(el),c=tiles[i];tileBg(c);tileMon(c,m,Math.floor(T*m.fps)%m.frames,T)});
+    if(!document.hidden)KEYS.forEach(function(el,i){const m=monOf(el),c=tiles[i];tileBg(c);(isOpen(el)?tileMon:tileSil)(c,m,Math.floor(T*m.fps)%m.frames,T)});
     raf=requestAnimationFrame(loop)})(prev);
-  select(Math.max(0,KEYS.indexOf(data.myEl||'fire')));
+  const first=isOpen(data.myEl)?data.myEl:(KEYS.filter(isOpen)[0]||KEYS[0]);select(Math.max(0,KEYS.indexOf(first)));
 }
 
 window.AFX={ELEM:ELEM,KEYS:KEYS,CHART:CHART,HIT:HIT,iconImg:iconImg,affOf:affOf,Arena:Arena,mountDex:mountDex};
