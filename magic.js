@@ -977,6 +977,23 @@ function install(d) {
     send(res, 200, { ok: w.changes === 1 });
   });
 
+
+  // ── 관리자: 유저끼리 주고받은 반짝 우체통 편지 보기·지우기 (이벤트가 꺼져 있어도 기록은 볼 수 있음) ──
+  route('GET', '/api/admin/mg/mail', async (req, res) => {
+    const u = url(req), q = String(u.searchParams.get('q') || '').trim(), before = Number(u.searchParams.get('before')) || 0;
+    const where = [], args = [];
+    if (before) { where.push('m.id < ?'); args.push(before); }
+    if (q) { where.push('(uf.hunter_name LIKE ? OR ut.hunter_name LIKE ? OR uf.code = ? OR ut.code = ? OR m.text LIKE ?)'); const lk = '%' + q + '%'; args.push(lk, lk, normCode(q), normCode(q), lk); }
+    const rows = await db.all('SELECT m.id, m.text, m.taint, m.at, m.seen, m.heart, uf.hunter_name AS fn, uf.code AS fc, ut.hunter_name AS tn, ut.code AS tc FROM mg_mail m LEFT JOIN users uf ON uf.id = m.from_id LEFT JOIN users ut ON ut.id = m.to_id' + (where.length ? ' WHERE ' + where.join(' AND ') : '') + ' ORDER BY m.id DESC LIMIT 50', args);
+    const tot = await db.get('SELECT COUNT(*) AS c FROM mg_mail');
+    const today = await db.get('SELECT COUNT(*) AS c FROM mg_mail WHERE at >= ?', [dayStart(dayKey(Date.now()))]);
+    send(res, 200, { total: Number(tot.c) || 0, today: Number(today.c) || 0, more: rows.length === 50,
+      list: rows.map(r => ({ id: r.id, text: r.text, shown: G.garble(r.text, r.taint, r.id), taint: Number(r.taint) || 0, at: Number(r.at), seen: !!Number(r.seen), heart: !!Number(r.heart), from: { name: r.fn || '(삭제된 헌터)', code: r.fc || '' }, to: { name: r.tn || '(삭제된 헌터)', code: r.tc || '' } })) });
+  }, { auth: false, admin: true });
+  route('POST', '/api/admin/mg/mail/delete', async (req, res, ctx) => {
+    const w = await db.run('DELETE FROM mg_mail WHERE id = ?', [Number(ctx.body.id) || 0]);
+    send(res, 200, { ok: w.changes === 1 });
+  }, { auth: false, admin: true });
   // ═════════ 14 리본 묶기 ═════════
   async function ribOf(uid) { const r = await db.get('SELECT r.partner, r.color, r.at, u.hunter_name, u.code, u.region FROM mg_rib r JOIN users u ON u.id = r.partner WHERE r.user_id = ?', [uid]); return r || null; }
   async function ribView(uid) {
