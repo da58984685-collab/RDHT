@@ -177,9 +177,10 @@ async function tickPersonal(uid, now) {
     while (next <= now && guard++ < 60) {
       const rank = t.ranks[G.rnd(0, t.ranks.length - 1)];
       const name = CT.pickName(rank, next);      // 시간대·요일에 강조된 속성의 몬스터가 더 자주 나옴
-      if (vp === null) vp = await CT.variantChance(uid, now);
+      if (vp === null) vp = (await themeState()) === 'magic' ? await CT.variantChance(uid, now) : 0;      // 변종은 마법소녀 이벤트 중에만
+      const vv = CT.rollVariant(name, vp);
       list.push(['INSERT INTO monsters (region, name, rank, spawned_at, owner_id, variant) VALUES (?, ?, ?, ?, ?, ?)',
-        [myRegions[G.rnd(0, myRegions.length - 1)].id, name, rank, next, uid, CT.rollVariant(name, vp)]]);      // 희귀 변종 (1% 안팎)
+        [myRegions[G.rnd(0, myRegions.length - 1)].id, vv ? CT.VARIANT_SPECIES[vv] : name, rank, next, uid, vv]]);      // 희귀 변종 (1% 안팎): 도감 10종 중 하나로 나옴
       next += t.gap();
     }
     const claim = await db.run('UPDATE user_spawn SET next_at = ? WHERE user_id = ? AND tier = ? AND next_at = ?', [next, uid, t.k, from]);
