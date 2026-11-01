@@ -174,8 +174,8 @@ html.mgn .mgs-w{--mgs-bg:#2a1f2a;--mgs-card:#33252f;--mgs-line:#5d4054;--mgs-dee
 .mgs-costag{display:inline-flex;align-items:center;gap:6px;max-width:100%;padding:4px 10px;border-radius:999px;background:#fff0f7;border:1px solid #f3c2d8;color:#8f4466;font-size:11.5px;line-height:1.35;overflow-wrap:anywhere}
 .mgs-costag i{flex:none;width:9px;height:9px;border-radius:50%;background:var(--cc);box-shadow:0 0 0 1px rgba(0,0,0,.12)}
 .mgs-costag.big{font-size:13.5px;padding:8px 14px;font-weight:600}
-.mgs-costag.pf{display:flex;width:max-content;margin:4px auto 0}
-.mgs-costag.pv{display:flex;width:max-content;margin:4px auto 0;font-size:11px}
+.mgs-costag.mgs-pf{display:flex;flex:none;align-self:center;justify-content:center;width:auto;max-width:100%;margin:6px auto 0;text-align:center;position:relative;z-index:1}
+.mgs-costag.mgs-pv{display:flex;justify-content:center;width:auto;max-width:100%;margin:4px auto 0;font-size:11px;text-align:center}
 html.mgn .mgs-costag{background:#3d2b38;border-color:#5d4054;color:#f4d3e3}
 
 /* 별자리 잇기 판 배경: 커서와 이어지는 별자리 그물 · Lucian UX/UI Prompt #341 · MIT License (c) 2026 Seokwoooo · https://lucianlabs.dev/uxui-prompt/#341 */
@@ -389,3 +389,14 @@ html.mgn .mgs-schs.ok small{color:#d9bd94}
 .mgs-ep:hover,.mgs-ep:focus-visible{border-color:var(--mgs-deep);background:var(--mgs-soft)}
 .mgs-outfit .mgs-chip.el.shop{border-style:dashed}
 .u341 .mgs-board{cursor:pointer}
+/* 거울 나라: 수동 전투 */
+.mgs-mirtn{margin:2px 0 0;font-size:11.5px;opacity:.75}
+.mgs-mirlog{display:grid;gap:2px;max-height:150px;overflow:auto;padding:8px 10px;border-radius:10px;background:rgba(0,0,0,.25);font-size:12.5px;line-height:1.45}
+.mgs-mirlog p{margin:0}.mgs-mirlog .k-cr{color:#ffd27a;font-weight:700}.mgs-mirlog .k-en{color:#c9b8ff}
+.mgs-miracts{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+.mgs-mira{display:grid;gap:2px;justify-items:center;padding:8px 4px;border:1px solid rgba(255,255,255,.28);border-radius:10px;background:rgba(255,255,255,.1);color:#fff;font:inherit;cursor:pointer;text-align:center}
+.mgs-mira b{font-size:13.5px}.mgs-mira small{font-size:10.5px;opacity:.75;line-height:1.25}
+.mgs-mira:hover:not(:disabled){background:rgba(255,255,255,.2)}
+.mgs-mira:disabled{opacity:.45;cursor:default}
+.mgs-mira.flee{border-style:dashed}
+@media (max-width:420px){.mgs-miracts{grid-template-columns:repeat(2,minmax(0,1fr))}}
