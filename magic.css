@@ -706,3 +706,21 @@ html.mgn body{background-color:#0e060b}
 html.mgn section{background:linear-gradient(180deg,#341d29,#2b1822);border-color:#8a4a64;box-shadow:0 0 0 1px rgba(0,0,0,.35),0 10px 28px -6px rgba(0,0,0,.75),0 0 18px rgba(235,99,148,.22),inset 0 1px 0 rgba(255,190,220,.08)}
 html.mgn section>h2{background:linear-gradient(180deg,#432435,#38202d);border-bottom:1px solid #6e3a50}
 html.mgn .hud{background:linear-gradient(90deg,#3a2030,#2e1925);border-color:#8a4a64;box-shadow:0 10px 26px -8px rgba(0,0,0,.75),0 0 16px rgba(235,99,148,.2)}
+
+/* 라이트(낮) 모드: 게이트웨이브·커뮤니티 스타일이 이 파일보다 뒤에 있어 덮어쓰던 것 → 우선순위를 올려 다시 적용 (댓글·알림 창이 까맣게 뜨던 문제) */
+html.mgl:not(.mgn) .cmsnd[aria-pressed="true"]{color:#4c2e39}
+html.mgl:not(.mgn) .cml li{background:rgba(76,46,57,0.02)}
+html.mgl:not(.mgn) .cml .cmt.s{color:#f585ae}
+html.mgl:not(.mgn) .gwi{background:rgba(76,46,57,0.02)}
+html.mgl:not(.mgn) .gwm .gwr.s{color:#f585ae}
+html.mgl:not(.mgn) .gwav{color:#4c2e39;background:#d8bdc7}
+html.mgl:not(.mgn) .gwcs li{background:#fef3f7}
+html.mgl:not(.mgn) .gwcs li.me{background:#fdf1f5}
+html.mgl:not(.mgn) .gwtoast{color:#4c2e39;background:linear-gradient(180deg,#fde9f0,#fef5f9);box-shadow:0 0 22px rgba(235,99,148,0.5)}
+html.mgl:not(.mgn) .gwcs li.re{background:#fef4f8}
+html.mgl:not(.mgn) .gwdel[data-arm="1"]{color:#f585ae}
+html.mgl:not(.mgn) .gwlk.on{color:#f585ae}
+html.mgl:not(.mgn) .gwcx:hover,html.mgl:not(.mgn) .gwcx[data-arm="1"]{color:#f585ae}
+html.mgl:not(.mgn) .u074{--ux-page:#fef8fb;--ux-surface:#fef4f7;--ux-surface-2:#fdf1f5;--ux-ink-3:#ac7589;--ux-shadow-strong:rgba(255,251,253,0.75)}
+html.mgl:not(.mgn) .u074-badge{background:#f478a5;color:#4c2e39}
+html.mgl:not(.mgn) .gwsg{background:#fef4f7;box-shadow:0 10px 24px rgba(222,150,184,0.27)}
