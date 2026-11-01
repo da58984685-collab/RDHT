@@ -81,6 +81,8 @@ const TITLES = [
 const TITLE_BY = new Map(TITLES.map(t => [t.id, t]));
 
 // ───────── 18 희귀 변종 ─────────
+// 변종은 속성 도감(affinity.js)의 10종 가운데 하나로 나옵니다: 속성 → 몬스터 이름 (마법소녀 이벤트 중에만)
+const VARIANT_SPECIES = { fire: '불꽃 정령', ice: '서리 결정', water: '심해 해파리', lightning: '뇌운', earth: '이끼 골렘', poison: '독 슬라임', blast: '봄버', holy: '세라핌', arcane: '떠도는 눈', shadow: '망령' };
 const VARIANT_BASE = 0.01, VARIANT_LUCK = 0.005, VARIANT_MUL = 1.5, VARIANT_REWARD = 3, VARIANT_DROP = '변이의 비늘';
 
 // ───────── 20 요리 ─────────
@@ -379,7 +381,7 @@ function install(d) {
     const b = await bonus(uid, now);
     return (VARIANT_BASE + (luck + b.luck >= 50 ? VARIANT_LUCK : 0) + timeMod(now).variant) * b.variant;
   }
-  const rollVariant = (name, p) => { if (Math.random() >= p) return ''; const base = G.elemOf(name); return pick(ELK.filter(k => k !== base)); };
+  const rollVariant = (name, p) => { if (!p || Math.random() >= p) return ''; return pick(Object.keys(VARIANT_SPECIES).filter(k => ELK.includes(k))); };      // 도감 10종 중 하나의 속성
 
   // ── 토벌 성공 보상 배율 · 칭호 조건 (huntWin 에서 부름) ──
   async function onKill(cur, m, now, before) {
@@ -736,7 +738,7 @@ function install(d) {
 
   return {
     timeMod, bonus, pickName, variantChance, rollVariant, onKill, bump, grantTitle, titleOf, abyssRecord, abyssSettle, leagueResult, leagueView, stateExtra, enhInfo, plusVal,
-    VARIANT_MUL, ABYSS_FROM, ABYSS_MAT, EXTRA_MAT_TIER, DISH, purge: id => PURGE.map(p => [p[0], p[1] === 2 ? [id, id] : [id]]),
+    VARIANT_MUL, VARIANT_SPECIES, ABYSS_FROM, ABYSS_MAT, EXTRA_MAT_TIER, DISH, purge: id => PURGE.map(p => [p[0], p[1] === 2 ? [id, id] : [id]]),
   };
 }
 // 인벤토리 '조합 아이템' 탭에 들어가는 새 재료와 등급
