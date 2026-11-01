@@ -379,3 +379,13 @@ html.mgn .mgs-stamps span.on{background:radial-gradient(circle,#ecd6b0,#c9a77c);
 html.mgn .mgs-cert{background:linear-gradient(180deg,#3a2c22,#30222b);border-color:#a8875e;color:#e6d2b6}
 html.mgn .mgs-dturn.w b,html.mgn .mgs-dfin.win{color:#e6cfa6}
 html.mgn .mgs-schs.ok small{color:#d9bd94}
+
+/* 전투 속성 마법 고르기 */
+.mgs-epick{position:fixed;z-index:3000;display:grid;gap:5px;padding:10px;border-radius:14px;background:var(--mgs-card);border:1px solid var(--mgs-line);box-shadow:0 18px 40px -16px rgba(60,20,50,.55)}
+.mgs-epick>small{font-size:11.5px;color:var(--mgs-ink2)}
+.mgs-ep{display:grid;grid-template-columns:auto 1fr;grid-template-rows:auto auto;column-gap:8px;align-items:center;text-align:left;border:1px solid var(--mgs-line);border-radius:10px;padding:6px 10px;background:var(--mgs-bg);color:var(--mgs-ink);font:inherit;cursor:pointer}
+.mgs-ep .ic{grid-row:1/3;line-height:0}.mgs-ep .ic img{width:22px;height:22px;image-rendering:pixelated}
+.mgs-ep b{font-size:13.5px}.mgs-ep small{font-size:11px;color:var(--mgs-ink2)}
+.mgs-ep:hover,.mgs-ep:focus-visible{border-color:var(--mgs-deep);background:var(--mgs-soft)}
+.mgs-outfit .mgs-chip.el.shop{border-style:dashed}
+.u341 .mgs-board{cursor:pointer}
