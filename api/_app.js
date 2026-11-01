@@ -402,7 +402,7 @@ async function boardCtx(now) {
   const all = us.map(u => ({ hn: u.hn, rank: u.rank, fame: Math.max(0, (Number(u.lv) || 1) - 1) }));      // 명성 제도 삭제: '화제의 헌터' 글은 전투력 레벨이 높을수록 자주 언급
   const fame = all.filter(u => u.fame > 0).sort((a, b) => b.fame - a.fame).slice(0, 40);
   const sUsers = all.filter(u => u.rank === 'S').sort((a, b) => b.fame - a.fame).slice(0, 40);
-  return { mons, regions, sOn, sKill, sFled, sUsers, fame };
+  return { mons, regions, sOn, sKill, sFled, sUsers, fame, magic: (await themeState()) === 'magic' };      // 마법소녀 이벤트 중에는 '마법헌터' 글도 올라옴
 }
 let boardBusy = false;
 async function tickBoard() {
