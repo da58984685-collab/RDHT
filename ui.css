@@ -10,6 +10,10 @@
 
 /* ── 창(section·대화창): 얇은 테두리 + 커서를 따라 번지는 빛 (#228) ──
    ui.js 가 창마다 커서 좌표(--cx,--cy)와 세기(--o)를 넣어, 한 점의 조명이 이웃 창 가장자리까지 함께 비춥니다. */
+/* 렉 줄이기: 커서 좌표 변수는 자식에게 물려주지 않게 등록 → 좌표가 바뀔 때 창 안의 모든 요소 스타일을 다시 계산하지 않음 */
+@property --cx{syntax:'<length>';inherits:false;initial-value:-500px}
+@property --cy{syntax:'<length>';inherits:false;initial-value:-500px}
+@property --o{syntax:'<number>';inherits:false;initial-value:0}
 section,.dialog{--cx:-500px;--cy:-500px;--o:0;border:1px solid transparent;
   background:
     radial-gradient(220px circle at var(--cx) var(--cy),color-mix(in srgb,var(--red2) calc(var(--o) * 13%),transparent),transparent 60%) padding-box,
