@@ -328,7 +328,7 @@ function install(d) {
     const now = Date.now();
     if (tid.indexOf('ach:') === 0) {
       const a = await db.get('SELECT a.name FROM ach_earned e JOIN achievements a ON a.id = e.ach_id WHERE e.user_id = ? AND e.ach_id = ?', [uid, tid.slice(4)]);
-      return a ? { name: a.name, tier: 'c' } : null;
+      return a ? { name: a.name, tier: (G.ACH_TITLE_TIER || {})[tid.slice(4)] || 'c' } : null;      // 어려운 업적 칭호는 영웅·전설 색
     }
     const own = await db.get('SELECT until FROM ct_title WHERE user_id = ? AND tid = ?', [uid, tid]);
     if (!TITLE_BY.has(tid) || !own || (Number(own.until) && Number(own.until) < now)) { await db.run("UPDATE users SET title = '' WHERE id = ? AND title = ?", [uid, tid]); return null; }      // 없어진 칭호(예: 숙소)는 떼어 냄
@@ -341,7 +341,7 @@ function install(d) {
     const cur = (await db.get('SELECT title FROM users WHERE id = ?', [uid])).title;
     const list = TITLES.map(t => { const o = own.get(t.id), live = o && (!Number(o.until) || Number(o.until) > now); return { id: t.id, name: live || !t.hidden ? t.name : '???', tier: t.tier, how: live || !t.hidden ? t.how : '숨겨진 조건', own: !!live, until: live ? Number(o.until) || 0 : 0 }; });
     own.forEach((o, tid) => { if (!TITLE_BY.has(tid) && (!Number(o.until) || Number(o.until) > now)) list.push({ id: tid, name: titleName(tid), tier: titleTier(tid), how: 'PVP 리그 시즌 최고 티어', own: true, until: Number(o.until) || 0 }); });
-    send(res, 200, { cur, list, ach: ach.map(a => ({ id: 'ach:' + a.id, name: a.name, tier: 'c', own: true })) });
+    send(res, 200, { cur, list, ach: ach.map(a => ({ id: 'ach:' + a.id, name: a.name, tier: (G.ACH_TITLE_TIER || {})[a.id] || 'c', own: true })) });
   });
   route('POST', '/api/titles/wear', async (req, res, ctx) => {
     const uid = ctx.user.id, tid = String(ctx.body.id || '');
