@@ -257,6 +257,7 @@ const SQL = [
   "CREATE TABLE IF NOT EXISTS ct_fish_day (user_id INTEGER NOT NULL, day TEXT NOT NULL, n INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (user_id, day))",
   "CREATE TABLE IF NOT EXISTS ct_news (id INTEGER PRIMARY KEY AUTOINCREMENT, user_id INTEGER NOT NULL, title TEXT NOT NULL, body TEXT NOT NULL, at INTEGER NOT NULL)",
   "CREATE INDEX IF NOT EXISTS ct_news_user ON ct_news(user_id, id)",
+  "CREATE TABLE IF NOT EXISTS ct_aff (user_id INTEGER NOT NULL, mon TEXT NOT NULL, el TEXT NOT NULL, at INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (user_id, mon))",      // 속성 도감: 스킬을 써 본 몬스터
   'ALTER TABLE users ADD COLUMN title TEXT NOT NULL DEFAULT \'\'',
   'ALTER TABLE pvp_queue ADD COLUMN mode TEXT NOT NULL DEFAULT \'league\'',
   'ALTER TABLE users ADD COLUMN buff TEXT NOT NULL DEFAULT \'\'',
@@ -276,7 +277,7 @@ const SQL = [
   'ALTER TABLE user_mons ADD COLUMN exp_from INTEGER NOT NULL DEFAULT 0',
   'ALTER TABLE user_mons ADD COLUMN exp_until INTEGER NOT NULL DEFAULT 0',
 ];
-const PURGE = ['ct_counter', 'ct_title', 'ct_attend', 'ct_fortune', 'ct_gate_week', 'ct_fish_cast', 'ct_fish_log', 'ct_fish_day', 'ct_news'].map(t => ['DELETE FROM ' + t + ' WHERE user_id = ?']);
+const PURGE = ['ct_counter', 'ct_title', 'ct_attend', 'ct_fortune', 'ct_gate_week', 'ct_fish_cast', 'ct_fish_log', 'ct_fish_day', 'ct_news', 'ct_aff'].map(t => ['DELETE FROM ' + t + ' WHERE user_id = ?']);
 
 function install(d) {
   const { db, route, send, fail, limited, userById, grantGold, grantExp, logAcquire, giveItem, EQ_BY_ID, eqBonusOf } = d;
@@ -628,10 +629,10 @@ function install(d) {
   // ═════════ 22 원정 ═════════
   route('GET', '/api/expedition', async (req, res, ctx) => {
     const uid = ctx.user.id, now = Date.now();
-    const mons = await db.all('SELECT mon_id, nick, bond, walk_at, exp_spot, exp_until FROM user_mons WHERE user_id = ?', [uid]);
+    const mons = await db.all('SELECT mon_id, nick, bond, walk_at, exp_spot, exp_from, exp_until FROM user_mons WHERE user_id = ?', [uid]);
     const cap = 1;
-    send(res, 200, { cap, spots: EXPED.map(x => ({ id: x.id, ko: x.ko, hours: x.hours, bond: x.bond, loot: x.loot.concat(x.epic || []) })),
-      mons: mons.map(r => { const m = G.FRIENDLY_MON.find(x => x.id === r.mon_id) || {}; return { id: r.mon_id, name: r.nick || m.name, grade: m.grade, bond: r.bond, walking: r.walk_at > 0, spot: r.exp_spot || '', spotKo: r.exp_spot ? (EXPED_BY.get(r.exp_spot) || {}).ko : '', until: Number(r.exp_until) || 0, done: !!r.exp_spot && Number(r.exp_until) <= now }; }) });
+    send(res, 200, { cap, now, spots: EXPED.map(x => ({ id: x.id, ko: x.ko, hours: x.hours, bond: x.bond, loot: x.loot.concat(x.epic || []), epic: x.epic || [] })),
+      mons: mons.map(r => { const m = G.FRIENDLY_MON.find(x => x.id === r.mon_id) || {}; return { id: r.mon_id, name: r.nick || m.name, grade: m.grade, bond: r.bond, walking: r.walk_at > 0, spot: r.exp_spot || '', spotKo: r.exp_spot ? (EXPED_BY.get(r.exp_spot) || {}).ko : '', from: Number(r.exp_from) || 0, until: Number(r.exp_until) || 0, done: !!r.exp_spot && Number(r.exp_until) <= now }; }) });
   });
   route('POST', '/api/expedition/send', async (req, res, ctx) => {
     const uid = ctx.user.id, now = Date.now(), id = String(ctx.body.id || ''), sp = EXPED_BY.get(String(ctx.body.spot || ''));
