@@ -749,6 +749,7 @@ async function buildState(u, now) {
       c: m.corrupt_of != null ? 1 : undefined,
       v: m.variant || undefined,
     })),
+    mg: await MG.stateOf(u.id, now),      // 마법소녀 이벤트: 변신 시간 · 오늘의 별자리 (테마가 꺼져 있으면 null)
     content: await CT.stateExtra(u.id, now),      // 상시 컨텐츠: 시간대 · 요리 버프 · 운세 · 출석 · 칭호 · 소식
     s: Object.assign(si, { need: G.RAID_NEED, needTries: G.RAID_ATTEMPTS, max: G.S_MAX }),
     pending: pending.map(p => ({ id: p.id, mon: p.name, at: p.resolve_at })),
@@ -1014,7 +1015,7 @@ route('POST', '/api/logout', async (req, res) => {
 route('GET', '/api/me', async (req, res, ctx) => {
   await catchUp();
   const u = await userById(ctx.user.id);
-  send(res, 200, { user: publicUser(await withImage(u)), state: await buildState(u, Date.now()) });
+  send(res, 200, { user: publicUser(await withImage(u)), state: await buildState(u, Date.now()), oath: (await MG.oathNeed(u.id)) ? MG.OATH : undefined });      // 마법소녀 이벤트 첫 입장: 맹세 주문을 적어야 들어갈 수 있음
 });
 
 route('GET', '/api/state', async (req, res, ctx) => {
@@ -1139,7 +1140,7 @@ route('GET', '/api/gw/profile', async (req, res, ctx) => {
   const f = row ? await userById(row.user_id) : null;
   if (!f) return fail(res, 404, 'not_found');
   const me = f.id === ctx.user.id, fr = me || await isFriend(ctx.user.id, f.id);
-  const base = { hn: f.hunter_name, rank: f.rank, image: imgUrl(f.id, f.img_ver), friend: fr, me };
+  const base = { hn: f.hunter_name, rank: f.rank, image: imgUrl(f.id, f.img_ver), friend: fr, me, mg: await MG.profileExtra(f.id) };
   if (f.is_private && !me && !fr) return send(res, 200, { profile: Object.assign(base, { priv: true, bio: f.bio || '', pins: [], traits: traitsOf((await withText(f)).traits), ach: null }) });
   await syncAchEarned(f, Date.now(), true);
   const a = await db.get(`SELECT a.name, a.descr, e.at FROM ach_earned e JOIN achievements a ON a.id = e.ach_id
@@ -1413,6 +1414,7 @@ route('POST', '/api/friends/rescue', async (req, res, ctx) => {
 // ═════════════ 장비 ═════════════
 const EQ_BY_ID = new Map(G.EQUIPS.map(e => [e.id, e]));
 const CT = CTX.install({ db, route, send, fail, limited, userById, grantGold, grantExp, logAcquire, giveItem, EQ_BY_ID, HP });      // 상시 컨텐츠 12종
+const MG = require('./_magic').install({ db, route, send, fail, limited, userById, userByCode, isFriend, applyItemEffect, themeState, CT, normCode, grantGold, grantExp, logAcquire, placeName: G.placeName, pvpMine, compFx: c => compFx(c), G });      // 마법소녀 이벤트
 const EQ_BY_NAME = new Map(G.EQUIPS.map(e => [e.name, e]));
 const eqBonusOf = e => { if (e.bonus) return { stat: e.bonus.stat, val: e.bonus.val }; const sl = G.EQ_SLOTS[e.slot], gi = 'CBAS'.indexOf(e.grade); return { stat: sl.stat, val: sl.v[gi] }; };      // e.bonus: 이벤트 가면처럼 능력치를 직접 지정한 장비
 const EQ_STAT_KO = { str: ['근력', ''], agi: ['민첩', ''], luck: ['행운', ''], hpGuard: ['체력 피해 감소', '%'], taintRes: ['오염도 증가 감소', '%'] };
@@ -1483,6 +1485,7 @@ route('POST', '/api/equip/craft', async (req, res, ctx) => {
   } catch (err) { await restore(); throw err; }
   await db.run('DELETE FROM inventory WHERE user_id = ? AND qty <= 0', [cur.id]);
   await logAcquire(cur.id, 'item', e.name + ' (' + e.grade + '급 장비)', 1, '장비 조합', Date.now());
+  await MG.act(cur.id, 'craft').catch(() => {});      // 마법 학교 수업 기록
   send(res, 200, { ok: true, name: e.name, grade: e.grade });
 });
 route('POST', '/api/equip/wear', async (req, res, ctx) => {
@@ -1744,6 +1747,7 @@ route('POST', '/api/craft', async (req, res, ctx) => {
   } catch (e) { await restore(); throw e; }
   await db.run('DELETE FROM inventory WHERE user_id = ? AND qty <= 0', [cur.id]);
   await logAcquire(cur.id, 'item', rc.name, 1, '조합', Date.now());
+  await MG.act(cur.id, 'craft').catch(() => {});      // 마법 학교 수업 기록
   send(res, 200, { ok: true, item: rc.name });
 });
 route('GET', '/api/gifts', async (req, res, ctx) => {
@@ -1868,6 +1872,7 @@ route('POST', '/api/raise/act', async (req, res, ctx) => {
     if (t.changes !== 1) return fail(res, 400, 'no_food');
     await db.run('UPDATE user_mons SET sat = ?, sat_at = ?, fed_last = ? WHERE user_id = ? AND mon_id = ?', [Math.min(100, st.full + RAISE.FEED), now, now, uid, id]);
     const gain = await addBond(uid, id, row, RAISE.FEED_BOND, now);
+    MG.act(uid, 'raise').catch(() => {});      // 마법소녀 이벤트: 마법 학교 수업 기록
     return out({ gain, want: RAISE.FEED_BOND });
   }
   if (act === 'bath') {
@@ -1875,6 +1880,7 @@ route('POST', '/api/raise/act', async (req, res, ctx) => {
     if (st.clean >= 100) return fail(res, 400, 'clean');
     await db.run('UPDATE user_mons SET clean = ?, clean_at = ?, bath_last = ? WHERE user_id = ? AND mon_id = ?', [Math.min(100, st.clean + RAISE.BATH), now, now, uid, id]);
     const gain = await addBond(uid, id, row, RAISE.BATH_BOND, now);
+    MG.act(uid, 'raise').catch(() => {});
     return out({ gain, want: RAISE.BATH_BOND });
   }
   if (act === 'walk') {
@@ -2078,7 +2084,8 @@ async function pvpStartBattle(uid, me, oid, o, now, casual) {
     const names = await db.all('SELECT id, hunter_name FROM users WHERE id IN (?, ?)', [A.id, B.id]);
     const nm = id => (names.find(n => n.id === id) || {}).hunter_name || '(헌터)';
     const side = (X) => ({ name: nm(X.id), stats: X.m.a, fx: compFx(X.m.comp), comp: X.m.comp ? { name: X.m.comp.name, nick: X.m.comp.nick, grade: X.m.comp.grade, fx: X.m.comp.hungry ? '배가 고파 힘을 못 써요' : X.m.comp.pvp.name + ' · ' + X.m.comp.pvp.text } : null });
-    const info = JSON.stringify({ a: side(A), b: side(B), ranked: !casual });      // 리그 매칭만 리그 점수에 반영 (일반 매칭·친구 직접 대전은 제외)
+    const sa = side(A), sb = side(B); sa.cos = await MG.cosOf(A.id); sb.cos = await MG.cosOf(B.id);      // 마법소녀 코스튬 (이벤트 중에만)
+    const info = JSON.stringify({ a: sa, b: sb, ranked: !casual });      // 리그 매칭만 리그 점수에 반영 (일반 매칭·친구 직접 대전은 제외)
     const ins = await db.run('INSERT INTO pvp_live (a_id, b_id, hp_a, hp_b, turn, dl, info, hits, log, upd) VALUES (?, ?, ?, ?, 0, ?, ?, ?, ?, ?)',
       [A.id, B.id, PVP.HP, PVP.HP, now + PVP.TURN_MS, info, JSON.stringify({ hits: [0, 0], pool: [0, 0] }), '[]', now]);
     return ins.lastId;
@@ -2341,6 +2348,7 @@ route('POST', '/api/move', async (req, res, ctx) => {
   }
   await db.run('UPDATE users SET region = ? WHERE id = ?', [id, ctx.user.id]);
   if (id !== ctx.user.region) await db.run('INSERT INTO visit_counts (user_id, region, n) VALUES (?, ?, 1) ON CONFLICT(user_id, region) DO UPDATE SET n = n + 1', [ctx.user.id, id]);   // 방문 횟수 (업적)
+  if (id !== ctx.user.region) await MG.act(ctx.user.id, 'move').catch(() => {});      // 마법 학교 수업 기록
   send(res, 200, { region: id, country: G.countryOf(id), cwNew });
 });
 
@@ -2414,6 +2422,7 @@ async function huntWin(cur, m, eb, now) {
   const hl = m.name === '오염 사냥꾼' ? await hunterLv(cur.id) : 0, hr = hl > 0 ? G.hunterScale(hl).reward : 1;
   let before = 0; try { before = Number(JSON.parse(cur.stats).taint) || 0; } catch (_) {}
   const cx = await CT.onKill(cur, m, now, { taint: before });      // 요리·운세·시간대 배율, 변종 보상, 칭호 조건
+  const mgPet = await MG.onPurify(cur.id, m, now).catch(() => null);      // 마법소녀 이벤트: 낮은 확률로 '착해진 마물'이 따라옴
   const gain = Math.round(G.KILL_EXP[m.rank] * (sp ? sp.exp : 1) * hr * cx.mul);
   const r = await grantExp(cur.id, gain);
   const gold = Math.round(G.rollGold(m.rank) * (sp ? sp.gold : 1) * hr * cx.gmul); await grantGold(cur.id, gold);
@@ -2434,7 +2443,8 @@ async function huntWin(cur, m, eb, now) {
   await logHunt(cur.id, m, 'success', gain, now);
   await logAcquire(cur.id, 'exp', '경험치', gain, m.name + ' 토벌', now);
   await logAcquire(cur.id, 'gold', '골드', gold, m.name + ' 토벌', now);
-  return { payload: { result: 'success', gain, gold, taint, taintNow, levelUp: r.up, lv: r.lv, exp: r.exp, note: note || undefined } };
+  if (mgPet) note = (note ? note + ' · ' : '') + '✦ 착해진 마물 ‘' + mgPet.ko + '’이(가) 따라왔어요 (육성 앱 · 마물 친구)';
+  return { payload: { result: 'success', gain, gold, taint, taintNow, levelUp: r.up, lv: r.lv, exp: r.exp, note: note || undefined, mgPet: mgPet || undefined } };
 }
 // 토벌 실패 처리
 async function huntLose(cur, m, myStats, eb, now) {
@@ -2701,7 +2711,7 @@ route('GET', '/api/friend/profile', async (req, res, ctx) => {
   send(res, 200, { profile: { code: f.code, hn: f.hunter_name, rank: f.rank, image: imgUrl(f.id, f.img_ver), title: await CT.titleOf(f.id),
     region: G.placeLong(f.region), ach: a ? { name: a.name, desc: a.descr, at: a.at } : null,
     bio: f.bio || '', pins: pinnedList(f, await loadAch()).map(p => p.name), traits: traitsOf((await withText(f)).traits),
-    corrupt: !!f.corrupt_flag, canRescue: !!f.corrupt_flag && !!(await findCure(u.id)) } });
+    corrupt: !!f.corrupt_flag, canRescue: !!f.corrupt_flag && !!(await findCure(u.id)), mg: await MG.profileExtra(f.id) } });
 });
 
 
@@ -3857,8 +3867,10 @@ route('GET', '/api/admin/theme', async (req, res) => { send(res, 200, { theme: a
 route('POST', '/api/admin/theme', async (req, res, ctx) => {
   const v = String(ctx.body.theme || '');
   if (!THEMES.includes(v)) return fail(res, 400, 'bad_theme');
+  const was = await themeState();
   await db.run("INSERT INTO settings (key, value) VALUES ('site_theme', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value", [v]);
   themeCache = { at: Date.now(), v };
+  if (v === 'magic' && was !== 'magic') await MG.newEpoch();      // 마법소녀 이벤트를 새로 켜면 모두 다시 맹세 주문부터
   send(res, 200, { theme: v });
 }, { auth: false, admin: true });
 route('GET', '/api/maintenance', async (req, res) => {
