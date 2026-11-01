@@ -454,6 +454,7 @@ const MIGRATIONS = [
   ...require('./_sysmsg').SQL,     // 시스템 팝업 표
   ...require('./_home').SQL,       // HOME: 개인 홈페이지 표
   ...require('./_content').SQL,    // 상시 컨텐츠 12종 표·열 (api/_content.js)
+  ...require('./_magic').SQL,      // 마법소녀 이벤트 표 (api/_magic.js)
   // 게이트웨이브 댓글·대댓글 좋아요 (한 사람이 한 댓글에 한 번)
   'CREATE TABLE IF NOT EXISTS wanted_claims (user_id INTEGER NOT NULL, day TEXT NOT NULL, PRIMARY KEY (user_id, day))',
   'CREATE TABLE IF NOT EXISTS gw_likes (comment_id INTEGER NOT NULL, user_id INTEGER NOT NULL, PRIMARY KEY (comment_id, user_id))',
@@ -602,7 +603,13 @@ function postgres() {
         };
         if (await upToDate()) return;
         // 여러 서버가 동시에 처음 켜져도 한 곳만 표를 만들도록 잠급니다.
-        await c.query('SELECT pg_advisory_lock(727001)');
+        // 다만 잠근 서버가 시간 초과로 멈추면 잠금이 풀리지 않아 다른 모든 요청(로그인·낚시 등)이 끝없이 기다리던 문제가 있어,
+        // 최대 6초만 기다리고 그래도 안 풀리면 잠금 없이 진행합니다. (아래 문장은 모두 IF NOT EXISTS 라 여러 번 실행돼도 안전)
+        let locked = false;
+        for (let i = 0; i < 30 && !locked; i++) {
+          locked = !!(await c.query('SELECT pg_try_advisory_lock(727001) AS ok')).rows[0].ok;
+          if (!locked) { await new Promise(r => setTimeout(r, 200)); if (await upToDate()) return; }
+        }
         try {
           if (await upToDate()) return;
           // 문장을 하나씩 보내면 DB가 멀리 있을 때 왕복 시간만 수십 초가 걸려 서버가 시간 초과로 멈춥니다.
@@ -615,13 +622,16 @@ function postgres() {
           }
           migs.push('ALTER TABLE monsters ADD COLUMN IF NOT EXISTS owner_id BIGINT');
           migs.push('CREATE INDEX IF NOT EXISTS monsters_owner ON monsters(owner_id, spawned_at)');
-          try { await c.query(migs.join(';\n')); }                       // 한 번에 성공하면 끝
-          catch (_) {                                                      // 한 문장이라도 실패하면 하나씩 보내 실패한 것만 건너뜁니다
+          // 보정 문장마다 '실패하면 건너뛰기'를 씌워 한 번에 보냅니다. (예전에는 한 문장만 실패해도 전부를 하나씩 다시 보내
+          //  수백 번 왕복하다 서버리스 시간 제한을 넘겨, 배포 직후 모든 요청이 실패할 수 있었습니다)
+          const safe = migs.map((m, i) => 'DO $mg' + i + '$ BEGIN EXECUTE $q' + i + '$' + m + '$q' + i + '$; EXCEPTION WHEN OTHERS THEN NULL; END $mg' + i + '$');
+          try { await c.query(safe.join(';\n')); }
+          catch (_) {
             try { await c.query('ROLLBACK'); } catch (__) {}
             for (const m of migs) { try { await c.query(m); } catch (__) {} }
           }
           await c.query("INSERT INTO settings (key, value) VALUES ('pg_schema_v', $1) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value", [SCHEMA_V]);
-        } finally { try { await c.query('SELECT pg_advisory_unlock(727001)'); } catch (_) {} }
+        } finally { if (locked) { try { await c.query('SELECT pg_advisory_unlock(727001)'); } catch (_) {} } }
       } finally { c.release(); }
     },
     async get(sql, args) { return (await q(pool, sql, args)).rows[0]; },
