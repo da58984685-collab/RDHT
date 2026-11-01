@@ -359,3 +359,23 @@ html.mgn .mgs-shopi{background:linear-gradient(160deg,#2e2848,#33252f)}
 .mgs-ribb[aria-pressed=true]{border-color:var(--mgs-deep);box-shadow:0 0 0 1px var(--mgs-deep)}
 .mgs-pfrib{position:absolute;left:6px;top:6px;z-index:2;display:block;line-height:0}.mgs-pfrib .mgs-rib{width:40px;height:30px}
 @media (prefers-reduced-motion:reduce){.mgs-ribbig{animation:none}}
+
+/* 탭 줄 옆으로 넘기기 */
+.mgs-tabw{position:relative;min-width:0;max-width:100%}
+.mgs-w{grid-template-columns:minmax(0,1fr);min-width:0}.mgs-tabw .mgs-tabs{min-width:0;max-width:100%}
+.mgs-tabw .mgs-tabs{scroll-behavior:auto;-webkit-mask-image:linear-gradient(90deg,transparent 0,#000 var(--fl,0px),#000 calc(100% - var(--fr,0px)),transparent 100%);mask-image:linear-gradient(90deg,transparent 0,#000 var(--fl,0px),#000 calc(100% - var(--fr,0px)),transparent 100%)}
+.mgs-tabw.can-l .mgs-tabs{--fl:34px}.mgs-tabw.can-r .mgs-tabs{--fr:34px}
+.mgs-tabar{position:absolute;top:50%;z-index:2;width:28px;height:28px;margin-top:-14px;border:1px solid var(--mgs-line);border-radius:50%;background:var(--mgs-card);color:var(--mgs-deep);font:700 18px/1 inherit;cursor:pointer;display:none;place-items:center;padding:0 0 2px;box-shadow:0 4px 10px -6px var(--mgs-deep)}
+.mgs-tabar.l{left:0}.mgs-tabar.r{right:0}
+.mgs-tabw.can-l .mgs-tabar.l,.mgs-tabw.can-r .mgs-tabar.r{display:grid}
+.mgs-tabs{cursor:grab}.mgs-tabs:active{cursor:grabbing}
+
+/* 밤 모드: 노란색 채도 낮추기 (붉은 달 배경과 어울리게) */
+html.mgn .mgs-ssbi{background:#dcbf94}
+html.mgn .mgs-ss i{background:radial-gradient(circle,#fff 0 30%,#dcbf94 31% 55%,transparent 56%)}
+html.mgn .mgs-ss::before{background:linear-gradient(90deg,transparent,rgba(240,140,184,.6) 60%,#dcbf94)}
+html.mgn .mgs-di.l{fill:#d9b48a}
+html.mgn .mgs-stamps span.on{background:radial-gradient(circle,#ecd6b0,#c9a77c);color:#8a2f55}
+html.mgn .mgs-cert{background:linear-gradient(180deg,#3a2c22,#30222b);border-color:#a8875e;color:#e6d2b6}
+html.mgn .mgs-dturn.w b,html.mgn .mgs-dfin.win{color:#e6cfa6}
+html.mgn .mgs-schs.ok small{color:#d9bd94}
