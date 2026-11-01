@@ -17,7 +17,7 @@ const ELK = G.ELEM_KEYS;
 
 // ───────── 27 시간대별 출몰 ─────────
 const SLOTS = [
-  { k: 'dawn', ko: '새벽', from: 0, to: 6, els: ['shadow', 'arcane'], txt: '어둠·비전 몬스터가 자주 나옴 · 희귀 재료 확률 +20% · 변종 +0.5%p', exp: 1, gold: 1, rare: 1.2, variant: 0.005 },
+  { k: 'dawn', ko: '새벽', from: 0, to: 6, els: ['shadow', 'arcane'], txt: '어둠·비전 몬스터가 자주 나옴 · 희귀 재료 확률 +20% · 변종 +2%p', exp: 1, gold: 1, rare: 1.2, variant: 0.02 },
   { k: 'morning', ko: '아침', from: 6, to: 12, els: ['holy', 'water'], txt: '신성·물 몬스터가 자주 나옴 · 조사 재료 1개 더', exp: 1, gold: 1, survey: 1 },
   { k: 'day', ko: '낮', from: 12, to: 18, els: ['fire', 'earth', 'blast'], txt: '화염·대지·폭발 몬스터가 자주 나옴 · 토벌 골드 +10%', exp: 1, gold: 1.1 },
   { k: 'night', ko: '밤', from: 18, to: 24, els: ['lightning', 'poison', 'ice'], txt: '번개·독·빙결 몬스터가 자주 나옴 · 토벌 경험치 +10% · 붉은 월어 낚시', exp: 1.1, gold: 1 },
@@ -85,7 +85,8 @@ const TITLE_BY = new Map(TITLES.map(t => [t.id, t]));
 // ───────── 18 희귀 변종 ─────────
 // 변종은 속성 도감(affinity.js)의 10종 가운데 하나로 나옵니다: 속성 → 몬스터 이름 (마법소녀 이벤트 중에만)
 const VARIANT_SPECIES = { fire: '불꽃 정령', ice: '서리 결정', water: '심해 해파리', lightning: '뇌운', earth: '이끼 골렘', poison: '독 슬라임', blast: '봄버', holy: '세라핌', arcane: '떠도는 눈', shadow: '망령' };
-const VARIANT_BASE = 0.01, VARIANT_LUCK = 0.005, VARIANT_MUL = 1.5, VARIANT_REWARD = 3, VARIANT_DROP = '변이의 비늘';
+const VARIANT_BASE = 0.70, VARIANT_LUCK = 0.02,      // 출현 확률: 기본 70% · 행운 50 이상 +2%p (최대 100%)
+      VARIANT_MUL = 1.5, VARIANT_REWARD = 3, VARIANT_DROP = '변이의 비늘';
 
 // ───────── 20 요리 ─────────
 // eff: exp/gold = 비율(0.1 = +10%), luck/str/agi = 더하기, hpGuard/taintRes = %, elem = 속성 공격 피해 비율
@@ -383,7 +384,7 @@ function install(d) {
     const u = await db.get('SELECT stats FROM users WHERE id = ?', [uid]);
     let luck = 0; try { luck = Number(JSON.parse(u.stats).luck) || 0; } catch (_) {}
     const b = await bonus(uid, now);
-    return (VARIANT_BASE + (luck + b.luck >= 50 ? VARIANT_LUCK : 0) + timeMod(now).variant) * b.variant;
+    return Math.min(1, (VARIANT_BASE + (luck + b.luck >= 50 ? VARIANT_LUCK : 0) + timeMod(now).variant) * b.variant);
   }
   const rollVariant = (name, p) => { if (!p || Math.random() >= p) return ''; return pick(Object.keys(VARIANT_SPECIES).filter(k => ELK.includes(k))); };      // 도감 10종 중 하나의 속성
 
