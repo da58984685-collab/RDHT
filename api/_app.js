@@ -581,7 +581,9 @@ const achMet = (a, s) => {
 };
 // 유저의 업적 상태: [{...정의, met(조건 달성), granted(관리자 부여), done}]
 // 오염도 업적(예: 붉은 달에 물든 자)은 '한 번이라도 달성하면' 계속 달성한 것으로 둡니다. 정화해서 오염도가 내려가도 사라지지 않고, 다시 새 업적으로 알리지도 않습니다.
-const STICKY_ACH = new Set(['taint']);
+// 기록이 줄지 않는 종류(심층 최고 층·리그 최고 LP·PVP 승리·어종·요리·출석·도감)도 한 번 얻으면 그대로 둡니다.
+// (잠깐이라도 '미달성'으로 읽히면 기록이 지워졌다가 다시 생기면서 NEW 가 또 뜨던 문제 방지)
+const STICKY_ACH = new Set(['taint', 'floor', 'lp', 'pvpwin', 'fishsp', 'cooks', 'attend', 'dex']);
 async function achOf(u) {
   const defs = await loadAch();
   const [s, gr, er] = await Promise.all([achStats(u, defs), db.all('SELECT ach_id FROM ach_grants WHERE user_id = ?', [u.id]),
@@ -686,7 +688,7 @@ async function buildState(u, now) {
   if (!Number(u.ach_seen)) { await db.run('UPDATE users SET ach_seen = ? WHERE id = ? AND ach_seen = 0', [now, u.id]); u.ach_seen = now; }
   // 화면 숫자(알림·메시지·선물 등)는 한 번의 질문으로 묶어서 가져옵니다 (질문마다 붙는 통신 부담을 줄임)
   const cnt = await db.get(`SELECT
-    (SELECT COUNT(*) FROM ach_earned WHERE user_id = ? AND at > ?) AS ach,
+    (SELECT COUNT(*) FROM ach_earned e WHERE e.user_id = ? AND e.at > ? AND NOT EXISTS (SELECT 1 FROM ach_shown s WHERE s.user_id = e.user_id AND s.ach_id = e.ach_id)) AS ach,
     (SELECT COUNT(*) FROM notices WHERE id > ?) AS un,
     (SELECT COUNT(*) FROM messages m JOIN friends f ON f.user_id = m.to_id AND f.friend_id = m.from_id WHERE m.to_id = ? AND m.id > f.last_read) AS um,
     (SELECT COUNT(*) FROM friend_requests WHERE to_id = ?) AS frq,
@@ -3542,10 +3544,17 @@ route('GET', '/api/achievements', async (req, res, ctx) => {
   await syncAchEarned(u, Date.now(), true);
   const seen = Number(u.ach_seen) || 0;
   const at = new Map((await db.all('SELECT ach_id, at FROM ach_earned WHERE user_id = ?', [u.id])).map(r => [r.ach_id, Number(r.at)]));
-  send(res, 200, { max: G.ACH_PIN_MAX, list: list.map(a => ({ id: a.id, name: a.name, desc: a.descr, done: a.done, pinned: pins.includes(a.id), isNew: !!(a.done && seen && (at.get(a.id) || 0) > seen) })) });
+  // NEW 는 업적마다 최초 1회만: 한 번 보여 준 업적은 ach_shown 에 남겨 두고(지우지 않음), 기록이 다시 쓰이더라도 또 NEW 로 띄우지 않습니다.
+  const shown = new Set((await db.all('SELECT ach_id FROM ach_shown WHERE user_id = ?', [u.id])).map(r => r.ach_id));
+  const out = list.map(a => ({ id: a.id, name: a.name, desc: a.descr, done: a.done, pinned: pins.includes(a.id), isNew: !!(a.done && seen && !shown.has(a.id) && (at.get(a.id) || 0) > seen) }));
+  const mark = out.filter(a => a.done && !shown.has(a.id)).map(a => ['INSERT OR IGNORE INTO ach_shown (user_id, ach_id) VALUES (?, ?)', [u.id, a.id]]);
+  if (mark.length) await db.batch(mark);
+  if (out.some(a => a.isNew)) await db.run('UPDATE users SET ach_seen = ? WHERE id = ? AND ach_seen < ?', [Date.now(), u.id, Date.now()]);
+  send(res, 200, { max: G.ACH_PIN_MAX, list: out });
 });
 route('POST', '/api/achievements/seen', async (req, res, ctx) => {
   await db.run('UPDATE users SET ach_seen = ? WHERE id = ?', [Date.now(), ctx.user.id]);
+  await db.run('INSERT OR IGNORE INTO ach_shown (user_id, ach_id) SELECT user_id, ach_id FROM ach_earned WHERE user_id = ?', [ctx.user.id]);      // 지금까지 얻은 업적은 모두 '보여 줌'
   send(res, 200, { ok: true });
 });
 
