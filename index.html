@@ -476,6 +476,13 @@ label[for="name"]::after,label[for="age"]::after,label[for="hname"]::after,#gl::
 .fxlink{display:block;margin:10px auto 0;min-height:44px;padding:0 10px;background:none;border:0;color:var(--sub);font:inherit;font-size:.85rem;text-decoration:underline;cursor:pointer}
 .fxlink:hover{color:var(--text)}
 .fx-off .fl,.fx-off .sm{display:none}
+.tglitch{position:fixed;inset:0;z-index:9000;pointer-events:none;display:none;overflow:hidden}
+.tglitch.on{display:block}
+.tglitch i{position:absolute;display:block;transform:translateX(var(--dx));background:linear-gradient(90deg,rgba(255,40,80,.32),rgba(255,255,255,.08) 45%,rgba(0,240,220,.28));mix-blend-mode:screen;-webkit-backdrop-filter:hue-rotate(70deg) saturate(1.6) brightness(1.15);backdrop-filter:hue-rotate(70deg) saturate(1.6) brightness(1.15);box-shadow:calc(var(--dx) * -.5) 0 0 rgba(255,0,60,.25),calc(var(--dx) * .5) 0 0 rgba(0,255,230,.2)}
+.tglitch.s3 i{-webkit-backdrop-filter:invert(.2) hue-rotate(120deg) saturate(2);backdrop-filter:invert(.2) hue-rotate(120deg) saturate(2)}
+#game.tg-shake{transform:translate(2px,-1px);filter:drop-shadow(-2px 0 0 rgba(255,0,70,.35)) drop-shadow(2px 0 0 rgba(0,240,230,.3))}
+@media (prefers-reduced-motion:reduce){.tglitch{display:none!important}}
+.fx-off .tglitch{display:none!important}
 .fx-off #bg::before,.fx-off h1{animation:none}
 @media (max-width:520px){.hud-l{display:none}}
 @media (max-width:640px){.hud-m{flex:1 1 100%;order:-1}.hud-r{flex:1 1 100%}.hud-r .hud-btn{flex:1 1 0;min-width:0;padding:0 8px;white-space:nowrap}.hud-r{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}}
@@ -1550,7 +1557,7 @@ html.mgl.mgn .u353{--ux-shadow-strong:rgba(0,0,0,.72);--u353-metal:#4a2a37;--u35
     <div class="sp-in" id="spin">
     <p class="sp-eb sp-i" style="--n:0">SYSTEM MESSAGE</p>
     <span class="sp-name sp-i" id="spname" style="--n:0"></span>
-    <img class="sp-photo sp-i" id="spphoto" alt="" src="/sysmsg-eye.png" width="88" height="88" style="--n:1">
+    <img class="sp-photo sp-i" id="spphoto" alt="" src="/sysmsg-eye.png?v=2" width="88" height="88" style="--n:1">
     <h2 class="sp-title sp-i" id="sptitle" style="--n:2"></h2>
     <p class="sp-body sp-i" id="spbody" style="--n:3"></p>
     <button type="button" class="nt-ok sp-ok sp-i" id="spok" style="--n:4">확인</button>
@@ -2636,7 +2643,29 @@ function taintFx(v){
   var w=$("twarn");if(w){w.hidden=!s;w.textContent=TAINT_MSG[s];w.dataset.s=String(s)}
   if(taintStgInit&&s>prev&&typeof gwToast==="function")gwToast("⚠ "+TAINT_TOAST[s],5200);
   taintStgInit=true;
+  tgSchedule();
 }
+/* 오염도 글리치: 오염도가 높을수록 화면에 짧은 글리치(가로 띠 · 색 어긋남 · 살짝 흔들림)가 자주 생깁니다.
+   30% 이상 가끔(25~45초) · 60% 이상 자주(12~25초) · 80% 이상 더 자주(5~12초). 클릭을 막지 않고, '배경 효과 끄기'·모션 줄이기·숨은 탭에서는 생기지 않습니다. */
+var tgT=0,tgEl=null,tgRm=window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+function tgSchedule(){
+  if(tgT||!taintStg)return;
+  var r=[[0,0],[25,45],[12,25],[5,12]][taintStg];
+  tgT=setTimeout(function(){tgT=0;tgFire();tgSchedule()},(r[0]+Math.random()*(r[1]-r[0]))*1000);
+}
+function tgFire(){
+  if(!taintStg||tgRm||document.hidden||$("game").hidden||document.body.classList.contains("fx-off"))return;
+  if(!tgEl){tgEl=document.createElement("div");tgEl.className="tglitch";tgEl.setAttribute("aria-hidden","true");document.body.appendChild(tgEl)}
+  var n=2+taintStg+Math.floor(Math.random()*3),h="";
+  for(var i=0;i<n;i++){var top=Math.random()*100,ht=2+Math.random()*(6+taintStg*4),dx=(Math.random()<.5?-1:1)*(4+Math.random()*(8+taintStg*8)),w=30+Math.random()*70,l=Math.random()*(100-w);
+    h+='<i style="top:'+top.toFixed(1)+'%;height:'+ht.toFixed(0)+'px;left:'+l.toFixed(0)+'%;width:'+w.toFixed(0)+'%;--dx:'+dx.toFixed(0)+'px"></i>'}
+  tgEl.innerHTML=h;tgEl.className="tglitch on s"+taintStg;
+  var g=$("game");if(taintStg>=2&&g)g.classList.add("tg-shake");
+  var dur=110+Math.random()*(90+taintStg*40);
+  setTimeout(function(){tgEl.className="tglitch";if(g)g.classList.remove("tg-shake");
+    if(taintStg>=2&&Math.random()<.45)setTimeout(function(){tgEl.className="tglitch on s"+taintStg;setTimeout(function(){tgEl.className="tglitch"},70)},60)},dur);
+}
+document.addEventListener("visibilitychange",function(){if(!document.hidden)tgSchedule()});
 var lastStats=null,curEq=null;
 function eqSum(){var e=curEq,p=$("geq");if(!p)return;var t=[];if(e){if(e.hpGuard)t.push("체력 피해 감소 <b>-"+e.hpGuard+"%</b>");if(e.taintRes)t.push("오염도 증가 감소 <b>-"+e.taintRes+"%</b>")}p.innerHTML=t.length?"장비 효과 · "+t.join(" · "):"";p.hidden=!t.length}
 function setEq(e){var k=JSON.stringify(e||null);if(k===JSON.stringify(curEq))return;curEq=e||null;if(lastStats)renderStats(lastStats);else eqSum()}
@@ -3297,7 +3326,7 @@ function spShow(id){
     if(tok!==spTok)return;
     if(!r||r.error){if(r&&r.error==="gone")spDone[id]=1;spCur=null;return}
     $("spname").textContent=r.name||"운영자";$("sptitle").textContent=r.title||"";$("spbody").textContent=r.body||"";
-    var im=$("spphoto");im.src=(r.img&&/^data:image\//.test(r.img))?r.img:"/sysmsg-eye.png";      /* 사진을 따로 붙이지 않으면 눈 문양 */
+    var im=$("spphoto");im.src=(r.img&&/^data:image\//.test(r.img))?r.img:"/sysmsg-eye.png?v=2";      /* 사진을 따로 붙이지 않으면 눈 문양 */
     spOpener=document.activeElement;spOpen=true;
     spEl.classList.remove("go","out");spEl.hidden=false;document.body.style.overflow="hidden";$("spin").scrollTop=0;
     spBeamsStart();spPing();
