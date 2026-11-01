@@ -278,30 +278,31 @@ function vTf(body){
   var c1=card(body,"오늘의 기록");
   var ul=el("ul","mgs-kv");c1.appendChild(ul);
   [["오늘 변신",D.tf.today+"회"],["지금까지",D.tf.total+"회"],["오늘의 별자리",D.star.done?D.star.ko+" · "+D.star.txt:"아직 잇지 않았어요 (별자리 탭)"]].forEach(function(x){var li=el("li");li.appendChild(el("small",null,x[0]));li.appendChild(el("b",null,x[1]));ul.appendChild(li)});
-  var c2=card(body,"변신 주문");
-  c2.appendChild(el("p","mgs-chant","‘"+(D.spell?D.spell.text:D.defSpell)+"’"));
-  if(!D.spell)note(c2,"아직 내 주문이 없어서 기본 주문을 외쳐요. 주문 탭에서 직접 지어 보세요.");
-  if(D.top){var tp=el("p","mgs-top");tp.appendChild(el("small",null,D.top.label+" 주문 ✦ "+D.top.votes));tp.appendChild(el("span",null,"‘"+D.top.text+"’ — "+D.top.by));c2.appendChild(tp)}
+  var c2=card(body,"오늘의 변신 주문 (모든 헌터 공통)");
+  c2.appendChild(el("p","mgs-chant","‘"+(D.chant||D.defSpell)+"’"));
+  note(c2,D.top?"어제 반짝 "+D.top.votes+"개로 1위를 한 "+D.top.by+" 님의 주문이에요. 오늘 1위 주문은 내일 모든 헌터의 주문이 돼요. (주문 탭)":"어제 투표된 주문이 없어서 기본 주문을 외쳐요. 주문 탭에서 오늘의 주문을 지어 투표해 보세요!");
 }
 
 /* ── 1 변신 주문 ── */
 function vSpell(body){
-  var c=card(body,"내 변신 주문");
-  var f=el("form","mgs-form");var inp=el("input");inp.type="text";inp.maxLength=60;inp.placeholder="예) 별빛이여, 나에게 날개를!";inp.value=D.spell?D.spell.text:"";inp.setAttribute("aria-label","내 변신 주문");f.appendChild(inp);
+  var top=card(body,"오늘의 변신 주문");var tb=el("div");top.appendChild(tb);
+  var c=card(body,"오늘 내가 지은 주문");
+  var f=el("form","mgs-form");var inp=el("input");inp.type="text";inp.maxLength=60;inp.placeholder="예) 별빛이여, 나에게 날개를!";inp.value=D.spell?D.spell.text:"";inp.setAttribute("aria-label","오늘 지을 주문");f.appendChild(inp);
   var cnt=el("small","mgs-cnt");f.appendChild(cnt);var sv=el("button","mgs-go mgs-sm","저장");sv.type="submit";f.appendChild(sv);c.appendChild(f);
-  var msg=note(c,"변신할 때 외치는 주문이에요. 다른 헌터의 '반짝'을 가장 많이 받은 주문은 모든 헌터의 변신 화면에 소개돼요. 문장을 바꾸면 이번 주에 받은 반짝은 0부터 다시 시작해요.");
+  var msg=note(c,"매일 새 주문을 하나 지을 수 있어요. 오늘 '반짝'을 가장 많이 받은 주문은 내일 모든 헌터의 변신 주문이 돼요. 문장을 고치면 오늘 받은 반짝은 0부터 다시 시작해요.");
   function cc(){var n=Array.from(inp.value.trim()).length;cnt.textContent=n+" / 30";cnt.classList.toggle("over",n>30)}inp.addEventListener("input",cc);cc();
   f.addEventListener("submit",function(e){e.preventDefault();var t=inp.value.trim();if(!t||Array.from(t).length>30){msg.textContent="주문은 1~30자로 적어 주세요.";return}
-    sv.disabled=true;call("POST","/api/mg/spell",{text:t}).then(function(r){sv.disabled=false;if(r&&r.ok){msg.textContent=r.same?"이미 이 주문이에요.":"주문을 저장했어요. 다음 변신 때 외쳐요!";D.spell={text:t,votes:r.reset?0:(D.spell?D.spell.votes:0)};list()}else msg.textContent=r&&r.error==="rate_limited"?"잠시 후 다시 시도해 주세요.":"저장하지 못했어요."})});
-  var c2=card(body,"이번 주 주문 순위");var box=el("div");c2.appendChild(box);
+    sv.disabled=true;call("POST","/api/mg/spell",{text:t}).then(function(r){sv.disabled=false;if(r&&r.ok){msg.textContent=r.same?"이미 이 주문이에요.":"오늘의 주문 후보로 올렸어요! 반짝을 많이 받으면 내일 모두가 외쳐요.";D.spell={text:t,votes:r.reset?0:(D.spell?D.spell.votes:0)};list()}else msg.textContent=r&&r.error==="rate_limited"?"잠시 후 다시 시도해 주세요.":"저장하지 못했어요."})});
+  var c2=card(body,"오늘의 주문 투표 (내일의 주문)");var box=el("div");c2.appendChild(box);
   function list(){box.innerHTML="";box.appendChild(el("p","mgs-note","불러오는 중…"));
     call("GET","/api/mg/spells").then(function(r){box.innerHTML="";if(!r||r._status!==200){box.appendChild(el("p","mgs-note","불러오지 못했어요."));return}
-      if(r.top){var tp=el("p","mgs-top");tp.appendChild(el("small",null,r.top.label+" ✦ "+r.top.votes));tp.appendChild(el("span",null,"‘"+r.top.text+"’ — "+r.top.by));box.appendChild(tp)}
-      box.appendChild(el("p","mgs-note","이번 주에 남은 반짝 "+r.left+" / 5 · 같은 주문에는 한 번만 누를 수 있어요."));
-      if(!r.list.length){box.appendChild(el("p","app-empty","아직 이번 주에 지은 주문이 없어요. 첫 주문을 지어 보세요!"));return}
-      var ol=el("ol","mgs-sl");r.list.forEach(function(x){var li=el("li",x.me?"me":"");li.appendChild(el("span","n",String(x.no)));var tx=el("span","tx");tx.appendChild(el("b",null,"‘"+x.text+"’"));tx.appendChild(el("small",null,x.by+(x.me?" (나)":"")));li.appendChild(tx);
+      tb.innerHTML="";tb.appendChild(el("p","mgs-chant","‘"+r.chant+"’"));tb.appendChild(el("p","mgs-note",r.top?"어제 반짝 "+r.top.votes+"개로 1위 — "+r.top.by+" 님 · 오늘 모든 헌터가 이 주문으로 변신해요.":"어제 투표된 주문이 없어서 기본 주문이에요."));
+      var h=Math.floor(r.resetIn/3600000),m=Math.floor(r.resetIn%3600000/60000);
+      box.appendChild(el("p","mgs-note","오늘 남은 반짝 "+r.left+" / "+r.votes+" · 같은 주문에는 한 번만 · 투표 마감까지 "+(h?h+"시간 ":"")+m+"분 (자정)"));
+      if(!r.list.length){box.appendChild(el("p","app-empty","아직 오늘 지은 주문이 없어요. 첫 주문을 지어 보세요!"));return}
+      var ol=el("ol","mgs-sl");r.list.forEach(function(x){var li=el("li",x.me?"me":"");li.appendChild(el("span","n",String(x.no)));var tx=el("span","tx");tx.appendChild(el("b",null,"‘"+x.text+"’"));tx.appendChild(el("small",null,x.by+(x.me?" (나)":"")+(x.no===1&&x.votes>0?" · 지금 1위 (내일의 주문)":"")));li.appendChild(tx);
         var v=btn("mgs-vote"+(x.voted?" on":""),"✦ "+x.votes);v.setAttribute("aria-label","반짝 "+x.votes+(x.voted?" (누름)":""));v.disabled=x.me||x.voted||r.left<=0;
-        v.addEventListener("click",function(){v.disabled=true;call("POST","/api/mg/spell/vote",{id:x.id}).then(function(q){if(q&&q.ok){toast("‘"+x.text+"’에 반짝을 보냈어요!");list()}else{toast(q&&q.error==="no_votes"?"이번 주 반짝을 모두 썼어요.":q&&q.error==="voted"?"이미 반짝을 보냈어요.":"보내지 못했어요.");v.disabled=false}})});
+        v.addEventListener("click",function(){v.disabled=true;call("POST","/api/mg/spell/vote",{id:x.id}).then(function(q){if(q&&q.ok){toast("‘"+x.text+"’에 반짝을 보냈어요!");list()}else{toast(q&&q.error==="no_votes"?"오늘 반짝을 모두 썼어요.":q&&q.error==="voted"?"이미 반짝을 보냈어요.":"보내지 못했어요.");v.disabled=false}})});
         li.appendChild(v);ol.appendChild(li)});box.appendChild(ol)})}
   list();
 }
