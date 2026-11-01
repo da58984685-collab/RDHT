@@ -28,6 +28,26 @@ function schemaInfo(SCHEMA) {
     }
     pks[t] = pk;
   }
+  // 한 줄짜리 CREATE TABLE(_db.js 의 MIGRATIONS · 각 컨텐츠 파일의 SQL)과 ALTER TABLE ... ADD COLUMN 도 읽습니다.
+  // 예전에는 여러 줄 CREATE TABLE 만 읽어서, 나중에 추가된 표의 upsert 식(낚시 횟수 'n = n + 1' 등)의 맨몸 열 이름에
+  // 표 이름이 붙지 않았고, Postgres 에서 'column reference "n" is ambiguous' 오류로 낚시 던지기 등이 실패했습니다.
+  for (const line of SCHEMA.split('\n')) {
+    const one = line.match(/^\s*CREATE TABLE IF NOT EXISTS (\w+) \((.*)\)\s*;?\s*$/);
+    if (one && !cols[one[1]]) {
+      const t = one[1], defs = [];
+      let depth = 0, cur = '';
+      for (const ch of one[2]) { if (ch === '(') depth++; else if (ch === ')') depth--; if (ch === ',' && depth === 0) { defs.push(cur.trim()); cur = ''; } else cur += ch; }
+      if (cur.trim()) defs.push(cur.trim());
+      cols[t] = defs.map(d => (d.match(/^(\w+)\s+[A-Z]/) || [])[1]).filter(c => c && !/^(PRIMARY|UNIQUE|FOREIGN|CHECK)$/.test(c));
+      let pk = null;
+      const comp = defs.find(d => /^PRIMARY KEY \(/.test(d));
+      if (comp) pk = comp.replace(/^PRIMARY KEY \(|\)$/g, '').split(',').map(x => x.trim());
+      else for (const d of defs) { const c = d.match(/^(\w+)\s+\w+[^,]*PRIMARY KEY/); if (c) { pk = [c[1]]; if (/AUTOINCREMENT/.test(d)) autoId.add(t); } }
+      pks[t] = pk;
+    }
+    const al = line.match(/ALTER TABLE (\w+) ADD COLUMN (?:IF NOT EXISTS )?(\w+)/);
+    if (al && cols[al[1]] && !cols[al[1]].includes(al[2])) cols[al[1]].push(al[2]);
+  }
   return { pks, autoId, cols };
 }
 
