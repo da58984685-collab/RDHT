@@ -1075,28 +1075,44 @@ function school(scr){
 /* ═════════ 12 거울 나라의 나 ═════════ */
 function vMirror(body){
   var box=el("div","mgs-mir");body.appendChild(box);box.appendChild(el("p","app-empty","불러오는 중…"));
-  var KO={no_stats:"먼저 전장 앱에서 PVP 스탯을 배분해 주세요.",no_tries:"이번 주 도전을 모두 썼어요. 다음 주에 다시 나타나요.",won:"이번 주 거울 속 나는 이미 쓰러뜨렸어요.",no_shards:"거울 조각이 모자라요.",owned:"이미 산 부품이에요.",rate_limited:"잠시 뒤에 다시 해 주세요."};
-  function draw(r,bt){box.innerHTML="";
+  var KO={no_stats:"먼저 전장 앱에서 PVP 스탯을 배분해 주세요.",no_tries:"이번 주 도전을 모두 썼어요. 다음 주에 다시 나타나요.",won:"이번 주 거울 속 나는 이미 쓰러뜨렸어요.",no_shards:"거울 조각이 모자라요.",owned:"이미 산 부품이에요.",rate_limited:"잠시 뒤에 다시 해 주세요.",no_fight:"전투가 끝났어요.",busy:"잠시 뒤에 다시 골라 주세요."};
+  var ACT=[["attack","공격","기본 공격"],["smash","강타","성공하면 피해 2배 (60%)"],["guard","방어","받는 피해 크게 줄임"],["flee","도주","성공하면 전투 포기 (패배)"]];
+  var FOE={attack:"공격",smash:"강타",guard:"방어",flee:"도주"};
+  function draw(r,res){box.innerHTML="";
     var c=card(box,"거울 나라의 나");note(c,"‘거울 속 나’가 한 주에 한 번 나타나요. 한 주에 "+r.max+"번까지 도전할 수 있고, 쓰러뜨리면 거울 조각 "+r.reward+"개. 전장 체력은 줄지 않아요.");
-    var st=el("div","mgs-mirb");st.hidden=true;c.appendChild(st);
-    var row=el("div","mgs-row");var go=btn("mgs-go mgs-sm",r.won?"이번 주 승리 ✦":"거울 속으로 들어가기 ("+(r.max-r.tries)+"번 남음)");go.disabled=r.won||r.tries>=r.max||!r.set;row.appendChild(go);c.appendChild(row);
-    var m=note(c,!r.set?KO.no_stats:r.won?"다음 주 월요일에 새 거울이 나타나요 ("+leftTxt(r.weekEnd-Date.now())+" 뒤).":"");
-    go.addEventListener("click",function(){go.disabled=true;call("POST","/api/mg/mirror/fight").then(function(q){if(!q||!q.ok){go.disabled=false;m.textContent=KO[q&&q.error]||"들어가지 못했어요.";return}play(q,st,function(){draw(q,q);var mm=box.querySelector(".mgs-mirres");if(mm)mm.scrollIntoView({block:"nearest"})})})});
-    if(bt){var res=el("p","mgs-mirres "+(bt.win?"win":"lose"),bt.win?"✦ 거울 속 나를 쓰러뜨렸어요! 거울 조각 +"+r.reward+(bt.title?" · 칭호 ‘거울을 넘은 자’":""):"거울 속 나에게 졌어요. "+(r.max-r.tries>0?"다시 도전할 수 있어요.":"다음 주에 다시 나타나요."));c.insertBefore(res,row)}
+    if(r.fight){fight(c,r.fight,[["거울 속 나와 마주했어요. 행동을 골라 주세요.","en"]]);}
+    else{
+      var row=el("div","mgs-row");var go=btn("mgs-go mgs-sm",r.won?"이번 주 승리 ✦":"거울 속으로 들어가기 ("+(r.max-r.tries)+"번 남음)");go.disabled=r.won||r.tries>=r.max||!r.set;row.appendChild(go);c.appendChild(row);
+      var m=note(c,!r.set?KO.no_stats:r.won?"다음 주 월요일에 새 거울이 나타나요 ("+leftTxt(r.weekEnd-Date.now())+" 뒤).":"");
+      go.addEventListener("click",function(){go.disabled=true;call("POST","/api/mg/mirror/fight").then(function(q){if(!q||!q.ok){go.disabled=false;m.textContent=KO[q&&q.error]||"들어가지 못했어요.";return}draw(q)})});
+      if(res){var rs=el("p","mgs-mirres "+(res.win?"win":"lose"),res.win?"✦ 거울 속 나를 쓰러뜨렸어요! 거울 조각 +"+r.reward+(res.title?" · 칭호 ‘거울을 넘은 자’":""):(res.kind==="flee"?"거울에서 빠져나왔어요. ":"거울 속 나에게 졌어요. ")+(r.max-r.tries>0?"다시 도전할 수 있어요.":"다음 주에 다시 나타나요."));c.insertBefore(rs,row)}
+    }
     var sc=card(box,"거울 상점 · 가진 조각 "+r.shards+"개");note(sc,"산 부품은 코스튬 탭에서 고를 수 있어요. (지금까지 거울을 넘은 횟수 "+r.wins+"번 · "+r.titleNeed+"번이면 칭호)");
     var g=el("div","mgs-shop");r.shop.forEach(function(p){var d=el("div","mgs-shopi"+(p.own?" own":""));d.appendChild(el("small",null,PART_KO[p.k]));d.appendChild(el("b",null,p.ko));
       var b=btn("mgs-go mgs-sm",p.own?"가지고 있어요":"조각 "+p.cost+"개");b.disabled=p.own||r.shards<p.cost;b.addEventListener("click",function(){b.disabled=true;call("POST","/api/mg/mirror/buy",{k:p.k,v:p.v}).then(function(q){if(q&&q.ok){toast("✦ "+q.bought+"을(를) 샀어요! 코스튬 탭에서 골라 보세요.");if(D&&D.shop)D.shop=q.shop;draw(q)}else{b.disabled=false;toast(KO[q&&q.error]||"사지 못했어요.")}})});d.appendChild(b);g.appendChild(d)});sc.appendChild(g);
   }
-  function play(q,st,done){var b=q.battle,mx=b.max;st.hidden=false;st.innerHTML="";
+  function fight(c,f,first){var mx=f.max,st=el("div","mgs-mirb");c.appendChild(st);
     function bar(lab){var w=el("div","mgs-hpw");w.appendChild(el("small",null,lab));var o=el("div","mgs-hp");var i=el("i");o.appendChild(i);w.appendChild(o);var v=el("b",null,mx+"");w.appendChild(v);st.appendChild(w);return function(h){i.style.width=Math.max(0,h/mx*100)+"%";v.textContent=Math.max(0,Math.round(h))+""}}
-    var A=bar("나"),B=bar("거울 속 나"),ln=el("p","mgs-mirln","거울 속으로 들어갔어요…");st.appendChild(ln);A(mx);B(mx);
-    var steps=[];b.log.forEach(function(t){t.ev.forEach(function(e){steps.push({n:t.n,w:e[0],k:e[1],d:e[2],h:[e[3],e[4]]})});steps.push({n:t.n,end:true,h:[t.end[2],t.end[3]]})});
-    var i=0,dt=RM?0:Math.max(90,Math.min(260,4200/steps.length));
-    (function nx(){if(i>=steps.length||!st.isConnected){setTimeout(done,RM?0:600);return}var s=steps[i++];A(s.h[0]);B(s.h[1]);
-      if(!s.end)ln.textContent=s.n+"턴 · "+(s.w===0?"나":"거울 속 나")+(s.k===0?"의 공격이 빗나갔어요":s.k===2?"의 치명타! "+s.d+" 피해":"의 공격 "+s.d+" 피해");
-      if(RM)nx();else setTimeout(nx,dt)})();
+    var A=bar("나"),B=bar("거울 속 나");A(f.hp[0]);B(f.hp[1]);
+    var tn=el("p","mgs-mirtn","");st.appendChild(tn);
+    var lg=el("div","mgs-mirlog");lg.setAttribute("aria-live","polite");st.appendChild(lg);
+    function turnTxt(t){tn.textContent=(t+1)+"턴 · 최대 "+(f.maxTurns||40)+"턴 (끝까지 가면 체력이 많은 쪽 승리)"}
+    function log(lines){lines.forEach(function(l){var p=el("p",l[1]?"k-"+l[1]:null,l[0]);lg.appendChild(p)});while(lg.children.length>8)lg.removeChild(lg.firstChild);lg.scrollTop=lg.scrollHeight}
+    turnTxt(f.turn);log(first);
+    var acts=el("div","mgs-miracts");st.appendChild(acts);var bs=[];
+    ACT.forEach(function(a){var b=btn("mgs-mira"+(a[0]==="flee"?" flee":""),"");b.appendChild(el("b",null,a[1]));b.appendChild(el("small",null,a[2]));b.addEventListener("click",function(){
+      if(a[0]==="flee"&&!confirmFlee(b))return;
+      bs.forEach(function(x){x.disabled=true});
+      call("POST","/api/mg/mirror/act",{act:a[0]}).then(function(q){
+        if(!q||!q.ok){bs.forEach(function(x){x.disabled=false});if(q&&q.error==="no_fight"){reload();return}toast(KO[q&&q.error]||"행동하지 못했어요.");return}
+        log([["— "+q.turn+"턴: 나 "+a[1]+" · 거울 속 나 "+(FOE[q.foe]||"")+" —",""]].concat(q.lines));A(q.hp[0]);B(q.hp[1]);
+        if(q.over){setTimeout(function(){if(box.isConnected){draw(q,q);var mm=box.querySelector(".mgs-mirres");if(mm)mm.scrollIntoView({block:"nearest"})}},RM?0:900);return}
+        turnTxt(q.turn);bs.forEach(function(x){x.disabled=false});
+      })});bs.push(b);acts.appendChild(b)});
   }
-  call("GET","/api/mg/mirror").then(function(r){if(!box.isConnected)return;if(!r||r._status!==200){box.innerHTML="";box.appendChild(el("p","app-empty","불러오지 못했어요."));return}draw(r)});
+  function confirmFlee(b){if(b._ok)return true;b._ok=true;var s=b.querySelector("small");var o=s.textContent;s.textContent="한 번 더 누르면 도주 (도전 1번 소모)";setTimeout(function(){b._ok=false;s.textContent=o},3000);return false}
+  function reload(){call("GET","/api/mg/mirror").then(function(r){if(!box.isConnected)return;if(!r||r._status!==200){box.innerHTML="";box.appendChild(el("p","app-empty","불러오지 못했어요."));return}draw(r)})}
+  reload();
 }
 
 /* ═════════ 13 반짝 우체통 ═════════ */
