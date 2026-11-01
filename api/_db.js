@@ -510,6 +510,8 @@ const MIGRATIONS = [
   'ALTER TABLE users ADD COLUMN inq_read INTEGER NOT NULL DEFAULT 0',
   // 관리자가 먼저 보낸 문의 메시지 표시 (1이면 운영자가 대화를 시작한 메시지)
   'ALTER TABLE inquiries ADD COLUMN start INTEGER NOT NULL DEFAULT 0',
+  // 받은 선물 기록 지우기 (받는 사람 목록에서만 숨김 · 보낸 사람 업적 집계는 그대로)
+  'ALTER TABLE gifts ADD COLUMN rm INTEGER NOT NULL DEFAULT 0',
   // 운영자가 막아 둔 활동 (비트: 1 토벌, 2 이동, 4 상점 구매, 8 메신저 보내기. 0이면 모두 가능)
   'ALTER TABLE users ADD COLUMN block_flags INTEGER NOT NULL DEFAULT 0',
   // 시스템 알림에 첨부하는 아이템 (알림을 연 헌터가 직접 수령)
