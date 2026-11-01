@@ -1189,17 +1189,17 @@ function elemPick(anchor,wel,cb){
   document.addEventListener("keydown",key,true);setTimeout(function(){document.addEventListener("pointerdown",out,true)},0);
 }
 /* ═════════ 다른 화면에 붙이기 ═════════ */
-// 간단 프로필: 사진 오른쪽 아래에 코스튬, 이름 아래에 팀 이름
+// 간단 프로필: 닉네임 바로 아래에 코스튬 이름표
 function decorateProfile(pg,mg,f){
   if(!mg||!on())return;
   if(mg.diary&&f&&f.code){var db=btn("mgs-ghost mgs-sm mgs-pfdia","✦ 마법 일기장 보기",function(){diaryDlg(f.code,(pg.querySelector(".fp-nm")||{}).textContent||f.hn)});pg.appendChild(db)}
   var nm=pg.querySelector(".fp-nm");
-  if(nm&&mg.cos)nm.insertAdjacentElement("afterend",cosTag(mg.cos,"pf"));
+  if(nm&&mg.cos)nm.insertAdjacentElement("afterend",cosTag(mg.cos,"mgs-pf"));
   var im=pg.querySelector(".fp-img");if(im&&mg.ribbon){var rb=el("span","mgs-pfrib");rb.appendChild(ribSvg(RIBC[mg.ribbon.color]||RIBC.pink));rb.title=mg.ribbon.with+" 님과 리본으로 묶여 있어요";rb.setAttribute("aria-label",rb.title);rb.setAttribute("role","img");im.appendChild(rb)}
   if(nm&&mg.team){var t=el("p","mgs-pfteam","✦ "+mg.team.name);t.style.setProperty("--tc",TCOL[mg.team.color]||TCOL.pink);nm.insertAdjacentElement("afterend",t)}
 }
 // PVP 대전 화면: 각 헌터 이름 위에 코스튬
-function pvpSide(d,S){if(!S||!S.cos||!on())return;d.appendChild(cosTag(S.cos,"pv"))}
+function pvpSide(d,S){if(!S||!S.cos||!on())return;d.appendChild(cosTag(S.cos,"mgs-pv"))}
 
 window.MG={elemList:elemList,elemPick:elemPick,school:school,state:onState,msgRow:msRow,msgSig:function(){return on()+":"+ST.letters+":"+(MS.fairy?MS.fairy.kind+MS.fairy.moodKo:"")},msgReset:msReset,pets:petsView,raiRow:raiRow,pvpEntry:pvpEntry,duel:duelView,diary:diaryDlg,mount:mount,transform:function(o){tfBuild().open(o)},oath:function(phrase,done){tfBuild().oath({phrase:phrase,onDone:done})},decorateProfile:decorateProfile,pvpSide:pvpSide,stop:function(){songStop();clearInterval(timer);clearInterval(DUELT)}};
 })();
