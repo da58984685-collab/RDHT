@@ -2923,9 +2923,9 @@ function btlElemDraw(v){
   if(me){me.innerHTML="";if(A&&v.melem&&A.ELEM[v.melem]){me.style.color=A.ELEM[v.melem].c;me.innerHTML=A.iconImg(v.melem)+A.ELEM[v.melem].name}}
   if(ar&&A&&(mglOn()||v.variant)){if(!btlAr){btlAr=A.Arena(ar)}ar.hidden=false;if(btlArEl!==v.melem){btlArEl=v.melem;btlAr.setEl(v.melem)}else btlAr.start()}
   else if(ar)ar.hidden=true;      /* 픽셀 몬스터 화면: 마법소녀 테마(이벤트)일 때 · 변종(도감 10종)과의 전투는 항상 */
-  if(eb){var ok=!!v.wel&&!(v.elemCd>0);eb.disabled=!ok||btlBusy;
-    eb.title=!v.wel?"속성이 깃든 무기를 착용하면 쓸 수 있습니다":v.elemCd>0?"속성 공격은 "+v.elemCd+"라운드 뒤에 쓸 수 있습니다":"무기 속성으로 공격 · 약점이면 피해 ×2, 내성이면 ×0.5";
-    var lb=v.elemCd>0?"속성 ("+v.elemCd+")":"속성";eb.innerHTML=(A&&v.wel?A.iconImg(v.wel):"")+"<span>"+lb+"</span>"}
+  if(eb){var mgL=window.MG&&mglOn()?MG.elemList(v.wel):[],has=!!v.wel||mgL.length>0,ok=has&&!(v.elemCd>0);eb.disabled=!ok||btlBusy;      /* 마법소녀 이벤트: 요정·마법 의상·룬의 속성 마법도 */
+    eb.title=!has?"속성이 깃든 무기를 착용하면 쓸 수 있습니다":v.elemCd>0?"속성 공격은 "+v.elemCd+"라운드 뒤에 쓸 수 있습니다":mgL.length>1?"속성 마법 고르기 · 약점이면 피해 ×2, 내성이면 ×0.5":"속성으로 공격 · 약점이면 피해 ×2, 내성이면 ×0.5";
+    var e1=v.wel||(mgL[0]&&mgL[0].el)||"",lb=v.elemCd>0?"속성 ("+v.elemCd+")":mgL.length>1?"속성 마법":"속성";eb.innerHTML=(A&&e1?A.iconImg(e1):"")+"<span>"+lb+"</span>"}
 }
 function btlFx(h){
   if(!h||!btlAr||!window.AFX||$("btlar").hidden)return;
@@ -2978,22 +2978,27 @@ function btlEnd(r){
 }
 $("btlacts").addEventListener("click",function(e){
   var b=e.target.closest("button[data-a]");if(!b||btlBusy||!btlActive)return;
+  /* 마법소녀 이벤트: 속성 공격은 쓸 수 있는 속성 마법(요정 기본 · 마법 의상 · 속성 룬 · 무기) 중에서 고름 */
+  if(b.dataset.a==="elem"&&window.MG&&mglOn()&&btlV){MG.elemPick(b,btlV.wel,function(el){if(el===null||btlBusy||!btlActive)return;btlDo("elem",el||undefined)});return}
+  btlDo(b.dataset.a);
+});
+function btlDo(act,el){
   btlBusy=true;btlRender();
-  api("POST","/api/battle/act",{action:b.dataset.a}).then(function(r){
+  api("POST","/api/battle/act",el?{action:act,el:el}:{action:act}).then(function(r){
     if(r._status===401){leaveGame("로그인이 만료되었어요. 다시 로그인해주세요.");return}
     if(r.afxNew)gwToast("속성 도감 · "+(r.afxNew.newEl?"새 속성 해금! ":"")+r.afxNew.mon+" 기록됨",5000);      /* 마법소녀 이벤트: 스킬을 써 본 몬스터가 도감에 열림 */
     if(r.error){
       btlBusy=false;
       if(r.error==="no_battle"||r.error==="expired"){btlActive=false;$("btl").hidden=true;document.body.style.overflow="";$("mapmsg").textContent="전투가 끝났거나 취소되었습니다.";pollState(false);return}
       if(r.battle){btlV=r.battle}
-      $("mapmsg").textContent=r.error==="heavy_cd"?"강타는 아직 쓸 수 없습니다.":r.error==="no_elem"?"속성이 깃든 무기를 착용해야 속성 공격을 쓸 수 있습니다.":r.error==="elem_cd"?"속성 공격은 아직 쓸 수 없습니다.":r.error==="corrupted"?"오염이 폭주해 전투를 이어갈 수 없습니다.":"처리하지 못했습니다. 다시 시도해주세요.";
+      $("mapmsg").textContent=r.error==="heavy_cd"?"강타는 아직 쓸 수 없습니다.":r.error==="no_elem"?(mglOn()?"쓸 수 있는 속성 마법이 없어요. 요정과 계약하거나 마법 의상·속성 룬을 준비해 주세요.":"속성이 깃든 무기를 착용해야 속성 공격을 쓸 수 있습니다."):r.error==="no_rune"?"속성 룬이 모자라요.":r.error==="elem_cd"?"속성 공격은 아직 쓸 수 없습니다.":r.error==="corrupted"?"오염이 폭주해 전투를 이어갈 수 없습니다.":"처리하지 못했습니다. 다시 시도해주세요.";
       btlRender();return;
     }
     if(r.battle&&r.battle.hit)btlFx(r.battle.hit);
     if(r.done){btlEnd(r);return}
     btlBusy=false;btlV=r.battle;btlRender();
   }).catch(function(){btlBusy=false;btlRender()});
-});
+}
 $("btlok").addEventListener("click",function(){$("btl").hidden=true;document.body.style.overflow=(!rmodal.hidden||!mmodal.hidden||!$("cmodal").hidden)?"hidden":"";if(!rmodal.hidden){fillR()}});
 
 /* ───── 레이더 / 기기 ───── */
@@ -3373,7 +3378,7 @@ function loadAch(){
     if(devApp!=="ach")return;
     if(r.error||!r.list){appFail(scr,loadAch);return}
     var old=scr.querySelector(".app-empty,.app-list");if(old)old.remove();
-    if(achNew){achNew=0;api("POST","/api/achievements/seen",{})}
+    if(achNew||(r.list||[]).some(function(a){return a.isNew})){achNew=0;api("POST","/api/achievements/seen",{});if(!devApp&&$("phscr"))renderDevice()}      /* 목록에 NEW 가 하나라도 있으면 확인함으로 (한 번만 보이게) */
     var ul=document.createElement("ul");ul.className="app-list";
     (r.list||[]).forEach(function(a){
       var li=document.createElement("li");li.className="ach-li"+(a.done?" got":" lock");
@@ -3401,12 +3406,13 @@ function addGoldTag(scr){var p=document.createElement("p");p.id="goldtag";p.clas
 var shopTab="item";      /* 상점 탭: item 일반 물품 · cook 요리 재료 */
 function loadShop(){
   var scr=$("phscr"),tabNow=shopTab;
-  api("GET",tabNow==="cook"?"/api/shop/cook":"/api/shop").then(function(r){
+  if(tabNow==="rune"&&!mglOn()){shopTab=tabNow="item"}
+  api("GET",tabNow==="cook"?"/api/shop/cook":tabNow==="rune"?"/api/shop/rune":"/api/shop").then(function(r){
     if(devApp!=="shop"||tabNow!==shopTab)return;
     if(r.error||!r.items){appFail(scr,loadShop);return}
     var box;while((box=scr.querySelector(".app-empty,.app-list,.app-note,.shop-tabs")))box.remove();
     var tabs=document.createElement("div");tabs.className="shop-tabs";tabs.setAttribute("role","tablist");
-    [["item","일반 물품"],["cook","요리 재료"]].forEach(function(t){var b=document.createElement("button");b.type="button";b.className="shop-tab";b.setAttribute("role","tab");b.setAttribute("aria-selected",t[0]===tabNow?"true":"false");b.textContent=t[1];
+    [["item","일반 물품"],["cook","요리 재료"]].concat(mglOn()?[["rune","속성 룬"]]:[]).forEach(function(t){      /* 속성 룬: 마법소녀 이벤트 중에만 */var b=document.createElement("button");b.type="button";b.className="shop-tab";b.setAttribute("role","tab");b.setAttribute("aria-selected",t[0]===tabNow?"true":"false");b.textContent=t[1];
       b.addEventListener("click",function(){if(shopTab===t[0])return;shopTab=t[0];loadShop()});tabs.appendChild(b)});
     scr.appendChild(tabs);
     var list=(r.items||[]).slice().sort(function(a,b){return String(a.name).localeCompare(String(b.name),"ko")});if(r.gold!==undefined){gold=r.gold;setGoldTag()}      // 가나다 순
@@ -3418,6 +3424,7 @@ function loadShop(){
       if(it.desc){var sm=document.createElement("small");sm.textContent=it.desc;li.appendChild(sm)}
       if(it.eff){var sf=document.createElement("small");sf.className="inv-fx";sf.textContent="사용 효과 · "+fxText(it.eff);li.appendChild(sf)}
       if(tabNow==="cook"){var su=document.createElement("small");su.className="shop-uses";su.textContent="보유 "+it.have+(it.uses&&it.uses.length?" · 쓰이는 요리: "+it.uses.join(", "):"");li.appendChild(su)}
+      if(tabNow==="rune"){var sr=document.createElement("small");sr.className="shop-uses";sr.textContent="보유 "+it.have+"개";li.appendChild(sr)}
       var qrow=document.createElement("div");qrow.className="shop-q";
       var qm=document.createElement("button");qm.type="button";qm.className="shop-qb";qm.textContent="−";qm.setAttribute("aria-label",it.name+" 수량 줄이기");
       var qi=document.createElement("input");qi.type="number";qi.className="shop-qi";qi.min="1";qi.max="9999";qi.step="1";qi.value="1";qi.inputMode="numeric";qi.setAttribute("aria-label",it.name+" 구매 수량");
@@ -3437,10 +3444,10 @@ function loadShop(){
       qrow.appendChild(qm);qrow.appendChild(qi);qrow.appendChild(qp);qrow.appendChild(q10);
       b.addEventListener("click",function(){
         var n=qty();sync();b.disabled=true;
-        (tabNow==="cook"?api("POST","/api/shop/cook/buy",{name:it.name,qty:n}):api("POST","/api/shop/buy",{id:it.id,qty:n})).then(function(x){
+        (tabNow==="cook"?api("POST","/api/shop/cook/buy",{name:it.name,qty:n}):tabNow==="rune"?api("POST","/api/shop/rune/buy",{name:it.name,qty:n}):api("POST","/api/shop/buy",{id:it.id,qty:n})).then(function(x){
           b.disabled=false;b.textContent=x.ok?(x.qty>1?x.qty+"개 구매 완료 ✓":"구매 완료 ✓"):x.error==="no_gold"?"골드가 부족합니다":x.error==="max_qty"?(x.room>0?"최대 "+x.room+"개까지 살 수 있습니다":"더 가질 수 없습니다"):x.error==="blocked"?"운영자가 제한함":x.error==="corrupted"?"활동 불가 상태입니다":"구매 실패";
           setTimeout(function(){b.textContent=lbl},1400);
-          if(x.ok){gold=x.gold;setGoldTag();if(x.food!=null)raiFood=x.food;pollState(false);if(tabNow==="cook")setTimeout(function(){if(devApp==="shop"&&shopTab==="cook")loadShop()},1500)}
+          if(x.ok){gold=x.gold;setGoldTag();if(x.food!=null)raiFood=x.food;pollState(false);if(tabNow==="cook"||tabNow==="rune")setTimeout(function(){if(devApp==="shop"&&shopTab===tabNow)loadShop()},1500)}
         });
       });
       li.appendChild(qrow);li.appendChild(b);ul.appendChild(li);
