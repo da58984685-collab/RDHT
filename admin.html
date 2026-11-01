@@ -161,6 +161,7 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
     <h2 style="margin-bottom:6px">화면 테마 <span id="thst" class="muted" style="font-size:.85rem"></span></h2>
     <p class="muted" style="margin:0 0 10px;font-size:.85rem">모든 헌터 화면의 장식과 색을 바꿉니다. 게임 내용은 그대로이고, 다른 것을 고르거나 '기본'을 고르면 다음 접속 · 5분 안에 원래대로 돌아옵니다. (마법소녀 테마에는 낮·밤 스위치가 함께 나옵니다)</p>
     <div style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" class="btn" data-th="none">기본</button><button type="button" class="btn" data-th="magic">마법소녀</button></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px"><button type="button" class="btn" id="mgshoot">소원 별똥별 지금 띄우기</button><span class="muted" id="mgshootm" style="font-size:.8rem">마법소녀 테마일 때 5초 뒤 30초 동안 지구본 위로 지나갑니다 (평소에는 하루 4번 무작위).</span></div>
   </section>
   <section class="card" id="hncard" style="margin-bottom:12px">
     <h2 style="margin-bottom:6px">오염 사냥꾼 현황</h2>
@@ -227,6 +228,13 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
     <h3 style="margin-bottom:4px">커뮤니티 관리 <span class="muted" style="font-weight:400;font-size:.85rem">(최근 글 100개 · 수정·삭제는 관리자만 가능 · 저장하면 헌터 화면에 바로 반영)</span></h3>
     <div id="bdmsg" class="muted" style="min-height:1.3em;font-size:.85rem"></div>
     <div class="tw"><table><thead><tr><th>작성 시각</th><th>작성자</th><th>분류</th><th>제목</th><th>본문</th><th></th></tr></thead><tbody id="bdlist"></tbody></table></div>
+  </section>
+  <section class="card" id="mgmail">
+    <h3 style="margin-bottom:4px">반짝 우체통 기록 <span class="muted" style="font-weight:400;font-size:.85rem">(마법소녀 이벤트 · 헌터끼리 이름을 숨기고 보낸 응원 편지 · 관리자에게만 보낸 사람이 보입니다)</span> <span class="muted" id="mmst" style="font-weight:400;font-size:.85rem"></span></h3>
+    <form class="search" id="mmf" style="margin:8px 0"><input id="mmq" autocomplete="off" placeholder="헌터 이름 · 코드 · 내용 (보낸·받은 쪽 모두)"><button class="btn" type="submit">검색</button><button class="btn ghost" type="button" id="mmall">전체</button></form>
+    <div id="mmmsg" class="muted" style="min-height:1.3em;font-size:.85rem"></div>
+    <div class="tw" style="max-height:420px"><table><thead><tr><th>보낸 시각</th><th>보낸 헌터</th><th>받은 헌터</th><th>내용</th><th>상태</th><th></th></tr></thead><tbody id="mmlist"></tbody></table></div>
+    <div class="row" style="margin-top:8px"><button class="btn ghost sm" id="mmmore" type="button" hidden>더 보기</button></div>
   </section>
   <section class="card" id="recbox">
     <h3 style="margin-bottom:8px">오늘의 추천 <span class="muted" style="font-weight:400;font-size:.85rem">(게임 캐릭터 창에 한 줄 문장으로 표시 · 관리자만 수정 가능)</span></h3>
@@ -368,6 +376,7 @@ Array.prototype.forEach.call(document.querySelectorAll("#thcard [data-th]"),func
     api("POST","/api/admin/theme",{theme:b.getAttribute("data-th")}).then(function(r){if(r.error){alert("저장하지 못했습니다.");return}loadTheme()});
   });
 });
+$("mgshoot").addEventListener("click",function(){api("POST","/api/admin/mg/shoot",{}).then(function(r){$("mgshootm").textContent=r.error?"띄우지 못했습니다.":r.on?"5초 뒤 별똥별이 지나갑니다. 접속 중인 헌터 화면에 10초 안에 나타나요.":"예약했지만 지금은 마법소녀 테마가 꺼져 있어 보이지 않아요."})});
 var maintOn=false;
 function loadMaint(){
   api("GET","/api/admin/maintenance").then(function(r){
@@ -1064,7 +1073,29 @@ function pollInq(){
   });
 }
 setInterval(pollInq,10000);pollInq();
-function loadAll(){loadHn();loadNHist();loadSp();loadOnline();loadMaint();loadTheme();loadSbgm();loadInq();loadQna();loadInv();loadOverview();loadS();loadRec();loadBoard();loadAchDefs();if(!document.activeElement||!/^(sn|sd|sp|ss|sam|sname|sdesc|sprice|sstat|samt)$/.test(document.activeElement.className||document.activeElement.id))loadShop();loadList();if(selCode&&!dirty)loadDetail();var d=new Date(),p=function(n){return String(n).padStart(2,"0")};$("last").textContent="갱신 "+p(d.getHours())+":"+p(d.getMinutes())+":"+p(d.getSeconds())}
+
+// ── 반짝 우체통 기록 (마법소녀 이벤트) ──
+var mmQ="",mmLast=0;
+function mmTime(t){var d=new Date(t),z=function(n){return n<10?"0"+n:""+n};return d.getFullYear()+"."+z(d.getMonth()+1)+"."+z(d.getDate())+" "+z(d.getHours())+":"+z(d.getMinutes())}
+function loadMail(more){
+  api("GET","/api/admin/mg/mail?q="+encodeURIComponent(mmQ)+(more&&mmLast?"&before="+mmLast:"")).then(function(r){
+    if(r._status===401||r.error){$("mmmsg").textContent=r.error?"불러오지 못했습니다.":"";return}
+    $("mmst").textContent="· 전체 "+r.total+"통 · 오늘 "+r.today+"통";
+    var tb=$("mmlist");if(!more)tb.innerHTML="";
+    if(!more&&!r.list.length)tb.innerHTML='<tr><td colspan="6" class="muted">'+(mmQ?"검색 결과가 없습니다.":"아직 주고받은 편지가 없습니다.")+'</td></tr>';
+    r.list.forEach(function(m){mmLast=m.id;var tr=document.createElement("tr");
+      tr.innerHTML="<td>"+esc(mmTime(m.at))+"</td><td>"+esc(m.from.name)+'<br><span class="muted" style="font-size:.78rem">'+esc(m.from.code)+"</span></td><td>"+esc(m.to.name)+'<br><span class="muted" style="font-size:.78rem">'+esc(m.to.code)+'</span></td><td style="max-width:320px;white-space:normal;overflow-wrap:anywhere">'+esc(m.text)+(m.shown!==m.text?'<br><span class="muted" style="font-size:.78rem">받은 사람 화면(보낸 사람 오염도 '+esc(m.taint)+'%): '+esc(m.shown)+"</span>":"")+"</td><td>"+(m.heart?"♥ 고마워요":m.seen?"읽음":"안 읽음")+'</td><td><button class="btn ghost sm" type="button" data-del="'+m.id+'">삭제</button></td>';
+      tb.appendChild(tr)});
+    $("mmmore").hidden=!r.more;
+  });
+}
+$("mmf").addEventListener("submit",function(e){e.preventDefault();mmQ=$("mmq").value.trim();mmLast=0;loadMail(false)});
+$("mmall").addEventListener("click",function(){$("mmq").value="";mmQ="";mmLast=0;loadMail(false)});
+$("mmmore").addEventListener("click",function(){loadMail(true)});
+$("mmlist").addEventListener("click",function(e){var b=e.target.closest("[data-del]");if(!b)return;
+  if(b.dataset.ok!=="1"){b.dataset.ok="1";b.textContent="정말 삭제";return}
+  api("POST","/api/admin/mg/mail/delete",{id:Number(b.getAttribute("data-del"))}).then(function(r){if(r.ok){b.closest("tr").remove();$("mmmsg").textContent="편지를 삭제했습니다. 받은 헌터의 우체통에서도 사라집니다."}else $("mmmsg").textContent="삭제하지 못했습니다."})});
+function loadAll(){loadHn();loadMail(false);loadNHist();loadSp();loadOnline();loadMaint();loadTheme();loadSbgm();loadInq();loadQna();loadInv();loadOverview();loadS();loadRec();loadBoard();loadAchDefs();if(!document.activeElement||!/^(sn|sd|sp|ss|sam|sname|sdesc|sprice|sstat|samt)$/.test(document.activeElement.className||document.activeElement.id))loadShop();loadList();if(selCode&&!dirty)loadDetail();var d=new Date(),p=function(n){return String(n).padStart(2,"0")};$("last").textContent="갱신 "+p(d.getHours())+":"+p(d.getMinutes())+":"+p(d.getSeconds())}
 // 1분마다 데이터만 다시 불러옵니다. 선택한 헌터·탭·검색어·작성 중인 알림은 그대로 유지됩니다.
 setInterval(function(){if($("auto").checked&&!document.hidden&&!$("app").classList.contains("hide"))loadAll()},60000);
 document.addEventListener("visibilitychange",function(){if(!document.hidden&&$("auto").checked&&!$("app").classList.contains("hide"))loadAll()});
