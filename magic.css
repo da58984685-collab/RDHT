@@ -427,10 +427,10 @@ html.mgn .rk[data-r="A"]{background:linear-gradient(135deg,#c84173,#c84173);box-
 html.mgn .chn{color:#e0ccd4}
 html.mgn .pbtn.rdy{color:#e0ccd4;box-shadow:0 0 10px rgba(243,111,160,0.45)}
 html.mgn .pm-l li{background:#29161e}
-html.mgn .ach-pin{--g1:#683f4e;--g2:#c9a77c;--g3:#9e6716;background:linear-gradient(135deg,#b6356b,#b6355a 60%,#b63564) padding-box,linear-gradient(100deg,var(--g3),var(--g1),var(--g2),#c84172,var(--g1),var(--g3)) border-box;box-shadow:0 0 14px rgba(201,167,124,0.28),0 0 26px rgba(235,99,148,0.22);background-size:100% 100%,300% 100%}
-html.mgn .ach-pin .tx{background:linear-gradient(100deg,var(--g2),var(--g1) 30%,#dbbf85 50%,var(--g1) 70%,var(--g2));background-size:250% 100%;-webkit-background-clip:text;background-clip:text}
-html.mgn .ach-pin .st::after{background:#27151a}
-html.mgn .ach-none{color:#dac28e;border:1px dashed rgba(201,167,124,0.45);background:linear-gradient(90deg,rgba(201,167,124,0.07),rgba(235,99,148,0.07))}
+html.mgn .ach-pin{--g1:#ffe9c2;--g2:#e7c88f;--g3:#b98a52;background:linear-gradient(135deg,#3a1626,#22101a 60%,#341424) padding-box,linear-gradient(100deg,var(--g3),var(--g1),var(--g2),#ff8fc0,var(--g1),var(--g3)) border-box;box-shadow:0 0 14px rgba(231,200,143,0.26),0 0 26px rgba(255,120,180,0.2);background-size:100% 100%,300% 100%}
+html.mgn .ach-pin .tx{background:linear-gradient(100deg,#f3d9a6,#fff4dc 30%,#ffc9e2 50%,#fff4dc 70%,#f3d9a6);background-size:250% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;filter:drop-shadow(0 0 3px rgba(255,170,210,.35))}
+html.mgn .ach-pin .st::after{background:#22101a}
+html.mgn .ach-none{color:#f0dcb2;border:1px dashed rgba(201,167,124,0.45);background:linear-gradient(90deg,rgba(201,167,124,0.07),rgba(235,99,148,0.07))}
 html.mgn .ach-li.got b{background:linear-gradient(90deg,#dcc387,#d8bec8,#dcc387);background-size:200% 100%;-webkit-background-clip:text;background-clip:text}
 html.mgn .ach-btn{color:#dfcad2;background:linear-gradient(135deg,#683f4e,#b8976c 60%,#9e6716)}
 html.mgn .ach-btn.off{color:#dbbd84;border:1px solid rgba(201,167,124,0.45)}
