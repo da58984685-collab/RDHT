@@ -17,7 +17,7 @@ const TF_BUFF = 30 * MIN;          // 변신 한 번에 30분 버프
 const TF_CD = 2 * HOUR;            // 다음 변신까지 쉬는 시간 (변신한 순간부터)
 const TF_FX = { exp: 0.10, gold: 0.10, hpGuard: 5 };          // 변신 중: 경험치·골드 +10%, 체력 피해 -5%
 const JOINT_FX = { exp: 0.05, gold: 0.05, luck: 3 };           // 합동 변신(팀 3명 모두 오늘 변신) 중 추가
-const DEF_SPELL = '샤랄라 반짝, 별빛이여 모여라!';
+const DEF_SPELL = '눈물은 칼집에, 맹세는 칼끝에';      // 내 주문을 짓지 않았으면 이 주문으로 변신
 // 이벤트가 시작된 뒤 처음 들어올 때 직접 따라 적어야 하는 맹세 주문 (띄어쓰기는 몇 칸이든 한 칸으로 봅니다)
 const OATH = '눈물은 칼집에, 맹세는 칼끝에';
 const oathNorm = t => String(t == null ? '' : t).normalize('NFC').replace(/\s+/g, ' ').trim();
@@ -28,12 +28,20 @@ const SPELL_MAX = 30, VOTE_WEEK = 5;      // 주문 30자 · 한 주에 '반짝'
 // ───────── 2 코스튬 ─────────
 const COS = {
   r: [['bow', '큰 나비 리본'], ['star', '별 리본'], ['heart', '하트 리본'], ['cat', '고양이 귀 리본'], ['crown', '작은 왕관']],
-  s: [['puff', '퍼프 치마'], ['frill', '프릴 치마'], ['bell', '종 치마'], ['tulip', '튤립 치마'], ['long', '긴 드레스']],
+  s: [['pants', '일자 바지'], ['shorts', '반바지'], ['cargo', '카고 바지'], ['puff', '퍼프 치마'], ['frill', '프릴 치마'], ['bell', '종 치마'], ['tulip', '튤립 치마'], ['long', '긴 드레스']],      // 하의: 기본은 바지, 고르면 치마
   c: [['sakura', '벚꽃'], ['sky', '하늘'], ['lemon', '레몬'], ['lavender', '라벤더'], ['mint', '민트']],
   w: [['star', '별'], ['heart', '하트'], ['moon', '초승달'], ['gem', '보석'], ['flower', '꽃']],
 };
 const COS_KEYS = ['r', 's', 'c', 'w'];
-const cosOk = o => COS_KEYS.every(k => COS[k].some(p => p[0] === o[k]) || COS_SHOP.some(p => p[0] === k && p[1] === o[k]));      // 기본 부품 + 거울 상점 부품
+// ───────── 속성 마법 ─────────
+// 계약한 요정의 기본 속성은 늘 쓸 수 있고, 그 밖의 속성은 ① 거울 조각으로 산 '마법 의상'을 입거나 ② 상점의 속성 룬(1개 = 1번)을 써야 합니다.
+const EL_KEYS = ['fire', 'ice', 'water', 'lightning', 'earth', 'poison', 'blast', 'holy', 'arcane', 'shadow'];
+const EL_KO = { fire: '화염', ice: '빙결', water: '물', lightning: '번개', earth: '대지', poison: '독', blast: '폭발', holy: '신성', arcane: '비전', shadow: '어둠' };
+const FAIRY_EL = { lumi: 'holy', pio: 'earth', nea: 'shadow' };      // 루미(별빛) 신성 · 피오(꽃잎) 대지 · 네아(달빛) 어둠
+const OUTFIT_COST = 6, RUNE_PRICE = 300;
+const runeName = el => EL_KO[el] + ' 속성 룬';
+const RUNE_BY_NAME = new Map(EL_KEYS.map(el => [runeName(el), el]));
+const cosOk = o => COS_KEYS.every(k => COS[k].some(p => p[0] === o[k]) || COS_SHOP.some(p => p[0] === k && p[1] === o[k])) && (!o.e || EL_KEYS.includes(o.e));      // 기본 부품 + 거울 상점 부품
 
 // ───────── 3 팀 ─────────
 const TEAM_COLORS = ['pink', 'sky', 'yellow'], TEAM_KO = { pink: '분홍', sky: '하늘', yellow: '노랑' }, TEAM_MAX = 3, TEAM_NAME_MAX = 12;
@@ -261,7 +269,6 @@ function install(d) {
     const s = await stRow(uid), dr = await dayRow(uid, now);
     if (Number(s.tf_until) > now) {
       b.exp *= 1 + TF_FX.exp; b.gold *= 1 + TF_FX.gold; b.hpGuard += TF_FX.hpGuard;
-      if (await jointToday(await teamOf(uid), now)) { b.exp *= 1 + JOINT_FX.exp; b.gold *= 1 + JOINT_FX.gold; b.luck += JOINT_FX.luck; }
     }
     const rb = await db.get('SELECT r.partner, u.region AS pr, me.region AS mr FROM mg_rib r JOIN users u ON u.id = r.partner JOIN users me ON me.id = r.user_id WHERE r.user_id = ?', [uid]);
     if (rb && rb.pr && rb.pr === rb.mr) { b.exp *= 1 + RIB_FX; b.gold *= 1 + RIB_FX; }      // 리본으로 묶인 친구와 같은 지역: 토벌 보상 +5%
@@ -326,7 +333,7 @@ function install(d) {
     const t = await teamOf(uid), me = t ? t.mem.find(m => m.user_id === uid) : null;
     const s = await db.get('SELECT diary_pub FROM mg_state WHERE user_id = ?', [uid]), f = await db.get('SELECT kind FROM mg_fairy WHERE user_id = ?', [uid]);
     const rb = await ribOf(uid);
-    return { cos: await cosOf(uid), team: t ? { name: t.name, color: me ? me.color : 'pink' } : null, diary: !!(s && Number(s.diary_pub)), fairy: f ? f.kind : '', ribbon: rb ? { color: rb.color, with: rb.hunter_name } : null };
+    return { cos: await cosOf(uid), team: null, diary: !!(s && Number(s.diary_pub)), fairy: f ? f.kind : '', ribbon: rb ? { color: rb.color, with: rb.hunter_name } : null };
   }
 
   // ═════════ 앱 첫 화면: 모든 탭의 정보를 한 번에 ═════════
@@ -339,7 +346,7 @@ function install(d) {
       tf: { until: Number(s.tf_until) > now ? Number(s.tf_until) : 0, next: Number(s.tf_next) > now ? Number(s.tf_next) : 0, total: Number(s.tf_total) || 0, today: Number(dr.tf) || 0 },
       spell: await mySpell(uid, now), top: await topSpell(now), defSpell: DEF_SPELL,
       cos: cosParse(s.cos), parts: COS, shop: await shopView(uid),
-      teamOn: !!team, jointOn: await jointToday(team, now),
+      teamOn: false, jointOn: false,
       song: { left: Math.max(0, SONG_DAY - (Number(dr.song) || 0)), max: SONG_DAY, purge: SONG_MAX, taint: await taintNow(uid) },
       star: { ko: st.C.ko, txt: st.C.txt, done: dr.star === st.C.k, stars: st.stars, hint: st.edges.map(e => [st.stars[e[0]], st.stars[e[1]]].map(p => [p.x, p.y])) },
     });
@@ -359,7 +366,7 @@ function install(d) {
     await db.run('UPDATE mg_day SET tf = tf + 1 WHERE user_id = ? AND day = ?', [uid, dayKey(now)]);
     try { await CT.bump(uid, 'mg_tf', 1); } catch (_) {}
     await act(uid, 'tf');
-    const team = await teamOf(uid), joint = await jointToday(team, now);
+    const team = null, joint = false;      // 팀 기능 없앰
     const sp = await mySpell(uid, now);
     send(res, 200, { ok: true, now, until: now + buff, next: now + TF_CD, chant: sp ? sp.text : DEF_SPELL, top: await topSpell(now), joint, team: team ? team.name : '', fairy: fy ? { ko: FAIRIES[fy.kind].ko, extra } : null });
   });
@@ -402,7 +409,9 @@ function install(d) {
   route('POST', '/api/mg/costume', async (req, res, ctx) => {
     if (!(await on())) return off(res);
     const o = {}; COS_KEYS.forEach(k => { o[k] = String((ctx.body || {})[k] || ''); });
+    const e = String((ctx.body || {}).e || ''); if (e) o.e = e;      // 마법 의상(속성)
     if (!cosOk(o)) return fail(res, 400, 'bad_part');
+    if (e && !(await outfitOwned(ctx.user.id, e))) return fail(res, 403, 'not_owned');
     for (const k of COS_KEYS) { if (COS_SHOP.some(p => p[0] === k && p[1] === o[k]) && !(await db.get('SELECT 1 AS x FROM mg_cos_own WHERE user_id = ? AND k = ? AND v = ?', [ctx.user.id, k, o[k]]))) return fail(res, 403, 'not_owned'); }      // 거울 상점 부품은 산 것만
     await ensure(ctx.user.id);
     await db.run('UPDATE mg_state SET cos = ? WHERE user_id = ?', [JSON.stringify(o), ctx.user.id]);
@@ -425,6 +434,7 @@ function install(d) {
   route('GET', '/api/mg/team', async (req, res, ctx) => { if (!(await on())) return off(res); send(res, 200, await teamView(ctx.user.id, Date.now())); });
   route('POST', '/api/mg/team/create', async (req, res, ctx) => {
     if (!(await on())) return off(res);
+    return fail(res, 410, 'removed');      // 팀 만들기는 없앴습니다 (예전 팀 기록은 남지만 쓰이지 않음)
     const uid = ctx.user.id, now = Date.now(), name = String(ctx.body.name || '').replace(/\s+/g, ' ').trim(), color = String(ctx.body.color || 'pink');
     if (!name || cp(name) > TEAM_NAME_MAX) return fail(res, 400, 'bad_name');
     if (!TEAM_COLORS.includes(color)) return fail(res, 400, 'bad_color');
@@ -773,7 +783,7 @@ function install(d) {
     let card = '';
     if (win > 0) {
       const lose = win === d.a ? d.b : d.a;
-      const ls = await db.get('SELECT cos FROM mg_state WHERE user_id = ?', [lose]), c = (ls && cosParse(ls.cos)) || { r: 'bow', s: 'puff', c: 'sakura', w: 'star' };
+      const ls = await db.get('SELECT cos FROM mg_state WHERE user_id = ?', [lose]), c = (ls && cosParse(ls.cos)) || { r: 'bow', s: 'pants', c: 'sakura', w: 'star' };
       const k = COS_KEYS[Math.floor(Math.random() * 4)], ln = await nameOf(lose);
       card = JSON.stringify({ k, v: c[k], from: ln });
       await db.run('INSERT INTO mg_card (user_id, from_name, k, v, at) VALUES (?, ?, ?, ?, ?)', [win, ln, k, c[k], now]);
@@ -897,7 +907,7 @@ function install(d) {
   async function mirrorView(uid, now) {
     const wk = weekKey(now), m = await pvpMine(uid, now), r = (await db.get('SELECT tries, win FROM mg_mirror WHERE user_id = ? AND week = ?', [uid, wk])) || { tries: 0, win: 0 };
     const s = await db.get('SELECT shards, mirror_wins FROM mg_state WHERE user_id = ?', [uid]);
-    return { set: !!m.u.pvp_set, me: m.a, mirror: flip(m.a), keys: G.PVP_KEYS, ko: G.PVP_KO, tries: Number(r.tries), max: MIRROR_TRIES, won: !!Number(r.win), shards: Number(s && s.shards) || 0, wins: Number(s && s.mirror_wins) || 0,
+    return { set: !!m.u.pvp_set, tries: Number(r.tries), max: MIRROR_TRIES, won: !!Number(r.win), shards: Number(s && s.shards) || 0, wins: Number(s && s.mirror_wins) || 0,
       reward: SHARD_WIN, weekEnd: Date.parse(addDay(wk, 7) + 'T00:00:00Z') - 9 * HOUR, shop: await shopView(uid), titleNeed: MIRROR_TITLE };
   }
   route('GET', '/api/mg/mirror', async (req, res, ctx) => { if (!(await on())) return off(res); send(res, 200, await mirrorView(ctx.user.id, Date.now())); });
@@ -1044,6 +1054,78 @@ function install(d) {
     if (r) await db.run('DELETE FROM mg_rib WHERE (user_id = ? AND partner = ?) OR (user_id = ? AND partner = ?)', [uid, r.partner, r.partner, uid]);
     send(res, 200, Object.assign({ ok: true }, await ribView(uid)));
   });
+
+  // ═════════ 속성 마법 (요정 기본 속성 · 마법 의상 · 속성 룬) ═════════
+  async function outfitOwned(uid, el) {
+    const f = await fairyRow(uid);
+    if (f && FAIRY_EL[f.kind] === el) return true;
+    return !!(await db.get("SELECT 1 AS x FROM mg_cos_own WHERE user_id = ? AND k = 'e' AND v = ?", [uid, el]));
+  }
+  async function elemsOf(uid) {
+    if (!(await on())) return null;
+    const f = await fairyRow(uid), base = f ? FAIRY_EL[f.kind] : '';
+    const s = await db.get('SELECT cos FROM mg_state WHERE user_id = ?', [uid]), c = s ? cosParse(s.cos) : null;
+    const outfit = c && c.e && (c.e === base || await outfitOwned(uid, c.e)) ? c.e : '';
+    const inv = await db.all('SELECT item, qty FROM inventory WHERE user_id = ? AND item IN (' + EL_KEYS.map(() => '?').join(',') + ')', [uid].concat(EL_KEYS.map(runeName)));
+    const runes = {}; inv.forEach(r => { const el = RUNE_BY_NAME.get(r.item); if (el && Number(r.qty) > 0) runes[el] = Number(r.qty); });
+    const list = [];
+    if (base) list.push({ el: base, ko: EL_KO[base], src: 'fairy', from: FAIRIES[f.kind].ko });
+    if (outfit && outfit !== base) list.push({ el: outfit, ko: EL_KO[outfit], src: 'outfit' });
+    EL_KEYS.forEach(el => { if (runes[el] && el !== base && el !== outfit) list.push({ el, ko: EL_KO[el], src: 'rune', n: runes[el] }); });
+    return { base, fairy: f ? f.kind : '', outfit, runes, list };
+  }
+  // 전투의 속성 공격: 고른 속성을 지금 쓸 수 있는지 확인 (무기 속성은 예전처럼 늘 가능). 룬이면 1개 씁니다.
+  async function elemCheck(uid, el, wel) {
+    if (!EL_KEYS.includes(el)) return null;
+    if (el === wel) return { el, src: 'weapon' };
+    const E = await elemsOf(uid); if (!E) return null;
+    const it = E.list.find(x => x.el === el);
+    return it ? { el, src: it.src } : null;
+  }
+  async function runeUse(uid, el) {
+    const w = await db.run('UPDATE inventory SET qty = qty - 1 WHERE user_id = ? AND item = ? AND qty >= 1', [uid, runeName(el)]);
+    if (w.changes !== 1) return false;
+    await db.run('DELETE FROM inventory WHERE user_id = ? AND qty <= 0', [uid]);
+    return true;
+  }
+  route('GET', '/api/mg/magic', async (req, res, ctx) => {
+    if (!(await on())) return off(res);
+    const uid = ctx.user.id, E = await elemsOf(uid);
+    const own = new Set((await db.all("SELECT v FROM mg_cos_own WHERE user_id = ? AND k = 'e'", [uid])).map(r => r.v));
+    const st = await db.get('SELECT shards FROM mg_state WHERE user_id = ?', [uid]);
+    send(res, 200, Object.assign({ outfits: EL_KEYS.map(el => ({ el, ko: EL_KO[el], name: EL_KO[el] + ' 마법 의상', own: own.has(el) || el === E.base, base: el === E.base, cost: OUTFIT_COST })),
+      shards: Number(st && st.shards) || 0, runePrice: RUNE_PRICE, fairyEl: FAIRY_EL, elKo: EL_KO }, E));
+  });
+  route('POST', '/api/mg/outfit/buy', async (req, res, ctx) => {
+    if (!(await on())) return off(res);
+    const uid = ctx.user.id, el = String(ctx.body.el || '');
+    if (!EL_KEYS.includes(el)) return fail(res, 400, 'bad_el');
+    if (await outfitOwned(uid, el)) return fail(res, 409, 'owned');
+    await ensure(uid);
+    const w = await db.run('UPDATE mg_state SET shards = shards - ? WHERE user_id = ? AND shards >= ?', [OUTFIT_COST, uid, OUTFIT_COST]);
+    if (w.changes !== 1) return fail(res, 409, 'no_shards');
+    await db.run("INSERT INTO mg_cos_own (user_id, k, v, at) VALUES (?, 'e', ?, ?) ON CONFLICT(user_id, k, v) DO NOTHING", [uid, el, Date.now()]);
+    send(res, 200, { ok: true, el, name: EL_KO[el] + ' 마법 의상' });
+  });
+  // 상점 '속성 룬' 탭 (마법소녀 이벤트 중에만): 1개 = 그 속성 마법 1번
+  route('GET', '/api/shop/rune', async (req, res, ctx) => {
+    if (!(await on())) return off(res);
+    const uid = ctx.user.id, E = await elemsOf(uid), u = await db.get('SELECT gold FROM users WHERE id = ?', [uid]);
+    send(res, 200, { gold: Number(u.gold) || 0, base: E.base, items: EL_KEYS.map(el => ({ name: runeName(el), el, ko: EL_KO[el], price: RUNE_PRICE, have: E.runes[el] || 0, desc: '전투에서 ' + EL_KO[el] + ' 속성 마법을 한 번 쓸 수 있어요.' + (el === E.base ? ' (계약한 요정의 기본 속성이라 룬 없이도 쓸 수 있어요)' : '') })) });
+  });
+  route('POST', '/api/shop/rune/buy', async (req, res, ctx) => {
+    if (!(await on())) return off(res);
+    if (await limited('mgrn:' + ctx.user.id, 30, 60000)) return fail(res, 429, 'rate_limited');
+    const uid = ctx.user.id, el = RUNE_BY_NAME.get(String(ctx.body.name || '')), qty = Math.max(1, Math.min(99, Math.floor(Number(ctx.body.qty) || 1)));
+    if (!el) return fail(res, 404, 'not_found');
+    const cost = RUNE_PRICE * qty;
+    const w = await db.run('UPDATE users SET gold = gold - ? WHERE id = ? AND gold >= ?', [cost, uid, cost]);
+    if (w.changes !== 1) return fail(res, 409, 'no_gold');
+    await db.run('INSERT INTO inventory (user_id, item, qty) VALUES (?, ?, ?) ON CONFLICT(user_id, item) DO UPDATE SET qty = MIN(9999, inventory.qty + excluded.qty)', [uid, runeName(el), qty]);
+    await logAcquire(uid, 'item', runeName(el), qty, '상점 (속성 룬)', Date.now());
+    const u = await db.get('SELECT gold FROM users WHERE id = ?', [uid]);
+    send(res, 200, { ok: true, qty, gold: Number(u.gold) || 0 });
+  });
   async function stateExtra(uid, now) {      // /api/state 의 mg 에 더할 2차 묶음 정보
     await fairyTick(uid, now);
     const lt = await db.get('SELECT COUNT(*) AS c FROM mg_letter WHERE user_id = ? AND seen = 0', [uid]);
@@ -1052,10 +1134,10 @@ function install(d) {
     if (sh) { const me = await db.get('SELECT 1 AS x FROM mg_wish WHERE sid = ? AND user_id = ?', [sh.id, uid]); shoot = { id: sh.id, start: sh.start, end: sh.start + SHOOT_DUR, done: !!me }; }
     const dv = await db.get("SELECT COUNT(*) AS c FROM mg_duel WHERE (a = ? AND st = 'done' AND seen_a = 0) OR (b = ? AND st = 'invite')", [uid, uid]);
     const ml = await db.get('SELECT COUNT(*) AS c FROM mg_mail WHERE to_id = ? AND seen = 0', [uid]), ro = await db.get('SELECT COUNT(*) AS c FROM mg_rib_off WHERE to_id = ?', [uid]);
-    return { letters: Number(lt.c) || 0, shoot, wishPaid: await wishSettle(uid, now), duel: Number(dv.c) || 0, fairy: fairyView(await fairyRow(uid)), mail: Number(ml.c) || 0, ribReq: Number(ro.c) || 0 };
+    return { letters: Number(lt.c) || 0, shoot, wishPaid: await wishSettle(uid, now), duel: Number(dv.c) || 0, fairy: fairyView(await fairyRow(uid)), mail: Number(ml.c) || 0, ribReq: Number(ro.c) || 0, els: ((await elemsOf(uid)) || { list: [] }).list };
   }
 
-  return { stateOf, cosOf, profileExtra, oathNeed, newEpoch, onPurify, act, OATH, SQL };
+  return { stateOf, cosOf, profileExtra, oathNeed, newEpoch, onPurify, act, elemCheck, runeUse, OATH, SQL };
 }
 
 module.exports = { install, SQL, COS, STARS, PETS, FAIRIES, TF_BUFF, TF_CD };
