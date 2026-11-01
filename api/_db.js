@@ -565,6 +565,7 @@ const MIGRATIONS = [
   'ALTER TABLE s_attempts ADD COLUMN taint_gain REAL NOT NULL DEFAULT 0',
   'ALTER TABLE shop_items ADD COLUMN price INTEGER NOT NULL DEFAULT 0',
   'ALTER TABLE s_attempts ADD COLUMN gold_gain INTEGER NOT NULL DEFAULT 0',
+  'CREATE TABLE IF NOT EXISTS ach_shown (user_id INTEGER NOT NULL, ach_id TEXT NOT NULL, PRIMARY KEY (user_id, ach_id))',      // 업적 NEW 를 이미 보여 준 기록 (지워지지 않음 → 최초 1회만 NEW)
 ];
 
 function postgres() {
@@ -573,7 +574,7 @@ function postgres() {
   types.setTypeParser(20, v => Number(v));
   types.setTypeParser(1700, v => Number(v));
   const { makeTranslator, toPgSchema } = require('./_pgsql');
-  const tr = makeTranslator(SCHEMA);
+  const tr = makeTranslator(SCHEMA + '\n' + MIGRATIONS.join('\n'));      // 나중에 추가된 표(MIGRATIONS)의 열·기본키도 알려 줌 (upsert 식의 열 이름 모호 오류 방지)
   // 환경변수 값의 앞뒤 공백/따옴표 제거. sslmode 는 직접 처리합니다. (Neon, Supabase 모두 SSL 필요)
   let url = String(process.env.DATABASE_URL || process.env.POSTGRES_URL || '').trim().replace(/^['"]|['"]$/g, '');
   const noSsl = /sslmode=disable/.test(url) || /@(localhost|127\.0\.0\.1)(:|\/|$)/.test(url) || /[?&]host=\//.test(url);
