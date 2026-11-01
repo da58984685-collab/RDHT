@@ -104,7 +104,7 @@ input:focus,textarea:focus,button:focus-visible{outline:2px solid var(--red2);ou
 .gate .gwel b{color:var(--text)}
 .gate .actions{margin-top:18px;flex-direction:column}
 .gate .actions button{width:100%;padding:15px 18px;font-size:1.1rem}
-main.landing{display:flex;align-items:center;justify-content:center;max-width:none;min-height:100vh;min-height:100dvh;padding:32px 16px}
+main.landing{position:relative;z-index:1;display:flex;align-items:center;justify-content:center;max-width:none;min-height:100vh;min-height:100dvh;padding:32px 16px}
 .hero{width:100%;max-width:440px;margin:0;text-align:center}
 .hero h2{font:400 .72rem/1.6 "Share Tech Mono",monospace;letter-spacing:.3em}
 .hero .body{padding:28px 22px 24px}
@@ -750,6 +750,7 @@ input[type=text],input[type=number],input[type=password],input[type=url],textare
 .hp-ph2 figcaption{margin-top:4px;font-size:.68rem;color:#8a736f;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 @media (max-width:640px){.hpm .dialog{padding:44px 6px 8px}.hp-wrap{grid-template-columns:1fr}.hp-side{border-right:0;border-bottom:1px dashed #cdb3ad;display:grid;grid-template-columns:96px minmax(0,1fr);gap:4px 12px;align-items:start}.hp-side>.hp-pic{grid-row:1/3;max-height:96px}.hp-side>.hp-nm{margin:0;text-align:left}.hp-side>.hp-side-rest{grid-column:1/-1}.hp-nm .rk{width:18px;height:18px;font-size:.66rem}}
 .gband{position:fixed;inset:0;z-index:0;display:flex;flex-direction:column;justify-content:center;gap:2vmin;overflow:hidden;pointer-events:none;opacity:.17;-webkit-mask-image:radial-gradient(ellipse at center,#000 30%,rgba(0,0,0,.55) 100%);mask-image:radial-gradient(ellipse at center,#000 30%,rgba(0,0,0,.55) 100%)}
+.gband[hidden]{display:none}
 .gband-row{display:flex;white-space:nowrap;will-change:transform}
 .gband-row span{flex:none;padding-right:.3em;font:900 clamp(64px,17vmin,170px)/1.05 "Noto Serif TC","Nanum Myeongjo",serif;letter-spacing:.04em;color:var(--red2)}
 .gband-row:nth-child(2) span{font-size:clamp(34px,9vmin,90px);font-weight:800;color:var(--deep);letter-spacing:.1em}
@@ -916,6 +917,7 @@ input[type=checkbox]:focus-visible{outline:2px solid var(--deep);outline-offset:
 .bigapp[data-app="att"] .big-p,.bigapp[data-app="fort"] .big-p{width:min(520px,100%)}
 .bigapp[data-app="exped"] .big-p,.bigapp[data-app="pvs"] .big-p{width:min(620px,100%)}
 .bigapp[data-app="pvp"] .big-p{width:min(680px,100%)}
+.bigapp[data-app="mgs"] .big-p,.bigapp[data-app="mgsch"] .big-p{width:min(560px,100%)}
 .big-p .ph-scr{flex:0 1 auto;min-height:0;max-height:none;overflow-y:auto;border:0;border-radius:0;padding:16px 18px;font-size:1rem}
 .big-p .app-list{font-size:.95rem;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:8px}
 .big-p .app-list li{padding:10px 12px}
@@ -1145,6 +1147,8 @@ input[type=checkbox]:focus-visible{outline:2px solid var(--deep);outline-offset:
 <script src="magic.js"></script>
 <!-- 몬스터 속성 상성: 전투 연출 · 속성 도감 그림 (effects: pixelfx by Patch, MIT). 이 줄을 지워도 게임은 동작합니다(그림만 빠짐). -->
 <script src="affinity.js" defer></script>
+<link rel="stylesheet" href="mg.css">
+<script src="mg.js" defer></script>
 <style>
 /* iOS(Safari·인앱 브라우저): 글자 크기가 16px 보다 작은 입력칸을 누르면 화면이 자동으로 확대되어 가로로 늘어나고 UI 가 깨져 보임 → iOS 에서만 입력칸 글자를 16px 로 고정.
    (다른 기기의 모양은 그대로) 글자 크기 자동 보정도 막아 가로 모드에서 글자가 커지지 않게 함 */
@@ -1204,7 +1208,7 @@ html.mgl.mgn .u353{--ux-shadow-strong:rgba(0,0,0,.72);--u353-metal:#4a2a37;--u35
 <body>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
 <symbol id="i-heart" viewBox="0 0 7 7"><path d="M3 0h1v1H3zM2 1h3v1H2zM1 2h5v1H1zM0 3h7v1H0zM1 4h5v1H1zM2 5h3v1H2zM3 6h1v1H3z"/></symbol>
-<symbol id="i-home" viewBox="0 0 7 7"><path d="M1 0h5v1H1zM0 1h7v1H0zM0 2h2v4H0zM5 2h2v4H5zM0 6h7v1H0z"/></symbol><symbol id="i-dex" viewBox="0 0 7 7"><path d="M0 0h6v1H0zM0 1h1v5H0zM2 2h3v1H2zM2 4h3v1H2zM0 6h7v1H0zM6 1h1v5H6z"/></symbol><symbol id="i-wkr" viewBox="0 0 7 7"><path d="M0 6h7v1H0zM1 3h1v3H1zM3 1h1v5H3zM5 4h1v2H5z"/></symbol><symbol id="i-hof" viewBox="0 0 7 7"><path d="M1 0h5v1H1zM0 1h1v2H0zM6 1h1v2H6zM1 1h5v3H1zM3 4h1v1H3zM2 5h3v1H2zM1 6h5v1H1z"/></symbol><symbol id="i-wnt" viewBox="0 0 7 7"><path d="M3 0h1v2H3zM3 5h1v2H3zM0 3h2v1H0zM5 3h2v1H5zM3 3h1v1H3z"/></symbol><symbol id="i-pvp" viewBox="0 0 7 7"><path d="M0 0h1v1H0zM1 1h1v1H1zM2 2h1v1H2zM3 3h1v1H3zM4 4h1v1H4zM5 5h1v1H5zM6 6h1v1H6zM6 0h1v1H6zM5 1h1v1H5zM4 2h1v1H4zM2 4h1v1H2zM1 5h1v1H1zM0 6h1v1H0z"/></symbol><symbol id="i-rai" viewBox="0 0 7 7"><path d="M2 0h3v1H2zM1 1h5v2H1zM0 3h7v2H0zM1 5h5v1H1zM2 6h3v1H2z"/></symbol><symbol id="i-note" viewBox="0 0 7 7"><path d="M4 0h3v1H4zM4 1h1v3H4zM6 1h1v1H6zM1 4h4v1H1zM0 5h5v1H0zM1 6h3v1H1z"/></symbol><symbol id="i-chk" viewBox="0 0 7 7"><path d="M6 0h1v1H6zM5 1h1v1H5zM0 2h1v1H0zM4 2h1v1H4zM1 3h1v1H1zM3 3h1v1H3zM2 4h1v1H2zM0 6h7v1H0z"/></symbol><symbol id="i-afx" viewBox="0 0 7 7"><path d="M3 0h1v1H3zM2 1h3v1H2zM1 2h2v1H1zM4 2h2v1H4zM0 3h2v1H0zM5 3h2v1H5zM1 4h2v1H1zM4 4h2v1H4zM2 5h3v1H2zM3 6h1v1H3z"/></symbol><symbol id="i-att" viewBox="0 0 7 7"><path d="M0 1h7v6H0zM1 0h1v1H1zM5 0h1v1H5z" opacity=".35"/><path d="M0 1h7v1H0zM2 3h1v1H2zM4 3h1v1H4zM2 5h1v1H2zM4 5h1v1H4z"/></symbol><symbol id="i-fort" viewBox="0 0 7 7"><path d="M1 0h5v7H1z" opacity=".4"/><path d="M1 0h5v1H1zM3 2h1v3H3zM2 3h3v1H2zM1 6h5v1H1z"/></symbol><symbol id="i-cook" viewBox="0 0 7 7"><path d="M2 0h1v1H2zM4 0h1v1H4zM3 1h1v1H3zM0 3h7v1H0zM1 4h5v2H1zM2 6h3v1H2z"/></symbol><symbol id="i-fish" viewBox="0 0 7 7"><path d="M2 2h3v1H2zM1 3h5v1H1zM2 4h3v1H2zM6 2h1v3H6zM2 3h1v1H2z"/></symbol><symbol id="i-exp" viewBox="0 0 7 7"><path d="M1 0h1v7H1zM2 0h4v1H2zM2 1h5v1H2zM2 2h4v1H2zM2 3h3v1H2z"/></symbol><symbol id="i-star" viewBox="0 0 7 7"><path d="M3 0h1v7H3zM0 3h7v1H0zM2 2h3v3H2z"/></symbol>
+<symbol id="i-home" viewBox="0 0 7 7"><path d="M1 0h5v1H1zM0 1h7v1H0zM0 2h2v4H0zM5 2h2v4H5zM0 6h7v1H0z"/></symbol><symbol id="i-dex" viewBox="0 0 7 7"><path d="M0 0h6v1H0zM0 1h1v5H0zM2 2h3v1H2zM2 4h3v1H2zM0 6h7v1H0zM6 1h1v5H6z"/></symbol><symbol id="i-wkr" viewBox="0 0 7 7"><path d="M0 6h7v1H0zM1 3h1v3H1zM3 1h1v5H3zM5 4h1v2H5z"/></symbol><symbol id="i-hof" viewBox="0 0 7 7"><path d="M1 0h5v1H1zM0 1h1v2H0zM6 1h1v2H6zM1 1h5v3H1zM3 4h1v1H3zM2 5h3v1H2zM1 6h5v1H1z"/></symbol><symbol id="i-wnt" viewBox="0 0 7 7"><path d="M3 0h1v2H3zM3 5h1v2H3zM0 3h2v1H0zM5 3h2v1H5zM3 3h1v1H3z"/></symbol><symbol id="i-pvp" viewBox="0 0 7 7"><path d="M0 0h1v1H0zM1 1h1v1H1zM2 2h1v1H2zM3 3h1v1H3zM4 4h1v1H4zM5 5h1v1H5zM6 6h1v1H6zM6 0h1v1H6zM5 1h1v1H5zM4 2h1v1H4zM2 4h1v1H2zM1 5h1v1H1zM0 6h1v1H0z"/></symbol><symbol id="i-rai" viewBox="0 0 7 7"><path d="M2 0h3v1H2zM1 1h5v2H1zM0 3h7v2H0zM1 5h5v1H1zM2 6h3v1H2z"/></symbol><symbol id="i-note" viewBox="0 0 7 7"><path d="M4 0h3v1H4zM4 1h1v3H4zM6 1h1v1H6zM1 4h4v1H1zM0 5h5v1H0zM1 6h3v1H1z"/></symbol><symbol id="i-chk" viewBox="0 0 7 7"><path d="M6 0h1v1H6zM5 1h1v1H5zM0 2h1v1H0zM4 2h1v1H4zM1 3h1v1H1zM3 3h1v1H3zM2 4h1v1H2zM0 6h7v1H0z"/></symbol><symbol id="i-afx" viewBox="0 0 7 7"><path d="M3 0h1v1H3zM2 1h3v1H2zM1 2h2v1H1zM4 2h2v1H4zM0 3h2v1H0zM5 3h2v1H5zM1 4h2v1H1zM4 4h2v1H4zM2 5h3v1H2zM3 6h1v1H3z"/></symbol><symbol id="i-att" viewBox="0 0 7 7"><path d="M0 1h7v6H0zM1 0h1v1H1zM5 0h1v1H5z" opacity=".35"/><path d="M0 1h7v1H0zM2 3h1v1H2zM4 3h1v1H4zM2 5h1v1H2zM4 5h1v1H4z"/></symbol><symbol id="i-fort" viewBox="0 0 7 7"><path d="M1 0h5v7H1z" opacity=".4"/><path d="M1 0h5v1H1zM3 2h1v3H3zM2 3h3v1H2zM1 6h5v1H1z"/></symbol><symbol id="i-cook" viewBox="0 0 7 7"><path d="M2 0h1v1H2zM4 0h1v1H4zM3 1h1v1H3zM0 3h7v1H0zM1 4h5v2H1zM2 6h3v1H2z"/></symbol><symbol id="i-fish" viewBox="0 0 7 7"><path d="M2 2h3v1H2zM1 3h5v1H1zM2 4h3v1H2zM6 2h1v3H6zM2 3h1v1H2z"/></symbol><symbol id="i-exp" viewBox="0 0 7 7"><path d="M1 0h1v7H1zM2 0h4v1H2zM2 1h5v1H2zM2 2h4v1H2zM2 3h3v1H2z"/></symbol><symbol id="i-mgsch" viewBox="0 0 7 7"><path d="M3 0h1v1H3zM1 1h5v1H1zM0 2h7v1H0zM1 3h5v1H1zM2 4h3v2H2zM6 3h1v3H6z"/></symbol><symbol id="i-mgs" viewBox="0 0 7 7"><path d="M5 0h1v1H5zM4 1h3v1H4zM5 2h1v1H5zM3 3h1v1H3zM2 4h1v1H2zM1 5h1v1H1zM0 6h1v1H0z"/><path d="M1 0h1v1H1zM0 1h1v1H0zM2 1h1v1H2zM1 2h1v1H1z" opacity=".5"/></symbol><symbol id="i-star" viewBox="0 0 7 7"><path d="M3 0h1v7H3zM0 3h7v1H0zM2 2h3v3H2z"/></symbol>
 <symbol id="i-person" viewBox="0 0 8 8"><path d="M3 0h2v1H3zM2 1h4v2H2zM3 3h2v1H3zM1 4h6v1H1zM0 5h8v3H0z"/></symbol>
 <symbol id="i-chat" viewBox="0 0 8 7"><path d="M0 0h8v5H0zM1 5h2v1H1zM1 6h1v1H1z"/></symbol>
 <symbol id="i-plus" viewBox="0 0 8 8"><path d="M3 0h2v8H3zM0 3h8v2H0z"/></symbol>
@@ -1229,6 +1233,7 @@ html.mgl.mgn .u353{--ux-shadow-strong:rgba(0,0,0,.72);--u353-metal:#4a2a37;--u35
 <symbol id="i-tree" viewBox="0 0 8 8"><path d="M2 0h4v1h-4zM1 1h6v1h-6zM0 2h8v1h-8zM0 3h8v1h-8zM1 4h6v1h-6zM3 5h2v1h-2zM3 6h2v1h-2zM2 7h4v1h-4z"/></symbol>
 <symbol id="i-eye" viewBox="0 0 17 12"><path d="M8 0h1v1h-1zM3 1h1v1h-1zM8 1h1v1h-1zM13 1h1v1h-1zM4 2h1v1h-1zM12 2h1v1h-1zM6 3h5v1h-5zM4 4h2v1h-2zM11 4h2v1h-2zM2 5h2v1h-2zM7 5h3v1h-3zM13 5h2v1h-2zM1 6h1v1h-1zM6 6h1v1h-1zM10 6h1v1h-1zM15 6h1v1h-1zM0 7h1v1h-1zM6 7h1v1h-1zM8 7h1v1h-1zM10 7h1v1h-1zM16 7h1v1h-1zM1 8h1v1h-1zM6 8h1v1h-1zM10 8h1v1h-1zM15 8h1v1h-1zM2 9h2v1h-2zM7 9h3v1h-3zM13 9h2v1h-2zM4 10h2v1h-2zM11 10h2v1h-2zM6 11h5v1h-5z"/></symbol><symbol id="i-x" viewBox="0 0 7 7"><path d="M0 0h2v2H0zM5 0h2v2H5zM1 1h2v2H1zM4 1h2v2H4zM2 2h3v3H2zM1 4h2v2H1zM4 4h2v2H4zM0 5h2v2H0zM5 5h2v2H5z"/></symbol></svg>
 <div id="bg" aria-hidden="true"></div>
+<div class="gband" id="gband" aria-hidden="true"></div>      <!-- 赤月獵人 흐르는 글자: 입장 화면과 로그인 화면 뒤 모두 (게임 화면에서는 숨김) -->
 <main class="landing">
 <section class="hero">
   <h2><svg class="ic"><use href="#i-heart"/></svg>HUNTER SYSTEM</h2>
@@ -1247,7 +1252,6 @@ html.mgl.mgn .u353{--ux-shadow-strong:rgba(0,0,0,.72);--u353-metal:#4a2a37;--u35
 </section>
 </main>
 <main class="gate-wrap" id="gate" hidden>
-  <div class="gband" id="gband" aria-hidden="true"></div>
   <section class="gate" aria-labelledby="gtitle">
     <div class="gate-arch" aria-hidden="true"><div class="gate-in"><span class="gmoon"></span></div></div>
     <h1 id="gtitle" aria-label="적월협인" style="margin-top:0">赤月獵人</h1>
@@ -2118,6 +2122,7 @@ function api(method,url,body){
     return r.json().catch(function(){return {}}).then(function(j){j._status=r.status;if(j.error==="maintenance"){maintBypass=false;showMaint(j.message)}return j});
   },function(){clearTimeout(tm);if(DEMO_OK&&url==="/api/login"&&method==="POST"&&body&&body.code&&body.password){DEMO.on=true;return {ok:true,_status:200}}return {error:"network",_status:0}});
 }
+window.api=api;      /* mg.js(마법소녀) 에서 씀 */
 // 기기 앱 목록을 불러오지 못했을 때: 멈춰 있는 '불러오는 중…' 대신 안내와 다시 시도 버튼을 보여줍니다
 function appFail(scr,retry){
   var old=scr.querySelector(".app-empty,.app-list");if(old)old.remove();
@@ -2418,7 +2423,7 @@ var STAT_DEF=[["hp","체력","i-hp"],["taint","오염","i-taint"],["str","근력
 var HUNT_DIFF={F:"쉬움",E:"쉬움",D:"쉬움",C:"보통",B:"보통",A:"어려움",S:"매우 어려움"};
 var curRegion="city",alerts=[],pollTimer=null,skew=0,polling=false,paused=false;
 var sysInit=false,srvUnread=0;
-var SI={remaining:3,resetAt:0,need:10,max:3},pendingList=[],unreadNotices=0,giftUnread=0,unreadMsgs=0,seenIds={},alertSig="";
+var SI={remaining:3,resetAt:0,need:10,max:3},pendingList=[],unreadNotices=0,giftUnread=0,unreadMsgs=0,mgDuelN=0,mgMailN=0,seenIds={},alertSig="";
 var power={lv:1,exp:0};
 function nowS(){return Date.now()+skew}
 function pad(n){return (n<10?"0":"")+n}
@@ -2907,7 +2912,7 @@ function mglOn(){return document.documentElement.classList.contains("mgl")}     
 (function(){
   var was=mglOn();if(!window.MutationObserver)return;
   new MutationObserver(function(){var now=mglOn();if(now===was)return;was=now;
-    if(!now&&bigOpen&&devApp==="afx")closeBig();
+    if(!now&&bigOpen&&(devApp==="afx"||devApp==="mgs"||devApp==="mgsch"))closeBig();
     if(!devApp&&$("phscr"))renderDevice();
     if(btlV&&!$("btl").hidden)btlRender();
   }).observe(document.documentElement,{attributes:true,attributeFilter:["class"]});
@@ -3187,9 +3192,9 @@ var globe=(function(){
   return {set:set,isOn:function(){return on},redraw:function(){if(on&&rm)draw()}};
 })();
 var achNew=0,rescueReq=0,gold=0,devApp=null,inventory=[],invSig="",invNote="";
-var APPS=[["gw","게이트웨이브","i-eye"],["msg","메신저","i-chat"],["com","커뮤니티","i-board"],["ach","업적","i-medal"],["eqp","장비","i-str"],["rai","육성","i-rai"],["pvp","전장","i-pvp"],["sys","시스템 알림","i-bell"],["shop","상점","i-shop"],["hp","던전로그","i-home"],["inv","인벤토리","i-bag"],["att","출석","i-att"],["fort","운세","i-fort"],["cook","요리","i-cook"],["fish","낚시","i-fish"],["exped","원정","i-exp"],["afx","속성 도감","i-afx"]];
+var APPS=[["gw","게이트웨이브","i-eye"],["msg","메신저","i-chat"],["com","커뮤니티","i-board"],["ach","업적","i-medal"],["eqp","장비","i-str"],["rai","육성","i-rai"],["pvp","전장","i-pvp"],["sys","시스템 알림","i-bell"],["shop","상점","i-shop"],["hp","던전로그","i-home"],["inv","인벤토리","i-bag"],["att","출석","i-att"],["fort","운세","i-fort"],["cook","요리","i-cook"],["fish","낚시","i-fish"],["exped","원정","i-exp"],["afx","속성 도감","i-afx"],["mgs","마법소녀","i-mgs"],["mgsch","마법 학교","i-mgsch"]];
 function devClock(){var d=new Date(),c=$("phclk");if(c)c.textContent=pad(d.getHours())+":"+pad(d.getMinutes())}
-function badgeOf(id){return id==="inv"?giftUnread:id==="sys"?unreadNotices:id==="msg"?unreadMsgs+friendReqs+rescueReq:id==="com"?Math.max(0,Math.min(99,cmLatest-cmSeen)):id==="ach"?achNew:id==="att"?(ctState&&ctState.attended===false?1:0):0}
+function badgeOf(id){return id==="inv"?giftUnread:id==="sys"?unreadNotices:id==="msg"?unreadMsgs+friendReqs+rescueReq:id==="com"?Math.max(0,Math.min(99,cmLatest-cmSeen)):id==="ach"?achNew:id==="att"?(ctState&&ctState.attended===false?1:0):id==="pvp"&&mglOn()?mgDuelN:id==="mgs"&&mglOn()?mgMailN:0}
 function loadNotices(){
   var scr=$("phscr");
   api("GET","/api/notices").then(function(r){
@@ -3449,7 +3454,7 @@ function renderDevice(){
   if(!devApp){
     var g=document.createElement("div");g.className="apps";
     APPS.forEach(function(a){
-      if(a[0]==="afx"&&!mglOn())return;      /* 속성 도감: 마법소녀 테마(이벤트)일 때만 */
+      if((a[0]==="afx"||a[0]==="mgs"||a[0]==="mgsch")&&!mglOn())return;      /* 속성 도감 · 마법소녀: 마법소녀 테마(이벤트)일 때만 */
       var b=document.createElement("button");b.type="button";b.className="app"+(a[0]==="gw"?" gw":"");b.appendChild(svgUse(a[2]));
       var t=document.createElement("span");t.textContent=a[1];b.appendChild(t);
       var bc=badgeOf(a[0]);
@@ -3469,6 +3474,8 @@ function renderDevice(){
   else if(devApp==="pvp")loadPvp(scr);
   else if(devApp==="pvs")loadPvs(scr);
   else if(devApp==="afx")loadAffinity(scr);
+  else if(devApp==="mgs"){if(window.MG)MG.mount(scr);else empty("마법소녀 파일(mg.js)을 불러오지 못했어요.")}
+  else if(devApp==="mgsch"){if(window.MG)MG.school(scr);else empty("마법소녀 파일(mg.js)을 불러오지 못했어요.")}
   else if(devApp==="att")ctAtt(scr);
   else if(devApp==="fort")ctFortune(scr);
   else if(devApp==="cook")ctCook(scr);
@@ -3607,7 +3614,7 @@ function applyState(st,first){
   var rsg=JSON.stringify(st.rec||null);if(rsg!==recSig){recSig=rsg;curRec=st.rec||null;renderRec()}
   var isg=JSON.stringify(st.inventory||[]);
   if(isg!==invSig){invSig=isg;inventory=st.inventory||[];if(devApp==="inv")renderDevice();else if(devApp==="craft")drawCraft()}
-  SI=st.s;pendingList=st.pending||[];var mu=st.unreadMsgs||0;if(msgInit&&mu>msgSrv&&!(!mmodal.hidden&&mFriend))msgPing();msgInit=true;msgSrv=mu;var su=st.unreadNotices||0;if(sysInit&&su>srvUnread)sysPing();sysInit=true;srvUnread=su;unreadNotices=su;giftUnread=st.giftUnread||0;unreadMsgs=st.unreadMsgs||0;friendReqs=st.friendReqs||0;cmUpdate(st.board||0);
+  SI=st.s;pendingList=st.pending||[];var mu=st.unreadMsgs||0;if(msgInit&&mu>msgSrv&&!(!mmodal.hidden&&mFriend))msgPing();msgInit=true;msgSrv=mu;var su=st.unreadNotices||0;if(sysInit&&su>srvUnread)sysPing();sysInit=true;srvUnread=su;unreadNotices=su;giftUnread=st.giftUnread||0;unreadMsgs=(st.unreadMsgs||0)+(st.mg&&st.mg.letters||0);mgDuelN=st.mg&&st.mg.duel||0;mgMailN=st.mg?(st.mg.mail||0)+(st.mg.ribReq||0):0;if(window.MG)MG.state(st.mg||null,st.now);friendReqs=st.friendReqs||0;cmUpdate(st.board||0);
   if(st.user&&!privBusy){var pcb=$("gpriv");if(pcb)pcb.checked=!!st.user.private}
   if(st.user){var inqPrev=inqUnread;inqUnread=st.user.inqUnread|0;if(inqUnread>inqPrev&&!first&&qmodal.hidden)gwToast("운영자 메시지가 도착했어요 · 위쪽 '문의'에서 확인해 주세요",6000);isAdminChar=!!st.user.adminChar;updInq();blockedBits=st.user.blocked|0;corruptUntil=st.user.corruptUntil||0;taintedNow=!!st.user.tainted;dyingUntil=st.user.dyingUntil||0;statFx=st.user.fx||null;updFx();updDying()}
   if(!paused||first){
@@ -3630,6 +3637,7 @@ var POLL_MS=10000,pollHid=0,lastInput=Date.now();   // 상태 확인 간격(ms):
 ["pointerdown","keydown","touchstart","wheel"].forEach(function(ev){window.addEventListener(ev,function(){var was=Date.now()-lastInput>900000;lastInput=Date.now();if(was&&pollTimer)pollState()},{passive:true,capture:true})});
 document.addEventListener("visibilitychange",function(){if(!document.hidden&&typeof pollTimer!=="undefined"&&pollTimer){pollState();if(typeof gwnPoll==="function")gwnPoll()}});
 var pollAgain=false;
+window.pollState=function(f){return pollState(f)};
 function pollState(first){
   if($("game").hidden)return;
   // 이미 확인 중일 때 요청이 들어오면(구매·사용 직후 등) 버리지 않고, 지금 응답이 끝나자마자 한 번 더 확인합니다.
@@ -3902,9 +3910,10 @@ function setPins(a){try{localStorage.setItem(pinKey(),JSON.stringify(a))}catch(e
 function sortedFriends(){var pins=getPins();return mFriends.slice().sort(function(a,b){var pa=pins.indexOf(a.code)>=0?0:1,pb=pins.indexOf(b.code)>=0?0:1;return pa-pb||(a.hn<b.hn?-1:a.hn>b.hn?1:0)})}
 function renderFriends(force){
   var list=sortedFriends(),pins=getPins();
-  var sig=JSON.stringify([list.map(function(f){return [f.code,f.hn,f.rank,f.unread,pins.indexOf(f.code)>=0,!!f.corrupt]}),pCur]);
+  var sig=JSON.stringify([list.map(function(f){return [f.code,f.hn,f.rank,f.unread,pins.indexOf(f.code)>=0,!!f.corrupt]}),pCur,window.MG?MG.msgSig():""]);
   if(!force&&sig===fSig)return;fSig=sig;
   var ul=$("mfl");ul.innerHTML="";
+  if(window.MG&&mglOn()){var fyl=MG.msgRow();if(fyl)ul.appendChild(fyl)}      /* 마법소녀 이벤트: 맨 위에 요정 편지함 */
   if(!list.length){var p=document.createElement("li");p.className="mempty";p.textContent="아직 친구가 없습니다. 오른쪽에서 고유 코드로 요청을 보내 보세요.";ul.appendChild(p);return}
   list.forEach(function(f){
     var li=document.createElement("li"),b=document.createElement("button");b.type="button";
@@ -4026,6 +4035,7 @@ function loadFriends(){
 /* ───── 친구 프로필 패널 ───── */
 var pCur=null,pCache={},fpRm=window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 function pIdx(){for(var i=0;i<sortedFriends().length;i++)if(sortedFriends()[i].code===pCur)return i;return -1}
+window.pBuild=function(f,d){return pBuild(f,d)};
 function pBuild(f,d){
   var pg=document.createElement("div");pg.className="fp-pg";
   var im=document.createElement("div");im.className="fp-img";
@@ -4074,6 +4084,7 @@ function pBuild(f,d){
     wn.appendChild(wt);wn.appendChild(rb2);warnEl=wn;
   }
   pg.appendChild(im);pg.appendChild(h);if(f.code)pg.appendChild(c);pg.appendChild(bio);pg.appendChild(mb);var hb=document.createElement("button");hb.type="button";hb.className="fp-more";hb.textContent="던전로그 가기";hb.addEventListener("click",function(){openHp((d&&d.hn)||f.hn,hb)});pg.appendChild(hb);if(warnEl)pg.appendChild(warnEl);pg.appendChild(kv);
+  if(d&&d.mg&&window.MG)MG.decorateProfile(pg,d.mg,f);      /* 마법소녀 코스튬 · 팀 */
   return pg;
 }
 function showP(code,dir){
@@ -4208,13 +4219,14 @@ function openChat(f){
 }
 function mTick(){if(mmodal.hidden||document.hidden)return;if(mFriend)pollChat();else loadFriends()}
 function openMs(){
+  if(window.MG)MG.msgReset();
   mopener=document.activeElement;mFriend=null;pCur=null;pCache={};fReqSig="";setFTab(0);$("mlistv").classList.remove("fp-open");$("fp").setAttribute("inert","");
   $("mlistv").hidden=false;$("mchatv").hidden=true;$("maddmsg").textContent="";$("maddc").value="";
   mFriends=[];closeLP(false);renderFriends(true);loadFriends();
   mmodal.hidden=false;document.body.style.overflow="hidden";mmodal.scrollTop=0;$("mclose").focus();
   clearInterval(mTimer);mTimer=setInterval(mTick,3000);
 }
-function closeMs(){mmodal.hidden=true;mFriend=null;clearInterval(mTimer);document.body.style.overflow="";if(mopener&&mopener.focus)mopener.focus()}
+function closeMs(){if(window.MG)MG.msgReset();mmodal.hidden=true;mFriend=null;clearInterval(mTimer);document.body.style.overflow="";if(mopener&&mopener.focus)mopener.focus()}
 $("mclose").addEventListener("click",closeMs);
 mmodal.addEventListener("mousedown",function(e){if(e.target===mmodal)closeMs()});
 document.addEventListener("keydown",function(e){
@@ -4453,6 +4465,7 @@ function markLogin(name){try{localStorage.setItem("hx_day",todayKey());localStor
 function showFront(){
   var inGame=!$("game").hidden;
   var g=$("gate"),l=document.querySelector("main.landing");
+  $("gband").hidden=inGame;      /* 흐르는 글자는 입장·로그인 화면에서만 */
   if(inGame){g.hidden=true;l.hidden=true;return}
   var useGate=loggedToday()&&!forceFront;
   g.hidden=!useGate;l.hidden=useGate;
@@ -4971,6 +4984,7 @@ function loadPvp(scr){
     var ib=pvEl("button",null,"초대");ib.type="submit";fm.appendChild(ib);inv.appendChild(fm);
     var im=pvEl("p","pvp-inm");im.setAttribute("role","status");inv.appendChild(im);
     var il=pvEl("ul","pvp-il");inv.appendChild(il);w.appendChild(inv);
+    if(window.MG&&mglOn())MG.pvpEntry(w,function(){leave();MG.duel(w,main)});      /* 마법소녀 이벤트: 연출 대결 */
     var INV_ERR={no_user:"그런 헌터를 찾을 수 없어요.",ambiguous:"같은 닉네임이 여럿이에요. 코드로 초대해 주세요.",self:"자기 자신은 초대할 수 없어요.",no_stats:"먼저 PVP 스탯을 배분해 주세요.",busy:"이미 전투 중이에요.",
       target_no_stats:"상대가 아직 PVP 스탯을 배분하지 않았어요.",target_recovering:"상대가 PvP 체력을 회복하는 중이에요.",target_busy:"상대가 지금 다른 전투 중이에요.",they_invited:"상대가 이미 나를 초대했어요. 아래에서 수락해 주세요.",
       rate_limited:"잠시 뒤에 다시 해 주세요.",bad_target:"닉네임이나 코드를 입력해 주세요.",gone:"초대가 끝났거나 취소됐어요."};
@@ -5082,6 +5096,7 @@ function loadPvp(scr){
     var head=pvEl("div","pvb-h");
     function side(S,idx){
       var d=pvEl("div","pvb-s"+(idx===me?" me":""));
+      if(window.MG)MG.pvpSide(d,S);      /* 마법소녀 코스튬 (이벤트 중에만) */
       d.appendChild(pvEl("b",null,S.name+(idx===me?" (나)":"")));
       d.appendChild(pvEl("small",null,"체 "+S.stats[0]+" 근 "+S.stats[1]+" 민 "+S.stats[2]+" 운 "+S.stats[3]+" 오 "+S.stats[4]));
       d.appendChild(pvEl("small",null,S.comp?(S.comp.nick||S.comp.name)+" · "+S.comp.fx:"동행 몬스터 없음"));
@@ -5324,6 +5339,7 @@ function raiShow(wrap){
   wrap.className="rai-w"+(raiView==="detail"?" rai-d":raiView==="craft"?" rai-d rai-c":"");
   var sq=document.createElement("div");sq.className="rai-sq";
   if(raiView==="craft"){raiCraft(wrap,pt);return}
+  if(raiView==="mgf"&&window.MG){MG.pets(wrap,function(){raiView="list";raiShow(wrap)});return}      /* 마법소녀 이벤트: 마물 친구 */
   if(raiView==="detail"){
     raiCm=cur.cm;wrap.appendChild(sq);raiCanvas(sq,"scene");
     var info=document.createElement("div");info.className="rai-i";
@@ -5389,6 +5405,7 @@ function raiShow(wrap){
   wrap.appendChild(ul);wrap.appendChild(sq);raiCanvas(sq,"cmp");
   var fl=document.createElement("li");var fb=document.createElement("button");fb.type="button";fb.className="rai-mk";fb.textContent="먹이 만들기 · 보유 "+raiFood;
   fb.addEventListener("click",function(){raiView="craft";raiPick={};raiNote="";raiShow(wrap)});fl.appendChild(fb);ul.appendChild(fl);
+  if(window.MG&&mglOn()){var mgl=MG.raiRow(function(){raiView="mgf";raiShow(wrap)});if(mgl)ul.appendChild(mgl)}
   var GO="SABCDE",ord=mons.map(function(m,i){return{m:m,i:i}});      /* 동행 몬스터를 맨 위에, 나머지는 등급(S→E) 순서로, 같은 등급은 원래 순서대로 */
   ord.sort(function(x,y){var cx=x.m.id===raiComp?0:1,cy=y.m.id===raiComp?0:1;if(cx!==cy)return cx-cy;var gx=GO.indexOf(x.m.grade),gy=GO.indexOf(y.m.grade);if(gx<0)gx=99;if(gy<0)gy=99;return gx-gy||x.i-y.i});
   ord.map(function(o){return o.m}).forEach(function(m){
@@ -5463,10 +5480,10 @@ function loadRaise(scr){
 }
 
 /* ───── 큰 팝업으로 여는 앱 (상점·장비·육성·전장 등) ───── */
-var BIG={shop:1,afx:1,att:1,fort:1,cook:1,fish:1,exped:1,eqp:1,rai:1,pvp:1,pvs:1,dex:1,wkr:1,hof:1,wnt:1},bigOpen=false;
+var BIG={shop:1,afx:1,mgs:1,mgsch:1,att:1,fort:1,cook:1,fish:1,exped:1,eqp:1,rai:1,pvp:1,pvs:1,dex:1,wkr:1,hof:1,wnt:1},bigOpen=false;
 function openBig(id){
   if(bigOpen)return;
-  if(id==="afx"&&!mglOn())return;
+  if((id==="afx"||id==="mgs"||id==="mgsch")&&!mglOn())return;
   var home=$("phscr"),body=$("bigbody");if(!home||!body)return;
   $("bigapp").classList.toggle("rai",id==="rai");$("bigapp").dataset.app=id;raiView="list";
   bigOpen=true;home.id="phscr_home";body.id="phscr";$("bigapp").hidden=false;document.body.style.overflow="hidden";
@@ -5475,6 +5492,7 @@ function openBig(id){
 }
 function closeBig(){
   if(!bigOpen)return;
+  if(window.MG)MG.stop();
   bigOpen=false;$("bigapp").hidden=true;$("bigapp").classList.remove("rai","det");document.body.style.overflow="";
   var b=$("phscr");b.id="bigbody";b.innerHTML="";$("phscr_home").id="phscr";
   var wasPvs=devApp==="pvs";devApp=null;renderDevice();
@@ -6600,6 +6618,8 @@ function gwPing(force){
 function gwToast(text,ms){
   var el=$("gwtoast");el.textContent=text;el.hidden=false;clearTimeout(gwToastT);gwToastT=setTimeout(function(){el.hidden=true},ms||3800);
 }
+window.gwToast=gwToast;
+
 function gwnPoll(){
   if($("game").hidden||!gwAny())return;
   if(!gwCur){try{var v=(localStorage.getItem(gwcKey())||"").split(",");if((v.length===2||v.length===3)&&v.every(function(x){return x!==""&&+x>=0}))gwCur=[+v[0],+v[1],v.length===3?+v[2]:null]}catch(e){}}
@@ -6965,6 +6985,12 @@ function leaveGame(note){
 }
 $("logout").addEventListener("click",function(){api("POST","/api/logout",{}).then(function(){leaveGame();if(window.stReset)stReset();var pb=$("gpvsfig");if(pb)pb.textContent=""})});
 $("pausebtn").addEventListener("click",function(){paused=!paused;this.textContent=paused?"알림 재개":"알림 멈춤";this.setAttribute("aria-pressed",paused?"true":"false");if(!paused)pollState()});
+function oathGate(me,tries){
+  tries=tries||0;
+  if(!window.MG){if(tries<40){setTimeout(function(){oathGate(me,tries+1)},100);return}enterGame(me);return}      /* mg.js 를 아직 못 불러왔으면 잠깐 기다림 */
+  if(typeof closeL==="function")try{closeL()}catch(e){}
+  MG.oath(me.oath,function(){enterGame(me)});
+}
 function startSession(tries){
   tries=tries||0;
   return loadWorld().then(function(){return api("GET","/api/me")}).then(function(r){
@@ -6973,7 +6999,9 @@ function startSession(tries){
       var hm=$("hmsg");if(hm){hm.textContent="서버에 연결하는 중… ("+(tries+1)+"/3)";hm.className="hmsg"}
       return new Promise(function(ok){setTimeout(ok,1500)}).then(function(){return startSession(tries+1)});
     }
-    if(r._status===200&&r.user){var h2=$("hmsg");if(h2&&/서버에 연결하는 중/.test(h2.textContent))h2.textContent="";enterGame(r)}
+    if(r._status===200&&r.user){var h2=$("hmsg");if(h2&&/서버에 연결하는 중/.test(h2.textContent))h2.textContent="";
+      if(r.oath){oathGate(r);return r}      /* 마법소녀 이벤트 시작 뒤 첫 입장: 맹세 주문을 직접 적고 변신해야 들어감 (mg.js) */
+      enterGame(r)}
     else if(r._status===0||r._status>=500){var h3=$("hmsg");if(h3&&r._status!==503){h3.textContent="서버가 응답하지 않습니다. 잠시 후 새로고침(F5) 해주세요.";h3.className="hmsg"}}
     return r;
   });
