@@ -2526,8 +2526,13 @@ route('POST', '/api/battle/act', async (req, res, ctx) => {
   if (corruptLock(cur, now)) return fail(res, 409, 'corrupted', { until: cur.corrupt_until });
   if (action === 'heavy' && b.cd_heavy > 0) return fail(res, 409, 'heavy_cd', { battle: btView(b) });
   const wel = await weaponEl(cur.id);      // 전투 중 무기를 바꿨을 수도 있어 매번 다시 확인
-  if (action === 'elem' && !wel) return fail(res, 409, 'no_elem', { battle: btView(Object.assign({}, b, { wel })) });
+  // 마법소녀 이벤트: 속성 마법 — 계약한 요정의 기본 속성 · 입은 마법 의상 · 속성 룬(1개 = 1번) 중 고른 속성으로 공격
+  const mgEl = action === 'elem' && ctx.body.el ? await MG.elemCheck(cur.id, String(ctx.body.el), wel) : null;
+  if (action === 'elem' && ctx.body.el && !mgEl) return fail(res, 409, 'no_elem', { battle: btView(Object.assign({}, b, { wel })) });
+  const useEl = mgEl ? mgEl.el : wel;
+  if (action === 'elem' && !useEl) return fail(res, 409, 'no_elem', { battle: btView(Object.assign({}, b, { wel })) });
   if (action === 'elem' && Number(b.cd_elem) > 0) return fail(res, 409, 'elem_cd', { battle: btView(b) });
+  if (mgEl && mgEl.src === 'rune' && !(await MG.runeUse(cur.id, useEl))) return fail(res, 409, 'no_rune', { battle: btView(b) });
   const m = await db.get('SELECT id, region, name, rank, spawned_at, owner_id, rumor_id, corrupt_of, variant FROM monsters WHERE id = ?', [b.monster_id]);
   const eb = await fullBonus(cur.id, now), myStats = withEq(JSON.parse(cur.stats), eb);
   const pl = G.btPlayer(cur.lv, myStats), hl = b.mname === '오염 사냥꾼' ? await hunterLv(cur.id) : 0, mo = G.btMon(b.mrank, b.mname, pl, hl), BT = G.BT;
@@ -2553,7 +2558,7 @@ route('POST', '/api/battle/act', async (req, res, ctx) => {
   } else {
     let ok = true, mul = 1, aff = 1;
     if (action === 'heavy') { mul = BT.heavy.mul; cd = BT.heavy.cd; ok = Math.random() < BT.heavy.hit; }
-    if (action === 'elem') { aff = G.affMul(wel, mel); mul = BT.elem.mul * aff * (eb.elemMul || 1); cdE = (await weaponPlus(cur.id)) >= 10 ? 1 : BT.elem.cd; if (aff > 1) await CT.bump(cur.id, 'weak', 1); }      // +10 속성 무기는 1라운드만 쉼 · 요리 버프
+    if (action === 'elem') { aff = G.affMul(useEl, mel); mul = BT.elem.mul * aff * (eb.elemMul || 1); cdE = (await weaponPlus(cur.id)) >= 10 ? 1 : BT.elem.cd; if (aff > 1) await CT.bump(cur.id, 'weak', 1); }      // +10 속성 무기는 1라운드만 쉼 · 요리 버프
     if (!ok) log.push('강타가 빗나갔다!');
     else {
       let dmg = pl.atk * mul * rr(0.85, 1.15);
@@ -2564,8 +2569,8 @@ route('POST', '/api/battle/act', async (req, res, ctx) => {
       const sp = G.SPECIAL_MON[b.mname];
       const held = !!(sp && sp.minRounds && mhp <= 0 && b.round < sp.minRounds + G.hunterScale(hl).rounds);      // 오염 사냥꾼: 10라운드가 지나기 전에는 쓰러지지 않음
       if (held) mhp = 1;
-      hit = { action, dmg, crit, el: action === 'elem' ? wel : '', mul: aff };
-      const elTxt = action === 'elem' ? G.ELEMS[wel].ko + ' 속성 공격! ' + (aff > 1 ? '약점을 찔렀다! ' : aff < 1 ? '내성에 막혔다… ' : '') : '';
+      hit = { action, dmg, crit, el: action === 'elem' ? useEl : '', mul: aff };
+      const elTxt = action === 'elem' ? G.ELEMS[useEl].ko + (mgEl && mgEl.src !== 'weapon' ? ' 속성 마법! ' : ' 속성 공격! ') + (aff > 1 ? '약점을 찔렀다! ' : aff < 1 ? '내성에 막혔다… ' : '') : '';
       log.push((action === 'elem' ? elTxt : action === 'heavy' ? '강타! ' : '공격! ') + b.mname + '에게 ' + dmg + ' 피해' + (crit ? ' (치명타!)' : '') + (action === 'elem' && aff !== 1 ? ' (×' + aff + ')' : '') + '.');
       if (held) log.push(b.mname + '은(는) 쓰러지지 않고 버텨냈다!');
     }
