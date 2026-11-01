@@ -412,8 +412,8 @@ const RANK_IDX = { F: 0, E: 1, D: 2, C: 3, B: 4, A: 5, S: 6, SS: 7 };   // SS �
 //          gold(보유 골드) · taint(오염도) · hrank(헌터 등급 이상) · stat(근력/민첩/행운:값)
 // 명성 대신 추가: pvpwin(PVP 승리 수) · lp(리그 최고 LP) · floor(적월문 심층 최고 층) · fishsp(낚은 어종 수) · cooks(요리 횟수) · attend(출석 도장판 완주 횟수) · dex(속성 도감 해금 속성 수)
 const ACH_KINDS = ['always', 'kills', 'rank', 'sTry', 'sWin', 'lv', 'manual',
-  'visit', 'visits', 'countries', 'collect', 'slay', 'surveys', 'crafts', 'fails', 'friends', 'gifts', 'gold', 'taint', 'hrank', 'stat', 'pvpwin', 'lp', 'floor', 'fishsp', 'cooks', 'attend', 'dex'];
-const ACH_COMPOUND = ['visit', 'collect', 'slay', 'stat'];       // 값이 '대상:숫자' 형태인 종류
+  'visit', 'visits', 'countries', 'collect', 'slay', 'surveys', 'crafts', 'fails', 'friends', 'gifts', 'gold', 'taint', 'hrank', 'stat', 'pvpwin', 'lp', 'floor', 'fishsp', 'cooks', 'attend', 'dex', 'mg'];
+const ACH_COMPOUND = ['visit', 'collect', 'slay', 'stat', 'mg'];       // mg: 마법소녀 이벤트 기록 '항목:횟수'       // 값이 '대상:숫자' 형태인 종류
 const ACH_NUM = ['kills', 'sTry', 'sWin', 'lv', 'visits', 'countries', 'surveys', 'crafts', 'fails', 'friends', 'gifts', 'gold', 'taint', 'pvpwin', 'lp', 'floor', 'fishsp', 'cooks', 'attend', 'dex'];
 // 처음 서버가 켜질 때 한 번만 넣는 기본 업적 (이후에는 관리자가 자유롭게 수정·삭제)
 const ACH_SEED = [
@@ -495,6 +495,41 @@ const ACH_SEED3 = [
   { id: 'u-k1000', name: '천 번째 사냥', desc: '몬스터를 1000마리 처치했다.', kind: 'kills', val: '1000' },
 ];
 // 네 번째 기본 업적 묶음: 명성 업적을 대신하는 30개 (한 번만 추가 · 뒤로 갈수록 어렵고, 마지막 셋은 '전설급' 칭호)
+// 다섯 번째 기본 업적 묶음: 마법소녀 이벤트 30개 (뒤의 10개는 높은 난이도). kind 'mg' 의 값은 '항목:횟수' (api/_magic.js achStats)
+const MG_ACH_KEYS = ['oath', 'tf', 'fairy', 'letter', 'bond', 'star', 'song', 'wish', 'pet', 'petdone', 'duel', 'card', 'mailsent', 'heart', 'rib', 'mirror', 'cert', 'diary', 'outfit', 'elem', 'spellwin'];
+const ACH_SEED5 = [
+  { id: 'mg-oath', name: '맹세의 첫 칼날', desc: '눈물은 칼집에, 맹세는 칼끝에. 맹세 주문을 적고 마법소녀가 되었다.', kind: 'mg', val: 'oath:1' },
+  { id: 'mg-tf10', name: '반짝이는 열 번', desc: '마법소녀로 10번 변신했다.', kind: 'mg', val: 'tf:10' },
+  { id: 'mg-fairy', name: '작은 계약자', desc: '요정과 계약을 맺었다.', kind: 'mg', val: 'fairy:1' },
+  { id: 'mg-letter10', name: '편지함 속의 별', desc: '요정에게 답장을 10통 썼다.', kind: 'mg', val: 'letter:10' },
+  { id: 'mg-star5', name: '별을 잇는 손', desc: '오늘의 별자리를 5번 완성했다.', kind: 'mg', val: 'star:5' },
+  { id: 'mg-song10', name: '정화의 목소리', desc: '정화의 노래를 10번 불렀다.', kind: 'mg', val: 'song:10' },
+  { id: 'mg-wish1', name: '소원을 빈 밤', desc: '지나가는 별똥별에 처음으로 소원을 빌었다.', kind: 'mg', val: 'wish:1' },
+  { id: 'mg-wish10', name: '유성우의 증인', desc: '별똥별에 10번 소원을 빌었다.', kind: 'mg', val: 'wish:10' },
+  { id: 'mg-pet1', name: '착해진 마물', desc: '정화한 마물이 친구가 되어 따라왔다.', kind: 'mg', val: 'pet:1' },
+  { id: 'mg-petdone1', name: '한 짝을 찾아서', desc: '꼬마 마물 친구의 이야기를 하나 완성했다.', kind: 'mg', val: 'petdone:1' },
+  { id: 'mg-duel5', name: '빛과 리본의 무대', desc: '마법소녀 연출 대결에서 5번 이겼다.', kind: 'mg', val: 'duel:5' },
+  { id: 'mg-card10', name: '반짝 카드 수집가', desc: '반짝 카드를 10장 모았다.', kind: 'mg', val: 'card:10' },
+  { id: 'mg-mail5', name: '이름 없는 응원', desc: '반짝 우체통으로 응원 편지를 5통 보냈다.', kind: 'mg', val: 'mailsent:5' },
+  { id: 'mg-heart5', name: '전해진 마음', desc: '보낸 응원 편지에 고마워요를 5번 받았다.', kind: 'mg', val: 'heart:5' },
+  { id: 'mg-rib', name: '같은 색 리본', desc: '친구와 리본으로 묶였다.', kind: 'mg', val: 'rib:1' },
+  { id: 'mg-mirror1', name: '거울 너머로', desc: '거울 나라의 나를 처음 쓰러뜨렸다.', kind: 'mg', val: 'mirror:1' },
+  { id: 'mg-cert1', name: '첫 수료증', desc: '마법 학교 수업을 하나 수료했다.', kind: 'mg', val: 'cert:1' },
+  { id: 'mg-diary7', name: '반짝 도장', desc: '마법 일기장을 7일 채웠다.', kind: 'mg', val: 'diary:7' },
+  { id: 'mg-outfit2', name: '두 번째 옷자락', desc: '마법 의상을 2벌 가졌다.', kind: 'mg', val: 'outfit:2' },
+  { id: 'mg-elem30', name: '속성의 견습생', desc: '전투에서 속성 마법을 30번 썼다.', kind: 'mg', val: 'elem:30' },
+  // ── 높은 난이도 10개 ──
+  { id: 'mg-tf200', name: '끝나지 않는 변신', desc: '마법소녀로 200번 변신했다.', kind: 'mg', val: 'tf:200' },
+  { id: 'mg-bond100', name: '영원의 계약', desc: '요정과의 친밀도가 100에 닿았다.', kind: 'mg', val: 'bond:100' },
+  { id: 'mg-star30', name: '하늘 지도 제작자', desc: '오늘의 별자리를 30번 완성했다.', kind: 'mg', val: 'star:30' },
+  { id: 'mg-pet8', name: '꼬마 마물 대가족', desc: '꼬마 마물 8종을 모두 친구로 맞았다.', kind: 'mg', val: 'pet:8' },
+  { id: 'mg-petdone8', name: '모든 이야기의 끝', desc: '꼬마 마물 8종의 이야기를 모두 완성했다.', kind: 'mg', val: 'petdone:8' },
+  { id: 'mg-duel50', name: '무대 위의 여왕', desc: '마법소녀 연출 대결에서 50번 이겼다.', kind: 'mg', val: 'duel:50' },
+  { id: 'mg-mirror10', name: '거울 나라의 주인', desc: '거울 나라의 나를 10번 쓰러뜨렸다.', kind: 'mg', val: 'mirror:10' },
+  { id: 'mg-grad', name: '마법 학교 수석', desc: '마법 학교 4과목을 모두 수료했다.', kind: 'mg', val: 'cert:4' },
+  { id: 'mg-spell3', name: '모두가 외친 주문', desc: '내가 지은 주문이 하루 1위로 모든 헌터의 주문이 되기를 3번 이뤘다.', kind: 'mg', val: 'spellwin:3' },
+  { id: 'mg-outfit10', name: '열 가지 빛의 옷장', desc: '마법 의상 10벌을 모두 모았다.', kind: 'mg', val: 'outfit:10' },
+];
 const ACH_SEED4 = [
   { id: 'n-pw10', name: '결투의 맛', desc: 'PVP에서 10번 이겼다.', kind: 'pvpwin', val: '10' },
   { id: 'n-pw100', name: '투기장의 주인', desc: 'PVP에서 100번 이겼다.', kind: 'pvpwin', val: '100' },
@@ -529,7 +564,7 @@ const ACH_SEED4 = [
   { id: 'n-immortal', name: '불멸의 이름', desc: 'SS급 몬스터를 100번 처치했다. 붉은 달이 지지 않는 한 이 이름도 지지 않는다.', kind: 'sWin', val: '100' },
 ];
 // 칭호로 달았을 때 보여 줄 등급 (나머지 업적 칭호는 일반)
-const ACH_TITLE_TIER = { 'n-legend': 'l', 'n-living': 'l', 'n-immortal': 'l', 'n-lpl': 'e', 'n-fl100': 'e', 'n-fs35': 'e', 'n-ck500': 'e', 'n-at12': 'e', 'n-lv100': 'e', 'n-gd1m': 'e', 'n-dex10': 'r', 'n-pw100': 'r', 'n-lpd': 'r', 'n-fl50': 'r', 'n-sw10': 'r', 'u-core': 'e', 'u-luck100': 'e', 'u-rich': 'e', 'u-k1000': 'r' };
+const ACH_TITLE_TIER = { 'mg-tf200': 'e', 'mg-bond100': 'e', 'mg-star30': 'e', 'mg-pet8': 'e', 'mg-petdone8': 'l', 'mg-duel50': 'e', 'mg-mirror10': 'e', 'mg-grad': 'e', 'mg-spell3': 'l', 'mg-outfit10': 'l', 'n-legend': 'l', 'n-living': 'l', 'n-immortal': 'l', 'n-lpl': 'e', 'n-fl100': 'e', 'n-fs35': 'e', 'n-ck500': 'e', 'n-at12': 'e', 'n-lv100': 'e', 'n-gd1m': 'e', 'n-dex10': 'r', 'n-pw100': 'r', 'n-lpd': 'r', 'n-fl50': 'r', 'n-sw10': 'r', 'u-core': 'e', 'u-luck100': 'e', 'u-rich': 'e', 'u-k1000': 'r' };
 // 헌터 등급 승급: F→E, E→D 는 전투력(레벨)만 오르면 됩니다. D→C 부터는 처치 기록 등 조건이 더해지고, 위로 갈수록 어려워집니다.
 //  kills: [{ min: 해당 등급 이상 몬스터, n: 처치 수 }], sTry: S급 토벌 도전 횟수, taintMax: 오염도(%) 이하여야 함
 const PROMO = {
@@ -890,7 +925,7 @@ const isTurnBased = (monRank, hunterRank) => monRank !== 'SS' && RANK_IDX[monRan
 
 module.exports = {
   BT, btMon, btPlayer, isTurnBased, taintStage, TAINT_SHOP_PCT, TAINT_BAN_DANGER, taintPrice, TAINT_LOSE_GOLD_MUL, HUNTER_CHANCE, HUNTER_LV_MAX, hunterScale, RARE_CHANCE, SPECIAL_MON,
-  SV_MARKS, MATERIALS, GATE_MATS, GATE_ZONES, EQ_GRADE, EQ_SLOTS, EQUIPS, ELEMS, ELEM_KEYS, MON_ELEM, elemOf, affMul, RECIPES, CRAFT_DEFS, ACH_SEED4, ACH_TITLE_TIER,
+  SV_MARKS, MATERIALS, GATE_MATS, GATE_ZONES, EQ_GRADE, EQ_SLOTS, EQUIPS, ELEMS, ELEM_KEYS, MON_ELEM, elemOf, affMul, RECIPES, CRAFT_DEFS, ACH_SEED4, ACH_SEED5, MG_ACH_KEYS, ACH_TITLE_TIER,
   STAT_MAX, STAT_RESET_BASE, STAT_RESET_PER, statResetCost, rnd, chance01, SPAWN_COUNTRIES, SPAWN_REGIONS, REGIONS, REGION_BY_ID, COUNTRIES, COUNTRY_BY_ID, countryOf, placeName, placeLong, MON, FRIENDLY_MON, PVP, PVP_STAT_TEXT, BOND_STEP, BOND_MAX, BOND_MUL, bondStage, friendFx, pvpBattle, pvpFighter, pvpResolve, pvpPower, mulberry32, PVP_MIN, PVP_MAX, PVP_TOTAL, PVP_KEYS, PVP_KO, pvpStatsOk, pvpDerive, TIERS, ACTIVE_MS, ACTIVE_MS_F, ACTIVE_MS_S, activeMsOf, KILL_EXP, KILL_GOLD, KILL_TAINT, rollTaint, garble, RANK_IDX, ACH_KINDS, ACH_COMPOUND, ACH_NUM, ACH_SEED, ACH_SEED2, ACH_SEED3, PROMO, ACH_PIN_MAX, rollGold, HUNT_DIFF,
   RAID_NEED, RAID_ATTEMPTS, S_MAX, S_WINDOW_MS, S_WAIT_MS, powNeed, cdOf, huntChance,
   rollRank, rollStats, PROB_CAP, STR_WIN, guardChance, freeChance, HP_START, HP_MIN, HP_DYING_MS, HP_REVIVE, hpLoss, makeCode, addExp, MIN, HOUR,
