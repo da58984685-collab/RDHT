@@ -315,12 +315,8 @@ html{background:#fff8fb}
 .fl:nth-child(3n){background:#ff9cc7;box-shadow:0 0 8px 2px rgba(255,143,200,.6)}
 .fl:nth-child(4n){background:#c9b6ff;box-shadow:0 0 8px 2px rgba(190,170,255,.55)}
 
-/* 타이틀(로그인 화면): 요술봉 두 개가 양옆에서 반짝임 */
+/* 타이틀(로그인 화면): 양옆 요술봉 장식은 뺐습니다 */
 .hero h1{position:relative}
-.hero h1::before,.hero h1::after{content:"";position:absolute;top:50%;width:50px;height:46px;margin-top:-23px;
-  background:var(--mg-wand) center/contain no-repeat;image-rendering:pixelated;filter:drop-shadow(0 0 10px rgba(255,214,90,.8));animation:mg-twinkle 2.4s ease-in-out infinite;text-indent:0}
-.hero h1::before{left:-8px;transform:scaleX(-1)}
-.hero h1::after{right:-8px;animation-delay:-1.2s}
 .hero .desc::before,.hero .desc::after{content:"";display:inline-block;width:18px;height:16px;vertical-align:-3px;margin:0 8px;
   background:var(--mg-heart) center/contain no-repeat;image-rendering:pixelated}
 
@@ -372,8 +368,8 @@ section>h2 button+button::after,section>h2 .hud-btn::after{content:none}
 .ach-btn:disabled{color:#a07a8c;background:#fbe9f1;box-shadow:inset 0 0 0 1px #f6d3e2}
 
 /* ───── 낮·밤 하늘 스위치 (Lucian UX/UI Prompt #021 · MIT License (c) 2026 Seokwoooo) — magic.js 가 넣어 줍니다. 색만 홈페이지에 맞췄고 모양·움직임 값은 원본 그대로 ───── */
-.u021{--s:.42;--ux-ease:cubic-bezier(.2,.8,.2,1);--ux-spring:cubic-bezier(.34,1.45,.64,1);--ux-accent:#f47ba7;position:relative;flex:none;width:calc(224px * var(--s));height:calc(94px * var(--s));display:block}
-.u021.big{--s:.55;margin:12px auto 0}
+.u021{--s:.3;--ux-ease:cubic-bezier(.2,.8,.2,1);--ux-spring:cubic-bezier(.34,1.45,.64,1);--ux-accent:#f47ba7;position:relative;flex:none;width:calc(224px * var(--s));height:calc(94px * var(--s));display:block}
+.u021.big{--s:.36;margin:10px auto 0}
 .u021-sw{position:absolute;left:0;top:0;transform:scale(var(--s));transform-origin:0 0;width:224px;height:94px;border:0;padding:0;border-radius:999px;overflow:hidden;isolation:isolate;cursor:pointer;
   background:linear-gradient(180deg,#ffb3d1,#ffe3ef);box-shadow:inset 0 4px 10px rgba(120,30,70,.28),inset 0 -2px 4px rgba(255,255,255,.4),0 18px 34px -18px rgba(220,90,150,.7);transition:box-shadow .8s var(--ux-ease)}
 .u021-sw::before{content:"";position:absolute;inset:0;z-index:0;background:linear-gradient(180deg,#2a1230,#4a1f48);opacity:0;transition:opacity .8s var(--ux-ease)}
@@ -431,13 +427,13 @@ html.mgn .rk[data-r="A"]{background:linear-gradient(135deg,#c84173,#c84173);box-
 html.mgn .chn{color:#e0ccd4}
 html.mgn .pbtn.rdy{color:#e0ccd4;box-shadow:0 0 10px rgba(243,111,160,0.45)}
 html.mgn .pm-l li{background:#29161e}
-html.mgn .ach-pin{--g1:#683f4e;--g2:#eeaf1e;--g3:#9e6716;background:linear-gradient(135deg,#b6356b,#b6355a 60%,#b63564) padding-box,linear-gradient(100deg,var(--g3),var(--g1),var(--g2),#c84172,var(--g1),var(--g3)) border-box;box-shadow:0 0 14px rgba(238,175,30,0.28),0 0 26px rgba(235,99,148,0.22);background-size:100% 100%,300% 100%}
+html.mgn .ach-pin{--g1:#683f4e;--g2:#c9a77c;--g3:#9e6716;background:linear-gradient(135deg,#b6356b,#b6355a 60%,#b63564) padding-box,linear-gradient(100deg,var(--g3),var(--g1),var(--g2),#c84172,var(--g1),var(--g3)) border-box;box-shadow:0 0 14px rgba(201,167,124,0.28),0 0 26px rgba(235,99,148,0.22);background-size:100% 100%,300% 100%}
 html.mgn .ach-pin .tx{background:linear-gradient(100deg,var(--g2),var(--g1) 30%,#dbbf85 50%,var(--g1) 70%,var(--g2));background-size:250% 100%;-webkit-background-clip:text;background-clip:text}
 html.mgn .ach-pin .st::after{background:#27151a}
-html.mgn .ach-none{color:#dac28e;border:1px dashed rgba(238,175,30,0.45);background:linear-gradient(90deg,rgba(238,175,30,0.07),rgba(235,99,148,0.07))}
+html.mgn .ach-none{color:#dac28e;border:1px dashed rgba(201,167,124,0.45);background:linear-gradient(90deg,rgba(201,167,124,0.07),rgba(235,99,148,0.07))}
 html.mgn .ach-li.got b{background:linear-gradient(90deg,#dcc387,#d8bec8,#dcc387);background-size:200% 100%;-webkit-background-clip:text;background-clip:text}
-html.mgn .ach-btn{color:#dfcad2;background:linear-gradient(135deg,#683f4e,#c89f41 60%,#9e6716)}
-html.mgn .ach-btn.off{color:#dbbd84;border:1px solid rgba(238,175,30,0.45)}
+html.mgn .ach-btn{color:#dfcad2;background:linear-gradient(135deg,#683f4e,#b8976c 60%,#9e6716)}
+html.mgn .ach-btn.off{color:#dbbd84;border:1px solid rgba(201,167,124,0.45)}
 html.mgn .nt-del{color:#bf95a5;border:1px solid #4f2b38}
 html.mgn .nt-del:hover:not(:disabled){color:#d0b0bc;border-color:#c299a8}
 html.mgn .qtabs button[aria-selected=true]{color:#e0ccd4;background:#2c171e}
@@ -462,7 +458,7 @@ html.mgn .st-inv{color:#e0ccd4}
 html.mgn .st .ic{color:#e0ccd4}
 html.mgn .st>span:nth-child(2),html.mgn .st-v{color:#e0ccd4}
 html.mgn .st[data-k="fame"] .ic{color:#dcc387}
-html.mgn .st[data-k="fame"] .bar i{background:linear-gradient(90deg,#6f480d,#c89f41 60%,#683f4e);box-shadow:0 0 8px rgba(238,175,30,0.4)}
+html.mgn .st[data-k="fame"] .bar i{background:linear-gradient(90deg,#6f480d,#b8976c 60%,#683f4e);box-shadow:0 0 8px rgba(201,167,124,0.4)}
 html.mgn .st[data-k="taint"] .bar i{background:linear-gradient(90deg,#b6356e,#b63562 60%,#c84173)}
 html.mgn .st-eq{color:#88d8a0}
 html.mgn .eqsum b{color:#88d8a0}
@@ -510,7 +506,7 @@ html.mgn .gold-tag{color:#dbbd84}
 html.mgn .inv-tabs button[aria-selected="true"]{color:#e0ccd4;background:#2c1720}
 html.mgn .shop-buy{background:#2c1720;color:#d6bbc5}
 html.mgn .msg-b{background:#2a161d}
-html.mgn .al[data-r="S"] .al-r{background:linear-gradient(135deg,#c89f41,#c84173);border-color:#eeaf1e}
+html.mgn .al[data-r="S"] .al-r{background:linear-gradient(135deg,#b8976c,#c84173);border-color:#c9a77c}
 html.mgn .al[data-r="SS"] .al-r{background:linear-gradient(135deg,#c84172,#c84173)}
 html.mgn .fp{background:linear-gradient(180deg,#28161c,#26151b);box-shadow:-18px 0 40px -14px rgba(36,19,28,0.8),0 0 18px var(--glow)}
 html.mgn .fp-nm{color:#e0ccd4}
@@ -522,7 +518,7 @@ html.mgn .ft.on{color:#e0ccd4}
 html.mgn .frl li{background:#29161e}
 html.mgn .mfl.frl li button.fb{color:#e0ccd4;background:linear-gradient(135deg,#c84173,#b63565)}
 html.mgn .mfl li button.press{background:#2c1720}
-html.mgn .mfl li button.pin::after{color:#dcc387;border:1px solid rgba(238,175,30,0.5)}
+html.mgn .mfl li button.pin::after{color:#dcc387;border:1px solid rgba(201,167,124,0.5)}
 html.mgn .lp-bd{background:rgba(38,20,27,0.45)}
 html.mgn .lp-cd{background:linear-gradient(180deg,#28161c,#26151b);box-shadow:0 24px 50px -16px rgba(36,19,28,0.8),0 0 18px var(--glow)}
 html.mgn .lp-th span{background:#2a161d}
@@ -551,7 +547,7 @@ html.mgn .fp-warn{color:#dbc3cc;background:rgba(235,84,139,0.18)}
 html.mgn .fp-warn button{color:#e0ccd4;background:linear-gradient(135deg,#c84173,#b63565)}
 html.mgn .qst-bar i{background:linear-gradient(90deg,#c84173,#c84172)}
 html.mgn .wk-bar{color:var(--muted,#c8a4b1)}
-html.mgn .wk-bar i{background:linear-gradient(180deg,#c89f41,#9e6716)}
+html.mgn .wk-bar i{background:linear-gradient(180deg,#b8976c,#9e6716)}
 html.mgn .wk-bar.now i{background:linear-gradient(180deg,#ff7a00,#c84172)}
 html.mgn .btl{background:rgba(36,19,28,0.85)}
 html.mgn .btl-p{background:#26151b;box-shadow:0 0 40px rgba(36,19,28,0.8)}
@@ -591,23 +587,23 @@ html.mgn .pvb-r.win b{color:#85dba7}
 html.mgn .pvb-a.pick{background:#2a171d}
 html.mgn .pvb-a.guard b{color:#85b0db}
 html.mgn .pvb-l .tn{color:#dcc387}
-html.mgn .rai-mk{border:1px dashed #eeaf1e;background:#29161e;color:#dcc387}
+html.mgn .rai-mk{border:1px dashed #c9a77c;background:#29161e;color:#dcc387}
 html.mgn .rai-tr em{background:#27151d}
 html.mgn .rai-cu li{border:1px solid #4f2b38;background:#28161e}
 html.mgn .rai-cb button,html.mgn .rai-cpl button{background:#29161e;color:#dbc3cc}
-html.mgn .rai-t{color:#dcc387;border:1px solid #eeaf1e}
+html.mgn .rai-t{color:#dcc387;border:1px solid #c9a77c}
 html.mgn .rai-f{border-top:1px solid #4f2b38}
 html.mgn .rai-bar b{color:#dbc3cc}
 html.mgn .rai-tr{background:#311a22}
 html.mgn .rai-note{color:#dcc387}
 html.mgn .rai-acts button{background:#29161e;color:#dbc3cc}
-html.mgn .rai-acts button.on{border-color:#eeaf1e;background:#301a22}
+html.mgn .rai-acts button.on{border-color:#c9a77c;background:#301a22}
 html.mgn .rai-acts button.danger{border-color:#633646;color:#f585ae}
 html.mgn .rai-nf input{background:#27151d;color:#dbc3cc}
-html.mgn .rai-nf button{background:#301a22;border:1px solid #eeaf1e;color:#dbc3cc}
+html.mgn .rai-nf button{background:#301a22;border:1px solid #c9a77c;color:#dbc3cc}
 html.mgn .rai-b{background:#29161e;color:#dbc3cc}
 html.mgn .rai-b:disabled{background:#27151d;border-color:#4f2b38}
-html.mgn .rai-b[aria-pressed="true"]{border-color:#eeaf1e;background:#301a22}
+html.mgn .rai-b[aria-pressed="true"]{border-color:#c9a77c;background:#301a22}
 html.mgn .rai-g{background:#24131c;color:#cdacb8}
 html.mgn .rai-b.g-S .rai-g{color:#dcc387}
 html.mgn .rai-b.g-B .rai-g{color:#b085db}
@@ -615,7 +611,7 @@ html.mgn .rai-sq{background:#27151d}
 html.mgn .rum-res{color:#dcc387}
 html.mgn .gt-ex{background:rgba(38,20,27,0.93)}
 html.mgn .gt-exopen{background:rgba(38,20,27,0.75)}
-html.mgn .ex-fl i.boss{border-color:#eeaf1e;color:#dcc387}
+html.mgn .ex-fl i.boss{border-color:#c9a77c;color:#dcc387}
 html.mgn .ex-fl i.boss.on{color:#e0ccd4}
 html.mgn .ex-tn.warn .ex-tb i{background:linear-gradient(90deg,#a8327d,#c84172)}
 html.mgn .ex-tn.danger .ex-tb i{background:linear-gradient(90deg,#c84172,#c84173)}
@@ -624,7 +620,7 @@ html.mgn .ex-fl i.on{color:#e0ccd4;background:linear-gradient(135deg,#c84173,#b6
 html.mgn .gt-ex p{color:#dbc4cd}
 html.mgn .gt-ex .ex-log{color:#dbc3cc}
 html.mgn .gt-ex .gwrow{background:rgba(38,20,27,0.96)}
-html.mgn .fp-pins span{color:#dbc385;border:1px solid rgba(238,175,30,0.5);background:rgba(238,175,30,0.08)}
+html.mgn .fp-pins span{color:#dbc385;border:1px solid rgba(201,167,124,0.5);background:rgba(201,167,124,0.08)}
 html.mgn .ach-new{color:#e0ccd4;-webkit-text-fill-color:#e0ccd4}
 html.mgn .cmsnd[aria-pressed="true"]{color:#e0ccd4}
 html.mgn .gwav{color:#e0ccd4;background:#623a49}
@@ -648,7 +644,7 @@ html.mgn .mg-back{min-height:34px;padding:0 12px;border:1px solid #582f40;border
 html.mgn .mg-tile{position:relative;display:flex;flex-direction:column;align-items:flex-start;gap:3px;min-height:76px;padding:10px 12px;text-align:left;border:1px solid #4c2938;border-radius:14px;background:linear-gradient(160deg,#1a1a1a,#2b171f);color:#dbc4cd;cursor:pointer;font:inherit}
 html.mgn .mg-note{border-color:#67384c!important;background:#28161e!important;color:#d9acc2!important;font-weight:700}
 html.mgn .mg-quote{margin:8px 0;padding:8px 12px;border-left:3px solid #69394d;background:#28151e;color:#d2b5c1;font-size:.84rem;line-height:1.5;border-radius:0 10px 10px 0}
-html.mgn .mg-shootbar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:8px 0;padding:10px 12px;border:1px solid #ffd08a;border-radius:12px;background:linear-gradient(135deg,#302c1a,#2c1821);color:#e2c5b3}
+html.mgn .mg-shootbar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:8px 0;padding:10px 12px;border:1px solid #d4b48f;border-radius:12px;background:linear-gradient(135deg,#302c1a,#2c1821);color:#e2c5b3}
 html.mgn .mg-form input,html.mgn .mg-form textarea,html.mgn .mg-sel{flex:1 1 180px;min-width:0;min-height:38px;padding:6px 10px;border:1px solid #542d3d;border-radius:10px;background:#1a1a1a;color:#dbc4cd;font:inherit;font-size:16px}
 html.mgn .mg-chip{--c:#ffd3e5;display:inline-flex;align-items:center;gap:6px;min-height:32px;padding:0 12px;border:1px solid #542d3d;border-radius:999px;background:#1a1a1a;color:#d7bdcc;font:600 .78rem/1 "Noto Sans KR",sans-serif;cursor:pointer}
 html.mgn .mg-chip[aria-pressed=true],html.mgn .mg-chip.on{border-color:#ec7fae;background:#2b171f;box-shadow:inset 0 0 0 1px #ec7fae}
@@ -665,7 +661,7 @@ html.mgn .mg-note-s.miss{background:#5b3a4c}
 html.mgn .mg-pad{min-height:56px;border:1px solid #542d3d;border-radius:14px;background:#1a1a1a;color:#d0adbc;font:800 1rem/1 "Share Tech Mono",monospace;cursor:pointer;touch-action:manipulation;user-select:none}
 html.mgn .mg-pad.on{background:#3e212d}
 html.mgn .mg-sky{display:block;width:100%;max-width:420px;aspect-ratio:1/1;margin:8px auto;border-radius:16px;background:radial-gradient(circle at 50% 40%,#1a1a1a,#311b25 70%,#3c202c)}
-html.mgn .mg-sky circle+circle{fill:#ffc46b;stroke:#1a1a1a;stroke-width:.6;cursor:pointer}
+html.mgn .mg-sky circle+circle{fill:#d9b48a;stroke:#1a1a1a;stroke-width:.6;cursor:pointer}
 html.mgn .mg-diary{margin:8px 0;padding:14px 16px;border:1px solid #4c2938;border-radius:6px 16px 16px 6px;background:repeating-linear-gradient(180deg,#1a1a1a 0 27px,#321b24 27px 28px);box-shadow:inset 6px 0 0 #3e212d}
 html.mgn .mg-stamps i{width:22px;height:22px;border:2px dashed #542d3d;border-radius:50%}
 html.mgn .mg-stamps i.on{border:0;background:radial-gradient(circle,#b6356c 45%,#c8417b 46% 60%,transparent 61%)}
@@ -674,7 +670,7 @@ html.mgn .mg-duel{margin:8px 0;padding:10px 12px;border:1px solid #4c2938;border
 html.mgn .mg-fc{min-width:0;padding:10px;border:1px solid #4c2938;border-radius:14px;background:#1a1a1a}
 html.mgn .mg-fc.boss{border-color:#2e2546;background:#1c1426}
 html.mgn .mg-ribbon{--c:#ff9cc6;margin:8px 0;padding:12px;border:2px solid var(--c);border-radius:16px;background:#1a1a1a}
-html.mgn .mg-wish{position:fixed;z-index:940;top:calc(env(safe-area-inset-top,0px) + 84px);left:50%;display:flex;align-items:center;gap:8px;padding:8px 14px 8px 10px;border:2px solid #ffd08a;border-radius:999px;background:#282516;color:#e3bfab;font:800 .86rem/1 "Noto Sans KR",sans-serif;box-shadow:0 6px 20px rgba(255,180,90,.45);cursor:pointer;animation:mg-drift 2.4s ease-in-out infinite}
+html.mgn .mg-wish{position:fixed;z-index:940;top:calc(env(safe-area-inset-top,0px) + 84px);left:50%;display:flex;align-items:center;gap:8px;padding:8px 14px 8px 10px;border:2px solid #d4b48f;border-radius:999px;background:#282516;color:#e3bfab;font:800 .86rem/1 "Noto Sans KR",sans-serif;box-shadow:0 6px 20px rgba(255,180,90,.45);cursor:pointer;animation:mg-drift 2.4s ease-in-out infinite}
 
 /* 밤 모드 손질: 큰 달·작은 달은 홈페이지와 어울리는 붉은 계열로 */
 html.mgn{color-scheme:dark;--mg-moon:url('data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 11 11%27 width=%2711%27 height=%2711%27 shape-rendering=%27crispEdges%27%3E%3Cpath fill=%27%23e8647c%27 d=%27M3 0h4v1H3zM2 1h3v1H2zM1 2h3v1H1zM1 3h2v1H1zM0 4h3v3H0zM1 7h3v1H1zM1 8h4v1H1zM9 8h2v1H9zM2 9h8v1H2zM3 10h6v1H3z%27/%3E%3C/svg%3E')}
@@ -688,3 +684,17 @@ html.mgn #glcv{filter:hue-rotate(-28deg) saturate(1.1) brightness(1.05)}
 html.mgn #scene,html.mgn #gtlcv{filter:hue-rotate(-28deg) saturate(1.1)}
 html.mgn .ach-btn{color:#ffe8f0;background:linear-gradient(135deg,#8a3a5a,#c25580 60%,#7a3350);box-shadow:inset 0 0 0 1px rgba(247,161,196,.35)}
 html.mgn .ach-btn:disabled{color:#a07a8c;background:#2a1520;box-shadow:inset 0 0 0 1px #3a1d2b}
+
+/* 대문·화면 아래 도시 전경 실루엣 (배경 #bg 안 · 먼 줄(::before) 위에 가까운 줄(::after)) */
+.mg-city{position:absolute;left:0;right:0;bottom:0;height:clamp(70px,16vmin,150px);pointer-events:none}
+.mg-city::before,.mg-city::after{content:"";position:absolute;left:0;right:0;bottom:0;background-repeat:repeat-x}
+.mg-city::before{height:130%;background-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A//www.w3.org/2000/svg%27%20viewBox%3D%270%200%20400%2080%27%20preserveAspectRatio%3D%27none%27%3E%3Cpath%20fill%3D%27%23e9a3c6%27%20d%3D%27M0%2080V58h20V44h16v14h14V38h22v42h8V50h18V32h24v48h10V46h20V36h12v-8h8v8h12v44h10V54h16V40h26v40h8V48h20V30h20v50h10V52h18V42h22v38h12V56h14V40h20v40z%27/%3E%3C/svg%3E");background-position:37% 100%;background-size:clamp(300px,46vmin,460px) 100%;opacity:.4}
+.mg-city::after{height:100%;background-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A//www.w3.org/2000/svg%27%20viewBox%3D%270%200%20400%2080%27%20preserveAspectRatio%3D%27none%27%3E%3Cpath%20fill%3D%27%23c86a9e%27%20d%3D%27M0%2080V52h14V40h10v-6h4v6h10v40h4V30h18v50h6V46h12v-8h2v-10h2v10h2v8h12v34h4V22h6v-8h4v8h6v58h6V44l10-8%2010%208v36h4V36h16v44h6V54h10V26h4V16h2v10h4v54h6V48h14v32h4V34h8v-6h8v6h8v46h6V58h12V42h6v-4h4v4h6v42h4V28h16v52h6V50h10v30h4V38h12V24h2v14h12v42h4V46h16v34h6V56h12v24h4V42h8V30h4v12h8v38z%27/%3E%3C/svg%3E");background-position:0 100%;background-size:clamp(320px,52vmin,520px) 100%;opacity:.5}
+html.mgn .mg-city::before{background-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A//www.w3.org/2000/svg%27%20viewBox%3D%270%200%20400%2080%27%20preserveAspectRatio%3D%27none%27%3E%3Cpath%20fill%3D%27%239b4a72%27%20d%3D%27M0%2080V58h20V44h16v14h14V38h22v42h8V50h18V32h24v48h10V46h20V36h12v-8h8v8h12v44h10V54h16V40h26v40h8V48h20V30h20v50h10V52h18V42h22v38h12V56h14V40h20v40z%27/%3E%3C/svg%3E");opacity:.42}
+html.mgn .mg-city::after{background-image:url("data:image/svg+xml,%3Csvg%20xmlns%3D%27http%3A//www.w3.org/2000/svg%27%20viewBox%3D%270%200%20400%2080%27%20preserveAspectRatio%3D%27none%27%3E%3Cpath%20fill%3D%27%23561f3c%27%20d%3D%27M0%2080V52h14V40h10v-6h4v6h10v40h4V30h18v50h6V46h12v-8h2v-10h2v10h2v8h12v34h4V22h6v-8h4v8h6v58h6V44l10-8%2010%208v36h4V36h16v44h6V54h10V26h4V16h2v10h4v54h6V48h14v32h4V34h8v-6h8v6h8v46h6V58h12V42h6v-4h4v4h6v42h4V28h16v52h6V50h10v30h4V38h12V24h2v14h12v42h4V46h16v34h6V56h12v24h4V42h8V30h4v12h8v38z%27/%3E%3C/svg%3E");opacity:.9;filter:drop-shadow(0 -1px 0 rgba(255,143,170,.55))}
+
+/* 밤 모드: 노란색(별·금색 테두리)의 채도를 낮춰 붉은 달 배경과 어울리게 */
+html.mgn{--mg-star:url('data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 13 13%27 width=%2713%27 height=%2713%27 shape-rendering=%27crispEdges%27%3E%3Cpath fill=%27%23dcbf94%27 transform=%27translate(0 0)%27 d=%27M6 0h1v1h-1zM6 1h1v1h-1zM5 2h1v1h-1zM6 2h1v1h-1zM7 2h1v1h-1zM5 3h1v1h-1zM6 3h1v1h-1zM7 3h1v1h-1zM0 4h1v1h-1zM1 4h1v1h-1zM2 4h1v1h-1zM3 4h1v1h-1zM4 4h1v1h-1zM5 4h1v1h-1zM6 4h1v1h-1zM7 4h1v1h-1zM8 4h1v1h-1zM9 4h1v1h-1zM10 4h1v1h-1zM11 4h1v1h-1zM12 4h1v1h-1zM1 5h1v1h-1zM2 5h1v1h-1zM3 5h1v1h-1zM4 5h1v1h-1zM6 5h1v1h-1zM7 5h1v1h-1zM8 5h1v1h-1zM9 5h1v1h-1zM10 5h1v1h-1zM11 5h1v1h-1zM2 6h1v1h-1zM3 6h1v1h-1zM4 6h1v1h-1zM5 6h1v1h-1zM6 6h1v1h-1zM7 6h1v1h-1zM8 6h1v1h-1zM9 6h1v1h-1zM10 6h1v1h-1zM3 7h1v1h-1zM4 7h1v1h-1zM5 7h1v1h-1zM6 7h1v1h-1zM7 7h1v1h-1zM8 7h1v1h-1zM9 7h1v1h-1zM3 8h1v1h-1zM4 8h1v1h-1zM5 8h1v1h-1zM7 8h1v1h-1zM8 8h1v1h-1zM9 8h1v1h-1zM10 8h1v1h-1zM2 9h1v1h-1zM3 9h1v1h-1zM4 9h1v1h-1zM5 9h1v1h-1zM7 9h1v1h-1zM8 9h1v1h-1zM9 9h1v1h-1zM10 9h1v1h-1zM2 10h1v1h-1zM3 10h1v1h-1zM9 10h1v1h-1zM10 10h1v1h-1zM1 11h1v1h-1zM2 11h1v1h-1zM10 11h1v1h-1zM11 11h1v1h-1zM1 12h1v1h-1zM11 12h1v1h-1z%27/%3E%3Cpath fill=%27%23fff6fb%27 transform=%27translate(0 0)%27 d=%27M5 5h1v1h-1z%27/%3E%3Cpath fill=%27%23c49a6c%27 transform=%27translate(0 0)%27 d=%27M6 8h1v1h-1zM4 10h1v1h-1zM8 10h1v1h-1zM3 11h1v1h-1zM9 11h1v1h-1zM2 12h1v1h-1zM10 12h1v1h-1z%27/%3E%3C/svg%3E');--mg-spark:url('data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 7 7%27 width=%277%27 height=%277%27 shape-rendering=%27crispEdges%27%3E%3Cpath fill=%27%23ef78aa%27 transform=%27translate(0 0)%27 d=%27M3 0h1v1h-1zM0 3h1v1h-1zM6 3h1v1h-1zM3 6h1v1h-1z%27/%3E%3Cpath fill=%27%23ffa3c9%27 transform=%27translate(0 0)%27 d=%27M3 1h1v1h-1zM2 2h1v1h-1zM4 2h1v1h-1zM1 3h1v1h-1zM5 3h1v1h-1zM2 4h1v1h-1zM4 4h1v1h-1zM3 5h1v1h-1z%27/%3E%3Cpath fill=%27%23ffd1e4%27 transform=%27translate(0 0)%27 d=%27M3 2h1v1h-1zM2 3h1v1h-1zM4 3h1v1h-1zM3 4h1v1h-1z%27/%3E%3Cpath fill=%27%23dcbf94%27 transform=%27translate(0 0)%27 d=%27M3 3h1v1h-1z%27/%3E%3C/svg%3E');--mg-wand:url('data:image/svg+xml,%3Csvg xmlns=%27http://www.w3.org/2000/svg%27 viewBox=%270 0 11 10%27 width=%2711%27 height=%2710%27 shape-rendering=%27crispEdges%27%3E%3Cpath fill=%27%23dcbf94%27 transform=%27translate(0 0)%27 d=%27M7 0h1v1h-1zM6 1h1v1h-1zM7 1h1v1h-1zM8 1h1v1h-1zM4 2h1v1h-1zM5 2h1v1h-1zM6 2h1v1h-1zM7 2h1v1h-1zM8 2h1v1h-1zM9 2h1v1h-1zM10 2h1v1h-1zM5 3h1v1h-1zM6 3h1v1h-1zM7 3h1v1h-1zM8 3h1v1h-1zM9 3h1v1h-1zM5 4h1v1h-1zM6 4h1v1h-1zM8 4h1v1h-1zM9 4h1v1h-1z%27/%3E%3Cpath fill=%27%23ffa3c9%27 transform=%27translate(0 0)%27 d=%27M4 5h1v1h-1zM3 6h1v1h-1zM2 7h1v1h-1zM1 8h1v1h-1zM0 9h1v1h-1z%27/%3E%3C/svg%3E')}
+/* 라이트 모드 지구본: 밝은 바탕에서도 점·글자가 보이도록 (밤 모드는 그대로) */
+html:not(.mgn) .globe{background:radial-gradient(80% 80% at 50% 45%,#fff3f8,#fbe2ee 78%)}
+html:not(.mgn) #glcv{filter:invert(1) hue-rotate(160deg) saturate(1.8) contrast(1.15) brightness(.95)}
