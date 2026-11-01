@@ -1739,8 +1739,18 @@ route('POST', '/api/craft', async (req, res, ctx) => {
 });
 route('GET', '/api/gifts', async (req, res, ctx) => {
   const rows = await db.all(`SELECT g.id, g.kind, g.item, g.qty, g.ts, g.seen, u.hunter_name AS hn FROM gifts g LEFT JOIN users u ON u.id = g.from_id
-    WHERE g.to_id = ? ORDER BY g.id DESC LIMIT 20`, [ctx.user.id]);
+    WHERE g.to_id = ? AND g.rm = 0 ORDER BY g.id DESC LIMIT 20`, [ctx.user.id]);
   send(res, 200, { gifts: rows.map(r => ({ id: r.id, kind: r.kind, item: r.item, qty: r.qty, from: r.hn || '(탈퇴한 헌터)', ts: r.ts, isNew: !r.seen })) });
+});
+route('POST', '/api/gifts/delete', async (req, res, ctx) => {      // 받은 선물 기록 지우기: { id } 하나 또는 { all: true } 전부
+  if (ctx.body.all === true) await db.run('UPDATE gifts SET rm = 1, seen = 1 WHERE to_id = ? AND rm = 0', [ctx.user.id]);
+  else {
+    const id = Number(ctx.body.id);
+    if (!Number.isInteger(id)) return fail(res, 400, 'bad_id');
+    const w = await db.run('UPDATE gifts SET rm = 1, seen = 1 WHERE id = ? AND to_id = ?', [id, ctx.user.id]);
+    if (w.changes !== 1) return fail(res, 404, 'not_found');
+  }
+  send(res, 200, { ok: true });
 });
 route('POST', '/api/gifts/seen', async (req, res, ctx) => {
   await db.run('UPDATE gifts SET seen = 1 WHERE to_id = ? AND seen = 0', [ctx.user.id]);
@@ -2473,9 +2483,13 @@ route('GET', '/api/affinity', async (req, res, ctx) => {
   const monsters = {}, weapons = {};
   G.ELEM_KEYS.forEach(k => { monsters[k] = []; weapons[k] = []; });
   const names = [].concat(...['F', 'E', 'D', 'C', 'B', 'A', 'S', 'SS'].map(r => (G.MON[r] || []).map(n => n + ' (' + r + ')')), ['오염 사냥꾼', '혈월의 잔영']);
-  names.forEach(n => { const k = G.elemOf(n.replace(/ \([A-Z]+\)$/, '')); monsters[k].push(n); });
+  // 모든 항목은 미공개로 시작: 스킬을 써 본 몬스터(ct_aff)만 이름이 보이고, 그런 몬스터가 하나라도 있는 속성만 열림
+  const seen = await db.all('SELECT mon, el FROM ct_aff WHERE user_id = ?', [ctx.user.id]), seenMon = new Set(seen.map(r => r.mon)), open = {}, total = {};
+  seen.forEach(r => { open[r.el] = true; });
+  names.forEach(n => { const base = n.replace(/ \([A-Z]+\)$/, ''), k = G.elemOf(base); total[k] = (total[k] || 0) + 1; if (seenMon.has(base)) monsters[k].push(n); });
+  seen.forEach(r => { if (!names.some(n => n.replace(/ \([A-Z]+\)$/, '') === r.mon) && monsters[r.el] && !monsters[r.el].includes(r.mon)) monsters[r.el].push(r.mon); });      // 변종처럼 원래 속성과 다른 몬스터
   G.EQUIPS.forEach(e => { if (e.slot === 'weapon' && e.el && !e.legacy) weapons[e.el].push(e.name); });
-  send(res, 200, { monsters, weapons, myEl: await weaponEl(ctx.user.id) });
+  send(res, 200, { monsters, weapons, myEl: await weaponEl(ctx.user.id), open: Object.keys(open), total });
 });
 route('GET', '/api/battle', async (req, res, ctx) => {
   const b = await battleLive(ctx.user.id, Date.now());
@@ -2500,6 +2514,14 @@ route('POST', '/api/battle/act', async (req, res, ctx) => {
   const log = [];
   let mhp = b.mhp, php = b.php, buff = b.buff, cd = Math.max(0, b.cd_heavy - 1), cdE = Math.max(0, (Number(b.cd_elem) || 0) - 1), outcome = null, hit = null;
   const mel = b.mvar || G.elemOf(b.mname);
+  // 속성 도감 해금: 몬스터에게 스킬(강타·속성 공격)을 직접 써 보면 그 몬스터와 속성이 도감에 열림
+  let afxNew = null;
+  if (action === 'heavy' || action === 'elem') {
+    const had = await db.get('SELECT 1 AS x FROM ct_aff WHERE user_id = ? AND el = ?', [cur.id, mel]);
+    const ins = await db.run('INSERT INTO ct_aff (user_id, mon, el, at) VALUES (?, ?, ?, ?) ON CONFLICT(user_id, mon) DO NOTHING', [cur.id, b.mname, mel, now]);
+    if (ins.changes === 1 && (await themeState()) === 'magic') afxNew = { mon: b.mname, el: mel, newEl: !had };
+  }
+  const sendB = o => send(res, 200, afxNew ? Object.assign(o, { afxNew }) : o);
   const rr = (lo, hi) => lo + Math.random() * (hi - lo);
   // 내 행동
   if (action === 'flee') {
@@ -2554,21 +2576,21 @@ route('POST', '/api/battle/act', async (req, res, ctx) => {
       [mhp, php, round, intent, cd, buff, JSON.stringify(nlog), now, cdE, wel, cur.id, b.ver]);
     if (w.changes !== 1) return fail(res, 409, 'busy');
     const nb = await db.get('SELECT user_id, monster_id, mname, mrank, mhp, mmax, php, pmax, round, intent, cd_heavy, buff, log, ver, started, upd, cd_elem, wel, mvar FROM battles WHERE user_id = ?', [cur.id]);
-    return send(res, 200, { done: false, battle: btView(nb, { last: log, hit }) });
+    return sendB({ done: false, battle: btView(nb, { last: log, hit }) });
   }
   // 전투 종료: 먼저 전투 기록을 지워 한 번만 정산합니다
   const del = await db.run('DELETE FROM battles WHERE user_id = ? AND ver = ?', [cur.id, b.ver]);
   if (del.changes !== 1) return fail(res, 409, 'busy');
   const finalView = btView(Object.assign({}, b, { mhp, php, round: b.round, intent: b.intent, log: JSON.stringify(nlog), cd_heavy: cd, buff, cd_elem: cdE, wel }), { last: log, hit });
-  if (outcome === 'fled') return send(res, 200, { done: true, outcome, battle: finalView, result: null });
-  if (!m) return send(res, 200, { done: true, outcome: 'fled', battle: finalView, result: null });
+  if (outcome === 'fled') return sendB({ done: true, outcome, battle: finalView, result: null });
+  if (!m) return sendB({ done: true, outcome: 'fled', battle: finalView, result: null });
   if (outcome === 'win') {
     if (php <= Math.max(1, Math.round(b.pmax * 0.05))) await CT.grantTitle(cur.id, 'close_call');      // 숨은 칭호: 체력 5% 이하로 승리
     const w = await huntWin(cur, m, eb, now);
-    if (w.err) return send(res, 200, { done: true, outcome: 'fled', battle: finalView, result: null, error: w.err });
-    return send(res, 200, { done: true, outcome, battle: finalView, result: w.payload });
+    if (w.err) return sendB({ done: true, outcome: 'fled', battle: finalView, result: null, error: w.err });
+    return sendB({ done: true, outcome, battle: finalView, result: w.payload });
   }
-  return send(res, 200, { done: true, outcome, battle: finalView, result: await huntLose(cur, m, myStats, eb, now) });
+  return sendB({ done: true, outcome, battle: finalView, result: await huntLose(cur, m, myStats, eb, now) });
 });
 
 route('POST', '/api/results/ack', async (req, res, ctx) => {
