@@ -66,6 +66,8 @@ const ABYSS_TITLE = 'abyss_walker';
 // ───────── 17 칭호 ─────────
 // tier: c 일반 · r 희귀 · e 영웅 · l 전설 / hidden: 조건을 알려 주지 않음
 const TITLES = [
+  { id: 'mg_grad', name: '마법 학교 졸업생', tier: 'e', hidden: 1, how: '마법 학교 4과목 모두 수료 (마법소녀 이벤트)' },
+  { id: 'mg_mirror', name: '거울을 넘은 자', tier: 'r', hidden: 1, how: '거울 나라의 나를 4번 쓰러뜨림 (마법소녀 이벤트)' },
   { id: 'close_call', name: '아슬아슬한 자', tier: 'r', hidden: 1, how: '체력 5% 이하로 턴제 전투 승리' },
   { id: 'taint_edge', name: '오염의 끝', tier: 'e', hidden: 1, how: '오염도 90% 이상에서 토벌 성공' },
   { id: 'weak_hunter', name: '약점 사냥꾼', tier: 'r', hidden: 1, how: '속성 약점 공격 100회', counter: 'weak', need: 100 },
@@ -355,6 +357,7 @@ function install(d) {
 
   // ── 버프(요리) · 운세 · 시간대를 모은 보너스 ──
   async function fortuneRow(uid, now) { return db.get('SELECT kind, region, el, line FROM ct_fortune WHERE user_id = ? AND day = ?', [uid, dayKey(now)]); }
+  let MGB = null;
   async function bonus(uid, now) {
     const b = { luck: 0, str: 0, agi: 0, hpGuard: 0, taintRes: 0, exp: 1, gold: 1, elem: 1, region: '', regionMul: 1, variant: 1, fish: 0 };
     const u = await db.get('SELECT buff, buff_until, buff_q FROM users WHERE id = ?', [uid]);
@@ -366,6 +369,7 @@ function install(d) {
     const f = await fortuneRow(uid, now);
     if (f) { const F = FORTUNE.find(x => x.k === f.kind) || {}; b.luck += F.luck || 0; if (F.region) { b.region = f.region; b.regionMul = 1 + F.region; } b.variant *= F.variant || 1; b.fish += F.fish || 0; }
     const t = timeMod(now); b.exp *= t.exp; b.gold *= t.gold; b.taintRes += t.taintRes;
+    if (MGB) { try { await MGB(uid, now, b); } catch (_) {} }      // 마법소녀 이벤트: 변신·합동 변신·별자리 (api/_magic.js)
     return b;
   }
 
@@ -737,6 +741,7 @@ function install(d) {
   }
 
   return {
+    setMgBonus: fn => { MGB = fn; },
     timeMod, bonus, pickName, variantChance, rollVariant, onKill, bump, grantTitle, titleOf, abyssRecord, abyssSettle, leagueResult, leagueView, stateExtra, enhInfo, plusVal,
     VARIANT_MUL, VARIANT_SPECIES, ABYSS_FROM, ABYSS_MAT, EXTRA_MAT_TIER, DISH, purge: id => PURGE.map(p => [p[0], p[1] === 2 ? [id, id] : [id]]),
   };
