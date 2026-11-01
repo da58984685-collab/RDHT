@@ -198,7 +198,7 @@ async function grantExp(userId, gain) {
     const r = G.addExp(u.lv, u.exp, gain);
     const w = await db.run('UPDATE users SET lv = ?, exp = ? WHERE id = ? AND lv = ? AND exp = ?', [r.lv, r.exp, userId, u.lv, u.exp]);
     if (w.changes === 1) {
-      if (r.lv > u.lv) { await grantFame(userId, (r.lv - u.lv) * G.FAME_PER_LV); await grantStatPoints(userId, r.lv, r.lv - u.lv); }
+      if (r.lv > u.lv) { await grantStatPoints(userId, r.lv, r.lv - u.lv); }
       return r;
     }
   }
@@ -220,20 +220,6 @@ async function grantStatPoints(userId, newLv, gained) {
   throw new Error('sp_conflict');
 }
 
-// 명성은 레벨·등급이 오를 때만 늘어납니다 (stats JSON 의 fame, 동시 요청에도 안전하게 비교 후 갱신)
-async function grantFame(userId, n) {
-  if (!(n > 0)) return null;
-  for (let i = 0; i < 6; i++) {
-    const u = await db.get('SELECT stats FROM users WHERE id = ?', [userId]);
-    if (!u) return null;
-    const st = JSON.parse(u.stats);
-    const cf = Number(st.fame) || 0;
-    st.fame = Math.max(cf, Math.min(G.FAME_MAX, cf + n));   // 명성 최대 1000
-    const w = await db.run('UPDATE users SET stats = ? WHERE id = ? AND stats = ?', [JSON.stringify(st), userId, u.stats]);
-    if (w.changes === 1) return st.fame;
-  }
-  throw new Error('fame_conflict');
-}
 
 async function grantGold(userId, n) {
   if (n > 0) await db.run('UPDATE users SET gold = gold + ? WHERE id = ?', [n, userId]);
@@ -410,8 +396,8 @@ async function boardCtx(now) {
     .map(m => ({ name: m.name, place: G.placeName(m.region) }));
   const sFled = (await db.all("SELECT name, region FROM s_log WHERE status = 'fled' AND ended_at > ? LIMIT 10", [now - 3 * G.HOUR]))
     .map(m => ({ name: m.name, place: G.placeName(m.region) }));
-  const us = await db.all('SELECT hunter_name AS hn, rank, stats FROM users WHERE is_private = 0');   // 비공개 유저는 언급하지 않음
-  const all = us.map(u => { let f = 0; try { f = Number(JSON.parse(u.stats).fame) || 0; } catch (_) {} return { hn: u.hn, rank: u.rank, fame: f }; });
+  const us = await db.all('SELECT hunter_name AS hn, rank, lv FROM users WHERE is_private = 0');   // 비공개 유저는 언급하지 않음
+  const all = us.map(u => ({ hn: u.hn, rank: u.rank, fame: Math.max(0, (Number(u.lv) || 1) - 1) }));      // 명성 제도 삭제: '화제의 헌터' 글은 전투력 레벨이 높을수록 자주 언급
   const fame = all.filter(u => u.fame > 0).sort((a, b) => b.fame - a.fame).slice(0, 40);
   const sUsers = all.filter(u => u.rank === 'S').sort((a, b) => b.fame - a.fame).slice(0, 40);
   return { mons, regions, sOn, sKill, sFled, sUsers, fame };
@@ -506,6 +492,17 @@ async function loadAchDb() {
     await db.batch(G.ACH_SEED3.map((a, i) => ['INSERT OR IGNORE INTO achievements (id, name, descr, kind, val, at) VALUES (?, ?, ?, ?, ?, ?)', [a.id, a.name, a.desc, a.kind, a.val, t0 + i]]));
     await db.run("INSERT OR IGNORE INTO settings (key, value) VALUES ('ach_seeded3', '1')");
   }
+  if (!(await db.get("SELECT 1 AS x FROM settings WHERE key = 'fame_removed'"))) {      // 명성 제도 삭제: 명성 업적과 그 기록을 지움 (한 번만)
+    const ids = (await db.all("SELECT id FROM achievements WHERE kind = 'fame'")).map(r => r.id);
+    for (const id of ids) { await db.run('DELETE FROM ach_earned WHERE ach_id = ?', [id]); await db.run("UPDATE users SET title = '' WHERE title = ?", ['ach:' + id]); }
+    await db.run("DELETE FROM achievements WHERE kind = 'fame'");
+    await db.run("INSERT OR IGNORE INTO settings (key, value) VALUES ('fame_removed', '1')");
+  }
+  if (!(await db.get("SELECT 1 AS x FROM settings WHERE key = 'ach_seeded4'"))) {      // 네 번째 기본 업적 묶음(명성 대신 30개): 한 번만 추가
+    const t0 = Date.now();
+    await db.batch(G.ACH_SEED4.map((a, i) => ['INSERT OR IGNORE INTO achievements (id, name, descr, kind, val, at) VALUES (?, ?, ?, ?, ?, ?)', [a.id, a.name, a.desc, a.kind, a.val, t0 + i]]));
+    await db.run("INSERT OR IGNORE INTO settings (key, value) VALUES ('ach_seeded4', '1')");
+  }
   achSeeded = true;
   return db.all('SELECT id, name, descr, kind, val FROM achievements ORDER BY at, id');
 }
@@ -519,7 +516,7 @@ async function achStats(u, defs) {
     db.get("SELECT COALESCE(SUM(n), 0) AS c FROM hunt_log WHERE user_id = ? AND result = 'success' AND rank = 'SS'", [u.id])]);
   const s = { kills: k.c, maxRank: rs.reduce((m, r) => Math.max(m, G.RANK_IDX[r.rank] == null ? -1 : G.RANK_IDX[r.rank]), -1), sTry: st.c, sWin: sw.c, lv: u.lv,
     visitBy: {}, visits: 0, countries: 0, collected: {}, slain: {}, surveys: 0, crafts: 0, fails: 0, friends: 0, gifts: 0, gold: Number(u.gold) || 0,
-    rankIdx: G.RANK_IDX[u.rank] == null ? -1 : G.RANK_IDX[u.rank], stats: {} };
+    rankIdx: G.RANK_IDX[u.rank] == null ? -1 : G.RANK_IDX[u.rank], stats: {}, pvpwin: Number(u.pvp_win) || 0, lp: Number(u.lp_peak) || 0, floor: 0, fishsp: 0, cooks: 0, attend: 0, dex: 0 };
   try { s.stats = JSON.parse(u.stats) || {}; } catch (_) { s.stats = {}; }
   const jobs = [];
   if (need('visit', 'visits', 'countries')) jobs.push(db.all('SELECT region, n FROM visit_counts WHERE user_id = ?', [u.id]).then(rows => {
@@ -538,6 +535,12 @@ async function achStats(u, defs) {
   if (need('fails')) jobs.push(db.get("SELECT COALESCE(SUM(n), 0) AS c FROM hunt_log WHERE user_id = ? AND result = 'fail'", [u.id]).then(r => { s.fails = r.c; }));
   if (need('friends')) jobs.push(db.get('SELECT COUNT(*) AS c FROM friends WHERE user_id = ?', [u.id]).then(r => { s.friends = r.c; }));
   if (need('gifts')) jobs.push(db.get('SELECT COUNT(*) AS c FROM gifts WHERE from_id = ?', [u.id]).then(r => { s.gifts = r.c; }));
+  // 명성 대신 추가한 업적 종류
+  if (need('floor')) jobs.push(db.get('SELECT best FROM gate_run WHERE user_id = ?', [u.id]).then(r => { s.floor = r ? Number(r.best) || 0 : 0; }));
+  if (need('fishsp')) jobs.push(db.get('SELECT COUNT(*) AS c FROM ct_fish_log WHERE user_id = ? AND n > 0', [u.id]).then(r => { s.fishsp = Number(r.c) || 0; }));
+  if (need('cooks')) jobs.push(db.get("SELECT COALESCE(SUM(n), 0) AS c FROM acquire_log WHERE user_id = ? AND source = '요리'", [u.id]).then(r => { s.cooks = Number(r.c) || 0; }));
+  if (need('attend')) jobs.push(db.get('SELECT rounds FROM ct_attend WHERE user_id = ?', [u.id]).then(r => { s.attend = r ? Number(r.rounds) || 0 : 0; }));
+  if (need('dex')) jobs.push(db.get('SELECT COUNT(DISTINCT el) AS c FROM ct_aff WHERE user_id = ?', [u.id]).then(r => { s.dex = Number(r.c) || 0; }));
   await Promise.all(jobs);
   return s;
 }
@@ -560,7 +563,13 @@ const achMet = (a, s) => {
     case 'friends': return s.friends >= n;
     case 'gifts': return s.gifts >= n;
     case 'gold': return s.gold >= n;
-    case 'fame': return (Number(s.stats.fame) || 0) >= n;
+    case 'pvpwin': return s.pvpwin >= n;
+    case 'lp': return s.lp >= n;
+    case 'floor': return s.floor >= n;
+    case 'fishsp': return s.fishsp >= n;
+    case 'cooks': return s.cooks >= n;
+    case 'attend': return s.attend >= n;
+    case 'dex': return s.dex >= n;
     case 'taint': return (Number(s.stats.taint) || 0) >= n;
     case 'hrank': return s.rankIdx >= (G.RANK_IDX[a.val] == null ? 99 : G.RANK_IDX[a.val]);
     case 'visit': { const [k, c] = splitVal(a.val); return c > 0 && visitsOf(s, k) >= c; }
@@ -1342,7 +1351,7 @@ async function sweepExchange() {
 
 // ═════════════ 오염된 친구 구조 의뢰 ═════════════
 // 오염 폭주(오염도 100)에 빠진 친구에게 정화 아이템을 써서 구해 줍니다. 구한 사람에게는 보상, 구해진 친구는 오염도가 40으로 내려가고 폭주가 풀립니다.
-const RESCUE_REWARD = { gold: 200, exp: 40, fame: 3 };
+const RESCUE_REWARD = { gold: 200, exp: 40 };
 async function cureItems() {
   const m = new Map();
   Object.keys(G.CRAFT_DEFS).forEach(n => { const d = G.CRAFT_DEFS[n]; if (d.stat === 'taint' && d.amt < 0) m.set(n, d.amt); });
@@ -1393,10 +1402,9 @@ route('POST', '/api/friends/rescue', async (req, res, ctx) => {
   await db.run('INSERT INTO rescues (target_id, rescuer_id, at, seen) VALUES (?, ?, ?, 0)', [f.id, me.id, now]);
   const g = await grantExp(me.id, RESCUE_REWARD.exp);
   await grantGold(me.id, RESCUE_REWARD.gold);
-  await grantFame(me.id, RESCUE_REWARD.fame);
   await logAcquire(me.id, 'exp', '경험치', RESCUE_REWARD.exp, '친구 구조', now);
   await logAcquire(me.id, 'gold', '골드', RESCUE_REWARD.gold, '친구 구조', now);
-  send(res, 200, { ok: true, item, friend: f.hunter_name, gold: RESCUE_REWARD.gold, exp: RESCUE_REWARD.exp, fame: RESCUE_REWARD.fame, levelUp: !!(g && g.up) });
+  send(res, 200, { ok: true, item, friend: f.hunter_name, gold: RESCUE_REWARD.gold, exp: RESCUE_REWARD.exp, levelUp: !!(g && g.up) });
 });
 
 // ═════════════ 적월문 심층 탐험 (층 구조) ═════════════
@@ -1542,7 +1550,7 @@ const gcd = ms => Math.round(ms * CT.timeMod(Date.now()).gateCd);      // 목요
 const zoneIdx = n => Math.min(G.GATE_ZONES.length - 1, Math.max(0, Math.floor((n - 1) / 10)));       // 1~10층 = 0구간 … 41~50층 = 4구간 · 51층부터 5구간(심연 회랑)
 const gateCap = r => (Number(r.best) >= GATE_MAX ? Infinity : GATE_MAX);      // 50층을 넘어선 헌터는 끝없이 (무한 심층)
 const isBoss = n => n % 10 === 0;                                                                     // 10층마다 구간의 수문장
-// 처음 도달 보너스 [명성, 골드]: 3·5·7·10층은 기존 값, 15층부터는 5층마다
+// 처음 도달 보너스 [(예전 명성 · 지금은 안 씀), 골드]: 3·5·7·10층은 기존 값, 15층부터는 5층마다
 function gateMilestone(n) {
   const old = { 3: [1, 150], 5: [2, 300], 7: [3, 500], 10: [5, 1000] };
   if (old[n]) return old[n];
@@ -1671,8 +1679,8 @@ route('POST', '/api/gate/descend', async (req, res, ctx) => {
   let bonus = null;
   const ms = gateMilestone(n);
   if (n > r.best && ms) {
-    bonus = { fame: ms[0], gold: ms[1] };
-    await grantFame(cur.id, bonus.fame); await grantGold(cur.id, bonus.gold);
+    bonus = { gold: ms[1] };
+    await grantGold(cur.id, bonus.gold);
     await logAcquire(cur.id, 'gold', '골드', bonus.gold, '심층 탐험 ' + n + '층 최초 도달', now);
   }
   let spring = 0;
@@ -2934,22 +2942,10 @@ route('POST', '/api/admin/player/update', async (req, res, ctx) => {
     traits = Array.isArray(b.traits) ? b.traits.map(str).filter(Boolean) : null;
     if (!traits || traits.length > 5 || traits.some(t => cp(t) > 50)) return fail(res, 400, 'bad_traits');
   }
-  // 명성: 레벨·등급이 올라가면 함께 오르고, 관리자가 명성 칸을 직접 바꿨다면 그 값을 따릅니다
-  const oldStats = JSON.parse(u.stats);
-  let fame = Number(oldStats.fame) || 0;
-  const fameEdited = b.stats && b.stats.fame !== undefined && Number(b.stats.fame) !== fame;
-  if (fameEdited) {
-    fame = Number(b.stats.fame);
-    if (!Number.isInteger(fame) || fame < 0 || fame > G.FAME_MAX) return fail(res, 400, 'bad_stat', { field: 'fame' });
-  }
   let gold = u.gold;
   if (b.gold !== undefined) { gold = Number(b.gold); if (!Number.isInteger(gold) || gold < 0 || gold > 99999999) return fail(res, 400, 'bad_gold'); }
   if (b.rank !== undefined) { rank = b.rank; if (!RANKS.includes(rank)) return fail(res, 400, 'bad_rank'); }
-  if (!fameEdited) {
-    if (lv > u.lv) fame += (lv - u.lv) * G.FAME_PER_LV;
-    if (G.RANK_IDX[rank] > G.RANK_IDX[u.rank]) fame += (G.RANK_IDX[rank] - G.RANK_IDX[u.rank]) * G.FAME_PER_RANK;
-  }
-  stats.fame = Math.min(G.FAME_MAX, fame);
+  delete stats.fame;      // 명성 제도 삭제
   if (lv > u.lv) stats.sp = (stats.sp === undefined || stats.sp === null ? Math.max(0, u.lv - 1) : spOf(stats, u.lv)) + (lv - u.lv);   // 관리자가 전투력을 올려도 레벨당 스탯포인트 1
   if (Number(stats.hp) > G.HP_MIN) await db.run('UPDATE users SET dying_until = 0 WHERE id = ?', [u.id]);
   await db.run(`UPDATE users SET hunter_name = ?, stats = ?, lv = ?, exp = ?, name = ?, gender = ?, age = ?, personality = ?, traits = ?, rank = ?, gold = ? WHERE id = ?`,
@@ -3258,7 +3254,7 @@ async function promoInfo(u) {
     let tn = 0; try { tn = Number(JSON.parse(u.stats).taint) || 0; } catch (_) {}
     conds.push({ t: '오염도 ' + rule.taintMax + '% 이하 (정화의 물약 등으로 낮추기)', have: Math.round(tn * 10) / 10, need: rule.taintMax, ok: tn <= rule.taintMax, atMost: true });
   }
-  return { rank: u.rank, next: rule.to, conds, can: conds.every(c => c.ok), max: false, fame: G.FAME_PER_RANK };
+  return { rank: u.rank, next: rule.to, conds, can: conds.every(c => c.ok), max: false };
 }
 route('GET', '/api/promote', async (req, res, ctx) => {
   const u = await userById(ctx.user.id);
@@ -3271,8 +3267,7 @@ route('POST', '/api/promote', async (req, res, ctx) => {
   if (!info.can) return fail(res, 400, 'not_ready', { conds: info.conds });
   const w = await db.run('UPDATE users SET rank = ? WHERE id = ? AND rank = ?', [info.next, u.id, u.rank]);
   if (w.changes !== 1) return fail(res, 409, 'busy');
-  const fame = await grantFame(u.id, G.FAME_PER_RANK);
-  send(res, 200, { ok: true, from: u.rank, rank: info.next, fame, next: await promoInfo(Object.assign({}, u, { rank: info.next })) });
+  send(res, 200, { ok: true, from: u.rank, rank: info.next, next: await promoInfo(Object.assign({}, u, { rank: info.next })) });
 });
 
 // 비공개 유저 설정 (켜면 헌터 커뮤니티에서 언급되지 않음)
