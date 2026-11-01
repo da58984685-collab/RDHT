@@ -152,12 +152,6 @@
         if (n.textContent.trim() === r[1]) { saved.text.push([n, r[1], r[2]]); n.textContent = r[2]; }
       });
     });
-    // 탭 아이콘: 분홍 별
-    var ic = document.querySelector('link[rel="icon"]');
-    if (ic && saved.icon === undefined) {
-      saved.icon = ic.getAttribute("href");
-      ic.setAttribute("href", "data:image/svg+xml," + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 8 8" shape-rendering="crispEdges"><path fill="#ff8fc8" d="M3 0h2v2H3zM0 2h8v2H0zM1 4h6v1H1zM1 5h2v2H1zM5 5h2v2H5zM0 7h2v1H0zM6 7h2v1H6z"/><path fill="#fff6fb" d="M3 2h1v1H3z"/></svg>'));
-    }
   }
   function undecorate() {
     document.documentElement.classList.remove("mgl");
