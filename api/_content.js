@@ -194,9 +194,126 @@ const FISH = [
   { name: '적월 해마', tier: 'e', w: 'any', spots: ['gt-lake'], slot: 'night', cm: [15, 35], gold: 350 },
   { name: '실러캔스', tier: 'l', w: 'sea', spots: ['mg-coast', 'mg-port'], slot: 'dawn', cm: [120, 200], gold: 1800 },
   { name: '용왕 비늘잉어', tier: 'l', w: 'fresh', spots: ['cn-gorge'], day: 0, cm: [150, 280], gold: 2000 },
+  // ── 추가 어종 110종 (일반 51 · 희귀 36 · 영웅 16 · 전설 7) ──
+  // 일반 · 민물
+  { name: '잉어', tier: 'c', w: 'fresh', cm: [30, 90], gold: 24 },
+  { name: '가물치', tier: 'c', w: 'fresh', slot: 'night', cm: [40, 90], gold: 30 },
+  { name: '뱀장어', tier: 'c', w: 'fresh', slot: 'night', cm: [40, 100], gold: 30 },
+  { name: '빙어', tier: 'c', w: 'fresh', slot: 'dawn', cm: [6, 14], gold: 22 },
+  { name: '미꾸라지', tier: 'c', w: 'fresh', cm: [8, 20], gold: 20 },
+  { name: '납자루', tier: 'c', w: 'fresh', slot: 'day', cm: [5, 10], gold: 22 },
+  { name: '버들치', tier: 'c', w: 'fresh', slot: 'morning', cm: [6, 14], gold: 22 },
+  { name: '갈겨니', tier: 'c', w: 'fresh', cm: [8, 18], gold: 22 },
+  { name: '끄리', tier: 'c', w: 'fresh', slot: 'day', cm: [20, 40], gold: 26 },
+  { name: '누치', tier: 'c', w: 'fresh', cm: [25, 55], gold: 26 },
+  { name: '동자개', tier: 'c', w: 'fresh', slot: 'night', cm: [12, 30], gold: 26 },
+  { name: '꺽지', tier: 'c', w: 'fresh', cm: [10, 25], gold: 26 },
+  { name: '블루길', tier: 'c', w: 'fresh', cm: [10, 25], gold: 22 },
+  { name: '배스', tier: 'c', w: 'fresh', cm: [25, 55], gold: 28 },
+  { name: '틸라피아', tier: 'c', w: 'fresh', spots: ['eg-nile', 'br-amazon', 'in-ganges', 'mg-river'], cm: [15, 40], gold: 26 },
+  { name: '민물 새우', tier: 'c', w: 'fresh', cm: [3, 8], gold: 20 },
+  { name: '다슬기', tier: 'c', w: 'fresh', cm: [2, 4], gold: 20 },
+  { name: '우렁이', tier: 'c', w: 'fresh', spots: ['river', 'cn-gorge', 'in-ganges'], cm: [3, 7], gold: 20 },
+  { name: '초어', tier: 'c', w: 'fresh', spots: ['cn-gorge'], cm: [40, 100], gold: 30 },
+  { name: '백련어', tier: 'c', w: 'fresh', spots: ['cn-gorge', 'river'], cm: [40, 100], gold: 28 },
+  { name: '황어', tier: 'c', w: 'fresh', slot: 'morning', cm: [25, 45], gold: 26 },
+  { name: '퍼치', tier: 'c', w: 'fresh', spots: ['fr-seine', 'ru-baikal'], cm: [15, 35], gold: 26 },
+  { name: '로치', tier: 'c', w: 'fresh', spots: ['fr-seine'], cm: [12, 30], gold: 24 },
+  { name: '민물 가재', tier: 'c', w: 'fresh', spots: ['us-bayou', 'fr-seine'], cm: [7, 15], gold: 24 },
+  { name: '수로 금붕어', tier: 'c', w: 'fresh', spots: ['it-venice', 'jp-onsen'], cm: [5, 15], gold: 24 },
+  { name: '온천 송사리', tier: 'c', w: 'fresh', spots: ['jp-onsen'], cm: [3, 6], gold: 24 },
+  // 일반 · 바다
+  { name: '멸치', tier: 'c', w: 'sea', cm: [5, 15], gold: 20 },
+  { name: '정어리', tier: 'c', w: 'sea', cm: [12, 25], gold: 20 },
+  { name: '꽁치', tier: 'c', w: 'sea', slot: 'night', cm: [25, 40], gold: 22 },
+  { name: '삼치', tier: 'c', w: 'sea', cm: [40, 90], gold: 28 },
+  { name: '갈치', tier: 'c', w: 'sea', slot: 'night', cm: [60, 150], gold: 30 },
+  { name: '우럭', tier: 'c', w: 'sea', cm: [20, 45], gold: 26 },
+  { name: '노래미', tier: 'c', w: 'sea', cm: [20, 40], gold: 24 },
+  { name: '볼락', tier: 'c', w: 'sea', slot: 'night', cm: [12, 30], gold: 24 },
+  { name: '쥐치', tier: 'c', w: 'sea', cm: [15, 30], gold: 24 },
+  { name: '가자미', tier: 'c', w: 'sea', cm: [20, 45], gold: 24 },
+  { name: '도다리', tier: 'c', w: 'sea', slot: 'morning', cm: [20, 40], gold: 26 },
+  { name: '보리새우', tier: 'c', w: 'sea', cm: [10, 25], gold: 24 },
+  { name: '대하', tier: 'c', w: 'sea', cm: [15, 28], gold: 26 },
+  { name: '바지락', tier: 'c', w: 'sea', cm: [3, 5], gold: 20 },
+  { name: '소라', tier: 'c', w: 'sea', cm: [6, 15], gold: 22 },
+  { name: '성게', tier: 'c', w: 'sea', cm: [5, 10], gold: 26 },
+  { name: '별불가사리', tier: 'c', w: 'sea', cm: [8, 30], gold: 20 },
+  { name: '해삼', tier: 'c', w: 'sea', slot: 'night', cm: [10, 30], gold: 26 },
+  { name: '주꾸미', tier: 'c', w: 'sea', cm: [10, 25], gold: 24 },
+  { name: '낙지', tier: 'c', w: 'sea', slot: 'night', cm: [30, 80], gold: 28 },
+  { name: '청어', tier: 'c', w: 'sea', slot: 'dawn', cm: [20, 35], gold: 22 },
+  { name: '대구', tier: 'c', w: 'sea', spots: ['ru-port', 'port'], cm: [40, 100], gold: 30 },
+  { name: '명태', tier: 'c', w: 'sea', spots: ['ru-port'], cm: [30, 60], gold: 28 },
+  { name: '학꽁치', tier: 'c', w: 'sea', slot: 'day', cm: [20, 40], gold: 24 },
+  { name: '놀래기', tier: 'c', w: 'sea', spots: ['au-reef', 'au-sydney', 'mg-coast'], cm: [10, 25], gold: 26 },
+  // 희귀 · 민물
+  { name: '산천어', tier: 'r', w: 'fresh', spots: ['jp-onsen', 'river'], slot: 'dawn', cm: [20, 40], gold: 80 },
+  { name: '열목어', tier: 'r', w: 'fresh', spots: ['ru-baikal', 'cn-gorge'], cm: [40, 80], gold: 90 },
+  { name: '강준치', tier: 'r', w: 'fresh', cm: [40, 90], gold: 75 },
+  { name: '무지개송어', tier: 'r', w: 'fresh', slot: 'morning', cm: [30, 60], gold: 80 },
+  { name: '금강모치', tier: 'r', w: 'fresh', slot: 'dawn', cm: [5, 9], gold: 85 },
+  { name: '별빛 다슬기', tier: 'r', w: 'fresh', slot: 'night', cm: [3, 6], gold: 80 },
+  { name: '노던 파이크', tier: 'r', w: 'fresh', spots: ['ru-baikal', 'fr-seine'], cm: [50, 120], gold: 90 },
+  { name: '바이칼 오물', tier: 'r', w: 'fresh', spots: ['ru-baikal'], cm: [20, 40], gold: 85 },
+  { name: '전기뱀장어', tier: 'r', w: 'fresh', spots: ['br-amazon'], slot: 'night', cm: [100, 200], gold: 100 },
+  { name: '레드테일 메기', tier: 'r', w: 'fresh', spots: ['br-amazon', 'br-falls'], cm: [60, 130], gold: 95 },
+  { name: '타이거피시', tier: 'r', w: 'fresh', spots: ['eg-nile'], cm: [30, 70], gold: 95 },
+  { name: '갠지스 은빛 잉어', tier: 'r', w: 'fresh', spots: ['in-ganges'], cm: [30, 70], gold: 85 },
+  { name: '악어가아', tier: 'r', w: 'fresh', spots: ['us-bayou'], cm: [80, 200], gold: 100 },
+  { name: '블루 메기', tier: 'r', w: 'fresh', spots: ['us-bayou', 'mg-river'], slot: 'night', cm: [60, 120], gold: 90 },
+  { name: '수로 은장어', tier: 'r', w: 'fresh', spots: ['it-venice'], slot: 'night', cm: [40, 90], gold: 90 },
+  { name: '센강 강꼬치고기', tier: 'r', w: 'fresh', spots: ['fr-seine'], cm: [40, 90], gold: 85 },
+  { name: '폭포 연어', tier: 'r', w: 'fresh', spots: ['br-falls'], slot: 'morning', cm: [50, 90], gold: 95 },
+  { name: '안개 숲 개구리고기', tier: 'r', w: 'fresh', spots: ['cw-isle'], cm: [10, 25], gold: 95 },
+  // 희귀 · 바다
+  { name: '농어', tier: 'r', w: 'sea', cm: [40, 90], gold: 75 },
+  { name: '감성돔', tier: 'r', w: 'sea', slot: 'dawn', cm: [25, 50], gold: 85 },
+  { name: '돌돔', tier: 'r', w: 'sea', spots: ['port', 'jp-bay', 'au-road'], cm: [30, 60], gold: 95 },
+  { name: '방어', tier: 'r', w: 'sea', spots: ['jp-bay', 'port', 'ru-port'], cm: [60, 100], gold: 90 },
+  { name: '부시리', tier: 'r', w: 'sea', slot: 'day', cm: [60, 120], gold: 90 },
+  { name: '전복', tier: 'r', w: 'sea', spots: ['port', 'jp-bay', 'au-road'], cm: [8, 15], gold: 100 },
+  { name: '대게', tier: 'r', w: 'sea', spots: ['ru-port', 'jp-bay'], cm: [15, 30], gold: 100 },
+  { name: '랍스터', tier: 'r', w: 'sea', spots: ['us-harbor', 'fr-marseille', 'au-sydney'], slot: 'night', cm: [25, 60], gold: 105 },
+  { name: '킹크랩', tier: 'r', w: 'sea', spots: ['ru-port'], cm: [30, 80], gold: 110 },
+  { name: '갑오징어', tier: 'r', w: 'sea', cm: [20, 40], gold: 80 },
+  { name: '쏠배감펭', tier: 'r', w: 'sea', spots: ['au-reef', 'eg-suez', 'mg-coast'], cm: [15, 35], gold: 95 },
+  { name: '나비고기', tier: 'r', w: 'sea', spots: ['au-reef', 'mg-coast'], cm: [8, 18], gold: 85 },
+  { name: '블루탱', tier: 'r', w: 'sea', spots: ['au-reef'], slot: 'day', cm: [15, 30], gold: 95 },
+  { name: '곰치', tier: 'r', w: 'sea', slot: 'night', cm: [60, 150], gold: 90 },
+  { name: '가오리', tier: 'r', w: 'sea', cm: [50, 150], gold: 85 },
+  { name: '아귀', tier: 'r', w: 'sea', slot: 'night', cm: [40, 100], gold: 85 },
+  { name: '쏨뱅이', tier: 'r', w: 'sea', cm: [15, 30], gold: 75 },
+  { name: '홍어', tier: 'r', w: 'sea', spots: ['port', 'mg-port'], cm: [50, 100], gold: 90 },
+  // 영웅
+  { name: '피라루쿠', tier: 'e', w: 'fresh', spots: ['br-amazon'], slot: 'day', cm: [150, 300], gold: 320 },
+  { name: '자이언트 가물치', tier: 'e', w: 'fresh', spots: ['in-ganges', 'mg-river'], slot: 'night', cm: [60, 130], gold: 300 },
+  { name: '타이멘', tier: 'e', w: 'fresh', spots: ['ru-baikal'], slot: 'dawn', cm: [80, 150], gold: 330 },
+  { name: '나일 거대 메기', tier: 'e', w: 'fresh', spots: ['eg-nile'], slot: 'night', cm: [100, 200], gold: 310 },
+  { name: '왕연어', tier: 'e', w: 'fresh', spots: ['ru-baikal', 'fr-seine'], slot: 'morning', cm: [70, 140], gold: 290 },
+  { name: '안개 숲 금붕어', tier: 'e', w: 'fresh', spots: ['cw-isle'], slot: 'dawn', cm: [10, 30], gold: 300 },
+  { name: '그레이윅 은빛 송어', tier: 'e', w: 'fresh', spots: ['cw-isle'], slot: 'night', cm: [40, 80], gold: 320 },
+  { name: '돛새치', tier: 'e', w: 'sea', spots: ['br-beach', 'au-road', 'mg-coast'], slot: 'day', cm: [150, 300], gold: 340 },
+  { name: '청새치', tier: 'e', w: 'sea', spots: ['us-harbor', 'au-sydney'], cm: [180, 350], gold: 360 },
+  { name: '개복치', tier: 'e', w: 'sea', spots: ['jp-bay', 'fr-marseille', 'it-genoa'], slot: 'day', cm: [100, 250], gold: 330 },
+  { name: '만타가오리', tier: 'e', w: 'sea', spots: ['au-reef', 'mg-coast'], cm: [200, 500], gold: 350 },
+  { name: '귀상어', tier: 'e', w: 'sea', spots: ['br-beach', 'au-sydney', 'eg-suez'], cm: [150, 350], gold: 340 },
+  { name: '대왕오징어', tier: 'e', w: 'sea', spots: ['jp-bay', 'ru-port'], slot: 'night', cm: [300, 900], gold: 380 },
+  { name: '나폴레옹피시', tier: 'e', w: 'sea', spots: ['au-reef'], slot: 'day', cm: [60, 180], gold: 330 },
+  { name: '적월 산호게', tier: 'e', w: 'sea', spots: ['gt-lake'], cm: [20, 40], gold: 360 },
+  { name: '금빛 갈치', tier: 'e', w: 'sea', spots: ['port', 'jp-bay'], slot: 'night', cm: [100, 180], gold: 320 },
+  // 전설
+  { name: '백상아리', tier: 'l', w: 'sea', spots: ['au-sydney', 'au-road', 'us-harbor'], cm: [400, 600], gold: 2200 },
+  { name: '산갈치', tier: 'l', w: 'sea', spots: ['jp-bay', 'mg-coast'], hours: [2, 5], cm: [300, 800], gold: 2100 },
+  { name: '황금 피라루쿠', tier: 'l', w: 'fresh', spots: ['br-amazon'], hours: [5, 7], cm: [200, 320], gold: 2000 },
+  { name: '바이칼 수정 철갑상어', tier: 'l', w: 'fresh', spots: ['ru-baikal'], day: 6, cm: [200, 400], gold: 2300 },
+  { name: '나일의 태양어', tier: 'l', w: 'fresh', spots: ['eg-nile'], slot: 'day', day: 3, cm: [80, 160], gold: 1900 },
+  { name: '적월 고래상어', tier: 'l', w: 'sea', spots: ['gt-lake'], slot: 'night', cm: [600, 1200], gold: 2600 },
+  { name: '그레이윅 은하어', tier: 'l', w: 'fresh', spots: ['cw-isle'], hours: [22, 24], cm: [50, 120], gold: 2400 },
 ].map(f => Object.assign({}, FISH_TIER[f.tier], f));
 const FISH_BY = new Map(FISH.map(f => [f.name, f]));
-const FISH_DAY = 20, FISH_TOL = 450;          // 하루 횟수 · 판정 여유(ms, 통신 지연)
+const FISH_TOL = 450;          // 판정 여유(ms, 통신 지연) · 낚시 횟수는 무제한 (하루에 던진 횟수만 기록)
 const FISH_SPOTS = new Set(G.REGIONS.filter(r => r.icon === 'i-wave' || r.icon === 'i-port').map(r => r.id).concat(['gt-lake', 'cw-isle']));
 // 바다: 항구 + 해안가(물결 아이콘이지만 바다인 곳) + 적월문 푸른 바다
 const SEA_SPOTS = new Set(G.REGIONS.filter(r => r.icon === 'i-port').map(r => r.id).concat(['gt-lake', 'mg-coast', 'br-beach', 'au-reef', 'au-road']));
@@ -594,7 +711,7 @@ function install(d) {
     const uid = ctx.user.id, now = Date.now(), u = await userById(uid);
     const here = FISH_SPOTS.has(u.region);
     const log = await db.all('SELECT fish, best, n FROM ct_fish_log WHERE user_id = ?', [uid]);
-    send(res, 200, { here, place: G.placeLong(u.region), left: Math.max(0, FISH_DAY - await fishDay(uid, now)), max: FISH_DAY, pool: here ? fishPool(u.region, now).map(f => ({ name: f.name, tier: f.tier, known: !!log.find(x => x.fish === f.name) })) : [], spots: Array.from(FISH_SPOTS).map(id => G.placeLong(id)),
+    send(res, 200, { here, place: G.placeLong(u.region), left: -1, unlimited: true, today: await fishDay(uid, now), pool: here ? fishPool(u.region, now).map(f => ({ name: f.name, tier: f.tier, known: !!log.find(x => x.fish === f.name) })) : [], spots: Array.from(FISH_SPOTS).map(id => G.placeLong(id)),
       log: FISH.map(f => { const l = log.find(x => x.fish === f.name); return { name: f.name, tier: f.tier, where: fishWhere(f), best: l ? l.best : 0, n: l ? l.n : 0 }; }) });
   });
   route('POST', '/api/fish/cast', async (req, res, ctx) => {
@@ -602,15 +719,15 @@ function install(d) {
     const uid = ctx.user.id, now = Date.now(), u = await userById(uid);
     if (!FISH_SPOTS.has(u.region)) return fail(res, 409, 'not_here');
     const day = dayKey(now);
-    const w = await db.run('INSERT INTO ct_fish_day (user_id, day, n) VALUES (?, ?, 1) ON CONFLICT(user_id, day) DO UPDATE SET n = n + 1 WHERE n < ?', [uid, day, FISH_DAY]);
-    if (w.changes !== 1) return fail(res, 429, 'no_casts');
+    if (await db.get('SELECT 1 AS x FROM ct_fish_cast WHERE user_id = ? AND at > ?', [uid, now - 1500])) return fail(res, 429, 'too_fast');      // 연속 클릭 방지
+    await db.run('INSERT INTO ct_fish_day (user_id, day, n) VALUES (?, ?, 1) ON CONFLICT(user_id, day) DO UPDATE SET n = n + 1', [uid, day]);      // 횟수 제한 없음 (기록만)
     let luck = 0; try { luck = Number(JSON.parse(u.stats).luck) || 0; } catch (_) {}
     const b = await bonus(uid, now);
     const f = fishRoll(fishPool(u.region, now), luck + b.luck, b.fish);
     const bite = now + 1000 + Math.floor(Math.random() * 5000), period = Math.round(1600 / f.speed);
     const w0 = Math.random() * (1 - f.win), w1 = w0 + f.win;
     await db.run('INSERT INTO ct_fish_cast (user_id, fish, bite_at, period, w0, w1, at) VALUES (?, ?, ?, ?, ?, ?, ?) ON CONFLICT(user_id) DO UPDATE SET fish = excluded.fish, bite_at = excluded.bite_at, period = excluded.period, w0 = excluded.w0, w1 = excluded.w1, at = excluded.at', [uid, f.name, bite, period, w0, w1, now]);
-    send(res, 200, { ok: true, biteIn: bite - now, period, w0, w1, tier: f.tier, left: FISH_DAY - await fishDay(uid, now) });
+    send(res, 200, { ok: true, biteIn: bite - now, period, w0, w1, tier: f.tier, left: -1, today: await fishDay(uid, now) });
   });
   // 눈금 위치: 입질 시각부터 period 동안 0→1→0 을 오갑니다 (서버와 화면이 같은 식을 씀)
   const markAt = (c, t) => { const x = ((t - c.bite_at) % c.period + c.period) % c.period / c.period; return x < 0.5 ? x * 2 : 2 - x * 2; };
