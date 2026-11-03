@@ -1611,6 +1611,7 @@ html.mgl.mgn .u353{--ux-shadow-strong:rgba(0,0,0,.72);--u353-metal:#4a2a37;--u35
 .cmempty{padding:24px 8px;text-align:center;color:var(--deep);font-size:.9rem}
 @keyframes cmIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
 @media (prefers-reduced-motion:reduce){.cml li.is-new{animation:none}}
+.ct-flog{margin-top:14px}.ct-flog>summary{cursor:pointer;padding:10px 12px;font-weight:700;font-size:.9rem;color:var(--text);background:var(--field);border:1px solid var(--line);border-radius:10px;list-style:none}.ct-flog>summary::-webkit-details-marker{display:none}.ct-flog>summary::before{content:"▸ ";color:var(--deep)}.ct-flog[open]>summary::before{content:"▾ "}.ct-flog .app-list{margin-top:8px}
 /* 게이트웨이브 (헌터 전용 게시판) */
 .gwl{list-style:none;margin:0;padding:0;display:grid;gap:10px}
 .gwi{display:block;width:100%;text-align:left;padding:12px 14px;color:var(--text);font:inherit;background:rgba(255,255,255,.02);border:1px solid var(--line);border-radius:12px;cursor:pointer}
@@ -2423,7 +2424,7 @@ function placeLong(id){var r=regionById(id);return r?COUNTRY_BY_ID[r.country].na
 function inPlace(a){return (a.r==="SS"&&!a.c)?a.region===curCountry:a.region===curRegion}
 function countryHot(cid){return alerts.some(function(a){return isActive(a)&&((a.r==="SS"&&!a.c)?a.region===cid:countryOf(a.region)===cid)})}
 var STAT_KO={hp:"체력",str:"근력",agi:"민첩",luck:"행운",taint:"오염도"};
-function fxText(e){if(e.stat==="pvp_hp")return "PVP 체력 전체 회복";return (STAT_KO[e.stat]||e.stat)+" "+(e.amt>0?"+":"")+e.amt}
+function fxText(e){if(e.stat==="pvp_hp")return "PVP 체력 전체 회복";if(e.stat==="mon_food")return "육성 앱 보유 먹이 +1";return (STAT_KO[e.stat]||e.stat)+" "+(e.amt>0?"+":"")+e.amt}
 var STAT_TIP={hp:"토벌에 실패하면 줄어듭니다. 5 이하가 되면 빈사 상태입니다.",str:"몬스터 토벌 성공 확률",agi:"체력 하락 방지 확률",luck:"즉시 재토벌 가능 확률"};
 var STAT_INV={str:1,agi:1,luck:1};
 var blockedBits=0,dyingUntil=0,statFx=null,corruptUntil=0,taintedNow=false;
@@ -3554,7 +3555,7 @@ function renderDevice(){
             ub.disabled=true;
             api("POST","/api/inventory/use",{item:it.item}).then(function(x){
               if(x.ok){invNote=x.item+" 사용 · "+x.label+" "+x.before+" → "+x.after;pollState(false)}
-              else{ub.disabled=false;invNote=x.error==="rate_limited"?"잠시 후 다시 시도해주세요.":x.error==="pvp_full"?"PVP 체력이 이미 가득 차 있어요.":"아이템을 사용하지 못했습니다.";var nn=scr.querySelector(".app-note");if(nn)nn.textContent=invNote}
+              else{ub.disabled=false;invNote=x.error==="rate_limited"?"잠시 후 다시 시도해주세요.":x.error==="pvp_full"?"PVP 체력이 이미 가득 차 있어요.":x.error==="food_full"?"보유 먹이가 이미 가득해요 (최대 99개). 육성 앱에서 먹이를 준 뒤 다시 써 주세요.":"아이템을 사용하지 못했습니다.";var nn=scr.querySelector(".app-note");if(nn)nn.textContent=invNote}
               if(x.ok){var n2=scr.querySelector(".app-note");if(!n2){n2=document.createElement("p");n2.className="app-note";n2.setAttribute("role","status");scr.insertBefore(n2,scr.querySelector(".app-list"))}n2.textContent=invNote}
             });
           });
@@ -6343,16 +6344,16 @@ function ctFish(scr){
   function load(){api("GET","/api/fish").then(function(r){if(!w.isConnected)return;if(!r||r.left===undefined){w.textContent="불러오지 못했어요.";return}draw(r)})}
   function draw(r){
     cancelAnimationFrame(ctFishT);w.textContent="";
-    ctNote(w,(note?note+" · ":"")+"오늘 남은 낚시 "+r.left+" / "+r.max+"회 · 지금 위치: "+r.place);
+    ctNote(w,(note?note+" · ":"")+(r.unlimited?"낚시 무제한 · 오늘 "+(r.today||0)+"번 던짐":"오늘 남은 낚시 "+r.left+" / "+r.max+"회")+" · 지금 위치: "+r.place);
     if(!r.here){ctNote(w,"물가 지역에서만 낚시할 수 있어요 · "+r.spots.slice(0,8).join(", ")+" 등 "+r.spots.length+"곳");}
     else{
-      w.appendChild(pvEl("p","app-sub","지금 여기서 나오는 어종 "+r.pool.length+"종 · "+r.pool.map(function(f){return (f.known?f.name:"???")+"("+TIER_KO[f.tier]+")"}).join(", ")));
+      w.appendChild(pvEl("p","app-sub","지금 여기서 나오는 어종 "+r.pool.length+"종"));
       var pond=pvEl("div","ct-pond");var bob=pvEl("i","ct-bob");pond.appendChild(bob);var bar=pvEl("div","ct-fbar");var zone=pvEl("i","ct-fz"),mk=pvEl("b","ct-fm");bar.appendChild(zone);bar.appendChild(mk);bar.hidden=true;pond.appendChild(bar);
       var msg=pvEl("p","ct-fmsg","찌를 던져 보세요.");pond.appendChild(msg);w.appendChild(pond);
-      var row=pvEl("div","rum-v");var go=ctBtn(row,"던지기",r.left<=0,function(){cast()},"ach-btn ct-cast");var reel=ctBtn(row,"당기기!",true,function(){pull()},"ach-btn ct-reel");w.appendChild(row);
+      var row=pvEl("div","rum-v");var go=ctBtn(row,"던지기",!r.unlimited&&r.left<=0,function(){cast()},"ach-btn ct-cast");var reel=ctBtn(row,"당기기!",true,function(){pull()},"ach-btn ct-reel");w.appendChild(row);
       var c=null,biteAt=0,lateT=0;
       function cast(){api("POST","/api/fish/cast",{}).then(function(x){
-        if(!x.ok){note=x.error==="no_casts"?"오늘 낚시 횟수를 다 썼어요":x.error==="not_here"?"물가가 아니에요":"던지지 못했어요";load();return}
+        if(!x.ok){note=x.error==="no_casts"?"오늘 낚시 횟수를 다 썼어요":x.error==="not_here"?"물가가 아니에요":x.error==="too_fast"||x.error==="rate_limited"?"조금만 천천히 던져 주세요":"던지지 못했어요";load();return}
         c=x;biteAt=Date.now()+x.biteIn;reel.disabled=false;msg.textContent="찌가 물 위에 떠 있어요…";bob.className="ct-bob wait";bar.hidden=true;
         zone.style.left=(x.w0*100)+"%";zone.style.width=((x.w1-x.w0)*100)+"%";
         setTimeout(function(){if(!c)return;bob.className="ct-bob bite";msg.textContent="입질! 눈금이 초록 칸에 있을 때 당기세요!";bar.hidden=false;anim();lateT=setTimeout(function(){if(c)pull()},6000)},x.biteIn);
@@ -6364,7 +6365,7 @@ function ctFish(scr){
           if(x.caught)pollState(false);load();
         })}
     }
-    ctHead(w,"어종 기록 · "+r.log.filter(function(f){return f.n}).length+" / "+r.log.length+"종");var ul=pvEl("ul","app-list");r.log.forEach(function(f){var li=pvEl("li","qst-li"+(f.n?"":" got"));li.appendChild(pvEl("div","qst-t",(f.n?f.name:"???")+" · "+TIER_KO[f.tier]));li.appendChild(pvEl("small",null,"나오는 곳 · "+f.where));li.appendChild(pvEl("small",null,f.n?"잡은 수 "+f.n+" · 최대 "+f.best+"cm":"아직 낚지 못했어요"));ul.appendChild(li)});w.appendChild(ul);
+    var dt=document.createElement("details");dt.className="ct-flog";var sm=document.createElement("summary");sm.textContent="어종 기록 · "+r.log.filter(function(f){return f.n}).length+" / "+r.log.length+"종 (눌러서 펼치기)";dt.appendChild(sm);try{dt.open=sessionStorage.getItem("ct_flog")==="1"}catch(e){}dt.addEventListener("toggle",function(){try{sessionStorage.setItem("ct_flog",dt.open?"1":"0")}catch(e){}});w.appendChild(dt);var ul=pvEl("ul","app-list");r.log.forEach(function(f){var li=pvEl("li","qst-li"+(f.n?"":" got"));li.appendChild(pvEl("div","qst-t",(f.n?f.name:"???")+" · "+TIER_KO[f.tier]));li.appendChild(pvEl("small",null,"나오는 곳 · "+f.where));li.appendChild(pvEl("small",null,f.n?"잡은 수 "+f.n+" · 최대 "+f.best+"cm":"아직 낚지 못했어요"));ul.appendChild(li)});dt.appendChild(ul);
   }
   load();
 }
