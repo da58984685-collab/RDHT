@@ -541,7 +541,7 @@ const ACH_SEED4 = [
   { id: 'n-fl100', name: '심연 너머의 발자국', desc: '무한 심층 100층에 닿았다.', kind: 'floor', val: '100' },
   { id: 'n-fs10', name: '초보 강태공', desc: '서로 다른 물고기 10종을 낚았다.', kind: 'fishsp', val: '10' },
   { id: 'n-fs25', name: '물고기 박사', desc: '서로 다른 물고기 25종을 낚았다.', kind: 'fishsp', val: '25' },
-  { id: 'n-fs35', name: '전설의 낚시꾼', desc: '모든 물고기 35종을 낚았다. 용왕 비늘잉어와 심연의 주인까지.', kind: 'fishsp', val: '35' },
+  { id: 'n-fs35', name: '전설의 낚시꾼', desc: '서로 다른 물고기 35종을 낚았다.', kind: 'fishsp', val: '35' },
   { id: 'n-ck10', name: '부엌의 헌터', desc: '요리를 10번 만들었다.', kind: 'cooks', val: '10' },
   { id: 'n-ck100', name: '적월 셰프', desc: '요리를 100번 만들었다.', kind: 'cooks', val: '100' },
   { id: 'n-ck500', name: '전설의 미식가', desc: '요리를 500번 만들었다.', kind: 'cooks', val: '500' },
@@ -564,7 +564,13 @@ const ACH_SEED4 = [
   { id: 'n-immortal', name: '불멸의 이름', desc: 'SS급 몬스터를 100번 처치했다. 붉은 달이 지지 않는 한 이 이름도 지지 않는다.', kind: 'sWin', val: '100' },
 ];
 // 칭호로 달았을 때 보여 줄 등급 (나머지 업적 칭호는 일반)
-const ACH_TITLE_TIER = { 'mg-tf200': 'e', 'mg-bond100': 'e', 'mg-star30': 'e', 'mg-pet8': 'e', 'mg-petdone8': 'l', 'mg-duel50': 'e', 'mg-mirror10': 'e', 'mg-grad': 'e', 'mg-spell3': 'l', 'mg-outfit10': 'l', 'n-legend': 'l', 'n-living': 'l', 'n-immortal': 'l', 'n-lpl': 'e', 'n-fl100': 'e', 'n-fs35': 'e', 'n-ck500': 'e', 'n-at12': 'e', 'n-lv100': 'e', 'n-gd1m': 'e', 'n-dex10': 'r', 'n-pw100': 'r', 'n-lpd': 'r', 'n-fl50': 'r', 'n-sw10': 'r', 'u-core': 'e', 'u-luck100': 'e', 'u-rich': 'e', 'u-k1000': 'r' };
+// 여섯 번째 묶음: 낚시 어종 145종으로 확장하면서 추가
+const ACH_SEED6 = [
+  { id: 'n-fs60', name: '바다의 학자', desc: '서로 다른 물고기 60종을 낚았다.', kind: 'fishsp', val: '60' },
+  { id: 'n-fs100', name: '어류 도감 편찬자', desc: '서로 다른 물고기 100종을 낚았다.', kind: 'fishsp', val: '100' },
+  { id: 'n-fs145', name: '모든 물의 주인', desc: '모든 물고기 145종을 낚았다. 적월 고래상어와 그레이윅 은하어까지.', kind: 'fishsp', val: '145' },
+];
+const ACH_TITLE_TIER = { 'n-fs60': 'r', 'n-fs100': 'e', 'n-fs145': 'l', 'mg-tf200': 'e', 'mg-bond100': 'e', 'mg-star30': 'e', 'mg-pet8': 'e', 'mg-petdone8': 'l', 'mg-duel50': 'e', 'mg-mirror10': 'e', 'mg-grad': 'e', 'mg-spell3': 'l', 'mg-outfit10': 'l', 'n-legend': 'l', 'n-living': 'l', 'n-immortal': 'l', 'n-lpl': 'e', 'n-fl100': 'e', 'n-fs35': 'e', 'n-ck500': 'e', 'n-at12': 'e', 'n-lv100': 'e', 'n-gd1m': 'e', 'n-dex10': 'r', 'n-pw100': 'r', 'n-lpd': 'r', 'n-fl50': 'r', 'n-sw10': 'r', 'u-core': 'e', 'u-luck100': 'e', 'u-rich': 'e', 'u-k1000': 'r' };
 // 헌터 등급 승급: F→E, E→D 는 전투력(레벨)만 오르면 됩니다. D→C 부터는 처치 기록 등 조건이 더해지고, 위로 갈수록 어려워집니다.
 //  kills: [{ min: 해당 등급 이상 몬스터, n: 처치 수 }], sTry: S급 토벌 도전 횟수, taintMax: 오염도(%) 이하여야 함
 const PROMO = {
@@ -925,7 +931,7 @@ const isTurnBased = (monRank, hunterRank) => monRank !== 'SS' && RANK_IDX[monRan
 
 module.exports = {
   BT, btMon, btPlayer, isTurnBased, taintStage, TAINT_SHOP_PCT, TAINT_BAN_DANGER, taintPrice, TAINT_LOSE_GOLD_MUL, HUNTER_CHANCE, HUNTER_LV_MAX, hunterScale, RARE_CHANCE, SPECIAL_MON,
-  SV_MARKS, MATERIALS, GATE_MATS, GATE_ZONES, EQ_GRADE, EQ_SLOTS, EQUIPS, ELEMS, ELEM_KEYS, MON_ELEM, elemOf, affMul, RECIPES, CRAFT_DEFS, ACH_SEED4, ACH_SEED5, MG_ACH_KEYS, ACH_TITLE_TIER,
+  SV_MARKS, MATERIALS, GATE_MATS, GATE_ZONES, EQ_GRADE, EQ_SLOTS, EQUIPS, ELEMS, ELEM_KEYS, MON_ELEM, elemOf, affMul, RECIPES, CRAFT_DEFS, ACH_SEED4, ACH_SEED5, ACH_SEED6, MG_ACH_KEYS, ACH_TITLE_TIER,
   STAT_MAX, STAT_RESET_BASE, STAT_RESET_PER, statResetCost, rnd, chance01, SPAWN_COUNTRIES, SPAWN_REGIONS, REGIONS, REGION_BY_ID, COUNTRIES, COUNTRY_BY_ID, countryOf, placeName, placeLong, MON, FRIENDLY_MON, PVP, PVP_STAT_TEXT, BOND_STEP, BOND_MAX, BOND_MUL, bondStage, friendFx, pvpBattle, pvpFighter, pvpResolve, pvpPower, mulberry32, PVP_MIN, PVP_MAX, PVP_TOTAL, PVP_KEYS, PVP_KO, pvpStatsOk, pvpDerive, TIERS, ACTIVE_MS, ACTIVE_MS_F, ACTIVE_MS_S, activeMsOf, KILL_EXP, KILL_GOLD, KILL_TAINT, rollTaint, garble, RANK_IDX, ACH_KINDS, ACH_COMPOUND, ACH_NUM, ACH_SEED, ACH_SEED2, ACH_SEED3, PROMO, ACH_PIN_MAX, rollGold, HUNT_DIFF,
   RAID_NEED, RAID_ATTEMPTS, S_MAX, S_WINDOW_MS, S_WAIT_MS, powNeed, cdOf, huntChance,
   rollRank, rollStats, PROB_CAP, STR_WIN, guardChance, freeChance, HP_START, HP_MIN, HP_DYING_MS, HP_REVIVE, hpLoss, makeCode, addExp, MIN, HOUR,
