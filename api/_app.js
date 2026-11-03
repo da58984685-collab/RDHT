@@ -505,6 +505,12 @@ async function loadAchDb() {
     await db.batch(G.ACH_SEED5.map((a, i) => ['INSERT OR IGNORE INTO achievements (id, name, descr, kind, val, at) VALUES (?, ?, ?, ?, ?, ?)', [a.id, a.name, a.desc, a.kind, a.val, t0 + i]]));
     await db.run("INSERT OR IGNORE INTO settings (key, value) VALUES ('ach_seeded5', '1')");
   }
+  if (!(await db.get("SELECT 1 AS x FROM settings WHERE key = 'ach_seeded6'"))) {      // 여섯 번째 묶음(낚시 어종 145종): 한 번만 추가 · '모든 물고기 35종' 설명 고침
+    const t0 = Date.now() + 2000;
+    await db.batch(G.ACH_SEED6.map((a, i) => ['INSERT OR IGNORE INTO achievements (id, name, descr, kind, val, at) VALUES (?, ?, ?, ?, ?, ?)', [a.id, a.name, a.desc, a.kind, a.val, t0 + i]]));
+    await db.run("UPDATE achievements SET descr = ? WHERE id = 'n-fs35' AND descr LIKE '모든 물고기 35종%'", ['서로 다른 물고기 35종을 낚았다.']);
+    await db.run("INSERT OR IGNORE INTO settings (key, value) VALUES ('ach_seeded6', '1')");
+  }
   if (!(await db.get("SELECT 1 AS x FROM settings WHERE key = 'ach_seeded4'"))) {      // 네 번째 기본 업적 묶음(명성 대신 30개): 한 번만 추가
     const t0 = Date.now();
     await db.batch(G.ACH_SEED4.map((a, i) => ['INSERT OR IGNORE INTO achievements (id, name, descr, kind, val, at) VALUES (?, ?, ?, ?, ?, ?)', [a.id, a.name, a.desc, a.kind, a.val, t0 + i]]));
@@ -730,6 +736,7 @@ async function buildState(u, now) {
   // 구조가 필요한 친구 수 · 나를 구해 준 친구 알림(한 번만)
   const rescued = await db.all('SELECT r.id, r.at, x.hunter_name AS hn FROM rescues r JOIN users x ON x.id = r.rescuer_id WHERE r.target_id = ? AND r.seen = 0 ORDER BY r.id LIMIT 5', [u.id]);
   if (rescued.length) await db.run('UPDATE rescues SET seen = 1 WHERE target_id = ? AND seen = 0 AND id <= ?', [u.id, rescued[rescued.length - 1].id]);
+  await absorbFood(u.id).catch(() => {});      // 먹이 아이템은 인벤토리에 쌓이지 않고 육성 앱 보유 먹이로
   const inv = await db.all('SELECT i.item, i.qty, s.eff_stat, s.eff_amt FROM inventory i LEFT JOIN shop_items s ON s.name = i.item WHERE i.user_id = ? AND i.qty > 0 ORDER BY i.item', [u.id]);
   const closedOk = new Set((await db.all('SELECT monster_id FROM s_close WHERE ok = 1 AND monster_id >= ?', [minId])).map(r => r.monster_id));
   // S급 토벌 성공 안내(모든 헌터에게): 확인을 누르면 참여자에게만 보상이 지급됩니다
@@ -1823,6 +1830,20 @@ async function removeOldTestAccount() {
 const RAISE = { FULL_DECAY: 4, CLEAN_DECAY: 2, FEED: 30, BATH: 40, FEED_CD: 30 * 60000, BATH_CD: 60 * 60000, WALK_PER: 20 * 60000, WALK_MAX: 4, FEED_BOND: 2, BATH_BOND: 1, BOND_DAY: 20, FOOD_NEED: 30, START: 70, BOND_MAX: 100 };
 const RAISE_COLS = 'mon_id, nick, got_at, sat AS full, sat_at AS full_at, clean, clean_at, bond, walk_at, fed_last, bath_last, bond_day, bond_today, exp_spot, exp_until';
 const raiDay = now => Math.floor((now + 9 * 3600000) / 86400000);
+// 적월문 조사·우편 보상 등으로 인벤토리에 들어온 '몬스터 먹이' 아이템을 육성 앱의 보유 먹이(최대 99)로 옮깁니다. 넘치는 만큼은 인벤토리에 남음.
+async function absorbFood(uid) {
+  const it = await db.get('SELECT qty FROM inventory WHERE user_id = ? AND item = ?', [uid, MON_FOOD_NAME]);
+  const n = it ? Number(it.qty) || 0 : 0;
+  if (n <= 0) return 0;
+  const u = await db.get('SELECT mon_food FROM users WHERE id = ?', [uid]);
+  const mv = Math.min(n, Math.max(0, 99 - (Number(u && u.mon_food) || 0)));
+  if (mv <= 0) return 0;
+  const d = await db.run('UPDATE inventory SET qty = qty - ? WHERE user_id = ? AND item = ? AND qty >= ?', [mv, uid, MON_FOOD_NAME, mv]);
+  if (d.changes !== 1) return 0;
+  await db.run('UPDATE users SET mon_food = MIN(99, mon_food + ?) WHERE id = ?', [mv, uid]);
+  await db.run('DELETE FROM inventory WHERE user_id = ? AND item = ? AND qty <= 0', [uid, MON_FOOD_NAME]);
+  return mv;
+}
 const bondRoom = (r, now) => Math.max(0, RAISE.BOND_DAY - (r.bond_day === raiDay(now) ? r.bond_today : 0));
 const decayed = (v, at, rate, now) => at ? Math.max(0, Math.min(100, Math.round((v - (now - at) / 3600000 * rate) * 10) / 10)) : RAISE.START;
 function raiseState(r, now) {
@@ -1850,6 +1871,7 @@ async function addBond(uid, monId, row, want, now) {
 // 전체 몬스터 이름·등급과, 내가 얻은 몬스터를 돌려줍니다. (얻는 방법은 아직 없음 — 얻은 기록이 user_mons 에 쌓이면 버튼이 켜집니다)
 route('GET', '/api/raise', async (req, res, ctx) => {
   const now = Date.now();
+  await absorbFood(ctx.user.id).catch(() => {});      // 인벤토리에 있는 먹이 아이템도 보유 먹이로
   await db.run('UPDATE user_mons SET sat_at = ?, clean_at = ? WHERE user_id = ? AND (sat_at = 0 OR clean_at = 0)', [now, now, ctx.user.id]);   // 처음 보는 몬스터는 이때부터 시간이 흐릅니다
   const rows = await db.all('SELECT ' + RAISE_COLS + ' FROM user_mons WHERE user_id = ?', [ctx.user.id]);
   const own = new Map(rows.map(r => [r.mon_id, r]));
@@ -1879,6 +1901,7 @@ route('POST', '/api/raise/act', async (req, res, ctx) => {
   if (act === 'feed') {
     if (st.feedIn > 0) return fail(res, 400, 'cooldown', { wait: st.feedIn });
     if (st.full >= 100) return fail(res, 400, 'full');
+    await absorbFood(uid).catch(() => {});
     const t = await db.run('UPDATE users SET mon_food = mon_food - 1 WHERE id = ? AND mon_food >= 1', [uid]);       // 먹이가 있어야만 줄 수 있습니다
     if (t.changes !== 1) return fail(res, 400, 'no_food');
     await db.run('UPDATE user_mons SET sat = ?, sat_at = ?, fed_last = ? WHERE user_id = ? AND mon_id = ?', [Math.min(100, st.full + RAISE.FEED), now, now, uid, id]);
@@ -3356,6 +3379,12 @@ route('POST', '/api/inventory/use', async (req, res, ctx) => {
   let it = await db.get('SELECT eff_stat, eff_amt FROM shop_items WHERE name = ?', [name]);
   if ((!it || !it.eff_stat) && G.CRAFT_DEFS[name]) it = { eff_stat: G.CRAFT_DEFS[name].stat, eff_amt: G.CRAFT_DEFS[name].amt };
   if (!it || !it.eff_stat) return fail(res, 400, 'no_effect');
+  if (it.eff_stat === 'mon_food') {      // 몬스터 먹이: 사용하면 육성 앱 보유 먹이로 옮겨짐
+    const mv = await absorbFood(ctx.user.id);
+    if (!mv) return fail(res, 400, 'food_full');
+    const fu = await db.get('SELECT mon_food FROM users WHERE id = ?', [ctx.user.id]);
+    return send(res, 200, { ok: true, item: name, stat: 'mon_food', label: '보유 먹이', amt: mv, before: (fu.mon_food | 0) - mv, after: fu.mon_food | 0, dyingUntil: 0 });
+  }
   if (it.eff_stat === 'pvp_hp') {     // PVP 체력 전체 회복: 회복이 필요할 때만 쓸 수 있고, 매칭 대기 중에도 쓸 수 있습니다
     const now = Date.now(), lk = await db.get('SELECT pvp_lock FROM users WHERE id = ?', [ctx.user.id]);
     if (!lk || lk.pvp_lock <= now) return fail(res, 400, 'pvp_full');
