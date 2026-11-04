@@ -69,15 +69,50 @@ const SQL = [
   "CREATE TABLE IF NOT EXISTS farm_plot (user_id INTEGER NOT NULL, idx INTEGER NOT NULL, crop TEXT NOT NULL, planted_at INTEGER NOT NULL, ready_at INTEGER NOT NULL, water_n INTEGER NOT NULL DEFAULT 0, water_at INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (user_id, idx))",
   "CREATE TABLE IF NOT EXISTS garden_pot (user_id INTEGER NOT NULL, idx INTEGER NOT NULL, flower TEXT NOT NULL DEFAULT '', spot TEXT NOT NULL DEFAULT 'sun', planted_at INTEGER NOT NULL DEFAULT 0, ready_at INTEGER NOT NULL DEFAULT 0, water_n INTEGER NOT NULL DEFAULT 0, water_at INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (user_id, idx))",
   "CREATE TABLE IF NOT EXISTS farm_dex (user_id INTEGER NOT NULL, k TEXT NOT NULL, n INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (user_id, k))",
+  "CREATE TABLE IF NOT EXISTS hideout (user_id INTEGER PRIMARY KEY, items TEXT NOT NULL DEFAULT '[]', ver INTEGER NOT NULL DEFAULT 0, wall TEXT NOT NULL DEFAULT 'cream', floor TEXT NOT NULL DEFAULT 'oak', name TEXT NOT NULL DEFAULT '', at INTEGER NOT NULL DEFAULT 0)",
+  "ALTER TABLE hideout ADD COLUMN lvl INTEGER NOT NULL DEFAULT 0",      // 방 크기 단계 (0: 7×7 · 1: 10×10 · 2: 15×15)
+  "CREATE TABLE IF NOT EXISTS hideout_own (user_id INTEGER NOT NULL, k TEXT NOT NULL, n INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (user_id, k))",
 ];
-const PURGE = ['farm_state', 'farm_plot', 'garden_pot', 'farm_dex'].map(t => ['DELETE FROM ' + t + ' WHERE user_id = ?']);
+// ── 아지트 꾸미기: 7×7 방. 계약서(100,000 G)를 사야 꾸밀 수 있고, 가구는 골드로 사서 보관함에 두었다가 방에 놓습니다. ──
+// 가구: [키, 이름, 가로, 세로, 가격, 층] — 층 'floor'(러그·마법진)는 바닥에 깔려서 다른 가구 밑에 놓을 수 있고, 같은 층끼리만 겹칠 수 없습니다.
+// 방 크기: 기본 7×7 → 확장 계약서 1번째 10×10 → 2번째 15×15. 한 칸은 다시 2×2(4분의 1)로 나뉘어, 가구는 반 칸 단위로 놓을 수 있습니다.
+// 가구 크기(w·h)는 칸 단위(0.5 = 반 칸), 위치(x·y)는 반 칸 단위로 저장합니다.
+const LEVELS = [7, 10, 15], EXPAND_PRICES = [50000, 100000], CONTRACT_PRICE = 100000, FURN_MAX = 100, SUB = 2;
+const FURN = [
+  ['chair', '의자', 1, 1, 800], ['stool', '등받이 없는 의자', 1, 1, 500], ['nightstand', '협탁', 1, 1, 900], ['drawer', '서랍장', 1, 1, 1500],
+  ['lamp', '스탠드', 1, 1, 700], ['plant', '화분', 1, 1, 600], ['fridge', '냉장고', 1, 1, 3000], ['aquarium', '어항', 1, 1, 2500],
+  ['moonlamp', '적월석 램프', 1, 1, 6000], ['trashcan', '휴지통', 1, 1, 200],
+  ['bed', '침대', 2, 1, 4000], ['desk', '책상', 2, 1, 2500], ['wardrobe', '옷장', 2, 1, 3500], ['bookshelf', '책장', 2, 1, 3000],
+  ['sink', '싱크대', 2, 1, 3500], ['tv', 'TV', 2, 1, 4500], ['piano', '피아노', 2, 1, 9000], ['bathtub', '욕조', 2, 1, 6000],
+  ['fireplace', '벽난로', 2, 1, 7000], ['weaponrack', '무기 거치대', 2, 1, 5000], ['trophy', '트로피 진열장', 2, 1, 6500],
+  ['sofa', '소파', 3, 1, 5500], ['bigbed', '2인용 침대', 2, 2, 8000], ['table', '식탁', 2, 2, 4000], ['kotatsu', '코타츠', 2, 2, 4500],
+  ['partition', '가벽', 1, 0.5, 600],
+  ['rug', '러그', 3, 2, 2000, 'floor'], ['mat', '현관 매트', 1, 1, 300, 'floor'], ['magiccircle', '마법진', 3, 3, 15000, 'floor'],
+  // ── 추가 가구 22종 (총 50종) ──
+  ['armchair', '안락의자', 1, 1, 2200], ['rocking', '흔들의자', 1, 1, 2600], ['beanbag', '빈백', 1, 1, 1800], 
+  ['vanity', '화장대', 1, 1, 3200], ['mirror', '전신 거울', 1, 1, 1600], 
+  ['clock', '괘종시계', 1, 1, 5000], ['aircon', '에어컨', 1, 1, 4200],
+  ['washer', '세탁기', 1, 1, 4500], ['catbed', '고양이 집', 1, 1, 1200],
+  ['statue', '수호상', 1, 1, 8000], ['potionrack', '물약 선반', 1, 1, 3500], ['bonsai', '분재', 1, 1, 3000],
+  ['tvstand', 'TV 장식장', 3, 1, 4800], ['kitchen', '주방 조리대', 3, 1, 7200], ['bar', '바 카운터', 4, 1, 9500], ['bookwall', '벽면 책장', 4, 1, 9000],
+  ['bunk', '2층 침대', 2, 1, 6800], ['gamebox', '오락기', 1, 2, 7800], ['vending', '자판기', 1, 2, 6500],
+  ['cauldron', '마법 가마솥', 2, 2, 12000],
+  ['grandpiano', '그랜드 피아노', 3, 2, 22000],
+  
+  ['tatami', '다다미', 2, 2, 2400, 'floor'], 
+].map(f => ({ k: f[0], name: f[1], w: f[2], h: f[3], price: f[4], layer: f[5] || 'main' }));
+const FURN_BY = new Map(FURN.map(f => [f.k, f]));
+
+const WALLS = { cream: '#f4ecdc', mint: '#d8eee2', sky: '#d8e6f4', rose: '#f4dce2', lilac: '#e4dcf2', night: '#2a2238', brick: '#8a4a3a', wood: '#a8784a' };
+const FLOORS = { oak: '#c8a070', walnut: '#7a5236', tile: '#d8d8d0', mint: '#b8dcc8', carpet: '#c8a0b0', stone: '#8a8a90', tatami: '#c8c88a', red: '#7a2a32' };
+const PURGE = ['farm_state', 'farm_plot', 'garden_pot', 'farm_dex', 'hideout', 'hideout_own'].map(t => ['DELETE FROM ' + t + ' WHERE user_id = ?']);
 
 const rnd = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
 // 받침에 따라 을/를
 const eul = w => { const k = String(w).charCodeAt(String(w).length - 1); return w + (k >= 0xAC00 && k <= 0xD7A3 && (k - 0xAC00) % 28 ? '을' : '를'); };
 
 function install(d) {
-  const { db, route, send, fail, limited, grantGold, grantExp, logAcquire, giveItem } = d;
+  const { db, route, send, fail, limited, grantGold, grantExp, logAcquire, giveItem, userByCode, isFriend, normCode } = d;
 
   async function stateRow(uid) {
     await db.run('INSERT INTO farm_state (user_id) VALUES (?) ON CONFLICT(user_id) DO NOTHING', [uid]);
@@ -257,6 +292,121 @@ function install(d) {
     const gold = s.sell * qty;
     await grantGold(uid, gold); await logAcquire(uid, 'gold', '골드', gold, '농장 출하 (' + item + ' ×' + qty + ')', now);
     send(res, 200, Object.assign({ ok: true, msg: item + ' ×' + qty + ' 출하 · +' + gold + ' G' }, await view(uid, now)));
+  });
+
+  // ═════════ 아지트 꾸미기 ═════════
+  const parseItems = t => { try { const a = JSON.parse(t || '[]'); return Array.isArray(a) ? a : []; } catch (_) { return []; } };
+  const cellsOf = (f, x, y, r) => { const w = Math.round((r ? f.h : f.w) * SUB), h = Math.round((r ? f.w : f.h) * SUB), out = []; for (let i = 0; i < w; i++) for (let j = 0; j < h; j++) out.push((x + i) + ',' + (y + j)); return { w, h, out }; };
+  // 놓을 수 있는지: 방 안 · 같은 층 가구와 겹치지 않음
+  function fits(items, f, x, y, r, skipId, size) {      // size: 방 한 변의 칸 수 → 반 칸 단위로 검사
+    size = (size || LEVELS[0]) * SUB;
+    const c = cellsOf(f, x, y, r);
+    if (!Number.isInteger(x) || !Number.isInteger(y) || x < 0 || y < 0 || x + c.w > size || y + c.h > size) return false;
+    const used = new Set();
+    items.forEach(it => { if (it.id === skipId) return; const g = FURN_BY.get(it.k); if (!g || g.layer !== f.layer) return; cellsOf(g, it.x, it.y, it.r).out.forEach(k => used.add(k)); });
+    return c.out.every(k => !used.has(k));
+  }
+  async function hideRow(uid) { return db.get('SELECT items, ver, wall, floor, name, lvl FROM hideout WHERE user_id = ?', [uid]); }
+  const lvlOf = h => Math.max(0, Math.min(LEVELS.length - 1, Number(h && h.lvl) || 0)), roomOf = h => LEVELS[lvlOf(h)];
+  // 방 정리: 목록에서 빠진 가구는 산 값을 돌려주고, 방 크기가 바뀌어 밖으로 나간 가구는 보관함으로
+  // 방 정리: 목록에 없는 가구 · 방 밖으로 나간 가구는 보관함으로
+  async function tidy(uid) {
+    const h = await hideRow(uid); if (!h) return;
+    const N = roomOf(h) * SUB, items = parseItems(h.items);
+    const keep = items.filter(it => { const f = FURN_BY.get(it.k); if (!f) return false; const c = cellsOf(f, it.x, it.y, it.r); return it.x >= 0 && it.y >= 0 && it.x + c.w <= N && it.y + c.h <= N; });
+    if (keep.length !== items.length) await db.run('UPDATE hideout SET items = ?, ver = ver + 1 WHERE user_id = ? AND ver = ?', [JSON.stringify(keep), uid, h.ver]);
+  }
+  async function hideView(uid, now) {
+    await tidy(uid).catch(() => {});
+    const h = await hideRow(uid), u = await db.get('SELECT gold FROM users WHERE id = ?', [uid]);
+    const own = {}; (await db.all('SELECT k, n FROM hideout_own WHERE user_id = ?', [uid])).forEach(r => { own[r.k] = Number(r.n) || 0; });
+    const items = h ? parseItems(h.items) : [];
+    const placed = {}; items.forEach(it => { placed[it.k] = (placed[it.k] || 0) + 1; });
+    return { now, gold: Number(u && u.gold) || 0, contract: !!h, price: CONTRACT_PRICE, room: roomOf(h), sub: SUB, lvl: lvlOf(h), next: lvlOf(h) < LEVELS.length - 1 ? { size: LEVELS[lvlOf(h) + 1], price: EXPAND_PRICES[lvlOf(h)], n: lvlOf(h) + 1 } : null, items, ver: h ? Number(h.ver) : 0,
+      wall: h ? h.wall : 'cream', floor: h ? h.floor : 'oak', name: h ? h.name : '', walls: WALLS, floors: FLOORS, max: FURN_MAX,
+      catalog: FURN.map(f => ({ k: f.k, name: f.name, w: f.w, h: f.h, price: f.price, layer: f.layer, own: own[f.k] || 0, placed: placed[f.k] || 0 })) };
+  }
+  route('GET', '/api/hideout', async (req, res, ctx) => send(res, 200, await hideView(ctx.user.id, Date.now())));
+  // 친구의 아지트 구경 (읽기 전용)
+  route('GET', '/api/hideout/visit', async (req, res, ctx) => {
+    const code = normCode(new URL(req.url, 'http://x').searchParams.get('code') || '');
+    const f = code && await userByCode(code);
+    if (!f) return fail(res, 404, 'not_found');
+    if (f.id !== ctx.user.id && !(await isFriend(ctx.user.id, f.id))) return fail(res, 403, 'not_friend');
+    const h = await hideRow(f.id);
+    if (!h) return send(res, 200, { contract: false, hn: f.hunter_name });
+    send(res, 200, { contract: true, hn: f.hunter_name, room: roomOf(h), sub: SUB, items: parseItems(h.items), wall: h.wall, floor: h.floor, name: h.name, walls: WALLS, floors: FLOORS,
+      catalog: FURN.map(x => ({ k: x.k, name: x.name, w: x.w, h: x.h, layer: x.layer })) });
+  });
+  route('POST', '/api/hideout/contract', async (req, res, ctx) => {
+    const uid = ctx.user.id, now = Date.now();
+    if (await hideRow(uid)) return fail(res, 409, 'have');
+    if (!(await pay(uid, CONTRACT_PRICE))) return fail(res, 409, 'no_gold');
+    const w = await db.run("INSERT INTO hideout (user_id, items, ver, at) VALUES (?, '[]', 0, ?) ON CONFLICT(user_id) DO NOTHING", [uid, now]);
+    if (w.changes !== 1) { await grantGold(uid, CONTRACT_PRICE); return fail(res, 409, 'have'); }
+    send(res, 200, Object.assign({ ok: true, msg: '아지트 계약 완료! 이제 가구를 사서 방을 꾸며 보세요.' }, await hideView(uid, now)));
+  });
+  route('POST', '/api/hideout/expand', async (req, res, ctx) => {      // 확장 계약서: 7×7 → 10×10 → 15×15 (가구 자리는 그대로)
+    const uid = ctx.user.id, now = Date.now(), h = await hideRow(uid);
+    if (!h) return fail(res, 409, 'no_contract');
+    const lv = lvlOf(h);
+    if (lv >= LEVELS.length - 1) return fail(res, 409, 'have');
+    const cost = EXPAND_PRICES[lv];
+    if (!(await pay(uid, cost))) return fail(res, 409, 'no_gold');
+    const w = await db.run('UPDATE hideout SET lvl = ?, ver = ver + 1 WHERE user_id = ? AND lvl = ?', [lv + 1, uid, lv]);
+    if (w.changes !== 1) { await grantGold(uid, cost); return fail(res, 409, 'busy'); }
+    send(res, 200, Object.assign({ ok: true, msg: (lv + 1) + '번째 확장 계약 완료! 아지트가 ' + LEVELS[lv + 1] + '×' + LEVELS[lv + 1] + ({ 10: '으로', 7: '으로' }[LEVELS[lv + 1]] || '로') + ' 넓어졌어요.' }, await hideView(uid, now)));
+  });
+  route('POST', '/api/hideout/buy', async (req, res, ctx) => {
+    if (await limited('hide:' + ctx.user.id, 90, 60000)) return fail(res, 429, 'rate_limited');
+    const uid = ctx.user.id, now = Date.now(), f = FURN_BY.get(String(ctx.body.k || ''));
+    if (!f) return fail(res, 404, 'not_found');
+    if (!(await hideRow(uid))) return fail(res, 409, 'no_contract');
+    const tot = await db.get('SELECT COALESCE(SUM(n), 0) AS c FROM hideout_own WHERE user_id = ?', [uid]);
+    if (Number(tot.c) >= FURN_MAX) return fail(res, 409, 'too_many');
+    if (!(await pay(uid, f.price))) return fail(res, 409, 'no_gold');
+    await db.run('INSERT INTO hideout_own (user_id, k, n) VALUES (?, ?, 1) ON CONFLICT(user_id, k) DO UPDATE SET n = hideout_own.n + 1', [uid, f.k]);
+    send(res, 200, Object.assign({ ok: true, msg: eul(f.name) + ' 샀어요. 보관함에서 골라 방에 놓아 보세요.' }, await hideView(uid, now)));
+  });
+  route('POST', '/api/hideout/sell', async (req, res, ctx) => {      // 보관함의 가구를 절반 값에 되팔기
+    const uid = ctx.user.id, now = Date.now(), f = FURN_BY.get(String(ctx.body.k || ''));
+    if (!f) return fail(res, 404, 'not_found');
+    const h = await hideRow(uid); if (!h) return fail(res, 409, 'no_contract');
+    const placed = parseItems(h.items).filter(it => it.k === f.k).length;
+    const w = await db.run('UPDATE hideout_own SET n = n - 1 WHERE user_id = ? AND k = ? AND n > ?', [uid, f.k, placed]);
+    if (w.changes !== 1) return fail(res, 409, 'none_free');
+    const back = Math.floor(f.price / 2); await grantGold(uid, back);
+    send(res, 200, Object.assign({ ok: true, msg: f.name + ' 되팔기 · +' + back + ' G' }, await hideView(uid, now)));
+  });
+  // 방 바꾸기: 놓기(k) · 옮기기·돌리기(id) · 보관함으로(id, del) · 모두 치우기(all) · 벽지·바닥(wall, floor) · 이름(name)
+  route('POST', '/api/hideout/edit', async (req, res, ctx) => {
+    if (await limited('hide:' + ctx.user.id, 120, 60000)) return fail(res, 429, 'rate_limited');
+    const uid = ctx.user.id, now = Date.now(), b = ctx.body || {};
+    const h = await hideRow(uid); if (!h) return fail(res, 409, 'no_contract');
+    let items = parseItems(h.items), wall = h.wall, floor = h.floor, name = h.name, msg = '';
+    const x = Number(b.x), y = Number(b.y), r = b.r ? 1 : 0;
+    if (b.all) { items = []; msg = '가구를 모두 보관함으로 옮겼어요.'; }
+    else if (b.wall || b.floor || b.name !== undefined) {
+      if (b.wall && WALLS[b.wall]) wall = b.wall;
+      if (b.floor && FLOORS[b.floor]) floor = b.floor;
+      if (b.name !== undefined) name = String(b.name).replace(/[\u0000-\u001f<>]/g, '').trim().slice(0, 20);
+      msg = '아지트를 꾸몄어요.';
+    } else if (b.k) {
+      const f = FURN_BY.get(String(b.k)); if (!f) return fail(res, 404, 'not_found');
+      const own = await db.get('SELECT n FROM hideout_own WHERE user_id = ? AND k = ?', [uid, f.k]);
+      if ((Number(own && own.n) || 0) <= items.filter(it => it.k === f.k).length) return fail(res, 409, 'none_free');
+      if (!fits(items, f, x, y, r, 0, roomOf(h))) return fail(res, 409, 'no_room');
+      const id = items.reduce((m, it) => Math.max(m, Number(it.id) || 0), 0) + 1;
+      items.push({ id, k: f.k, x, y, r }); msg = eul(f.name) + ' 놓았어요.';
+    } else if (b.id) {
+      const it = items.find(z => z.id === Number(b.id)); if (!it) return fail(res, 404, 'not_found');
+      const f = FURN_BY.get(it.k);
+      if (b.del) { items = items.filter(z => z !== it); msg = f.name + ' — 보관함으로 옮겼어요.'; }
+      else { if (!fits(items, f, x, y, r, it.id, roomOf(h))) return fail(res, 409, 'no_room'); it.x = x; it.y = y; it.r = r; msg = eul(f.name) + ' 옮겼어요.'; }
+    } else return fail(res, 400, 'bad_req');
+    const w = await db.run('UPDATE hideout SET items = ?, wall = ?, floor = ?, name = ?, ver = ver + 1, at = ? WHERE user_id = ? AND ver = ?', [JSON.stringify(items), wall, floor, name, now, uid, h.ver]);
+    if (w.changes !== 1) return fail(res, 409, 'busy');
+    send(res, 200, Object.assign({ ok: true, msg }, await hideView(uid, now)));
   });
 
   return {
