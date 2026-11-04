@@ -1157,6 +1157,7 @@ input[type=checkbox]:focus-visible{outline:2px solid var(--deep);outline-offset:
 <script src="affinity.js" defer></script>
 <link rel="stylesheet" href="mg.css">
 <script src="mg.js" defer></script>
+<script src="farm.js" defer></script>
 <style>
 /* iOS(Safari·인앱 브라우저): 글자 크기가 16px 보다 작은 입력칸을 누르면 화면이 자동으로 확대되어 가로로 늘어나고 UI 가 깨져 보임 → iOS 에서만 입력칸 글자를 16px 로 고정.
    (다른 기기의 모양은 그대로) 글자 크기 자동 보정도 막아 가로 모드에서 글자가 커지지 않게 함 */
@@ -1216,7 +1217,7 @@ html.mgl.mgn .u353{--ux-shadow-strong:rgba(0,0,0,.72);--u353-metal:#4a2a37;--u35
 <body>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
 <symbol id="i-heart" viewBox="0 0 7 7"><path d="M3 0h1v1H3zM2 1h3v1H2zM1 2h5v1H1zM0 3h7v1H0zM1 4h5v1H1zM2 5h3v1H2zM3 6h1v1H3z"/></symbol>
-<symbol id="i-home" viewBox="0 0 7 7"><path d="M1 0h5v1H1zM0 1h7v1H0zM0 2h2v4H0zM5 2h2v4H5zM0 6h7v1H0z"/></symbol><symbol id="i-dex" viewBox="0 0 7 7"><path d="M0 0h6v1H0zM0 1h1v5H0zM2 2h3v1H2zM2 4h3v1H2zM0 6h7v1H0zM6 1h1v5H6z"/></symbol><symbol id="i-wkr" viewBox="0 0 7 7"><path d="M0 6h7v1H0zM1 3h1v3H1zM3 1h1v5H3zM5 4h1v2H5z"/></symbol><symbol id="i-hof" viewBox="0 0 7 7"><path d="M1 0h5v1H1zM0 1h1v2H0zM6 1h1v2H6zM1 1h5v3H1zM3 4h1v1H3zM2 5h3v1H2zM1 6h5v1H1z"/></symbol><symbol id="i-wnt" viewBox="0 0 7 7"><path d="M3 0h1v2H3zM3 5h1v2H3zM0 3h2v1H0zM5 3h2v1H5zM3 3h1v1H3z"/></symbol><symbol id="i-pvp" viewBox="0 0 7 7"><path d="M0 0h1v1H0zM1 1h1v1H1zM2 2h1v1H2zM3 3h1v1H3zM4 4h1v1H4zM5 5h1v1H5zM6 6h1v1H6zM6 0h1v1H6zM5 1h1v1H5zM4 2h1v1H4zM2 4h1v1H2zM1 5h1v1H1zM0 6h1v1H0z"/></symbol><symbol id="i-rai" viewBox="0 0 7 7"><path d="M2 0h3v1H2zM1 1h5v2H1zM0 3h7v2H0zM1 5h5v1H1zM2 6h3v1H2z"/></symbol><symbol id="i-note" viewBox="0 0 7 7"><path d="M4 0h3v1H4zM4 1h1v3H4zM6 1h1v1H6zM1 4h4v1H1zM0 5h5v1H0zM1 6h3v1H1z"/></symbol><symbol id="i-chk" viewBox="0 0 7 7"><path d="M6 0h1v1H6zM5 1h1v1H5zM0 2h1v1H0zM4 2h1v1H4zM1 3h1v1H1zM3 3h1v1H3zM2 4h1v1H2zM0 6h7v1H0z"/></symbol><symbol id="i-afx" viewBox="0 0 7 7"><path d="M3 0h1v1H3zM2 1h3v1H2zM1 2h2v1H1zM4 2h2v1H4zM0 3h2v1H0zM5 3h2v1H5zM1 4h2v1H1zM4 4h2v1H4zM2 5h3v1H2zM3 6h1v1H3z"/></symbol><symbol id="i-att" viewBox="0 0 7 7"><path d="M0 1h7v6H0zM1 0h1v1H1zM5 0h1v1H5z" opacity=".35"/><path d="M0 1h7v1H0zM2 3h1v1H2zM4 3h1v1H4zM2 5h1v1H2zM4 5h1v1H4z"/></symbol><symbol id="i-fort" viewBox="0 0 7 7"><path d="M1 0h5v7H1z" opacity=".4"/><path d="M1 0h5v1H1zM3 2h1v3H3zM2 3h3v1H2zM1 6h5v1H1z"/></symbol><symbol id="i-cook" viewBox="0 0 7 7"><path d="M2 0h1v1H2zM4 0h1v1H4zM3 1h1v1H3zM0 3h7v1H0zM1 4h5v2H1zM2 6h3v1H2z"/></symbol><symbol id="i-fish" viewBox="0 0 7 7"><path d="M2 2h3v1H2zM1 3h5v1H1zM2 4h3v1H2zM6 2h1v3H6zM2 3h1v1H2z"/></symbol><symbol id="i-exp" viewBox="0 0 7 7"><path d="M1 0h1v7H1zM2 0h4v1H2zM2 1h5v1H2zM2 2h4v1H2zM2 3h3v1H2z"/></symbol><symbol id="i-mgsch" viewBox="0 0 7 7"><path d="M3 0h1v1H3zM1 1h5v1H1zM0 2h7v1H0zM1 3h5v1H1zM2 4h3v2H2zM6 3h1v3H6z"/></symbol><symbol id="i-mgs" viewBox="0 0 7 7"><path d="M5 0h1v1H5zM4 1h3v1H4zM5 2h1v1H5zM3 3h1v1H3zM2 4h1v1H2zM1 5h1v1H1zM0 6h1v1H0z"/><path d="M1 0h1v1H1zM0 1h1v1H0zM2 1h1v1H2zM1 2h1v1H1z" opacity=".5"/></symbol><symbol id="i-star" viewBox="0 0 7 7"><path d="M3 0h1v7H3zM0 3h7v1H0zM2 2h3v3H2z"/></symbol>
+<symbol id="i-home" viewBox="0 0 7 7"><path d="M1 0h5v1H1zM0 1h7v1H0zM0 2h2v4H0zM5 2h2v4H5zM0 6h7v1H0z"/></symbol><symbol id="i-dex" viewBox="0 0 7 7"><path d="M0 0h6v1H0zM0 1h1v5H0zM2 2h3v1H2zM2 4h3v1H2zM0 6h7v1H0zM6 1h1v5H6z"/></symbol><symbol id="i-wkr" viewBox="0 0 7 7"><path d="M0 6h7v1H0zM1 3h1v3H1zM3 1h1v5H3zM5 4h1v2H5z"/></symbol><symbol id="i-hof" viewBox="0 0 7 7"><path d="M1 0h5v1H1zM0 1h1v2H0zM6 1h1v2H6zM1 1h5v3H1zM3 4h1v1H3zM2 5h3v1H2zM1 6h5v1H1z"/></symbol><symbol id="i-wnt" viewBox="0 0 7 7"><path d="M3 0h1v2H3zM3 5h1v2H3zM0 3h2v1H0zM5 3h2v1H5zM3 3h1v1H3z"/></symbol><symbol id="i-pvp" viewBox="0 0 7 7"><path d="M0 0h1v1H0zM1 1h1v1H1zM2 2h1v1H2zM3 3h1v1H3zM4 4h1v1H4zM5 5h1v1H5zM6 6h1v1H6zM6 0h1v1H6zM5 1h1v1H5zM4 2h1v1H4zM2 4h1v1H2zM1 5h1v1H1zM0 6h1v1H0z"/></symbol><symbol id="i-rai" viewBox="0 0 7 7"><path d="M2 0h3v1H2zM1 1h5v2H1zM0 3h7v2H0zM1 5h5v1H1zM2 6h3v1H2z"/></symbol><symbol id="i-note" viewBox="0 0 7 7"><path d="M4 0h3v1H4zM4 1h1v3H4zM6 1h1v1H6zM1 4h4v1H1zM0 5h5v1H0zM1 6h3v1H1z"/></symbol><symbol id="i-chk" viewBox="0 0 7 7"><path d="M6 0h1v1H6zM5 1h1v1H5zM0 2h1v1H0zM4 2h1v1H4zM1 3h1v1H1zM3 3h1v1H3zM2 4h1v1H2zM0 6h7v1H0z"/></symbol><symbol id="i-afx" viewBox="0 0 7 7"><path d="M3 0h1v1H3zM2 1h3v1H2zM1 2h2v1H1zM4 2h2v1H4zM0 3h2v1H0zM5 3h2v1H5zM1 4h2v1H1zM4 4h2v1H4zM2 5h3v1H2zM3 6h1v1H3z"/></symbol><symbol id="i-att" viewBox="0 0 7 7"><path d="M0 1h7v6H0zM1 0h1v1H1zM5 0h1v1H5z" opacity=".35"/><path d="M0 1h7v1H0zM2 3h1v1H2zM4 3h1v1H4zM2 5h1v1H2zM4 5h1v1H4z"/></symbol><symbol id="i-fort" viewBox="0 0 7 7"><path d="M1 0h5v7H1z" opacity=".4"/><path d="M1 0h5v1H1zM3 2h1v3H3zM2 3h3v1H2zM1 6h5v1H1z"/></symbol><symbol id="i-cook" viewBox="0 0 7 7"><path d="M2 0h1v1H2zM4 0h1v1H4zM3 1h1v1H3zM0 3h7v1H0zM1 4h5v2H1zM2 6h3v1H2z"/></symbol><symbol id="i-pot" viewBox="0 0 7 7"><path d="M2 0h3v1H2zM1 1h5v1H1zM2 2h3v1H2zM3 3h1v1H3zM1 4h5v1H1zM2 5h3v2H2z"/></symbol><symbol id="i-farm" viewBox="0 0 7 7"><path d="M3 0h1v1H3zM1 1h2v1H1zM4 1h2v1H4zM2 2h1v1H2zM4 2h1v1H4zM3 2h1v3H3zM0 5h7v2H0z"/></symbol><symbol id="i-fish" viewBox="0 0 7 7"><path d="M2 2h3v1H2zM1 3h5v1H1zM2 4h3v1H2zM6 2h1v3H6zM2 3h1v1H2z"/></symbol><symbol id="i-exp" viewBox="0 0 7 7"><path d="M1 0h1v7H1zM2 0h4v1H2zM2 1h5v1H2zM2 2h4v1H2zM2 3h3v1H2z"/></symbol><symbol id="i-mgsch" viewBox="0 0 7 7"><path d="M3 0h1v1H3zM1 1h5v1H1zM0 2h7v1H0zM1 3h5v1H1zM2 4h3v2H2zM6 3h1v3H6z"/></symbol><symbol id="i-mgs" viewBox="0 0 7 7"><path d="M5 0h1v1H5zM4 1h3v1H4zM5 2h1v1H5zM3 3h1v1H3zM2 4h1v1H2zM1 5h1v1H1zM0 6h1v1H0z"/><path d="M1 0h1v1H1zM0 1h1v1H0zM2 1h1v1H2zM1 2h1v1H1z" opacity=".5"/></symbol><symbol id="i-star" viewBox="0 0 7 7"><path d="M3 0h1v7H3zM0 3h7v1H0zM2 2h3v3H2z"/></symbol>
 <symbol id="i-person" viewBox="0 0 8 8"><path d="M3 0h2v1H3zM2 1h4v2H2zM3 3h2v1H3zM1 4h6v1H1zM0 5h8v3H0z"/></symbol>
 <symbol id="i-chat" viewBox="0 0 8 7"><path d="M0 0h8v5H0zM1 5h2v1H1zM1 6h1v1H1z"/></symbol>
 <symbol id="i-plus" viewBox="0 0 8 8"><path d="M3 0h2v8H3zM0 3h8v2H0z"/></symbol>
@@ -1328,6 +1329,10 @@ html.mgl.mgn .u353{--ux-shadow-strong:rgba(0,0,0,.72);--u353-metal:#4a2a37;--u35
           <div id="bgmbox" aria-hidden="true"></div>
         </div>
       </section>
+      <section id="gfish">
+        <h2><svg class="ic"><use href="#i-fish"/></svg>낚시</h2>
+        <div class="body" id="gfishb"></div>
+      </section>
       <section id="gstat">
         <h2><svg class="ic"><use href="#i-star"/></svg>스탯</h2>
         <div class="sttab" role="tablist" aria-label="스탯 창 선택"><button type="button" role="tab" id="sttab0" aria-controls="stpg0" aria-selected="true">기본</button><button type="button" role="tab" id="sttab1" aria-controls="stpg1" aria-selected="false" tabindex="-1">PVP</button></div>
@@ -1372,6 +1377,10 @@ html.mgl.mgn .u353{--ux-shadow-strong:rgba(0,0,0,.72);--u353-metal:#4a2a37;--u35
           <p class="pwnote" id="mapmsg" role="status"></p>
         </div>
       </section>
+      <section id="gfarm">
+        <h2><svg class="ic"><use href="#i-farm"/></svg>농장</h2>
+        <div class="body" id="gfarmb"></div>
+      </section>
       <section id="gtodo">
         <h2><svg class="ic"><use href="#i-chk"/></svg>할 일</h2>
         <div class="body">
@@ -1388,6 +1397,10 @@ html.mgl.mgn .u353{--ux-shadow-strong:rgba(0,0,0,.72);--u353-metal:#4a2a37;--u35
       <section id="gdev">
         <h2><svg class="ic"><use href="#i-phone"/></svg>기기</h2>
         <div class="body"><div class="phone"><div class="ph-top"><span>HUNTER-OS</span><span id="phclk"></span></div><div class="ph-scr" id="phscr"></div><div class="ph-nav" role="navigation" aria-label="기기 하단 버튼"><button type="button" class="nv nv-rec" aria-label="최근 앱 (작동하지 않음)" aria-disabled="true" tabindex="-1"><svg viewBox="0 0 16 14" aria-hidden="true"><path d="M2 1h2v12H2zM7 1h2v12H7zM12 1h2v12h-2z"/></svg></button><button type="button" class="nv nv-home" aria-label="홈 (작동하지 않음)" aria-disabled="true" tabindex="-1"><svg viewBox="0 0 16 16" aria-hidden="true"><rect x="2" y="2" width="12" height="12" rx="4" fill="none" stroke="currentColor" stroke-width="2"/></svg></button><button type="button" class="nv nv-back" aria-label="뒤로가기"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M10 2 4 8l6 6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="square"/></svg></button></div></div></div>
+      </section>
+      <section id="gpot">
+        <h2><svg class="ic"><use href="#i-pot"/></svg>화분</h2>
+        <div class="body" id="gpotb"></div>
       </section>
     </div>
   </div>
@@ -3228,7 +3241,7 @@ var globe=(function(){
   return {set:set,isOn:function(){return on},redraw:function(){if(on&&rm)draw()}};
 })();
 var achNew=0,rescueReq=0,gold=0,devApp=null,inventory=[],invSig="",invNote="";
-var APPS=[["gw","게이트웨이브","i-eye"],["msg","메신저","i-chat"],["com","커뮤니티","i-board"],["ach","업적","i-medal"],["eqp","장비","i-str"],["rai","육성","i-rai"],["pvp","전장","i-pvp"],["sys","시스템 알림","i-bell"],["shop","상점","i-shop"],["hp","던전로그","i-home"],["inv","인벤토리","i-bag"],["att","출석","i-att"],["fort","운세","i-fort"],["cook","요리","i-cook"],["fish","낚시","i-fish"],["exped","원정","i-exp"],["afx","속성 도감","i-afx"],["mgs","마법소녀","i-mgs"],["mgsch","마법 학교","i-mgsch"]];
+var APPS=[["gw","게이트웨이브","i-eye"],["msg","메신저","i-chat"],["com","커뮤니티","i-board"],["ach","업적","i-medal"],["eqp","장비","i-str"],["rai","육성","i-rai"],["pvp","전장","i-pvp"],["sys","시스템 알림","i-bell"],["shop","상점","i-shop"],["hp","던전로그","i-home"],["inv","인벤토리","i-bag"],["att","출석","i-att"],["fort","운세","i-fort"],["cook","요리","i-cook"],["exped","원정","i-exp"],["afx","속성 도감","i-afx"],["mgs","마법소녀","i-mgs"],["mgsch","마법 학교","i-mgsch"]];
 function devClock(){var d=new Date(),c=$("phclk");if(c)c.textContent=pad(d.getHours())+":"+pad(d.getMinutes())}
 function badgeOf(id){return id==="inv"?giftUnread:id==="sys"?unreadNotices:id==="msg"?unreadMsgs+friendReqs+rescueReq:id==="com"?Math.max(0,Math.min(99,cmLatest-cmSeen)):id==="ach"?achNew:id==="att"?(ctState&&ctState.attended===false?1:0):id==="pvp"&&mglOn()?mgDuelN:id==="mgs"&&mglOn()?mgMailN:0}
 function loadNotices(){
@@ -3517,7 +3530,6 @@ function renderDevice(){
   else if(devApp==="att")ctAtt(scr);
   else if(devApp==="fort")ctFortune(scr);
   else if(devApp==="cook")ctCook(scr);
-  else if(devApp==="fish")ctFish(scr);
   else if(devApp==="exped")ctExped(scr);
   else if(devApp==="inv"){
     addGoldTag(scr);
@@ -4527,7 +4539,7 @@ function enterGame(me){
   power={lv:d.lv||1,exp:d.exp||0};curRegion=regionById(d.region)?d.region:"city";curCountry=countryOf(curRegion);api("GET","/api/cw/state").then(function(r){if(r&&!r.error)cwSetCd(r.cd)}).catch(function(){});viewCountry=COUNTRY_BY_ID[curCountry].gate?"KR":curCountry;
   alerts=[];seenIds={};alertSig="";paused=false;
   var pb=$("pausebtn");pb.textContent="알림 멈춤";pb.setAttribute("aria-pressed","false");
-  $("game").hidden=false;markLogin(d.hunterName);showFront();window.scrollTo(0,0);setTimeout(ctAttend,1500);      /* 출석 도장 */
+  $("game").hidden=false;markLogin(d.hunterName);showFront();window.scrollTo(0,0);setTimeout(ctAttend,1500);setTimeout(sidePanels,400);      /* 낚시 · 농장 · 화분 칸 */      /* 출석 도장 */
   taintStgInit=false;renderChar(d);renderStats(d.stats);buildCountries();buildRegions();devApp=null;renderPower(false);
   statSig="";applyState(me.state,true);
   moveTo(curRegion,true);$("mapmsg").textContent=sAutoMsg;sAutoMsg="";
@@ -6338,7 +6350,15 @@ function ctCook(scr){
 }
 
 /* ───── 21 낚시 ───── */
-var ctFishT=0;
+var ctFishT=0,fishReg="",fishBusy=false;
+/* 메인 화면의 낚시 · 농장 · 화분 칸: 로그인하면 채우고, 지역을 옮기면 낚시 칸을 다시 그림 */
+function fishPanel(){var b=$("gfishb");if(!b)return;cancelAnimationFrame(ctFishT);b.innerHTML="";fishReg=curRegion;fishBusy=false;ctFish(b)}
+function sidePanels(){
+  fishPanel();
+  if(window.FARM){FARM.mount($("gfarmb"),"farm");FARM.mount($("gpotb"),"pot")}
+  else ["gfarmb","gpotb"].forEach(function(id){var b=$(id);if(b)b.textContent="농장 파일(farm.js)을 불러오지 못했어요."});
+}
+setInterval(function(){if($("game").hidden||document.hidden)return;if(fishReg&&curRegion!==fishReg&&!fishBusy)fishPanel()},1500);
 function ctFish(scr){
   var w=pvEl("div","ct-w");scr.appendChild(w);var note="";
   function load(){api("GET","/api/fish").then(function(r){if(!w.isConnected)return;if(!r||r.left===undefined){w.textContent="불러오지 못했어요.";return}draw(r)})}
@@ -6352,17 +6372,17 @@ function ctFish(scr){
       var msg=pvEl("p","ct-fmsg","찌를 던져 보세요.");pond.appendChild(msg);w.appendChild(pond);
       var row=pvEl("div","rum-v");var go=ctBtn(row,"던지기",!r.unlimited&&r.left<=0,function(){cast()},"ach-btn ct-cast");var reel=ctBtn(row,"당기기!",true,function(){pull()},"ach-btn ct-reel");w.appendChild(row);
       var c=null,biteAt=0,lateT=0;
-      function cast(){api("POST","/api/fish/cast",{}).then(function(x){
-        if(!x.ok){note=x.error==="no_casts"?"오늘 낚시 횟수를 다 썼어요":x.error==="not_here"?"물가가 아니에요":x.error==="too_fast"||x.error==="rate_limited"?"조금만 천천히 던져 주세요":"던지지 못했어요";load();return}
+      function cast(){fishBusy=true;api("POST","/api/fish/cast",{}).then(function(x){
+        if(!x.ok){fishBusy=false;note=x.error==="no_casts"?"오늘 낚시 횟수를 다 썼어요":x.error==="not_here"?"물가가 아니에요":x.error==="too_fast"||x.error==="rate_limited"?"조금만 천천히 던져 주세요":"던지지 못했어요";load();return}
         c=x;biteAt=Date.now()+x.biteIn;reel.disabled=false;msg.textContent="찌가 물 위에 떠 있어요…";bob.className="ct-bob wait";bar.hidden=true;
         zone.style.left=(x.w0*100)+"%";zone.style.width=((x.w1-x.w0)*100)+"%";
         setTimeout(function(){if(!c)return;bob.className="ct-bob bite";msg.textContent="입질! 눈금이 초록 칸에 있을 때 당기세요!";bar.hidden=false;anim();lateT=setTimeout(function(){if(c)pull()},6000)},x.biteIn);
       })}
       function anim(){if(!c||!w.isConnected)return;var t=Date.now()-biteAt,ph=((t%c.period)+c.period)%c.period/c.period,p=ph<0.5?ph*2:2-ph*2;mk.style.left=(p*100)+"%";ctFishT=requestAnimationFrame(anim)}
-      function pull(){if(!c)return;clearTimeout(lateT);var cc=c;c=null;reel.disabled=true;cancelAnimationFrame(ctFishT);
-        api("POST","/api/fish/reel",{}).then(function(x){
+      function pull(){if(!c)return;var el=Date.now()-biteAt;clearTimeout(lateT);var cc=c;c=null;reel.disabled=true;cancelAnimationFrame(ctFishT);
+        api("POST","/api/fish/reel",{t:el}).then(function(x){
           note=x.caught?x.fish+" ("+TIER_KO[x.tier]+") "+x.cm+"cm"+(x.record?" · 최고 기록!":"")+" · +"+x.gold+" G":x.why==="early"?"너무 빨리 당겨서 놓쳤어요":x.why==="late"?"너무 늦었어요, 물고기가 도망갔어요":x.why==="miss"?"놓쳤어요! "+(x.fish?"("+x.fish+")":""):"놓쳤어요";
-          if(x.caught)pollState(false);load();
+          fishBusy=false;if(x.caught)pollState(false);load();
         })}
     }
     var dt=document.createElement("details");dt.className="ct-flog";var sm=document.createElement("summary");sm.textContent="어종 기록 · "+r.log.filter(function(f){return f.n}).length+" / "+r.log.length+"종 (눌러서 펼치기)";dt.appendChild(sm);try{dt.open=sessionStorage.getItem("ct_flog")==="1"}catch(e){}dt.addEventListener("toggle",function(){try{sessionStorage.setItem("ct_flog",dt.open?"1":"0")}catch(e){}});w.appendChild(dt);var ul=pvEl("ul","app-list");r.log.forEach(function(f){var li=pvEl("li","qst-li"+(f.n?"":" got"));li.appendChild(pvEl("div","qst-t",(f.n?f.name:"???")+" · "+TIER_KO[f.tier]));li.appendChild(pvEl("small",null,"나오는 곳 · "+f.where));li.appendChild(pvEl("small",null,f.n?"잡은 수 "+f.n+" · 최대 "+f.best+"cm":"아직 낚지 못했어요"));ul.appendChild(li)});dt.appendChild(ul);
