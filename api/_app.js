@@ -511,6 +511,12 @@ async function loadAchDb() {
     await db.run("UPDATE achievements SET descr = ? WHERE id = 'n-fs35' AND descr LIKE '모든 물고기 35종%'", ['서로 다른 물고기 35종을 낚았다.']);
     await db.run("INSERT OR IGNORE INTO settings (key, value) VALUES ('ach_seeded6', '1')");
   }
+  if (!(await db.get("SELECT 1 AS x FROM settings WHERE key = 'ach_seeded7'"))) {      // 일곱 번째 묶음(농장 · 정원) · '모든 물의 주인'을 200종으로
+    const t0 = Date.now() + 3000;
+    await db.batch(G.ACH_SEED7.map((a, i) => ['INSERT OR IGNORE INTO achievements (id, name, descr, kind, val, at) VALUES (?, ?, ?, ?, ?, ?)', [a.id, a.name, a.desc, a.kind, a.val, t0 + i]]));
+    await db.run("UPDATE achievements SET val = '200', descr = ? WHERE id = 'n-fs145' AND val = '145'", ['모든 물고기 200종을 낚았다. 적월 고래상어와 그레이윅 새벽 정령어까지.']);
+    await db.run("INSERT OR IGNORE INTO settings (key, value) VALUES ('ach_seeded7', '1')");
+  }
   if (!(await db.get("SELECT 1 AS x FROM settings WHERE key = 'ach_seeded4'"))) {      // 네 번째 기본 업적 묶음(명성 대신 30개): 한 번만 추가
     const t0 = Date.now();
     await db.batch(G.ACH_SEED4.map((a, i) => ['INSERT OR IGNORE INTO achievements (id, name, descr, kind, val, at) VALUES (?, ?, ?, ?, ?, ?)', [a.id, a.name, a.desc, a.kind, a.val, t0 + i]]));
@@ -529,7 +535,7 @@ async function achStats(u, defs) {
     db.get("SELECT COALESCE(SUM(n), 0) AS c FROM hunt_log WHERE user_id = ? AND result = 'success' AND rank = 'SS'", [u.id])]);
   const s = { kills: k.c, maxRank: rs.reduce((m, r) => Math.max(m, G.RANK_IDX[r.rank] == null ? -1 : G.RANK_IDX[r.rank]), -1), sTry: st.c, sWin: sw.c, lv: u.lv,
     visitBy: {}, visits: 0, countries: 0, collected: {}, slain: {}, surveys: 0, crafts: 0, fails: 0, friends: 0, gifts: 0, gold: Number(u.gold) || 0,
-    rankIdx: G.RANK_IDX[u.rank] == null ? -1 : G.RANK_IDX[u.rank], stats: {}, pvpwin: Number(u.pvp_win) || 0, lp: Number(u.lp_peak) || 0, floor: 0, fishsp: 0, cooks: 0, attend: 0, dex: 0, mg: {} };
+    rankIdx: G.RANK_IDX[u.rank] == null ? -1 : G.RANK_IDX[u.rank], stats: {}, pvpwin: Number(u.pvp_win) || 0, lp: Number(u.lp_peak) || 0, floor: 0, fishsp: 0, cooks: 0, attend: 0, dex: 0, mg: {}, harvest: 0, flowers: 0 };
   try { s.stats = JSON.parse(u.stats) || {}; } catch (_) { s.stats = {}; }
   const jobs = [];
   if (need('visit', 'visits', 'countries')) jobs.push(db.all('SELECT region, n FROM visit_counts WHERE user_id = ?', [u.id]).then(rows => {
@@ -553,6 +559,7 @@ async function achStats(u, defs) {
   if (need('fishsp')) jobs.push(db.get('SELECT COUNT(*) AS c FROM ct_fish_log WHERE user_id = ? AND n > 0', [u.id]).then(r => { s.fishsp = Number(r.c) || 0; }));
   if (need('cooks')) jobs.push(db.get("SELECT COALESCE(SUM(n), 0) AS c FROM acquire_log WHERE user_id = ? AND source = '요리'", [u.id]).then(r => { s.cooks = Number(r.c) || 0; }));
   if (need('attend')) jobs.push(db.get('SELECT rounds FROM ct_attend WHERE user_id = ?', [u.id]).then(r => { s.attend = r ? Number(r.rounds) || 0 : 0; }));
+  if (need('harvest', 'flowers')) jobs.push(FARM.achStats(u.id).then(o => { s.harvest = o.harvest; s.flowers = o.flowers; }).catch(() => {}));      // 농장 수확 · 꽃 색 도감
   if (need('mg')) jobs.push(MG.achStats(u.id).then(o => { s.mg = o || {}; }).catch(() => {}));      // 마법소녀 이벤트 기록
   if (need('dex')) jobs.push(db.get('SELECT COUNT(DISTINCT el) AS c FROM ct_aff WHERE user_id = ?', [u.id]).then(r => { s.dex = Number(r.c) || 0; }));
   await Promise.all(jobs);
@@ -584,6 +591,8 @@ const achMet = (a, s) => {
     case 'cooks': return s.cooks >= n;
     case 'attend': return s.attend >= n;
     case 'dex': return s.dex >= n;
+    case 'harvest': return s.harvest >= n;
+    case 'flowers': return s.flowers >= n;
     case 'taint': return (Number(s.stats.taint) || 0) >= n;
     case 'hrank': return s.rankIdx >= (G.RANK_IDX[a.val] == null ? 99 : G.RANK_IDX[a.val]);
     case 'visit': { const [k, c] = splitVal(a.val); return c > 0 && visitsOf(s, k) >= c; }
@@ -598,7 +607,7 @@ const achMet = (a, s) => {
 // 오염도 업적(예: 붉은 달에 물든 자)은 '한 번이라도 달성하면' 계속 달성한 것으로 둡니다. 정화해서 오염도가 내려가도 사라지지 않고, 다시 새 업적으로 알리지도 않습니다.
 // 기록이 줄지 않는 종류(심층 최고 층·리그 최고 LP·PVP 승리·어종·요리·출석·도감)도 한 번 얻으면 그대로 둡니다.
 // (잠깐이라도 '미달성'으로 읽히면 기록이 지워졌다가 다시 생기면서 NEW 가 또 뜨던 문제 방지)
-const STICKY_ACH = new Set(['taint', 'floor', 'lp', 'pvpwin', 'fishsp', 'cooks', 'attend', 'dex', 'mg']);
+const STICKY_ACH = new Set(['taint', 'floor', 'lp', 'pvpwin', 'fishsp', 'cooks', 'attend', 'dex', 'mg', 'harvest', 'flowers']);
 async function achOf(u) {
   const defs = await loadAch();
   const [s, gr, er] = await Promise.all([achStats(u, defs), db.all('SELECT ach_id FROM ach_grants WHERE user_id = ?', [u.id]),
@@ -668,9 +677,11 @@ async function sInfo(userId, now) {
 // 스탯이 만드는 확률 (모두 95% 이하)
 const fxOf = st => ({ win: Math.round(Math.min(G.PROB_CAP, (Number(st.str) || 0) * G.STR_WIN) * 100), guard: Math.round(G.guardChance(st.agi) * 100), free: Math.round(G.freeChance(st.luck) * 100) });
 const CTX = require('./_content');      // 상시 컨텐츠 12종 (api/_content.js)
-const MAT_NAMES = new Set(G.MATERIALS.concat(G.GATE_MATS).map(m => m.name).concat(Array.from(CTX.EXTRA_MAT_TIER.keys())));      // 인벤토리 '조합 아이템' 탭에 들어가는 재료 이름
+const FARMX = require('./_farm');      // 농장: 밭 · 정원 · 출하 (api/_farm.js)
+const MAT_NAMES = new Set(G.MATERIALS.concat(G.GATE_MATS).map(m => m.name).concat(Array.from(CTX.EXTRA_MAT_TIER.keys()), Array.from(FARMX.EXTRA_MAT_TIER.keys())));      // 인벤토리 '조합 아이템' 탭에 들어가는 재료 이름
 const MAT_TIER = new Map(G.MATERIALS.map(m => [m.name, 'c']).concat(G.GATE_MATS.map(m => [m.name, m.tier])));   // 재료 등급 (현장 재료는 일반)
 CTX.EXTRA_MAT_TIER.forEach((t, n) => { if (!MAT_TIER.has(n)) MAT_TIER.set(n, t); });
+FARMX.EXTRA_MAT_TIER.forEach((t, n) => { if (!MAT_TIER.has(n)) MAT_TIER.set(n, t); });      // 작물·꽃
 // ── 서버 BGM: 관리자가 정한 유튜브 영상을 모든 헌터가 듣습니다. (끄기·볼륨은 각자 브라우저에서만 정함 — 서버에는 아무것도 저장하지 않음) ──
 const ytIdOf = u => {
   u = String(u || '').trim();
@@ -1432,6 +1443,7 @@ route('POST', '/api/friends/rescue', async (req, res, ctx) => {
 // ═════════════ 장비 ═════════════
 const EQ_BY_ID = new Map(G.EQUIPS.map(e => [e.id, e]));
 const CT = CTX.install({ db, route, send, fail, limited, userById, grantGold, grantExp, logAcquire, giveItem, EQ_BY_ID, HP });      // 상시 컨텐츠 12종
+const FARM = FARMX.install({ db, route, send, fail, limited, grantGold, grantExp, logAcquire, giveItem });      // 농장
 const MG = require('./_magic').install({ db, route, send, fail, limited, userById, userByCode, isFriend, applyItemEffect, themeState, CT, normCode, grantGold, grantExp, logAcquire, placeName: G.placeName, pvpMine, compFx: c => compFx(c), G });      // 마법소녀 이벤트
 const EQ_BY_NAME = new Map(G.EQUIPS.map(e => [e.name, e]));
 const eqBonusOf = e => { if (e.bonus) return { stat: e.bonus.stat, val: e.bonus.val }; const sl = G.EQ_SLOTS[e.slot], gi = 'CBAS'.indexOf(e.grade); return { stat: sl.stat, val: sl.v[gi] }; };      // e.bonus: 이벤트 가면처럼 능력치를 직접 지정한 장비
@@ -3771,6 +3783,7 @@ async function purgeUser(id) {
   await db.batch([
     ...HP.purge(id),      // HOME: 홈피 글·댓글·노래
     ...CT.purge(id),      // 상시 컨텐츠 기록
+    ...FARM.purge(id),      // 농장 기록
     ['DELETE FROM sessions WHERE user_id = ?', [id]],
     ['DELETE FROM kills WHERE user_id = ?', [id]],
     ['DELETE FROM fail_cd WHERE user_id = ?', [id]],
