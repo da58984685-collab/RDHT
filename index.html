@@ -1614,6 +1614,7 @@ html.mgl.mgn .u353{--ux-shadow-strong:rgba(0,0,0,.72);--u353-metal:#4a2a37;--u35
 @keyframes cmIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
 @media (prefers-reduced-motion:reduce){.cml li.is-new{animation:none}}
 .heal-l{display:grid;gap:8px}.heal-it{display:flex;align-items:center;gap:12px;width:100%;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:var(--field);color:var(--text);font:inherit;text-align:left;cursor:pointer}.heal-it:hover{border-color:var(--red2)}.heal-it .ic{flex:none;width:26px;height:26px;color:var(--deep)}.heal-it span{display:grid;gap:3px;flex:1;min-width:0}.heal-it b{font-size:.95rem}.heal-it small{font-size:.74rem;color:var(--sub)}.heal-it i{font-style:normal;font-size:1.3rem;color:var(--sub)}.heal-bk{margin:0 0 6px;padding:4px 10px;border:1px solid var(--line);border-radius:999px;background:transparent;color:var(--deep);font:600 .78rem/1.4 "Noto Sans KR",sans-serif;cursor:pointer}.heal-t{margin:0 0 8px;font-weight:700;font-size:1rem}
+.ck-steps{margin:4px 0 2px;font-size:.76rem;color:var(--sub)}.ck-steps summary{cursor:pointer}.ck-steps ol{margin:4px 0 0;padding-left:18px;display:grid;gap:2px}.app-list .ck-steps li{display:list-item;margin:0;padding:0;border:0;background:none;box-shadow:none;font-size:.74rem;color:var(--sub);min-height:0}.ck-quick{opacity:.85}.ck-play{display:grid;gap:10px;padding:12px;border:1px solid var(--red2);border-radius:12px;background:var(--field)}.ck-ph{display:flex;align-items:center;gap:12px}.ck-ph>div{display:grid;gap:2px}.ck-ph b{font-size:1rem}.ck-ph small{font-size:.76rem;color:var(--sub)}.ck-sl{margin:0;padding:0;list-style:none;display:grid;gap:6px}.ck-sl li{display:grid;gap:2px;padding:7px 10px;border:1px solid var(--line);border-radius:9px;opacity:.6}.ck-sl li.now{opacity:1;border-color:var(--red2)}.ck-sl li.ok{opacity:1;border-color:#4caf7a}.ck-sl li.ng{opacity:.8;border-color:#c8606a}.ck-sl b{font-size:.84rem}.ck-sl small{font-size:.74rem;color:var(--sub)}.ck-msg{margin:0;font-weight:700;font-size:.84rem;color:var(--deep);min-height:1.3em}.ck-bar{margin:4px 0 2px}.ck-bar.hit{box-shadow:0 0 0 2px #4caf7a}.ck-bar.miss{box-shadow:0 0 0 2px #c8606a}.ck-go{min-width:120px}
 .ct-flog{margin-top:14px}.ct-flog>summary{cursor:pointer;padding:10px 12px;font-weight:700;font-size:.9rem;color:var(--text);background:var(--field);border:1px solid var(--line);border-radius:10px;list-style:none}.ct-flog>summary::-webkit-details-marker{display:none}.ct-flog>summary::before{content:"▸ ";color:var(--deep)}.ct-flog[open]>summary::before{content:"▾ "}.ct-flog .app-list{margin-top:8px}
 /* 게이트웨이브 (헌터 전용 게시판) */
 .gwl{list-style:none;margin:0;padding:0;display:grid;gap:10px}
@@ -6326,6 +6327,7 @@ function ctCook(scr){
   function load(){api("GET","/api/cook").then(function(r){if(!w.isConnected)return;if(!r||!r.list){w.textContent="불러오지 못했어요.";return}draw(r)})}
   function draw(r){
     w.textContent="";
+    if(r.sess&&r.sess.cur){play(r.sess);return}
     ctNote(w,(note?note+" · ":"")+(r.buff?"지금 버프 · "+r.buff.name+(r.buff.fine?" (일품)":"")+" — "+r.buff.txt+" · "+ctLeft(r.buff.until-Date.now())+" 남음":"지금 버프 없음")+" · 한 번에 한 요리만, 같은 요리는 시간이 더해져요(최대 3시간). PVP에는 적용되지 않아요.");
     if(r.dishes.length){ctHead(w,"가진 요리");var ul=pvEl("ul","app-list");r.dishes.forEach(function(d){var li=pvEl("li","qst-li ck-li");li.appendChild(dishArt(d.art));li.appendChild(pvEl("div","qst-t",d.item+" ×"+d.qty));li.appendChild(pvEl("small",null,d.txt+(d.fine?" · 효과 ×1.5":"")));var row=pvEl("div","rum-v");ctBtn(row,"먹기",false,function(){api("POST","/api/cook/eat",{item:d.item}).then(function(x){note=x.ok?d.item+"을(를) 먹었어요"+(x.replaced?" ("+x.replaced+" 버프는 사라짐)":""):"먹지 못했어요";pollState(false);load()})});li.appendChild(row);ul.appendChild(li)});w.appendChild(ul)}
     var can=r.list.filter(function(c){return ctMatsOk(c.mats,c.have)}).length;
@@ -6334,8 +6336,46 @@ function ctCook(scr){
     var fl=pvEl("label","ck-f");var fc=document.createElement("input");fc.type="checkbox";fc.checked=!!ctCook.canOnly;fl.appendChild(fc);fl.appendChild(document.createTextNode(" 지금 만들 수 있는 것만"));w.appendChild(fl);
     fc.addEventListener("change",function(){ctCook.canOnly=fc.checked;Array.prototype.forEach.call(ul2.children,function(li){li.hidden=fc.checked&&li.classList.contains("got")})});
     var ul2=pvEl("ul","app-list");
-    r.list.forEach(function(c){var ok=ctMatsOk(c.mats,c.have),li=pvEl("li","qst-li ck-li"+(ok?"":" got"));li.hidden=!!ctCook.canOnly&&!ok;li.appendChild(dishArt(c.art));li.appendChild(pvEl("div","qst-t",c.name+" · "+c.txt+" · "+c.min+"분"));li.appendChild(pvEl("small",null,ctMats(c.mats,c.have)));var row=pvEl("div","rum-v");ctBtn(row,"요리하기",!ok,function(){api("POST","/api/cook",{id:c.id}).then(function(x){note=x.ok?x.item+" 완성"+(x.fine?" · 일품!":""):"재료가 모자라요";load()})});li.appendChild(row);ul2.appendChild(li)});
+    r.list.forEach(function(c){var ok=ctMatsOk(c.mats,c.have),li=pvEl("li","qst-li ck-li"+(ok?"":" got"));li.hidden=!!ctCook.canOnly&&!ok;li.appendChild(dishArt(c.art));li.appendChild(pvEl("div","qst-t",c.name+" · "+c.txt+" · "+c.min+"분"));li.appendChild(pvEl("small",null,ctMats(c.mats,c.have)));var row=pvEl("div","rum-v");if(c.steps&&c.steps.length){var dt=document.createElement("details");dt.className="ck-steps";var sm=document.createElement("summary");sm.textContent="요리 과정 · "+c.steps.map(function(x){return x.split(" — ")[0]}).join(" → ");dt.appendChild(sm);var ol=document.createElement("ol");c.steps.forEach(function(x){ol.appendChild(pvEl("li",null,x))});dt.appendChild(ol);li.appendChild(dt)}
+      ctBtn(row,"요리하기",!ok,function(b){api("POST","/api/cook/start",{id:c.id}).then(function(x){if(x.prev)note="끝내지 못한 요리 → "+x.prev.item+" 완성";if(!x.ok){note=x.error==="no_mats"?"재료가 모자라요":"시작하지 못했어요";load();return}play(x.sess)})});
+      ctBtn(row,"간편 요리",!ok,function(){api("POST","/api/cook",{id:c.id}).then(function(x){note=x.ok?x.item+" 완성"+(x.fine?" · 일품!":"")+" (간편 요리)":"재료가 모자라요";load()})},"ach-btn ck-quick");li.appendChild(row);ul2.appendChild(li)});
     w.appendChild(ul2);
+  }
+  /* 요리 과정: 손질 → 조리 → 마무리. 단계마다 눈금이 초록 칸에 있을 때 버튼(또는 스페이스) */
+  var ckRaf=0,ckKey=null;
+  function play(S){
+    cancelAnimationFrame(ckRaf);if(ckKey){document.removeEventListener("keydown",ckKey);ckKey=null}
+    w.textContent="";
+    var p=pvEl("div","ck-play");w.appendChild(p);
+    var hd=pvEl("div","ck-ph");hd.appendChild(dishArt(S.art));var ht=pvEl("div");ht.appendChild(pvEl("b",null,S.name));ht.appendChild(pvEl("small",null,"3단계 모두 성공하면 일품 확정 · 2단계면 일품 30%"));hd.appendChild(ht);p.appendChild(hd);
+    var ol=pvEl("ol","ck-sl");S.steps.forEach(function(st,i){var li=pvEl("li",i<S.i?(S.hits[i]?"ok":"ng"):i===S.i?"now":"");li.appendChild(pvEl("b",null,(i<S.i?(S.hits[i]?"✓ ":"✗ "):i===S.i?"▶ ":"· ")+st.name));li.appendChild(pvEl("small",null,st.text));ol.appendChild(li)});p.appendChild(ol);
+    var msg=pvEl("p","ck-msg","");msg.setAttribute("role","status");p.appendChild(msg);
+    if(!S.cur)return;
+    var st=S.steps[S.i],bar=pvEl("div","ct-fbar ck-bar"),zone=pvEl("i","ct-fz"),mk=pvEl("b","ct-fm");bar.appendChild(zone);bar.appendChild(mk);p.appendChild(bar);
+    zone.style.left=(S.cur.w0*100)+"%";zone.style.width=(S.cur.win*100)+"%";
+    msg.textContent=(S.i+1)+"단계 · "+st.name+" — 눈금이 초록 칸에 왔을 때 '"+st.btn+"'";
+    var t0=Date.now()-(S.cur.t0||0),busy=false;
+    function anim(){if(!p.isConnected){cancelAnimationFrame(ckRaf);return}var t=Date.now()-t0,ph=((t%S.cur.period)+S.cur.period)%S.cur.period/S.cur.period;mk.style.left=((ph<0.5?ph*2:2-ph*2)*100)+"%";ckRaf=requestAnimationFrame(anim)}
+    anim();
+    var row=pvEl("div","rum-v");p.appendChild(row);
+    var go=ctBtn(row,st.btn,false,function(){press()},"ach-btn ck-go");
+    ctBtn(row,"그만두기",false,function(){cancelAnimationFrame(ckRaf);api("POST","/api/cook/quit",{}).then(function(x){note=x.ok&&x.result?"요리를 멈췄어요 → "+x.result.item+" 완성":"";load()})},"ach-btn ck-quick");
+    ckKey=function(e){if(e.code==="Space"&&p.isConnected&&!busy){e.preventDefault();press()}};document.addEventListener("keydown",ckKey);
+    function press(){
+      if(busy)return;busy=true;go.disabled=true;var el=Date.now()-t0;cancelAnimationFrame(ckRaf);
+      api("POST","/api/cook/step",{t:el}).then(function(x){
+        if(!x.ok){msg.textContent="처리하지 못했어요.";setTimeout(load,900);return}
+        bar.classList.add(x.hit?"hit":"miss");msg.textContent=x.hit?"✓ "+x.step+" 성공!":"✗ "+x.step+" — 아쉬워요";
+        if(x.done){var R=x.result;setTimeout(function(){if(ckKey){document.removeEventListener("keydown",ckKey);ckKey=null}note=R?R.item+" 완성 · "+R.hits+"/"+R.of+"단계 성공"+(R.fine?" · 일품!":""):"";showDone(S,R)},650)}
+        else setTimeout(function(){play(x.sess)},650);
+      });
+    }
+  }
+  function showDone(S,R){
+    w.textContent="";var p=pvEl("div","ck-play done");w.appendChild(p);
+    var hd=pvEl("div","ck-ph");hd.appendChild(dishArt(S.art));var ht=pvEl("div");ht.appendChild(pvEl("b",null,R?R.item:S.name));ht.appendChild(pvEl("small",null,R?R.hits+" / "+R.of+"단계 성공"+(R.fine?" · ✨ 일품! 효과 ×1.5":" · 보통"):""));hd.appendChild(ht);p.appendChild(hd);
+    var row=pvEl("div","rum-v");p.appendChild(row);ctBtn(row,"요리 목록으로",false,function(){load()});
+    if(window.pollState)pollState(false);
   }
   load();
 }
@@ -6343,7 +6383,7 @@ function ctCook(scr){
 /* ───── 21 낚시 ───── */
 var ctFishT=0;
 /* 기기 앱 '힐링': 낚시 · 농장 · 화분을 한 목록에서 골라 엶 */
-var HEAL=[["fish","낚시","i-fish","물가 지역에서 찌를 던져 물고기를 낚아요 · 어종 200종"],["farm","농장","i-farm","씨앗을 심고 물을 주고 수확해요 · 작물 20종"],["pot","화분","i-pot","창가·그늘에 화분을 두고 꽃을 피워요 · 꽃 36색"]];
+var HEAL=[["fish","낚시","i-fish","물가 지역에서 찌를 던져 물고기를 낚아요 · 어종 200종"],["farm","농장","i-farm","씨앗을 심고 물을 주고 수확해요 · 작물 20종"],["pot","화분","i-pot","창가·그늘에 화분을 두고 꽃을 피워요 · 꽃 36색"],["hide","아지트","i-home","7×7 방에 가구를 들여 나만의 아지트를 꾸며요"]];
 function healApp(scr){
   var w=pvEl("div","heal");scr.appendChild(w);
   function list(){
@@ -6359,6 +6399,7 @@ function healApp(scr){
     w.appendChild(pvEl("p","heal-t",h[1]));
     var c=pvEl("div");w.appendChild(c);
     if(k==="fish"){fishBusy=false;ctFish(c)}
+    else if(k==="hide"&&window.FARM&&FARM.hideout)FARM.hideout(c);
     else if(window.FARM)FARM.mount(c,k==="pot"?"pot":"farm");
     else c.appendChild(pvEl("p","app-empty","농장 파일(farm.js)을 불러오지 못했어요."));
   }
