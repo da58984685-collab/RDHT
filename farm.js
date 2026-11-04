@@ -293,7 +293,7 @@
     function vContract() {
       var c = el("div", "hd-ct");
       c.appendChild(el("b", "hd-ctt", "📜 아지트 임대 계약서"));
-      c.appendChild(el("p", "fm-sub", "7×7 크기의 나만의 방을 얻어 가구를 들여 꾸밀 수 있어요. 한 칸은 4분의 1로 나뉘어 있어서 가구를 반 칸씩 세밀하게 놓을 수 있어요. 친구는 내 아지트를 구경할 수 있어요. 나중에 확장 계약서를 사면 10×10, 15×15로 차례로 넓어져요."));
+      c.appendChild(el("p", "fm-sub", "7×7 크기의 나만의 방을 얻어 가구를 들여 꾸밀 수 있어요."));
       c.appendChild(el("p", "hd-price", H.price.toLocaleString() + " G"));
       var b = btn("fm-go wide", "계약서 구매하기", function () {
         if (!armC) { armC = true; b.textContent = "한 번 더 누르면 " + H.price.toLocaleString() + " G를 내고 계약해요"; setTimeout(function () { armC = false; if (b.isConnected) b.textContent = "계약서 구매하기"; }, 3000); return; }
