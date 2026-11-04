@@ -926,6 +926,7 @@ input[type=checkbox]:focus-visible{outline:2px solid var(--deep);outline-offset:
 .bigapp[data-app="exped"] .big-p,.bigapp[data-app="pvs"] .big-p{width:min(620px,100%)}
 .bigapp[data-app="pvp"] .big-p{width:min(680px,100%)}
 .bigapp[data-app="mgs"] .big-p,.bigapp[data-app="mgsch"] .big-p{width:min(560px,100%)}
+.bigapp[data-app="heal"] .big-p{width:min(720px,100%)}
 .big-p .ph-scr{flex:0 1 auto;min-height:0;max-height:none;overflow-y:auto;border:0;border-radius:0;padding:16px 18px;font-size:1rem}
 .big-p .app-list{font-size:.95rem;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:8px}
 .big-p .app-list li{padding:10px 12px}
@@ -5520,7 +5521,7 @@ function loadRaise(scr){
 }
 
 /* ───── 큰 팝업으로 여는 앱 (상점·장비·육성·전장 등) ───── */
-var BIG={shop:1,afx:1,mgs:1,mgsch:1,att:1,fort:1,cook:1,fish:1,exped:1,eqp:1,rai:1,pvp:1,pvs:1,dex:1,wkr:1,hof:1,wnt:1},bigOpen=false;
+var BIG={shop:1,afx:1,mgs:1,mgsch:1,att:1,fort:1,cook:1,fish:1,heal:1,exped:1,eqp:1,rai:1,pvp:1,pvs:1,dex:1,wkr:1,hof:1,wnt:1},bigOpen=false;
 function openBig(id){
   if(bigOpen)return;
   if((id==="afx"||id==="mgs"||id==="mgsch")&&!mglOn())return;
