@@ -235,6 +235,210 @@
     INST.push(create(scr, mode || "farm"));
   }
 
+  // ═════════ 아지트 꾸미기 ═════════
+  // 7×7 방(확장 계약서로 10×10 → 15×15) · 한 칸을 2×2로 나눠 반 칸 단위로 놓기 · 가구는 크기만큼의 네모 칸에 이름만 써서 보여 줌 · 보관함에서 고른 뒤 방의 칸을 눌러 놓기
+  var HERR = { no_gold: "골드가 모자라요.", have: "이미 계약했어요.", no_contract: "먼저 아지트 계약서를 사 주세요.", too_many: "가구는 100개까지 가질 수 있어요.",
+    none_free: "보관함에 남은 가구가 없어요.", no_room: "거기에는 놓을 수 없어요. (방 밖이거나 다른 가구와 겹쳐요)", busy: "잠시 뒤에 다시 해 주세요.", rate_limited: "조금만 천천히 해 주세요.",
+    not_friend: "친구의 아지트만 구경할 수 있어요.", not_found: "찾을 수 없어요." };
+  var FCOL = ["#f6d8c8", "#d8e8f6", "#e0f0d0", "#f2e0f4", "#f6efc8", "#d8f0ec", "#f4d8dc", "#e4e0f4"];
+  function fcol(k) { var h = 0; for (var i = 0; i < k.length; i++) h = (h * 31 + k.charCodeAt(i)) >>> 0; return FCOL[h % FCOL.length]; }
+  function szt(v) { return v === 0.5 ? "½" : v % 1 ? Math.floor(v) + "½" : String(v); }      // 0.5 → ½
+  function sz(w, h) { return szt(w) + "×" + szt(h); }
+  function roomEl(H, opt) {
+    opt = opt || {};
+    var N = H.room || 7, U = H.sub || 2, S = N * U, cat = {}, narrow = window.innerWidth < 560; (H.catalog || []).forEach(function (c) { cat[c.k] = c; });
+    var wrap = el("div", "hd-room"); wrap.style.setProperty("--n", N); wrap.style.setProperty("--s", S); wrap.style.setProperty("--wall", (H.walls || {})[H.wall] || "#f4ecdc"); wrap.style.setProperty("--floor", (H.floors || {})[H.floor] || "#c8a070");
+    wrap.style.setProperty("--cell", (N > 10 ? (narrow ? 26 : 40) : N > 7 ? (narrow ? 32 : 52) : (narrow ? 44 : 64)) + "px");
+    var sc = el("div", "hd-scroll"); wrap.appendChild(sc);
+    var grid = el("div", "hd-grid"); sc.appendChild(grid);
+    for (var y = 0; y < S; y++) for (var x = 0; x < S; x++) { var c = el("i", "hd-c"); c.dataset.x = x; c.dataset.y = y; grid.appendChild(c); }      // 반 칸(4분의 1 칸)마다 하나
+    (H.items || []).forEach(function (it) {
+      var f = cat[it.k]; if (!f) return;
+      var w = it.r ? f.h : f.w, h = it.r ? f.w : f.h;
+      var b = el("div", "hd-f" + (f.layer === "floor" ? " floor" : "") + (opt.sel === it.id ? " sel" : ""));
+      b.style.left = it.x / S * 100 + "%"; b.style.top = it.y / S * 100 + "%"; b.style.width = w * U / S * 100 + "%"; b.style.height = h * U / S * 100 + "%";
+      if (w < 1 || h < 1) b.classList.add("thin");
+      b.style.setProperty("--fc", fcol(it.k)); b.appendChild(el("span", null, f.name)); b.title = f.name + " (" + sz(w, h) + ")";
+      if (opt.onItem) { b.setAttribute("role", "button"); b.tabIndex = 0; b.addEventListener("click", function (e) { e.stopPropagation(); opt.onItem(it); }); }
+      grid.appendChild(b);
+    });
+    return wrap;
+  }
+  function hideout(scr) {
+    css();
+    var box = el("div", "fm hdo"), H = null, tab = "room", sel = null, rot = 0, note = "", visit = null, armC = false;
+    scr.appendChild(box); box.appendChild(el("p", "fm-empty", "불러오는 중…"));
+    function cat(k) { return H.catalog.filter(function (c) { return c.k === k; })[0]; }
+    function act(path, body) {
+      return call("POST", path, body).then(function (r) {
+        if (r && r.ok) { H = r; note = r.msg || ""; if (window.pollState) window.pollState(false); }
+        else note = HERR[r && r.error] || "처리하지 못했어요.";
+        draw(); return r;
+      });
+    }
+    function draw() {
+      if (!box.isConnected) return;
+      box.innerHTML = "";
+      var top = el("div", "fm-top"); top.appendChild(el("b", "fm-gold", "보유 골드 " + H.gold.toLocaleString() + " G"));
+      if (H.contract) {
+        var tabs = el("div", "fm-tabs");
+        [["room", "꾸미기"], ["shop", "가구 상점"], ["visit", "친구 아지트"]].forEach(function (t) { var b = btn("fm-tab" + (tab === t[0] ? " on" : ""), t[1], function () { tab = t[0]; note = ""; sel = null; draw(); }); tabs.appendChild(b); });
+        top.appendChild(tabs);
+      }
+      box.appendChild(top);
+      var msg = el("p", "fm-msg", note); msg.setAttribute("role", "status"); box.appendChild(msg);
+      if (!H.contract) return vContract();
+      ({ room: vRoom, shop: vShop, visit: vVisit })[tab]();
+    }
+    function vContract() {
+      var c = el("div", "hd-ct");
+      c.appendChild(el("b", "hd-ctt", "📜 아지트 임대 계약서"));
+      c.appendChild(el("p", "fm-sub", "7×7 크기의 나만의 방을 얻어 가구를 들여 꾸밀 수 있어요. 한 칸은 4분의 1로 나뉘어 있어서 가구를 반 칸씩 세밀하게 놓을 수 있어요. 친구는 내 아지트를 구경할 수 있어요. 나중에 확장 계약서를 사면 10×10, 15×15로 차례로 넓어져요."));
+      c.appendChild(el("p", "hd-price", H.price.toLocaleString() + " G"));
+      var b = btn("fm-go wide", "계약서 구매하기", function () {
+        if (!armC) { armC = true; b.textContent = "한 번 더 누르면 " + H.price.toLocaleString() + " G를 내고 계약해요"; setTimeout(function () { armC = false; if (b.isConnected) b.textContent = "계약서 구매하기"; }, 3000); return; }
+        b.disabled = true; act("/api/hideout/contract", {});
+      });
+      b.disabled = H.gold < H.price; c.appendChild(b);
+      if (H.gold < H.price) c.appendChild(el("p", "fm-sub", "골드가 " + (H.price - H.gold).toLocaleString() + " G 모자라요."));
+      box.appendChild(c);
+    }
+    var armE = false;
+    function vRoom() {
+      var placedN = H.items.length;
+      if (H.next) {
+        var ex = el("div", "hd-ex"), nx = H.next;
+        ex.appendChild(el("span", null, "지금 방 " + H.room + "×" + H.room + " · " + nx.n + "번째 확장 계약서를 사면 " + nx.size + "×" + nx.size + (nx.size === 10 ? "으로" : "로") + " 넓어져요 (가구 자리는 그대로)"));
+        var eb = btn("fm-go fm-sm", "📜 확장 계약서 " + nx.price.toLocaleString() + " G", function () {
+          if (!armE) { armE = true; eb.textContent = "한 번 더 누르면 " + nx.price.toLocaleString() + " G로 확장해요"; setTimeout(function () { armE = false; if (eb.isConnected) eb.textContent = "📜 확장 계약서 " + nx.price.toLocaleString() + " G"; }, 3000); return; }
+          eb.disabled = true; act("/api/hideout/expand", {});
+        });
+        eb.disabled = H.gold < nx.price; ex.appendChild(eb); box.appendChild(ex);
+      }
+      // 이름 · 벽지 · 바닥
+      var nm = el("div", "hd-name");
+      var inp = el("input"); inp.type = "text"; inp.maxLength = 20; inp.placeholder = "아지트 이름 (최대 20자)"; inp.value = H.name || ""; inp.setAttribute("aria-label", "아지트 이름");
+      nm.appendChild(inp); nm.appendChild(btn("fm-go fm-sm ghost", "이름 저장", function () { act("/api/hideout/edit", { name: inp.value }); }));
+      box.appendChild(nm);
+      var deco = el("div", "hd-deco");
+      function chips(label, map, curv, key) {
+        var r = el("div", "hd-chips"); r.appendChild(el("small", null, label));
+        Object.keys(map).forEach(function (k) { var b = btn("hd-chip" + (curv === k ? " on" : ""), "", function () { var o = {}; o[key] = k; act("/api/hideout/edit", o); }); b.style.background = map[k]; b.title = label + " " + k; b.setAttribute("aria-label", label + " " + k); r.appendChild(b); });
+        deco.appendChild(r);
+      }
+      chips("벽지", H.walls, H.wall, "wall"); chips("바닥", H.floors, H.floor, "floor");
+      box.appendChild(deco);
+      // 안내 · 도구
+      var tool = el("div", "hd-tool");
+      if (sel) {
+        var f = cat(sel.k), w = rot ? f.h : f.w, h = rot ? f.w : f.h;
+        tool.appendChild(el("b", null, (sel.id ? "옮기는 중: " : "놓는 중: ") + f.name + " (" + sz(w, h) + ")"));
+        tool.appendChild(el("small", null, "방의 작은 칸(한 칸의 4분의 1)을 누르면 그 자리가 가구의 왼쪽 위가 돼요. 반 칸씩 옮겨 놓을 수 있어요."));
+        var bs = el("div", "fm-row");
+        if (f.w !== f.h) bs.appendChild(btn("fm-go fm-sm ghost", "↻ 돌리기", function () {
+          rot = rot ? 0 : 1;
+          if (sel.id) { var it = H.items.filter(function (z) { return z.id === sel.id; })[0]; act("/api/hideout/edit", { id: sel.id, x: it.x, y: it.y, r: rot }); } else draw();
+        }));
+        if (sel.id) bs.appendChild(btn("fm-go fm-sm ghost", "보관함으로", function () { var id = sel.id; sel = null; act("/api/hideout/edit", { id: id, del: true }); }));
+        bs.appendChild(btn("fm-go fm-sm ghost", "선택 취소", function () { sel = null; note = ""; draw(); }));
+        tool.appendChild(bs);
+      } else tool.appendChild(el("small", null, "보관함에서 가구를 고르거나, 방에 놓인 가구를 눌러 옮기거나 돌려 보세요."));
+      box.appendChild(tool);
+      // 방
+      var room = roomEl(H, { sel: sel && sel.id, onItem: function (it) { sel = { id: it.id, k: it.k }; rot = it.r ? 1 : 0; note = ""; draw(); } });
+      if (H.name) room.insertBefore(el("p", "hd-rn", H.name), room.firstChild);
+      var grid = room.querySelector(".hd-grid"), ghost = el("div", "hd-ghost"); ghost.hidden = true; grid.appendChild(ghost);
+      var U = H.sub || 2, S = H.room * U;
+      function cellAt(e) { var t = e.target.closest ? e.target.closest(".hd-c") : null; if (t) return [Number(t.dataset.x), Number(t.dataset.y)]; var r = grid.getBoundingClientRect(); return [Math.floor((e.clientX - r.left) / r.width * S), Math.floor((e.clientY - r.top) / r.height * S)]; }
+      if (sel) {
+        grid.classList.add("placing");
+        grid.addEventListener("mousemove", function (e) {
+          var p = cellAt(e), f = cat(sel.k), w = (rot ? f.h : f.w) * U, h = (rot ? f.w : f.h) * U;
+          ghost.hidden = false; ghost.style.left = p[0] / S * 100 + "%"; ghost.style.top = p[1] / S * 100 + "%"; ghost.style.width = w / S * 100 + "%"; ghost.style.height = h / S * 100 + "%";
+          ghost.classList.toggle("bad", p[0] + w > S || p[1] + h > S);
+        });
+        grid.addEventListener("mouseleave", function () { ghost.hidden = true; });
+        grid.addEventListener("click", function (e) {
+          if (e.target.closest && e.target.closest(".hd-f") && !e.target.closest(".hd-f.floor")) return;
+          var p = cellAt(e), s = sel;
+          if (s.id) act("/api/hideout/edit", { id: s.id, x: p[0], y: p[1], r: rot }).then(function (r) { if (r && r.ok) { sel = null; draw(); } });
+          else act("/api/hideout/edit", { k: s.k, x: p[0], y: p[1], r: rot }).then(function (r) { if (r && r.ok) { var c = cat(s.k); if (!(c && c.own > c.placed)) sel = null; draw(); } });
+        });
+      }
+      box.appendChild(room);
+      // 보관함
+      box.appendChild(el("p", "fm-h", "보관함 · 방(" + H.room + "×" + H.room + ")에 놓인 가구 " + placedN + "개"));
+      var free = H.catalog.filter(function (c) { return c.own > 0; });
+      if (!free.length) box.appendChild(el("p", "fm-sub", "가진 가구가 없어요. '가구 상점'에서 사 보세요."));
+      var st = el("div", "hd-store");
+      free.forEach(function (c) {
+        var left = c.own - c.placed;
+        var b = btn("hd-si" + (sel && !sel.id && sel.k === c.k ? " on" : ""), "", function () { sel = { k: c.k }; rot = 0; note = ""; draw(); });
+        b.disabled = left <= 0;
+        var sw = el("i", "hd-sw"); sw.style.setProperty("--fc", fcol(c.k)); sw.style.setProperty("--w", c.w); sw.style.setProperty("--h", c.h); b.appendChild(sw);
+        var tx = el("span"); tx.appendChild(el("b", null, c.name)); tx.appendChild(el("small", null, sz(c.w, c.h) + " · 남은 " + left + " / " + c.own + (c.layer === "floor" ? " · 바닥에 깔림" : ""))); b.appendChild(tx);
+        st.appendChild(b);
+      });
+      box.appendChild(st);
+      if (placedN) box.appendChild(btn("fm-go ghost wide", "가구 모두 보관함으로", function (e) { var b = e.currentTarget; if (b.dataset.arm !== "1") { b.dataset.arm = "1"; b.textContent = "한 번 더 누르면 모두 치워요"; return; } sel = null; act("/api/hideout/edit", { all: true }); }));
+    }
+    function vShop() {
+      box.appendChild(el("p", "fm-sub", "가구를 사면 보관함에 들어가요. 크기(가로×세로)만큼 방의 칸을 차지해요. 러그·매트·마법진은 바닥에 깔려서 위에 다른 가구를 놓을 수 있어요. (가구는 100개까지 · 방에 놓지 않은 가구는 절반 값에 되팔 수 있어요)"));
+      var ul = el("div", "fm-plist hd-shop");
+      H.catalog.forEach(function (c) {
+        var r = el("div", "fm-si");
+        var sw = el("i", "hd-sw"); sw.style.setProperty("--fc", fcol(c.k)); sw.style.setProperty("--w", c.w); sw.style.setProperty("--h", c.h); r.appendChild(sw);
+        var tx = el("span", "fm-ptx"); tx.appendChild(el("b", null, c.name + " · " + c.price.toLocaleString() + " G")); tx.appendChild(el("small", null, sz(c.w, c.h) + " 칸" + (c.layer === "floor" ? " · 바닥에 깔림" : "") + (c.own ? " · 가진 수 " + c.own : ""))); r.appendChild(tx);
+        if (c.own > c.placed) r.appendChild(btn("fm-x", "되팔기", function (e) { var b = e.currentTarget; if (b.dataset.arm !== "1") { b.dataset.arm = "1"; b.textContent = "+" + Math.floor(c.price / 2) + " G?"; return; } act("/api/hideout/sell", { k: c.k }); }));
+        var bb = btn("fm-go fm-sm", "사기", function () { bb.disabled = true; act("/api/hideout/buy", { k: c.k }); }); bb.disabled = H.gold < c.price; r.appendChild(bb);
+        ul.appendChild(r);
+      });
+      box.appendChild(ul);
+    }
+    function vVisit() {
+      box.appendChild(el("p", "fm-sub", "친구의 헌터 코드를 넣으면 그 친구의 아지트를 구경할 수 있어요."));
+      var f = el("form", "hd-name"), inp = el("input"); inp.type = "text"; inp.placeholder = "친구 코드 (예: HPW8-T6BR)"; inp.maxLength = 12; inp.value = visit && visit.code || ""; inp.setAttribute("aria-label", "친구 코드");
+      f.appendChild(inp); f.appendChild(btn("fm-go fm-sm", "구경하기")); box.appendChild(f);
+      f.addEventListener("submit", function (e) {
+        e.preventDefault(); var code = inp.value.trim(); if (!code) return;
+        call("GET", "/api/hideout/visit?code=" + encodeURIComponent(code)).then(function (r) { if (!r || r.error) { note = HERR[r && r.error] || "불러오지 못했어요."; visit = null; } else { visit = r; visit.code = code; note = ""; } draw(); });
+      });
+      if (visit) {
+        if (!visit.contract) box.appendChild(el("p", "fm-empty", visit.hn + " 님은 아직 아지트가 없어요."));
+        else { box.appendChild(el("p", "fm-h", visit.hn + " 님의 아지트")); var rm = roomEl(visit); if (visit.name) rm.insertBefore(el("p", "hd-rn", visit.name), rm.firstChild); box.appendChild(rm); }
+      }
+    }
+    call("GET", "/api/hideout").then(function (r) { if (!box.isConnected) return; if (!r || r.error) { box.innerHTML = ""; box.appendChild(el("p", "fm-empty", "아지트를 불러오지 못했어요.")); return; } H = r; draw(); });
+  }
+  var HIDE_CSS = [
+    ".hd-ct{display:grid;gap:10px;padding:18px;border:1px solid var(--line);border-radius:14px;background:var(--field);text-align:center}",
+    ".hd-ctt{font-size:1.05rem}.hd-price{margin:0;font-size:1.4rem;font-weight:800;color:var(--deep)}",
+    ".hd-name{display:flex;gap:6px}.hd-name input{flex:1;min-width:0;min-height:34px;padding:0 10px;border:1px solid var(--line);border-radius:8px;background:var(--field);color:var(--text);font:inherit;font-size:.85rem}",
+    ".hd-deco{display:grid;gap:6px}.hd-chips{display:flex;flex-wrap:wrap;align-items:center;gap:6px}.hd-chips small{width:30px;font-size:.74rem;color:var(--sub)}",
+    ".hd-chip{width:24px;height:24px;border-radius:6px;border:1px solid rgba(0,0,0,.25);cursor:pointer;padding:0}.hd-chip.on{outline:2px solid var(--red2);outline-offset:2px}",
+    ".hd-tool{display:grid;gap:4px;padding:8px 10px;border:1px dashed var(--line);border-radius:10px}.hd-tool b{font-size:.85rem}.hd-tool small{font-size:.74rem;color:var(--sub)}",
+    ".hd-room{box-sizing:border-box;width:100%;margin:0 auto;padding:12px;border-radius:12px;background:var(--wall);box-shadow:inset 0 0 0 2px rgba(0,0,0,.18)}",
+    ".hd-scroll{overflow:auto;max-height:min(70vh,820px);border-radius:4px}",
+    ".hd-ex{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:var(--field);font-size:.78rem;color:var(--sub)}",
+    ".hd-rn{margin:0 0 8px;text-align:center;font-weight:800;font-size:.9rem;color:#3a2a2a;text-shadow:0 1px 0 rgba(255,255,255,.6)}",
+    ".hd-grid{position:relative;display:grid;grid-template-columns:repeat(var(--s),calc(var(--cell) / 2));grid-auto-rows:calc(var(--cell) / 2);width:calc(var(--n) * var(--cell));background-image:linear-gradient(to right,rgba(0,0,0,.42) 1.5px,transparent 1.5px),linear-gradient(to bottom,rgba(0,0,0,.42) 1.5px,transparent 1.5px);background-size:var(--cell) var(--cell);margin:0 auto;background-color:var(--floor);border:2px solid rgba(0,0,0,.3);border-radius:4px;overflow:hidden}",
+    ".hd-c{box-shadow:inset -.5px -.5px 0 rgba(0,0,0,.2)}",
+    ".hd-f.thin{padding:0 2px;font-size:max(8px,calc(var(--cell) * .2));border-width:1.5px}",
+    ".hd-grid.placing{cursor:crosshair}.hd-grid.placing .hd-c:hover{background:rgba(255,255,255,.25)}",
+    ".hd-f{position:absolute;z-index:2;box-sizing:border-box;padding:2px;display:grid;place-items:center;text-align:center;background:var(--fc);border:2px solid rgba(40,24,24,.55);border-radius:4px;color:#2a1a1a;font-weight:700;font-size:max(9px,calc(var(--cell) * .3));line-height:1.15;overflow:hidden;cursor:pointer;box-shadow:0 2px 0 rgba(0,0,0,.2)}",
+    ".hd-f span{overflow-wrap:anywhere;word-break:keep-all}",
+    ".hd-f.floor{z-index:1;background:color-mix(in srgb,var(--fc) 70%,transparent);border-style:dashed;place-items:start;padding:3px 5px;font-weight:600}",
+    ".hdo{width:100%;box-sizing:border-box;grid-template-columns:minmax(0,1fr)}",".hdo>*{min-width:0}",
+    ".hd-f.sel{outline:3px solid var(--red2);outline-offset:-1px;z-index:3}",
+    ".hd-grid.placing .hd-f:not(.floor){pointer-events:auto}.hd-grid.placing .hd-f.floor{pointer-events:none}",
+    ".hd-ghost{position:absolute;z-index:4;box-sizing:border-box;border:2px dashed #2a9a5a;background:rgba(80,200,120,.25);border-radius:4px;pointer-events:none}.hd-ghost.bad{border-color:#d0404a;background:rgba(220,60,70,.25)}",
+    ".hd-store{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:6px}",
+    ".hd-si{display:flex;align-items:center;gap:8px;padding:8px;border:1px solid var(--line);border-radius:10px;background:var(--field);color:var(--text);font:inherit;text-align:left;cursor:pointer}",
+    ".hd-si.on{border-color:var(--red2);box-shadow:0 0 0 2px var(--red2) inset}.hd-si:disabled{opacity:.45;cursor:default}",
+    ".hd-si span{display:grid;gap:2px;min-width:0}.hd-si b{font-size:.8rem}.hd-si small{font-size:.68rem;color:var(--sub)}",
+    ".hd-sw{flex:none;width:calc(var(--w) * 11px);height:calc(var(--h) * 11px);background:var(--fc);border:1.5px solid rgba(40,24,24,.5);border-radius:2px}",
+  ].join("\n");
+
   function css() {
     if (document.getElementById("fm-css")) return;
     var s = document.createElement("style"); s.id = "fm-css";
@@ -299,8 +503,9 @@
       ".fm-chip.no{color:var(--sub)}.fm-chip.rare:not(.no){border-color:#e8b040}",
       "@media (prefers-reduced-motion:reduce){.fm-art.s3{animation:none}}",
     ].join("\n");
+    s.textContent += "\n" + HIDE_CSS;
     document.head.appendChild(s);
   }
 
-  window.FARM = { mount: mount };
+  window.FARM = { mount: mount, hideout: hideout };
 })();
