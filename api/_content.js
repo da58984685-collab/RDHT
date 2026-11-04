@@ -210,6 +210,34 @@ const COOK_BY = new Map(COOK.map(c => [c.id, c]));
 const DISH = new Map();       // 요리 아이템 이름 → { c, q } (q: 1 보통, 1.5 일품)
 COOK.forEach(c => { DISH.set(c.name, { c, q: 1 }); DISH.set(c.name + ' (일품)', { c, q: 1.5 }); });      // 요리 아이템
 const BUFF_MAX = 3 * HOUR, FINE_P = 0.1;
+// ── 요리 과정: 요리마다 '손질 → 조리 → 마무리' 3단계. 단계마다 눈금이 초록 칸에 있을 때 누르면 성공 ──
+// 3단계 모두 성공 = 일품 확정 · 2단계 = 일품 30% · 그 밖 = 보통. (간편 요리는 예전처럼 바로 완성, 일품 10%)
+const SEAS = new Set(['소금', '간장', '된장', '고추장', '고춧가루', '설탕', '꿀', '식용유', '참기름', '맑은 샘물', '버터', '카레 가루', '김']);
+const COOK_TOL = 40, COOK_LAG = 1500, COOK_STEP_MS = 9000, COOK_FINE2 = 0.3;
+const METHOD = {      // 단계: [이름, 설명(재료 이름이 들어감), 버튼]
+  pot: [['재료 손질', '{ab} 깨끗이 씻어 먹기 좋게 썰기', '썰기!'], ['끓이기', '냄비에 넣고 보글보글 — 넘치기 직전에 불 줄이기', '불 줄이기!'], ['간 보기', '{s} 조금씩 넣어 간 맞추고 그릇에 담기', '담기!']],
+  bowl: [['재료 손질', '{ab} 손질해서 잘게 썰기', '썰기!'], ['끓이기', '약한 불에서 뭉근하게 — 눌어붙기 전에 젓기', '젓기!'], ['담기', '{s} 넣어 간 보고 그릇에 담기', '담기!']],
+  plate: [['재료 손질', '{ab} 다듬어 썰기', '썰기!'], ['볶기·굽기', '달군 팬에서 센 불로 — 타기 직전에 뒤적이기', '뒤집기!'], ['플레이팅', '접시에 소복이 담고 고명 올리기', '담기!']],
+  fishplate: [['생선 손질', '{f} 비늘 벗기고 내장 정리하기', '손질!'], ['굽기', '노릇하게 굽다가 딱 좋은 순간에 뒤집기', '뒤집기!'], ['마무리', '{s} 곁들여 접시에 담기', '담기!']],
+  cake: [['계량', '{ab} 정확히 계량해서 섞기', '섞기!'], ['오븐', '오븐에서 봉긋 부풀어 오를 때 꺼내기', '꺼내기!'], ['장식', '{l} 올려 예쁘게 장식하기', '장식!']],
+  bun: [['반죽', '{a} 반죽을 매끈하게 치대기', '치대기!'], ['빚기', '{b} 넣고 동글동글 빚기', '빚기!'], ['굽기·찌기', '노릇노릇해지는 순간 꺼내기', '꺼내기!']],
+  cup: [['준비', '{ab} 손질해서 준비하기', '썰기!'], ['섞기', '천천히 저으며 농도 맞추기', '젓기!'], ['담기', '시원한 잔에 따라 내기', '따르기!']],
+  mug: [['준비', '{ab} 준비하고 물 끓이기', '끓이기!'], ['우리기', '딱 좋은 빛깔이 나올 때 건지기', '건지기!'], ['담기', '따뜻한 잔에 따라 내기', '따르기!']],
+  rice: [['쌀 씻기', '쌀을 씻어 알맞게 불리기', '씻기!'], ['밥 짓기', '뜸 들이는 시간 맞추기', '불 끄기!'], ['담기', '{a} 올려 그릇에 담기', '담기!']],
+  onigiri: [['밥 짓기', '고슬고슬하게 밥 짓기', '불 끄기!'], ['뭉치기', '{a} 속을 넣고 세모나게 뭉치기', '뭉치기!'], ['감싸기', '김으로 감싸 마무리', '감싸기!']],
+  noodle: [['면 삶기', '면이 퍼지기 전에 건지기', '건지기!'], ['소스', '{ab} 넣어 소스 만들기', '섞기!'], ['버무리기', '면과 소스를 버무려 담기', '담기!']],
+  pancake: [['반죽', '{ab} 넣고 반죽 섞기', '섞기!'], ['부치기', '가장자리가 바삭해질 때 뒤집기', '뒤집기!'], ['담기', '먹기 좋게 썰어 담기', '썰기!']],
+  skewer: [['꿰기', '{a} 꼬치에 가지런히 꿰기', '꿰기!'], ['굽기', '돌려 가며 고르게 굽기', '돌리기!'], ['소스', '{s} 발라 마무리', '바르기!']],
+};
+function cookSteps(c) {
+  const names = Object.keys(c.mats), main = names.filter(n => !SEAS.has(n)), seas = names.filter(n => SEAS.has(n)), fish = names.filter(n => FISH_BY.has(n));
+  const a = main[0] || names[0], b = main[1] || '', ab = b ? a + '·' + b : a;
+  const T = METHOD[c.art && c.art.s] || METHOD.plate;
+  const hard = Math.min(0.08, Math.max(0, (c.min - 30) / 150 * 0.08));      // 오래 걸리는 요리일수록 칸이 좁고 눈금이 빠름
+  return T.map((t, i) => ({ name: t[0], btn: t[2],
+    text: t[1].replace('{ab}', ab).replace('{a}', a).replace('{b}', b || a).replace('{f}', fish[0] || a).replace('{l}', main[main.length - 1] || a).replace('{s}', seas.length ? seas.join('·') : '소금 한 꼬집'),
+    win: Math.round(([0.32, 0.24, 0.3][i] - hard) * 1000) / 1000, period: Math.round([1500, 1250, 1400][i] / (1 + c.min / 240)) }));
+}
 
 // ───────── 21 낚시 ─────────
 // w: 물 종류(fresh 민물 · sea 바다 · any 둘 다) · spots: 이 지역에서만 · slot: 이 시간대에만(dawn/morning/day/night) · day: 이 요일에만(0=일) · hours: [시작, 끝) KST
@@ -488,6 +516,7 @@ const SQL = [
   "CREATE TABLE IF NOT EXISTS ct_fortune (user_id INTEGER NOT NULL, day TEXT NOT NULL, kind TEXT NOT NULL, region TEXT NOT NULL, el TEXT NOT NULL, line INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (user_id, day))",
   "CREATE TABLE IF NOT EXISTS ct_gate_week (user_id INTEGER NOT NULL, week TEXT NOT NULL, best INTEGER NOT NULL DEFAULT 0, at INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (user_id, week))",
   "CREATE INDEX IF NOT EXISTS ct_gate_week_w ON ct_gate_week(week, best)",
+  "CREATE TABLE IF NOT EXISTS ct_cook_sess (user_id INTEGER PRIMARY KEY, cid TEXT NOT NULL, steps TEXT NOT NULL, i INTEGER NOT NULL DEFAULT 0, hits TEXT NOT NULL DEFAULT '', step_at INTEGER NOT NULL DEFAULT 0, at INTEGER NOT NULL DEFAULT 0)",      // 진행 중인 요리
   "CREATE TABLE IF NOT EXISTS ct_fish_cast (user_id INTEGER PRIMARY KEY, fish TEXT NOT NULL, bite_at INTEGER NOT NULL, period INTEGER NOT NULL, w0 REAL NOT NULL, w1 REAL NOT NULL, at INTEGER NOT NULL)",
   "CREATE TABLE IF NOT EXISTS ct_fish_log (user_id INTEGER NOT NULL, fish TEXT NOT NULL, best INTEGER NOT NULL DEFAULT 0, n INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (user_id, fish))",
   "CREATE TABLE IF NOT EXISTS ct_fish_day (user_id INTEGER NOT NULL, day TEXT NOT NULL, n INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (user_id, day))",
@@ -513,7 +542,7 @@ const SQL = [
   'ALTER TABLE user_mons ADD COLUMN exp_from INTEGER NOT NULL DEFAULT 0',
   'ALTER TABLE user_mons ADD COLUMN exp_until INTEGER NOT NULL DEFAULT 0',
 ];
-const PURGE = ['ct_counter', 'ct_title', 'ct_attend', 'ct_fortune', 'ct_gate_week', 'ct_fish_cast', 'ct_fish_log', 'ct_fish_day', 'ct_news', 'ct_aff'].map(t => ['DELETE FROM ' + t + ' WHERE user_id = ?']);
+const PURGE = ['ct_counter', 'ct_title', 'ct_attend', 'ct_fortune', 'ct_gate_week', 'ct_fish_cast', 'ct_cook_sess', 'ct_fish_log', 'ct_fish_day', 'ct_news', 'ct_aff'].map(t => ['DELETE FROM ' + t + ' WHERE user_id = ?']);
 
 function install(d) {
   const { db, route, send, fail, limited, userById, grantGold, grantExp, logAcquire, giveItem, EQ_BY_ID, eqBonusOf } = d;
@@ -773,9 +802,12 @@ function install(d) {
     const uid = ctx.user.id, now = Date.now();
     const u = await db.get('SELECT buff, buff_until, buff_q FROM users WHERE id = ?', [uid]);
     const list = [];
-    for (const c of COOK) list.push({ id: c.id, name: c.name, txt: c.txt, min: c.min, art: c.art, mats: Object.keys(c.mats).map(k => ({ item: k, qty: c.mats[k] })), have: await haveMats(uid, c.mats) });
+    for (const c of COOK) list.push({ id: c.id, name: c.name, txt: c.txt, min: c.min, art: c.art, steps: cookSteps(c).map(x => x.name + ' — ' + x.text), mats: Object.keys(c.mats).map(k => ({ item: k, qty: c.mats[k] })), have: await haveMats(uid, c.mats) });
     const dishes = (await db.all('SELECT item, qty FROM inventory WHERE user_id = ? AND qty > 0', [uid])).filter(r => DISH.has(r.item)).map(r => ({ item: r.item, qty: r.qty, txt: DISH.get(r.item).c.txt, art: DISH.get(r.item).c.art, fine: DISH.get(r.item).q > 1 }));
-    send(res, 200, { list, dishes, buff: u.buff && Number(u.buff_until) > now && COOK_BY.has(u.buff) ? { name: COOK_BY.get(u.buff).name, txt: COOK_BY.get(u.buff).txt, until: Number(u.buff_until), fine: Number(u.buff_q) > 1 } : null });
+    let ps = await sessOf(uid), pc = ps && COOK_BY.get(ps.cid);
+    if (ps && pc && ps.i < ps.st.length) { await db.run('UPDATE ct_cook_sess SET step_at = ? WHERE user_id = ? AND at = ?', [now, uid, ps.at]); ps = await sessOf(uid); }      // 다시 열면 지금 단계를 처음부터
+    const sess = ps && pc ? sessView(ps, pc, now) : null;
+    send(res, 200, { list, dishes, sess, buff: u.buff && Number(u.buff_until) > now && COOK_BY.has(u.buff) ? { name: COOK_BY.get(u.buff).name, txt: COOK_BY.get(u.buff).txt, until: Number(u.buff_until), fine: Number(u.buff_q) > 1 } : null });
   });
   route('POST', '/api/cook', async (req, res, ctx) => {
     if (await limited('cook:' + ctx.user.id, 40, 60000)) return fail(res, 429, 'rate_limited');
@@ -786,6 +818,55 @@ function install(d) {
     const fine = Math.random() < FINE_P, item = c.name + (fine ? ' (일품)' : '');
     await giveItem(uid, item, 1); await logAcquire(uid, 'item', item, 1, '요리', Date.now());
     send(res, 200, { ok: true, item, fine });
+  });
+  // ── 요리 과정 (손질 → 조리 → 마무리) ──
+  const cMark = (period, t) => { const x = ((t % period) + period) % period / period; return x < 0.5 ? x * 2 : 2 - x * 2; };
+  const sessOf = async uid => { const r = await db.get('SELECT cid, steps, i, hits, step_at, at FROM ct_cook_sess WHERE user_id = ?', [uid]); if (!r) return null; try { r.st = JSON.parse(r.steps); } catch (_) { r.st = []; } r.i = Number(r.i) || 0; r.hv = String(r.hits || ''); return r; };
+  const sessView = (r, c, now) => ({ id: r.cid, name: c.name, art: c.art, i: r.i, hits: r.hv.split('').map(x => x === '1'), steps: r.st.map(x => ({ name: x.name, text: x.text, btn: x.btn })),
+    cur: r.i < r.st.length ? { win: r.st[r.i].win, w0: r.st[r.i].w0, period: r.st[r.i].period, t0: Math.max(0, now - Number(r.step_at)) } : null });
+  async function cookFinish(uid, r, c, now) {      // 결과: 성공한 단계 수로 일품/보통
+    const d = await db.run('DELETE FROM ct_cook_sess WHERE user_id = ? AND at = ?', [uid, r.at]);
+    if (d.changes !== 1) return null;
+    const n = r.hv.split('').filter(x => x === '1').length, all = r.st.length;
+    const fine = n >= all ? true : n === all - 1 ? Math.random() < COOK_FINE2 : false, item = c.name + (fine ? ' (일품)' : '');
+    await giveItem(uid, item, 1); await logAcquire(uid, 'item', item, 1, '요리', now);
+    return { item, fine, hits: n, of: all };
+  }
+  route('POST', '/api/cook/start', async (req, res, ctx) => {
+    if (await limited('cook:' + ctx.user.id, 40, 60000)) return fail(res, 429, 'rate_limited');
+    const uid = ctx.user.id, now = Date.now(), c = COOK_BY.get(String(ctx.body.id || ''));
+    if (!c) return fail(res, 404, 'no_recipe');
+    const old = await sessOf(uid);      // 끝내지 못한 요리가 있으면 지금까지 결과로 먼저 완성
+    let prev = null;
+    if (old) { const oc = COOK_BY.get(old.cid); if (oc) prev = await cookFinish(uid, old, oc, now); else await db.run('DELETE FROM ct_cook_sess WHERE user_id = ?', [uid]); }
+    const t = await take(uid, c.mats);
+    if (t.err) return fail(res, 400, 'no_mats', { item: t.item, prev });
+    const st = cookSteps(c).map(x => Object.assign(x, { w0: Math.round(Math.random() * (1 - x.win) * 1000) / 1000 }));
+    await db.run('INSERT INTO ct_cook_sess (user_id, cid, steps, i, hits, step_at, at) VALUES (?, ?, ?, 0, \'\', ?, ?) ON CONFLICT(user_id) DO UPDATE SET cid = excluded.cid, steps = excluded.steps, i = 0, hits = \'\', step_at = excluded.step_at, at = excluded.at', [uid, c.id, JSON.stringify(st), now, now]);
+    send(res, 200, { ok: true, prev, sess: sessView(await sessOf(uid), c, now) });
+  });
+  route('POST', '/api/cook/step', async (req, res, ctx) => {      // 지금 단계에서 버튼을 누름: t = 이 단계가 시작되고 몇 ms 뒤에 눌렀는지(화면 기준)
+    if (await limited('cookst:' + ctx.user.id, 120, 60000)) return fail(res, 429, 'rate_limited');
+    const uid = ctx.user.id, now = Date.now(), r = await sessOf(uid);
+    if (!r) return fail(res, 409, 'no_sess');
+    const c = COOK_BY.get(r.cid); if (!c) return fail(res, 404, 'no_recipe');
+    if (r.i >= r.st.length) return fail(res, 409, 'done');
+    const S = r.st[r.i], es = now - Number(r.step_at), ct = Number((ctx.body || {}).t);
+    const useC = Number.isFinite(ct) && ct >= 0 && ct <= es + 100 && ct >= es - COOK_LAG, el = useC ? ct : es;
+    let hit = false;
+    if (el <= COOK_STEP_MS) for (let t = el - (useC ? COOK_TOL : 120); t <= el; t += 10) { if (t < 0) continue; const p = cMark(S.period, t); if (p >= S.w0 && p <= S.w0 + S.win) { hit = true; break; } }
+    const hv = r.hv + (hit ? '1' : '0');
+    const w = await db.run('UPDATE ct_cook_sess SET i = i + 1, hits = ?, step_at = ? WHERE user_id = ? AND i = ? AND at = ?', [hv, now, uid, r.i, r.at]);
+    if (w.changes !== 1) return fail(res, 409, 'busy');
+    const nr = await sessOf(uid);
+    if (nr.i >= nr.st.length) { const out = await cookFinish(uid, nr, c, now); return send(res, 200, { ok: true, hit, step: S.name, done: true, result: out }); }
+    send(res, 200, { ok: true, hit, step: S.name, done: false, sess: sessView(nr, c, now) });
+  });
+  route('POST', '/api/cook/quit', async (req, res, ctx) => {      // 그만두기: 지금까지 결과로 완성 (재료는 이미 썼으므로)
+    const uid = ctx.user.id, now = Date.now(), r = await sessOf(uid);
+    if (!r) return fail(res, 409, 'no_sess');
+    const c = COOK_BY.get(r.cid); if (!c) { await db.run('DELETE FROM ct_cook_sess WHERE user_id = ?', [uid]); return fail(res, 404, 'no_recipe'); }
+    send(res, 200, { ok: true, result: await cookFinish(uid, r, c, now) });
   });
   route('POST', '/api/cook/eat', async (req, res, ctx) => {
     const uid = ctx.user.id, now = Date.now(), item = String(ctx.body.item || ''), d0 = DISH.get(item);
