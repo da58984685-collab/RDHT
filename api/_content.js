@@ -130,6 +130,64 @@ const COOK = [
   { id: 'c36', name: '문어 숙회', mats: { '문어': 1, '고추장': 1, '참기름': 1 }, eff: { elem: 0.1, luck: 3 }, min: 60, art: { s: 'plate', f: '#d06a7a', g: '#7cbf5a' } },
   { id: 'c37', name: '송어 버터구이', mats: { '송어': 1, '버터': 1, '마늘': 1 }, eff: { gold: 0.1, exp: 0.05 }, min: 90, art: { s: 'fishplate', f: '#d89a7a', g: '#f2e28a' } },
   { id: 'c38', name: '용왕 수라상', mats: { '용왕 비늘잉어': 1, '쌀': 2, '참기름': 1, '꿀': 1 }, eff: { exp: 0.25, gold: 0.25 }, min: 180, art: { s: 'pot', f: '#e8c050', g: '#d4202e' } },
+  // ── 추가 요리 57종 (디저트 28 · 생선 요리 29 — 농장 작물·정원 꽃·물고기 사용) ──
+  { id: 'c39', name: '딸기 케이크', mats: { '밀가루': 2, '설탕': 1, '버터': 1, '달걀': 1, '딸기': 3 }, eff: { luck: 7 }, min: 90, art: { s: 'cake', f: '#f4e6c8', g: '#e0404a' } },
+  { id: 'c40', name: '블루베리 머핀', mats: { '밀가루': 2, '블루베리': 2, '버터': 1, '설탕': 1 }, eff: { agi: 6 }, min: 60, art: { s: 'bun', f: '#c8a070', g: '#5a5ad0' } },
+  { id: 'c41', name: '호박 파이', mats: { '호박': 1, '밀가루': 2, '버터': 1, '설탕': 1 }, eff: { hpGuard: 10 }, min: 90, art: { s: 'cake', f: '#e89a3a', g: '#c0702a' } },
+  { id: 'c42', name: '수박 화채', mats: { '수박': 1, '설탕': 1, '맑은 샘물': 1 }, eff: { agi: 8 }, min: 60, art: { s: 'cup', f: '#f06a7a', g: '#4caf50' } },
+  { id: 'c43', name: '복숭아 타르트', mats: { '복숭아': 2, '밀가루': 1, '버터': 1, '설탕': 1 }, eff: { gold: 0.12 }, min: 90, art: { s: 'cake', f: '#f4c0a0', g: '#f08a7a' } },
+  { id: 'c44', name: '고구마 맛탕', mats: { '고구마': 3, '설탕': 1, '식용유': 1 }, eff: { luck: 5 }, min: 45, art: { s: 'plate', f: '#d89a3a', g: '#8a4a2a' } },
+  { id: 'c45', name: '군고구마', mats: { '고구마': 2 }, eff: { hpGuard: 5 }, min: 30, art: { s: 'plate', f: '#9a4a5a', g: '#f2c94c' } },
+  { id: 'c46', name: '딸기 우유', mats: { '딸기': 2, '우유': 1, '설탕': 1 }, eff: { agi: 4, luck: 2 }, min: 30, art: { s: 'cup', f: '#f6b0c8', g: '#e0404a' } },
+  { id: 'c47', name: '블루베리 스무디', mats: { '블루베리': 2, '우유': 1, '꿀': 1 }, eff: { luck: 5 }, min: 30, art: { s: 'cup', f: '#8a6ad0', g: '#f6f4ee' } },
+  { id: 'c48', name: '달빛 포도 젤리', mats: { '달빛 포도': 2, '설탕': 1, '맑은 샘물': 1 }, eff: { taintRes: 15 }, min: 90, art: { s: 'cup', f: '#a08ae0', g: '#e8e0ff' } },
+  { id: 'c49', name: '별빛 멜론 빙수', mats: { '별빛 멜론': 1, '우유': 1, '설탕': 1 }, eff: { exp: 0.2, gold: 0.15 }, min: 150, art: { s: 'cup', f: '#b8f0a0', g: '#f6f4ff' } },
+  { id: 'c50', name: '단호박 푸딩', mats: { '호박': 1, '우유': 1, '달걀': 2, '설탕': 1 }, eff: { taintRes: 12 }, min: 90, art: { s: 'cup', f: '#f2b632', g: '#8a4a2a' } },
+  { id: 'c51', name: '꿀 카스텔라', mats: { '밀가루': 2, '달걀': 3, '꿀': 1, '설탕': 1 }, eff: { luck: 6 }, min: 90, art: { s: 'cake', f: '#f2c94c', g: '#8a4a2a' } },
+  { id: 'c52', name: '치즈케이크', mats: { '치즈': 2, '밀가루': 1, '달걀': 1, '설탕': 1, '버터': 1 }, eff: { luck: 8 }, min: 120, art: { s: 'cake', f: '#f6e8b0', g: '#c8a060' } },
+  { id: 'c53', name: '옥수수빵', mats: { '옥수수': 2, '밀가루': 1, '우유': 1, '설탕': 1 }, eff: { hpGuard: 7 }, min: 60, art: { s: 'bun', f: '#f2d04c', g: '#c0903a' } },
+  { id: 'c54', name: '호떡', mats: { '밀가루': 2, '설탕': 1, '꿀': 1, '식용유': 1 }, eff: { str: 4, luck: 2 }, min: 45, art: { s: 'pancake', f: '#d8a050', g: '#8a4a2a' } },
+  { id: 'c55', name: '딸기 크레페', mats: { '밀가루': 1, '달걀': 1, '우유': 1, '딸기': 2 }, eff: { agi: 5 }, min: 45, art: { s: 'pancake', f: '#f4e0c0', g: '#e0404a' } },
+  { id: 'c56', name: '복숭아 아이스티', mats: { '복숭아': 1, '찻잎': 1, '설탕': 1 }, eff: { taintRes: 9, agi: 2 }, min: 45, art: { s: 'cup', f: '#f2a070', g: '#f6e0c8' } },
+  { id: 'c57', name: '장미 젤리', mats: { '빨간 장미': 1, '설탕': 1, '맑은 샘물': 1 }, eff: { luck: 6, taintRes: 5 }, min: 60, art: { s: 'cup', f: '#e04a6a', g: '#ffd0dc' } },
+  { id: 'c58', name: '라벤더 쿠키', mats: { '보라 라벤더': 1, '밀가루': 1, '버터': 1, '설탕': 1 }, eff: { agi: 5, taintRes: 5 }, min: 60, art: { s: 'bun', f: '#d8b880', g: '#9a7ad8' } },
+  { id: 'c59', name: '해바라기씨 강정', mats: { '노란 해바라기': 1, '꿀': 1, '설탕': 1 }, eff: { str: 5 }, min: 45, art: { s: 'plate', f: '#c8a060', g: '#f2b632' } },
+  { id: 'c60', name: '붕어빵', mats: { '밀가루': 2, '설탕': 1, '달걀': 1 }, eff: { luck: 4 }, min: 30, art: { s: 'bun', f: '#d89a4a', g: '#6a3a20' } },
+  { id: 'c61', name: '적월 고추 젤라또', mats: { '적월 고추': 1, '우유': 2, '설탕': 1 }, eff: { elem: 0.12, agi: 3 }, min: 90, art: { s: 'cup', f: '#e0404a', g: '#fff0f0' } },
+  { id: 'c62', name: '과일 화채', mats: { '수박': 1, '딸기': 1, '복숭아': 1, '설탕': 1 }, eff: { exp: 0.12, luck: 3 }, min: 90, art: { s: 'cup', f: '#f06a7a', g: '#f2c94c' } },
+  { id: 'c63', name: '블루베리 팬케이크', mats: { '밀가루': 2, '달걀': 1, '우유': 1, '블루베리': 2 }, eff: { agi: 5, luck: 3 }, min: 60, art: { s: 'pancake', f: '#e0b060', g: '#5a5ad0' } },
+  { id: 'c64', name: '달빛 포도 타르트', mats: { '달빛 포도': 2, '밀가루': 1, '버터': 1, '설탕': 1 }, eff: { gold: 0.15, exp: 0.05 }, min: 120, art: { s: 'cake', f: '#e8d0a0', g: '#8a6ad0' } },
+  { id: 'c65', name: '꿀떡', mats: { '쌀': 2, '꿀': 1, '설탕': 1 }, eff: { hpGuard: 6, luck: 2 }, min: 45, art: { s: 'plate', f: '#f6f0e0', g: '#f2c94c' } },
+  { id: 'c66', name: '녹차 롤케이크', mats: { '찻잎': 1, '밀가루': 1, '달걀': 2, '우유': 1, '설탕': 1 }, eff: { taintRes: 10, luck: 3 }, min: 90, art: { s: 'cake', f: '#8ab86a', g: '#f6f4ee' } },
+  { id: 'c67', name: '고등어조림', mats: { '고등어': 1, '간장': 1, '감자': 1, '양파': 1 }, eff: { str: 7 }, min: 60, art: { s: 'pot', f: '#8a5a3a', g: '#8a9aa8' } },
+  { id: 'c68', name: '갈치구이', mats: { '갈치': 1, '소금': 1 }, eff: { agi: 6 }, min: 45, art: { s: 'fishplate', f: '#d8dce4', g: '#1a1012' } },
+  { id: 'c69', name: '갈치조림', mats: { '갈치': 1, '고춧가루': 1, '간장': 1, '감자': 1 }, eff: { str: 6, elem: 0.05 }, min: 60, art: { s: 'pot', f: '#c0402a', g: '#d8dce4' } },
+  { id: 'c70', name: '송어 회덮밥', mats: { '송어': 1, '쌀': 2, '고추장': 1, '양배추': 1 }, eff: { exp: 0.12 }, min: 60, art: { s: 'rice', f: '#f0a080', g: '#7cbf5a' } },
+  { id: 'c71', name: '광어회', mats: { '광어': 1, '간장': 1 }, eff: { luck: 6, hpGuard: 4 }, min: 45, art: { s: 'fishplate', f: '#f6f2ee', g: '#4caf50' } },
+  { id: 'c72', name: '참돔 지리', mats: { '참돔': 1, '대파': 1, '마늘': 1, '맑은 샘물': 1 }, eff: { hpGuard: 12 }, min: 90, art: { s: 'pot', f: '#f0e8dc', g: '#e07a7a' } },
+  { id: 'c73', name: '우럭 매운탕', mats: { '우럭': 1, '고추장': 1, '대파': 1, '마늘': 1 }, eff: { taintRes: 12, str: 3 }, min: 60, art: { s: 'pot', f: '#d0402a', g: '#7cbf5a' } },
+  { id: 'c74', name: '코다리찜', mats: { '명태': 1, '고추장': 1, '양파': 1 }, eff: { str: 6 }, min: 60, art: { s: 'pot', f: '#c0502a', g: '#e8d8b0' } },
+  { id: 'c75', name: '대구 맑은탕', mats: { '대구': 1, '두부': 1, '대파': 1, '맑은 샘물': 1 }, eff: { hpGuard: 10 }, min: 60, art: { s: 'pot', f: '#f0ece0', g: '#7cbf5a' } },
+  { id: 'c76', name: '전어구이', mats: { '전어': 2, '소금': 1 }, eff: { luck: 5 }, min: 30, art: { s: 'fishplate', f: '#a8b0b8', g: '#1a1012' } },
+  { id: 'c77', name: '꽁치구이', mats: { '꽁치': 1, '소금': 1 }, eff: { agi: 5 }, min: 30, art: { s: 'fishplate', f: '#7a8a98', g: '#1a1012' } },
+  { id: 'c78', name: '삼치 데리야끼', mats: { '삼치': 1, '간장': 1, '설탕': 1 }, eff: { exp: 0.08, str: 3 }, min: 45, art: { s: 'fishplate', f: '#8a5a2a', g: '#f2c94c' } },
+  { id: 'c79', name: '장어구이', mats: { '뱀장어': 1, '간장': 1, '설탕': 1 }, eff: { str: 8, agi: 2 }, min: 90, art: { s: 'fishplate', f: '#6a3a20', g: '#f2c94c' } },
+  { id: 'c80', name: '낙지볶음', mats: { '낙지': 1, '고추장': 1, '양파': 1 }, eff: { elem: 0.1, str: 3 }, min: 60, art: { s: 'plate', f: '#d0402a', g: '#f4ead0' } },
+  { id: 'c81', name: '주꾸미볶음', mats: { '주꾸미': 2, '고추장': 1, '대파': 1 }, eff: { elem: 0.08 }, min: 45, art: { s: 'plate', f: '#d04a3a', g: '#7cbf5a' } },
+  { id: 'c82', name: '해물 토마토 파스타', mats: { '국수 면': 2, '토마토': 2, '바다 새우': 1, '마늘': 1 }, eff: { agi: 6, exp: 0.05 }, min: 60, art: { s: 'noodle', f: '#e05a3a', g: '#f4ead0' } },
+  { id: 'c83', name: '굴전', mats: { '굴': 3, '밀가루': 1, '달걀': 1 }, eff: { hpGuard: 8 }, min: 45, art: { s: 'pancake', f: '#e8c070', g: '#a8b0b8' } },
+  { id: 'c84', name: '전복죽', mats: { '전복': 1, '쌀': 2, '참기름': 1 }, eff: { hpGuard: 14, taintRes: 4 }, min: 120, art: { s: 'bowl', f: '#d8e0b0', g: '#5a7a3a' } },
+  { id: 'c85', name: '대게찜', mats: { '대게': 1, '맑은 샘물': 1 }, eff: { luck: 8 }, min: 90, art: { s: 'plate', f: '#e0603a', g: '#f6e8d0' } },
+  { id: 'c86', name: '랍스터 버터구이', mats: { '랍스터': 1, '버터': 1, '마늘': 1 }, eff: { gold: 0.15 }, min: 120, art: { s: 'fishplate', f: '#e05a3a', g: '#f2e28a' } },
+  { id: 'c87', name: '참다랑어 스테이크', mats: { '참다랑어': 1, '버터': 1, '소금': 1 }, eff: { str: 10, exp: 0.08 }, min: 120, art: { s: 'fishplate', f: '#a02a3a', g: '#f2e28a' } },
+  { id: 'c88', name: '피라루쿠 구이', mats: { '피라루쿠': 1, '소금': 1, '식용유': 1 }, eff: { elem: 0.15, str: 4 }, min: 120, art: { s: 'fishplate', f: '#c07a5a', g: '#1a1012' } },
+  { id: 'c89', name: '새우튀김', mats: { '대하': 2, '밀가루': 1, '달걀': 1, '식용유': 1 }, eff: { agi: 6 }, min: 45, art: { s: 'plate', f: '#e8a040', g: '#f4ead0' } },
+  { id: 'c90', name: '생선까스', mats: { '대구': 1, '밀가루': 1, '달걀': 1, '식용유': 1 }, eff: { str: 6, hpGuard: 4 }, min: 60, art: { s: 'plate', f: '#d89a4a', g: '#7cbf5a' } },
+  { id: 'c91', name: '멸치 주먹밥', mats: { '쌀': 2, '김': 1, '멸치': 2 }, eff: { luck: 4, exp: 0.05 }, min: 30, art: { s: 'onigiri', f: '#f6f4ee', g: '#1f3a2a' } },
+  { id: 'c92', name: '철갑상어 카나페', mats: { '철갑상어': 1, '밀가루': 1, '버터': 1 }, eff: { gold: 0.2, luck: 4 }, min: 150, art: { s: 'plate', f: '#3a3a4a', g: '#f2e28a' } },
+  { id: 'c93', name: '적월 해마탕', mats: { '적월 해마': 1, '적월 고추': 1, '맑은 샘물': 1 }, eff: { elem: 0.2 }, min: 150, art: { s: 'pot', f: '#b03040', g: '#1a1012' } },
+  { id: 'c94', name: '산갈치 궁중구이', mats: { '산갈치': 1, '간장': 1, '참기름': 1, '꿀': 1 }, eff: { exp: 0.22, gold: 0.22 }, min: 180, art: { s: 'fishplate', f: '#e0e4ec', g: '#d4202e' } },
+  { id: 'c95', name: '백상아리 지느러미 수프', mats: { '백상아리': 1, '대파': 1, '간장': 1, '맑은 샘물': 1 }, eff: { hpGuard: 20, str: 6 }, min: 180, art: { s: 'bowl', f: '#e8dcc0', g: '#7a8a98' } },
 ];
 // 효과 문구가 없는 요리는 eff 로 만들어 씀
 const EFF_KO = { exp: '토벌 경험치', gold: '토벌 골드', elem: '속성 공격 피해', luck: '행운', str: '근력', agi: '민첩', hpGuard: '체력 피해', taintRes: '오염도 증가' };
@@ -311,9 +369,65 @@ const FISH = [
   { name: '나일의 태양어', tier: 'l', w: 'fresh', spots: ['eg-nile'], slot: 'day', day: 3, cm: [80, 160], gold: 1900 },
   { name: '적월 고래상어', tier: 'l', w: 'sea', spots: ['gt-lake'], slot: 'night', cm: [600, 1200], gold: 2600 },
   { name: '그레이윅 은하어', tier: 'l', w: 'fresh', spots: ['cw-isle'], hours: [22, 24], cm: [50, 120], gold: 2400 },
+  // ── 추가 어종 55종 (일반 22 · 희귀 18 · 영웅 10 · 전설 5) → 총 200종 ──
+  { name: '모래무지', tier: 'c', w: 'fresh', cm: [10, 25], gold: 22 },
+  { name: '참붕어', tier: 'c', w: 'fresh', slot: 'morning', cm: [5, 12], gold: 22 },
+  { name: '돌고기', tier: 'c', w: 'fresh', cm: [7, 15], gold: 22 },
+  { name: '밀어', tier: 'c', w: 'fresh', slot: 'day', cm: [4, 9], gold: 20 },
+  { name: '각시붕어', tier: 'c', w: 'fresh', spots: ['river', 'jp-onsen'], cm: [3, 6], gold: 24 },
+  { name: '강모래 새우', tier: 'c', w: 'fresh', spots: ['eg-nile', 'in-ganges', 'mg-river'], cm: [3, 7], gold: 22 },
+  { name: '갈대 붕어', tier: 'c', w: 'fresh', spots: ['us-bayou', 'br-amazon'], cm: [10, 30], gold: 24 },
+  { name: '자라', tier: 'c', w: 'fresh', slot: 'night', cm: [15, 35], gold: 30 },
+  { name: '빙하 새우', tier: 'c', w: 'fresh', spots: ['ru-baikal'], slot: 'dawn', cm: [2, 5], gold: 24 },
+  { name: '폭포 피라미', tier: 'c', w: 'fresh', spots: ['br-falls', 'cn-gorge'], cm: [6, 14], gold: 24 },
+  { name: '전어', tier: 'c', w: 'sea', slot: 'morning', cm: [15, 30], gold: 22 },
+  { name: '조기', tier: 'c', w: 'sea', cm: [20, 40], gold: 26 },
+  { name: '병어', tier: 'c', w: 'sea', cm: [15, 35], gold: 26 },
+  { name: '망둥어', tier: 'c', w: 'sea', slot: 'day', cm: [8, 20], gold: 20 },
+  { name: '홍합', tier: 'c', w: 'sea', cm: [4, 10], gold: 20 },
+  { name: '굴', tier: 'c', w: 'sea', slot: 'dawn', cm: [5, 12], gold: 22 },
+  { name: '꼴뚜기', tier: 'c', w: 'sea', slot: 'night', cm: [5, 12], gold: 22 },
+  { name: '키조개', tier: 'c', w: 'sea', cm: [15, 30], gold: 26 },
+  { name: '열기', tier: 'c', w: 'sea', spots: ['port', 'ru-port', 'jp-bay'], cm: [15, 30], gold: 26 },
+  { name: '지중해 정어리', tier: 'c', w: 'sea', spots: ['it-genoa', 'fr-marseille'], cm: [12, 22], gold: 24 },
+  { name: '수에즈 숭어', tier: 'c', w: 'sea', spots: ['eg-suez', 'in-mumbai'], cm: [25, 50], gold: 26 },
+  { name: '산호 새우', tier: 'c', w: 'sea', spots: ['au-reef', 'gt-lake'], cm: [3, 8], gold: 26 },
+  { name: '어름치', tier: 'r', w: 'fresh', spots: ['river', 'cn-gorge'], slot: 'dawn', cm: [20, 40], gold: 90 },
+  { name: '황쏘가리', tier: 'r', w: 'fresh', spots: ['river'], slot: 'day', cm: [25, 50], gold: 100 },
+  { name: '얼음 곤들매기', tier: 'r', w: 'fresh', spots: ['ru-baikal'], cm: [30, 60], gold: 95 },
+  { name: '네온 테트라', tier: 'r', w: 'fresh', spots: ['br-amazon'], slot: 'night', cm: [2, 4], gold: 90 },
+  { name: '디스커스', tier: 'r', w: 'fresh', spots: ['br-amazon', 'br-falls'], cm: [12, 20], gold: 100 },
+  { name: '나일 폴립테루스', tier: 'r', w: 'fresh', spots: ['eg-nile'], slot: 'night', cm: [30, 70], gold: 95 },
+  { name: '베네치아 유리고기', tier: 'r', w: 'fresh', spots: ['it-venice'], slot: 'dawn', cm: [5, 12], gold: 100 },
+  { name: '갠지스 연꽃 메기', tier: 'r', w: 'fresh', spots: ['in-ganges'], slot: 'morning', cm: [30, 80], gold: 90 },
+  { name: '안개 이끼송사리', tier: 'r', w: 'fresh', spots: ['cw-isle'], cm: [3, 8], gold: 110 },
+  { name: '전갱이 왕', tier: 'r', w: 'sea', slot: 'dawn', cm: [40, 70], gold: 85 },
+  { name: '벵에돔', tier: 'r', w: 'sea', spots: ['jp-bay', 'port'], slot: 'night', cm: [25, 50], gold: 95 },
+  { name: '자바리', tier: 'r', w: 'sea', spots: ['jp-bay', 'au-reef', 'in-mumbai'], cm: [40, 90], gold: 110 },
+  { name: '해마', tier: 'r', w: 'sea', spots: ['au-reef', 'mg-coast', 'it-genoa'], cm: [8, 20], gold: 100 },
+  { name: '갯가재', tier: 'r', w: 'sea', slot: 'night', cm: [15, 30], gold: 85 },
+  { name: '파랑비늘돔', tier: 'r', w: 'sea', spots: ['au-reef', 'br-beach'], slot: 'day', cm: [30, 70], gold: 95 },
+  { name: '붉은 퉁돔', tier: 'r', w: 'sea', spots: ['mg-coast', 'mg-port', 'eg-suez'], cm: [30, 60], gold: 95 },
+  { name: '던지니스 게', tier: 'r', w: 'sea', spots: ['us-harbor'], cm: [15, 25], gold: 105 },
+  { name: '마르세유 붉은숭어', tier: 'r', w: 'sea', spots: ['fr-marseille', 'it-genoa'], slot: 'morning', cm: [20, 40], gold: 95 },
+  { name: '아마존 거대 민물게', tier: 'e', w: 'fresh', spots: ['br-amazon'], slot: 'night', cm: [30, 60], gold: 310 },
+  { name: '협곡 금빛 산천어', tier: 'e', w: 'fresh', spots: ['cn-gorge', 'jp-onsen'], slot: 'dawn', cm: [40, 70], gold: 320 },
+  { name: '미시시피 패들피시', tier: 'e', w: 'fresh', spots: ['us-bayou'], slot: 'day', cm: [100, 200], gold: 330 },
+  { name: '마다가스카르 은빛 시클리드', tier: 'e', w: 'fresh', spots: ['mg-river'], cm: [20, 40], gold: 300 },
+  { name: '센강 달빛 잉어', tier: 'e', w: 'fresh', spots: ['fr-seine'], slot: 'night', cm: [60, 110], gold: 310 },
+  { name: '혹등 놀래기', tier: 'e', w: 'sea', spots: ['au-reef', 'mg-coast'], slot: 'morning', cm: [80, 200], gold: 340 },
+  { name: '빨강 대왕문어', tier: 'e', w: 'sea', spots: ['us-harbor', 'ru-port'], slot: 'night', cm: [200, 500], gold: 360 },
+  { name: '보석 바닷가재', tier: 'e', w: 'sea', spots: ['fr-marseille', 'it-genoa', 'au-sydney'], cm: [40, 90], gold: 350 },
+  { name: '뭄바이 은빛 병어', tier: 'e', w: 'sea', spots: ['in-mumbai', 'eg-suez'], slot: 'dawn', cm: [40, 80], gold: 320 },
+  { name: '적월 등불오징어', tier: 'e', w: 'sea', spots: ['gt-lake'], slot: 'dawn', cm: [30, 80], gold: 380 },
+  { name: '협곡의 비룡어', tier: 'l', w: 'fresh', spots: ['cn-gorge'], hours: [4, 6], cm: [200, 400], gold: 2300 },
+  { name: '갠지스 연꽃 왕잉어', tier: 'l', w: 'fresh', spots: ['in-ganges'], day: 1, cm: [150, 300], gold: 2100 },
+  { name: '에메랄드 실러캔스', tier: 'l', w: 'sea', spots: ['au-reef', 'mg-coast'], slot: 'night', day: 5, cm: [150, 220], gold: 2400 },
+  { name: '얼음바다 일각고래어', tier: 'l', w: 'sea', spots: ['ru-port'], hours: [0, 2], cm: [300, 600], gold: 2500 },
+  { name: '그레이윅 새벽 정령어', tier: 'l', w: 'fresh', spots: ['cw-isle'], slot: 'dawn', day: 0, cm: [60, 140], gold: 2800 },
 ].map(f => Object.assign({}, FISH_TIER[f.tier], f));
 const FISH_BY = new Map(FISH.map(f => [f.name, f]));
-const FISH_TOL = 450;          // 판정 여유(ms, 통신 지연) · 낚시 횟수는 무제한 (하루에 던진 횟수만 기록)
+const FISH_TOL = 120, FISH_LAG = 1500;      // 판정 여유(ms) · 화면 시각과 서버 시각의 허용 차이(통신 지연) · 낚시 횟수는 무제한 (하루에 던진 횟수만 기록)
 const FISH_SPOTS = new Set(G.REGIONS.filter(r => r.icon === 'i-wave' || r.icon === 'i-port').map(r => r.id).concat(['gt-lake', 'cw-isle']));
 // 바다: 항구 + 해안가(물결 아이콘이지만 바다인 곳) + 적월문 푸른 바다
 const SEA_SPOTS = new Set(G.REGIONS.filter(r => r.icon === 'i-port').map(r => r.id).concat(['gt-lake', 'mg-coast', 'br-beach', 'au-reef', 'au-road']));
@@ -736,10 +850,16 @@ function install(d) {
     const c = await db.get('SELECT fish, bite_at, period, w0, w1, at FROM ct_fish_cast WHERE user_id = ?', [uid]);
     if (!c) return fail(res, 409, 'no_cast');
     await db.run('DELETE FROM ct_fish_cast WHERE user_id = ? AND at = ?', [uid, c.at]);
-    if (now < c.bite_at) return send(res, 200, { ok: true, caught: false, why: 'early' });
-    if (now > c.bite_at + 6000) return send(res, 200, { ok: true, caught: false, why: 'late' });
+    // 판정: 화면이 보낸 '입질 후 몇 ms에 당겼는지'(ct)로 그 순간의 눈금 위치를 계산 — 화면에서 보던 그대로 판정.
+    // ct 는 서버가 잰 경과 시간보다 길 수 없고, 통신 지연(FISH_LAG)보다 많이 짧을 수도 없음. ct 가 없거나 이상하면 서버 시각으로 엄격하게 판정.
+    const es = now - c.bite_at, ct = Number((ctx.body || {}).t);
+    const useC = Number.isFinite(ct) && ct <= es + 100 && ct >= es - FISH_LAG;
+    const el = useC ? ct : es;
+    if (el < 0) return send(res, 200, { ok: true, caught: false, why: 'early' });
+    if (el > 6000) return send(res, 200, { ok: true, caught: false, why: 'late' });
     let hit = false;
-    for (let t = now - FISH_TOL; t <= now; t += 15) { if (t < c.bite_at) continue; const p = markAt(c, t); if (p >= c.w0 && p <= c.w1) { hit = true; break; } }
+    const tol = useC ? 40 : FISH_TOL;
+    for (let t = el - tol; t <= el; t += 10) { if (t < 0) continue; const p = markAt(c, c.bite_at + t); if (p >= c.w0 && p <= c.w1) { hit = true; break; } }
     if (!hit) return send(res, 200, { ok: true, caught: false, why: 'miss', fish: c.fish });
     const f = FISH_BY.get(c.fish), cm = f.cm[0] + Math.floor(Math.random() * (f.cm[1] - f.cm[0] + 1));
     await giveItem(uid, f.name, 1); await logAcquire(uid, 'item', f.name, 1, '낚시 (' + cm + 'cm)', now);
