@@ -257,8 +257,8 @@
       ".fm-go:disabled{opacity:.45;cursor:default}",
       ".fm-x{padding:2px 6px;border:0;background:none;color:var(--sub);font-family:inherit;font-weight:400;font-size:.7rem;line-height:1;cursor:pointer;text-decoration:underline dotted}",
       ".fm-x[data-arm='1']{color:#e0505a}",
-      ".fm-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(118px,1fr));gap:8px}",
-      ".fm-grid.pots{grid-template-columns:repeat(auto-fill,minmax(112px,1fr))}",
+      ".fm-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px}",
+      ".fm-grid.pots{grid-template-columns:repeat(auto-fill,minmax(96px,1fr))}",
       
       ".fm-cell{display:grid;justify-items:center;gap:3px;padding:10px 6px;border:1px solid var(--line);border-radius:12px;background:var(--field);text-align:center;min-width:0}",
       ".fm-cell b{font-size:.84rem;overflow-wrap:anywhere}.fm-cell small{font-size:.72rem;color:var(--sub)}",
