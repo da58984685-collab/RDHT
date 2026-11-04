@@ -412,9 +412,9 @@ const RANK_IDX = { F: 0, E: 1, D: 2, C: 3, B: 4, A: 5, S: 6, SS: 7 };   // SS �
 //          gold(보유 골드) · taint(오염도) · hrank(헌터 등급 이상) · stat(근력/민첩/행운:값)
 // 명성 대신 추가: pvpwin(PVP 승리 수) · lp(리그 최고 LP) · floor(적월문 심층 최고 층) · fishsp(낚은 어종 수) · cooks(요리 횟수) · attend(출석 도장판 완주 횟수) · dex(속성 도감 해금 속성 수)
 const ACH_KINDS = ['always', 'kills', 'rank', 'sTry', 'sWin', 'lv', 'manual',
-  'visit', 'visits', 'countries', 'collect', 'slay', 'surveys', 'crafts', 'fails', 'friends', 'gifts', 'gold', 'taint', 'hrank', 'stat', 'pvpwin', 'lp', 'floor', 'fishsp', 'cooks', 'attend', 'dex', 'mg'];
+  'visit', 'visits', 'countries', 'collect', 'slay', 'surveys', 'crafts', 'fails', 'friends', 'gifts', 'gold', 'taint', 'hrank', 'stat', 'pvpwin', 'lp', 'floor', 'fishsp', 'cooks', 'attend', 'dex', 'mg', 'harvest', 'flowers'];
 const ACH_COMPOUND = ['visit', 'collect', 'slay', 'stat', 'mg'];       // mg: 마법소녀 이벤트 기록 '항목:횟수'       // 값이 '대상:숫자' 형태인 종류
-const ACH_NUM = ['kills', 'sTry', 'sWin', 'lv', 'visits', 'countries', 'surveys', 'crafts', 'fails', 'friends', 'gifts', 'gold', 'taint', 'pvpwin', 'lp', 'floor', 'fishsp', 'cooks', 'attend', 'dex'];
+const ACH_NUM = ['kills', 'sTry', 'sWin', 'lv', 'visits', 'countries', 'surveys', 'crafts', 'fails', 'friends', 'gifts', 'gold', 'taint', 'pvpwin', 'lp', 'floor', 'fishsp', 'cooks', 'attend', 'dex', 'harvest', 'flowers'];
 // 처음 서버가 켜질 때 한 번만 넣는 기본 업적 (이후에는 관리자가 자유롭게 수정·삭제)
 const ACH_SEED = [
   { id: 'reg',  name: '헌터 등록',   desc: '게이트 앞에서 헌터로 등록했다.', kind: 'always', val: '' },
@@ -568,9 +568,18 @@ const ACH_SEED4 = [
 const ACH_SEED6 = [
   { id: 'n-fs60', name: '바다의 학자', desc: '서로 다른 물고기 60종을 낚았다.', kind: 'fishsp', val: '60' },
   { id: 'n-fs100', name: '어류 도감 편찬자', desc: '서로 다른 물고기 100종을 낚았다.', kind: 'fishsp', val: '100' },
-  { id: 'n-fs145', name: '모든 물의 주인', desc: '모든 물고기 145종을 낚았다. 적월 고래상어와 그레이윅 은하어까지.', kind: 'fishsp', val: '145' },
+  { id: 'n-fs145', name: '모든 물의 주인', desc: '모든 물고기 200종을 낚았다. 적월 고래상어와 그레이윅 새벽 정령어까지.', kind: 'fishsp', val: '200' },
 ];
-const ACH_TITLE_TIER = { 'n-fs60': 'r', 'n-fs100': 'e', 'n-fs145': 'l', 'mg-tf200': 'e', 'mg-bond100': 'e', 'mg-star30': 'e', 'mg-pet8': 'e', 'mg-petdone8': 'l', 'mg-duel50': 'e', 'mg-mirror10': 'e', 'mg-grad': 'e', 'mg-spell3': 'l', 'mg-outfit10': 'l', 'n-legend': 'l', 'n-living': 'l', 'n-immortal': 'l', 'n-lpl': 'e', 'n-fl100': 'e', 'n-fs35': 'e', 'n-ck500': 'e', 'n-at12': 'e', 'n-lv100': 'e', 'n-gd1m': 'e', 'n-dex10': 'r', 'n-pw100': 'r', 'n-lpd': 'r', 'n-fl50': 'r', 'n-sw10': 'r', 'u-core': 'e', 'u-luck100': 'e', 'u-rich': 'e', 'u-k1000': 'r' };
+// 일곱 번째 묶음: 농장 · 정원
+const ACH_SEED7 = [
+  { id: 'n-hv1', name: '첫 수확', desc: '농장에서 처음으로 작물을 수확했다.', kind: 'harvest', val: '1' },
+  { id: 'n-hv50', name: '부지런한 농부', desc: '농장에서 작물을 50번 수확했다.', kind: 'harvest', val: '50' },
+  { id: 'n-hv300', name: '대풍년', desc: '농장에서 작물을 300번 수확했다.', kind: 'harvest', val: '300' },
+  { id: 'n-fw10', name: '꽃을 피우는 손', desc: '정원에서 서로 다른 꽃 색 10가지를 피웠다.', kind: 'flowers', val: '10' },
+  { id: 'n-fw25', name: '정원사', desc: '정원에서 서로 다른 꽃 색 25가지를 피웠다.', kind: 'flowers', val: '25' },
+  { id: 'n-fwall', name: '정원의 마법사', desc: '모든 꽃 색 36가지를 피웠다. 오로라 별빛 장미까지.', kind: 'flowers', val: '36' },
+];
+const ACH_TITLE_TIER = { 'n-hv300': 'e', 'n-fw25': 'r', 'n-fwall': 'l', 'n-fs60': 'r', 'n-fs100': 'e', 'n-fs145': 'l', 'mg-tf200': 'e', 'mg-bond100': 'e', 'mg-star30': 'e', 'mg-pet8': 'e', 'mg-petdone8': 'l', 'mg-duel50': 'e', 'mg-mirror10': 'e', 'mg-grad': 'e', 'mg-spell3': 'l', 'mg-outfit10': 'l', 'n-legend': 'l', 'n-living': 'l', 'n-immortal': 'l', 'n-lpl': 'e', 'n-fl100': 'e', 'n-fs35': 'e', 'n-ck500': 'e', 'n-at12': 'e', 'n-lv100': 'e', 'n-gd1m': 'e', 'n-dex10': 'r', 'n-pw100': 'r', 'n-lpd': 'r', 'n-fl50': 'r', 'n-sw10': 'r', 'u-core': 'e', 'u-luck100': 'e', 'u-rich': 'e', 'u-k1000': 'r' };
 // 헌터 등급 승급: F→E, E→D 는 전투력(레벨)만 오르면 됩니다. D→C 부터는 처치 기록 등 조건이 더해지고, 위로 갈수록 어려워집니다.
 //  kills: [{ min: 해당 등급 이상 몬스터, n: 처치 수 }], sTry: S급 토벌 도전 횟수, taintMax: 오염도(%) 이하여야 함
 const PROMO = {
@@ -931,7 +940,7 @@ const isTurnBased = (monRank, hunterRank) => monRank !== 'SS' && RANK_IDX[monRan
 
 module.exports = {
   BT, btMon, btPlayer, isTurnBased, taintStage, TAINT_SHOP_PCT, TAINT_BAN_DANGER, taintPrice, TAINT_LOSE_GOLD_MUL, HUNTER_CHANCE, HUNTER_LV_MAX, hunterScale, RARE_CHANCE, SPECIAL_MON,
-  SV_MARKS, MATERIALS, GATE_MATS, GATE_ZONES, EQ_GRADE, EQ_SLOTS, EQUIPS, ELEMS, ELEM_KEYS, MON_ELEM, elemOf, affMul, RECIPES, CRAFT_DEFS, ACH_SEED4, ACH_SEED5, ACH_SEED6, MG_ACH_KEYS, ACH_TITLE_TIER,
+  SV_MARKS, MATERIALS, GATE_MATS, GATE_ZONES, EQ_GRADE, EQ_SLOTS, EQUIPS, ELEMS, ELEM_KEYS, MON_ELEM, elemOf, affMul, RECIPES, CRAFT_DEFS, ACH_SEED4, ACH_SEED5, ACH_SEED6, ACH_SEED7, MG_ACH_KEYS, ACH_TITLE_TIER,
   STAT_MAX, STAT_RESET_BASE, STAT_RESET_PER, statResetCost, rnd, chance01, SPAWN_COUNTRIES, SPAWN_REGIONS, REGIONS, REGION_BY_ID, COUNTRIES, COUNTRY_BY_ID, countryOf, placeName, placeLong, MON, FRIENDLY_MON, PVP, PVP_STAT_TEXT, BOND_STEP, BOND_MAX, BOND_MUL, bondStage, friendFx, pvpBattle, pvpFighter, pvpResolve, pvpPower, mulberry32, PVP_MIN, PVP_MAX, PVP_TOTAL, PVP_KEYS, PVP_KO, pvpStatsOk, pvpDerive, TIERS, ACTIVE_MS, ACTIVE_MS_F, ACTIVE_MS_S, activeMsOf, KILL_EXP, KILL_GOLD, KILL_TAINT, rollTaint, garble, RANK_IDX, ACH_KINDS, ACH_COMPOUND, ACH_NUM, ACH_SEED, ACH_SEED2, ACH_SEED3, PROMO, ACH_PIN_MAX, rollGold, HUNT_DIFF,
   RAID_NEED, RAID_ATTEMPTS, S_MAX, S_WINDOW_MS, S_WAIT_MS, powNeed, cdOf, huntChance,
   rollRank, rollStats, PROB_CAP, STR_WIN, guardChance, freeChance, HP_START, HP_MIN, HP_DYING_MS, HP_REVIVE, hpLoss, makeCode, addExp, MIN, HOUR,
