@@ -1443,7 +1443,7 @@ route('POST', '/api/friends/rescue', async (req, res, ctx) => {
 // ═════════════ 장비 ═════════════
 const EQ_BY_ID = new Map(G.EQUIPS.map(e => [e.id, e]));
 const CT = CTX.install({ db, route, send, fail, limited, userById, grantGold, grantExp, logAcquire, giveItem, EQ_BY_ID, HP });      // 상시 컨텐츠 12종
-const FARM = FARMX.install({ db, route, send, fail, limited, grantGold, grantExp, logAcquire, giveItem });      // 농장
+const FARM = FARMX.install({ db, route, send, fail, limited, grantGold, grantExp, logAcquire, giveItem, userByCode, isFriend, normCode });      // 농장
 const MG = require('./_magic').install({ db, route, send, fail, limited, userById, userByCode, isFriend, applyItemEffect, themeState, CT, normCode, grantGold, grantExp, logAcquire, placeName: G.placeName, pvpMine, compFx: c => compFx(c), G });      // 마법소녀 이벤트
 const EQ_BY_NAME = new Map(G.EQUIPS.map(e => [e.name, e]));
 const eqBonusOf = e => { if (e.bonus) return { stat: e.bonus.stat, val: e.bonus.val }; const sl = G.EQ_SLOTS[e.slot], gi = 'CBAS'.indexOf(e.grade); return { stat: sl.stat, val: sl.v[gi] }; };      // e.bonus: 이벤트 가면처럼 능력치를 직접 지정한 장비
