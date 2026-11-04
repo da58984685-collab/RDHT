@@ -1329,10 +1329,6 @@ html.mgl.mgn .u353{--ux-shadow-strong:rgba(0,0,0,.72);--u353-metal:#4a2a37;--u35
           <div id="bgmbox" aria-hidden="true"></div>
         </div>
       </section>
-      <section id="gfish">
-        <h2><svg class="ic"><use href="#i-fish"/></svg>낚시</h2>
-        <div class="body" id="gfishb"></div>
-      </section>
       <section id="gstat">
         <h2><svg class="ic"><use href="#i-star"/></svg>스탯</h2>
         <div class="sttab" role="tablist" aria-label="스탯 창 선택"><button type="button" role="tab" id="sttab0" aria-controls="stpg0" aria-selected="true">기본</button><button type="button" role="tab" id="sttab1" aria-controls="stpg1" aria-selected="false" tabindex="-1">PVP</button></div>
@@ -1377,10 +1373,6 @@ html.mgl.mgn .u353{--ux-shadow-strong:rgba(0,0,0,.72);--u353-metal:#4a2a37;--u35
           <p class="pwnote" id="mapmsg" role="status"></p>
         </div>
       </section>
-      <section id="gfarm">
-        <h2><svg class="ic"><use href="#i-farm"/></svg>농장</h2>
-        <div class="body" id="gfarmb"></div>
-      </section>
       <section id="gtodo">
         <h2><svg class="ic"><use href="#i-chk"/></svg>할 일</h2>
         <div class="body">
@@ -1397,10 +1389,6 @@ html.mgl.mgn .u353{--ux-shadow-strong:rgba(0,0,0,.72);--u353-metal:#4a2a37;--u35
       <section id="gdev">
         <h2><svg class="ic"><use href="#i-phone"/></svg>기기</h2>
         <div class="body"><div class="phone"><div class="ph-top"><span>HUNTER-OS</span><span id="phclk"></span></div><div class="ph-scr" id="phscr"></div><div class="ph-nav" role="navigation" aria-label="기기 하단 버튼"><button type="button" class="nv nv-rec" aria-label="최근 앱 (작동하지 않음)" aria-disabled="true" tabindex="-1"><svg viewBox="0 0 16 14" aria-hidden="true"><path d="M2 1h2v12H2zM7 1h2v12H7zM12 1h2v12h-2z"/></svg></button><button type="button" class="nv nv-home" aria-label="홈 (작동하지 않음)" aria-disabled="true" tabindex="-1"><svg viewBox="0 0 16 16" aria-hidden="true"><rect x="2" y="2" width="12" height="12" rx="4" fill="none" stroke="currentColor" stroke-width="2"/></svg></button><button type="button" class="nv nv-back" aria-label="뒤로가기"><svg viewBox="0 0 16 16" aria-hidden="true"><path d="M10 2 4 8l6 6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="square"/></svg></button></div></div></div>
-      </section>
-      <section id="gpot">
-        <h2><svg class="ic"><use href="#i-pot"/></svg>화분</h2>
-        <div class="body" id="gpotb"></div>
       </section>
     </div>
   </div>
@@ -1624,6 +1612,7 @@ html.mgl.mgn .u353{--ux-shadow-strong:rgba(0,0,0,.72);--u353-metal:#4a2a37;--u35
 .cmempty{padding:24px 8px;text-align:center;color:var(--deep);font-size:.9rem}
 @keyframes cmIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
 @media (prefers-reduced-motion:reduce){.cml li.is-new{animation:none}}
+.heal-l{display:grid;gap:8px}.heal-it{display:flex;align-items:center;gap:12px;width:100%;padding:12px 14px;border:1px solid var(--line);border-radius:12px;background:var(--field);color:var(--text);font:inherit;text-align:left;cursor:pointer}.heal-it:hover{border-color:var(--red2)}.heal-it .ic{flex:none;width:26px;height:26px;color:var(--deep)}.heal-it span{display:grid;gap:3px;flex:1;min-width:0}.heal-it b{font-size:.95rem}.heal-it small{font-size:.74rem;color:var(--sub)}.heal-it i{font-style:normal;font-size:1.3rem;color:var(--sub)}.heal-bk{margin:0 0 6px;padding:4px 10px;border:1px solid var(--line);border-radius:999px;background:transparent;color:var(--deep);font:600 .78rem/1.4 "Noto Sans KR",sans-serif;cursor:pointer}.heal-t{margin:0 0 8px;font-weight:700;font-size:1rem}
 .ct-flog{margin-top:14px}.ct-flog>summary{cursor:pointer;padding:10px 12px;font-weight:700;font-size:.9rem;color:var(--text);background:var(--field);border:1px solid var(--line);border-radius:10px;list-style:none}.ct-flog>summary::-webkit-details-marker{display:none}.ct-flog>summary::before{content:"▸ ";color:var(--deep)}.ct-flog[open]>summary::before{content:"▾ "}.ct-flog .app-list{margin-top:8px}
 /* 게이트웨이브 (헌터 전용 게시판) */
 .gwl{list-style:none;margin:0;padding:0;display:grid;gap:10px}
@@ -3241,7 +3230,7 @@ var globe=(function(){
   return {set:set,isOn:function(){return on},redraw:function(){if(on&&rm)draw()}};
 })();
 var achNew=0,rescueReq=0,gold=0,devApp=null,inventory=[],invSig="",invNote="";
-var APPS=[["gw","게이트웨이브","i-eye"],["msg","메신저","i-chat"],["com","커뮤니티","i-board"],["ach","업적","i-medal"],["eqp","장비","i-str"],["rai","육성","i-rai"],["pvp","전장","i-pvp"],["sys","시스템 알림","i-bell"],["shop","상점","i-shop"],["hp","던전로그","i-home"],["inv","인벤토리","i-bag"],["att","출석","i-att"],["fort","운세","i-fort"],["cook","요리","i-cook"],["exped","원정","i-exp"],["afx","속성 도감","i-afx"],["mgs","마법소녀","i-mgs"],["mgsch","마법 학교","i-mgsch"]];
+var APPS=[["gw","게이트웨이브","i-eye"],["msg","메신저","i-chat"],["com","커뮤니티","i-board"],["ach","업적","i-medal"],["eqp","장비","i-str"],["rai","육성","i-rai"],["pvp","전장","i-pvp"],["sys","시스템 알림","i-bell"],["shop","상점","i-shop"],["hp","던전로그","i-home"],["inv","인벤토리","i-bag"],["att","출석","i-att"],["fort","운세","i-fort"],["cook","요리","i-cook"],["heal","힐링","i-farm"],["exped","원정","i-exp"],["afx","속성 도감","i-afx"],["mgs","마법소녀","i-mgs"],["mgsch","마법 학교","i-mgsch"]];
 function devClock(){var d=new Date(),c=$("phclk");if(c)c.textContent=pad(d.getHours())+":"+pad(d.getMinutes())}
 function badgeOf(id){return id==="inv"?giftUnread:id==="sys"?unreadNotices:id==="msg"?unreadMsgs+friendReqs+rescueReq:id==="com"?Math.max(0,Math.min(99,cmLatest-cmSeen)):id==="ach"?achNew:id==="att"?(ctState&&ctState.attended===false?1:0):id==="pvp"&&mglOn()?mgDuelN:id==="mgs"&&mglOn()?mgMailN:0}
 function loadNotices(){
@@ -3530,6 +3519,7 @@ function renderDevice(){
   else if(devApp==="att")ctAtt(scr);
   else if(devApp==="fort")ctFortune(scr);
   else if(devApp==="cook")ctCook(scr);
+  else if(devApp==="heal")healApp(scr);
   else if(devApp==="exped")ctExped(scr);
   else if(devApp==="inv"){
     addGoldTag(scr);
@@ -4539,7 +4529,7 @@ function enterGame(me){
   power={lv:d.lv||1,exp:d.exp||0};curRegion=regionById(d.region)?d.region:"city";curCountry=countryOf(curRegion);api("GET","/api/cw/state").then(function(r){if(r&&!r.error)cwSetCd(r.cd)}).catch(function(){});viewCountry=COUNTRY_BY_ID[curCountry].gate?"KR":curCountry;
   alerts=[];seenIds={};alertSig="";paused=false;
   var pb=$("pausebtn");pb.textContent="알림 멈춤";pb.setAttribute("aria-pressed","false");
-  $("game").hidden=false;markLogin(d.hunterName);showFront();window.scrollTo(0,0);setTimeout(ctAttend,1500);setTimeout(sidePanels,400);      /* 낚시 · 농장 · 화분 칸 */      /* 출석 도장 */
+  $("game").hidden=false;markLogin(d.hunterName);showFront();window.scrollTo(0,0);setTimeout(ctAttend,1500);      /* 출석 도장 */
   taintStgInit=false;renderChar(d);renderStats(d.stats);buildCountries();buildRegions();devApp=null;renderPower(false);
   statSig="";applyState(me.state,true);
   moveTo(curRegion,true);$("mapmsg").textContent=sAutoMsg;sAutoMsg="";
@@ -6350,15 +6340,31 @@ function ctCook(scr){
 }
 
 /* ───── 21 낚시 ───── */
-var ctFishT=0,fishReg="",fishBusy=false;
-/* 메인 화면의 낚시 · 농장 · 화분 칸: 로그인하면 채우고, 지역을 옮기면 낚시 칸을 다시 그림 */
-function fishPanel(){var b=$("gfishb");if(!b)return;cancelAnimationFrame(ctFishT);b.innerHTML="";fishReg=curRegion;fishBusy=false;ctFish(b)}
-function sidePanels(){
-  fishPanel();
-  if(window.FARM){FARM.mount($("gfarmb"),"farm");FARM.mount($("gpotb"),"pot")}
-  else ["gfarmb","gpotb"].forEach(function(id){var b=$(id);if(b)b.textContent="농장 파일(farm.js)을 불러오지 못했어요."});
+var ctFishT=0;
+/* 기기 앱 '힐링': 낚시 · 농장 · 화분을 한 목록에서 골라 엶 */
+var HEAL=[["fish","낚시","i-fish","물가 지역에서 찌를 던져 물고기를 낚아요 · 어종 200종"],["farm","농장","i-farm","씨앗을 심고 물을 주고 수확해요 · 작물 20종"],["pot","화분","i-pot","창가·그늘에 화분을 두고 꽃을 피워요 · 꽃 36색"]];
+function healApp(scr){
+  var w=pvEl("div","heal");scr.appendChild(w);
+  function list(){
+    cancelAnimationFrame(ctFishT);fishBusy=false;w.textContent="";try{sessionStorage.removeItem("heal_cur")}catch(e){}
+    var ul=pvEl("div","heal-l");
+    HEAL.forEach(function(h){var b=pvEl("button","heal-it");b.type="button";b.innerHTML='<svg class="ic" aria-hidden="true"><use href="#'+h[2]+'"/></svg>';var t=pvEl("span");t.appendChild(pvEl("b",null,h[1]));t.appendChild(pvEl("small",null,h[3]));b.appendChild(t);b.appendChild(pvEl("i",null,"›"));b.addEventListener("click",function(){open(h[0])});ul.appendChild(b)});
+    w.appendChild(ul);
+  }
+  function open(k){
+    var h=HEAL.filter(function(x){return x[0]===k})[0];if(!h)return list();
+    try{sessionStorage.setItem("heal_cur",k)}catch(e){}
+    w.textContent="";var bk=pvEl("button","heal-bk","‹ 목록");bk.type="button";bk.addEventListener("click",list);w.appendChild(bk);
+    w.appendChild(pvEl("p","heal-t",h[1]));
+    var c=pvEl("div");w.appendChild(c);
+    if(k==="fish"){fishBusy=false;ctFish(c)}
+    else if(window.FARM)FARM.mount(c,k==="pot"?"pot":"farm");
+    else c.appendChild(pvEl("p","app-empty","농장 파일(farm.js)을 불러오지 못했어요."));
+  }
+  var last="";try{last=sessionStorage.getItem("heal_cur")||""}catch(e){}
+  if(last)open(last);else list();
 }
-setInterval(function(){if($("game").hidden||document.hidden)return;if(fishReg&&curRegion!==fishReg&&!fishBusy)fishPanel()},1500);
+var fishBusy=false;
 function ctFish(scr){
   var w=pvEl("div","ct-w");scr.appendChild(w);var note="";
   function load(){api("GET","/api/fish").then(function(r){if(!w.isConnected)return;if(!r||r.left===undefined){w.textContent="불러오지 못했어요.";return}draw(r)})}
